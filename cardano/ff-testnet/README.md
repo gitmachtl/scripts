@@ -3,14 +3,19 @@
 ## Files types uses
 
 I use the following naming scheme for the files:<br>
-``` name.payment.addr, name.payment.skey, name.payment.vkey
+``` 
+Simple "enterprise" address:
+name.addr, name.vkey, name.skey
+
+Payment(Base)/Staking address combo:
+name.payment.addr, name.payment.skey, name.payment.vkey, name.deleg.cert
 name.staking.addr, name.staking.skey, name.staking.vkey, name.staking.cert
 
-name.node.vkey, name.node.skey, name.node.counter
-
+Node files:
+name.node.vkey, name.node.skey, name.node.counter, name.pool.cert, name.pool.id
 name.vrf.vkey, name.vrf.skey
-
 name.kes-xxx.vkey, name.kes-xxx.skey, name.node-xxx.opcert (xxx increments with each KES generation)
+name.kes.counter, name.kes.expire
 ```
 
 The *.addr files contains the address in the format "61386ab8..." or "011d4e1cdcdb000ff11e9430..." for example.
