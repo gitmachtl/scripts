@@ -32,7 +32,7 @@ If you have an address and you wanna use it just do a simple:
 
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces from one address to another, uses always all UTXOs of the source address
 <br>```./02_sendLovelaces.sh <fromAddr> <toAddr> <lovelaces>```
-<br>```./02_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 from addr1.addr to addr2.addr
+<br>```./02_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./02_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
 
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
@@ -44,8 +44,8 @@ If you have an address and you wanna use it just do a simple:
 <br>```./03a_genStakingPaymentAddr.sh owner``` will generate the files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert<br>
 
 * **03b_regStakingAddrCert.sh:** to register the staking address on the blockchain with the certificate
-<br>```./03a_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>
-<br>```./03a_regStakingAddrCert.sh owner.staking owner.payment``` will register the staking addr owner.staking using the owner.staking.cert with funds from owner.payment on the blockchain. this will also introduce the blockchain with your owner.payment address, so the chain knows the staking/base address relationship is there.<br>
+<br>```./03a_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
+<br>```./03a_regStakingAddrCert.sh owner.staking owner.payment``` will register the staking addr owner.staking using the owner.staking.cert with funds from owner.payment on the blockchain. this will also introduce the blockchain with your owner.payment address, so the chain knows the staking/base address relationship.<br>
 
 * **04a_genNodeKeys.sh:** generates the name.node.vkey and name.node.skey cold keys and resets the name.node.counter file
 <br>```./04a_genNodeKeys.sh <name>```
@@ -65,6 +65,16 @@ it also generates the name.kes.expire file which contains the valid start KES-Pe
 <br>```./04d_genNodeOpCert.sh mypool```
 
 * **05a_genStakepoolCert.sh:** generates the certificate name.pool.cert to register a stakepool on the blockchain
-<br>```.05a_genStakepoolCert.sh <PoolNodeName> <OwnerStakeAddressName> <pledgeInLovelaces> <poolCostInLovelaces> <poolMargin 0.01-1.00>```
-<br>```.05a_genStakepoolCert.sh mypool owner 250000000000 10000000000 0.08```
+<br>```./05a_genStakepoolCert.sh <PoolNodeName> <OwnerStakeAddressName> <pledge> <poolCost> <poolMargin 0.01-1.00>```
+<br>```./05a_genStakepoolCert.sh mypool owner 250000000000 10000000000 0.08``` will generate a certificate mypool.pool.cert with the ownerStakeName owner 250000k ADA pledge set, costs per epoch 10k ADA and a poolMargin of 8% per epoch.
+
+* **05b_genDelegationCert.sh:** generate the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool name.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
+<br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
+<br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
+
+*Make sure to fund your name/owner.payment.addr now with enought funds to stay above the pledge set in 05a, and to pay for the pool registration fee!*
+
+* **05c_regStakepoolCert.sh:** register your name.pool.cert certificate and also your name.deleg.cert certificate with funds from name.payment.addr on the blockchain
+<br>```.05c_regStakepoolCert.sh <PoolNodeName> <OwnerStakeAddressName>```
+<br>```.05c_regStakepoolCert.sh mypool owner``` this will register your pool mypool with the ownerStake owner on the blockchain
 
