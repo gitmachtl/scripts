@@ -97,6 +97,9 @@ Than we want to make ourself a pool owner stake address with the nickname owner,
 1. Check that you received it using ```01_queryAddress.sh mywallet```
 1. Generate the owner stake/payment combo with ```03a_genStakingPaymentAddr.sh owner```
 1. Send yourself over some funds to that new address owner.payment.addr to pay for the registration fees
+<br>```./02_sendLovelaces.sh mywallet owner.payment 10000000```<br>
+If you wanna send over all funds from your mywallet call the script like
+<br>```./02_sendLovelaces.sh mywallet owner.payment ALL```
 1. Check that you received it using ```01_queryAddress.sh owner.payment```
 1. Register the owner stakeaddress on the blockchain ```03b_regStakingAddrCert.sh owner.staking owner.payment```
 1. Generate the keys for your coreNode
