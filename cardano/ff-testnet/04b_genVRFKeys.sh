@@ -4,7 +4,7 @@
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json
 #       magicparam      TestnetMagic paramter
-source "$(dirname "$0")"/00_common.sh
+. "$(dirname "$0")"/00_common.sh
 
 if [[ ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <name>"; exit 2; fi
 

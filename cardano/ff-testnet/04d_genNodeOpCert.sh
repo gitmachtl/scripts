@@ -4,13 +4,13 @@
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json
 #       magicparam      TestnetMagic paramter
-source "$(dirname "$0")"/00_common.sh
+. "$(dirname "$0")"/00_common.sh
 
 if [[ ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <name>"; exit 2; fi
 
 #grab the next issue number from the counter file
 nextKESnumber=$(cat ${addrName}.node.counter | awk 'match($0,/Next certificate issue number: [0-9]+/) {print substr($0, RSTART+31,RLENGTH-31)}')
-nextKESnumber=$(printf "%03d" ${nextKESnumber})  #to get a nice 3 digit output
+nextKESnumber=$(printf "%03d" ${nextKESnumber})  #to get a nice 4 digit output
 
 #grab the latest generated KES number
 latestKESnumber=$(cat ${addrName}.kes.counter)
