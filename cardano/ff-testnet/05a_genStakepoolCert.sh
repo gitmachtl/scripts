@@ -7,16 +7,19 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  2 ) poolName="$1";
-      ownerName="$2";;
+  5 ) poolName="$1";
+      ownerName="$2";
+      poolPledge="$3";
+      poolCost="$4";
+      poolMargin="$5";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <PoolNodeName> <OwnerStakeAddressName>
+Usage:  $(basename $0) <PoolNodeName> <OwnerStakeAddressName> <pledgeInLovelaces> <poolCostInLovelaces> <poolMargin 0.01-1.00>
 EOF
   exit 1;; esac
 
-poolPledge="300000000000"	#300k ADA
-poolCost="10000000000"		#10k ADA
-poolMargin="0.04"		#4%
+#poolPledge="100000000000"	#100k ADA
+#poolCost="10000000000"		#10k ADA
+#poolMargin="0.01"		#1%
 
 echo
 echo -e "\e[0mCreate a Stakepool registration certificate for PoolNode with \e[32m ${poolName}.node.vkey, ${poolName}.vrf.vkey\e[0m & OwnerStake\e[32m ${ownerName}.staking.vkey\e[0m:"
