@@ -1,6 +1,6 @@
 # Description
 
-## Files types used
+## File-Naming used
 
 I use the following naming scheme for the files:<br>
 ``` 
