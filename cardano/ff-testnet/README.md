@@ -76,8 +76,6 @@ it also generates the name.kes.expire file which contains the valid start KES-Pe
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
 
-*Make sure to fund your name/owner.payment.addr now with enought funds to stay above the pledge set in 05a, and to pay for the pool registration fee!*
-
 * **05c_regStakepoolCert.sh:** register your name.pool.cert certificate and also your name.deleg.cert certificate with funds from name.payment.addr on the blockchain. it also generates the name.pool.id file.
 <br>```./05c_regStakepoolCert.sh <PoolNodeName> <OwnerStakeAddressName>```
 <br>```./05c_regStakepoolCert.sh mypool owner``` this will register your pool mypool with the ownerStake owner on the blockchain
@@ -107,7 +105,7 @@ Than we want to make ourself a pool owner stake address with the nickname owner,
    1. ```04c_genKESKeys.sh mypool```
    1. ```04d_genNodeOpCert.sh mypool```
 1. Now you have all the key files to start your coreNode with them
-1. Make sure you have enought funds on your owner.payment.addr to pay the pool registration fee in the next steps
+1. Make sure you have enought funds on your owner.payment.addr to pay the pool registration fee in the next steps. Make sure to make your fund big enought to stay above the pledge that we will set in the next step.
 1. Generate your stakepool certificate with lets say 200k ADA pledge, 10k ADA costs per epoch and 10% pool margin
 <br>```05a_genStakepoolCert.sh mypool owner 200000000000 10000000000 0.1```
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner```
