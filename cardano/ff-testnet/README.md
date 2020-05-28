@@ -74,7 +74,10 @@ it also generates the name.kes.expire file which contains the valid start KES-Pe
 
 *Make sure to fund your name/owner.payment.addr now with enought funds to stay above the pledge set in 05a, and to pay for the pool registration fee!*
 
-* **05c_regStakepoolCert.sh:** register your name.pool.cert certificate and also your name.deleg.cert certificate with funds from name.payment.addr on the blockchain
-<br>```.05c_regStakepoolCert.sh <PoolNodeName> <OwnerStakeAddressName>```
-<br>```.05c_regStakepoolCert.sh mypool owner``` this will register your pool mypool with the ownerStake owner on the blockchain
+* **05c_regStakepoolCert.sh:** register your name.pool.cert certificate and also your name.deleg.cert certificate with funds from name.payment.addr on the blockchain. it also generates the name.pool.id file.
+<br>```./05c_regStakepoolCert.sh <PoolNodeName> <OwnerStakeAddressName>```
+<br>```./05c_regStakepoolCert.sh mypool owner``` this will register your pool mypool with the ownerStake owner on the blockchain
 
+* **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> name.pool.id
+<br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
+<br>```./05d_checkPoolOnChain.sh mypool``` checks if the pool mypool is registered on the blockchain
