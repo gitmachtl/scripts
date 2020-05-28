@@ -4,7 +4,7 @@ Theses scripts here should help you to start, i made them for myself, not for a 
 
 Feel free to reach out to me on telegram @atada_stakepool
 
-## File-Naming used
+## Filenames used
 
 I use the following naming scheme for the files:<br>
 ``` 
