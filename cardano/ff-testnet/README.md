@@ -81,3 +81,32 @@ it also generates the name.kes.expire file which contains the valid start KES-Pe
 * **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> name.pool.id
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
 <br>```./05d_checkPoolOnChain.sh mypool``` checks if the pool mypool is registered on the blockchain
+
+# Example
+
+## Generating a normal address, register a stake address, register a stake pool
+
+Lets say we wanna make ourself a normal address were we can send/receive ada, we want this to be nicknamed mywallet.
+Than we want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
+
+1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
+1. Generate a simple address to receive some ADA ```02_genPaymentAddrOnly.sh mywallet```
+1. Transfer some ADA to that new address mywallet.addr
+1. Check that you received it using ```01_queryAddress.sh mywallet```
+1. Generate the owner stake/payment combo with ```03a_genStakingPaymentAddr.sh owner```
+1. Send yourself over some funds to that new address owner.payment.addr to pay for the registration fees
+1. Check that you received it using ```01_queryAddress.sh owner.payment```
+1. Register the owner stakeaddress on the blockchain ```03b_regStakingAddrCert.sh owner.staking owner.payment```
+1. Generate the keys for your coreNode
+   1. ```04a_genNodeKeys.sh mypool```
+   1. ```04b_genVRFKeys.sh mypool```
+   1. ```04c_genKESKeys.sh mypool```
+   1. ```04d_genNodeOpCert.sh mypool```
+1. Now you have all the key files to start your coreNode with them
+1. Make sure you have enought funds on your owner.payment.addr to pay the pool registration fee in the next steps
+1. Generate your stakepool certificate with lets say 200k ADA pledge, 10k ADA costs per epoch and 10% pool margin
+<br>```05a_genStakepoolCert.sh mypool owner 200000000000 10000000000 0.1```
+1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner```
+1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner```    
+
+Done.
