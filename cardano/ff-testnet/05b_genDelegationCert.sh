@@ -7,10 +7,10 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  2 ) delegateStakeAddr="$1";
-      toPoolNodeName="$2";;
+  2 ) delegateStakeAddr="$2";
+      toPoolNodeName="$1";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <Delegate from StakeAddressName> <To PoolNodeName>
+Usage:  $(basename $0) <PoolNodeName> <DelegatorStakeAddressName>
 EOF
   exit 1;; esac
 
