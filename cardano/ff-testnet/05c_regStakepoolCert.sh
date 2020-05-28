@@ -128,7 +128,7 @@ ${cardanocli} shelley transaction sign --tx-body-file tx_${ownerName}.txbody --s
 cat tx_${ownerName}.tx
 echo
 
-poolID=$(cat owner.deleg.cert | tail -n 1 | cut -c 6-)
+poolID=$(cat ${ownerName}.deleg.cert | tail -n 1 | cut -c 6-)
 echo ${poolID} > ${poolName}.pool.id
 
 echo -e "\e[0mPool ID:\e[32m ${poolID} \e[90m"
