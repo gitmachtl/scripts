@@ -15,7 +15,7 @@ Usage:  $(basename $0) <From AddressName> <To AddressName> <Amount in lovelaces 
 EOF
   exit 1;; esac
 
-#Set lovelacesToSend to -1 to send ALL of them
+#Choose between sending ALL funds or a given amount of lovelaces out
 if [[ ${lovelacesToSend^^} == "ALL" ]]; then
 						#Sending ALL lovelaces, so only 1 receiver addresses
 						rxcnt="1"
