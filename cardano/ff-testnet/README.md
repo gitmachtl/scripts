@@ -86,7 +86,7 @@ it also generates the name.kes.expire file which contains the valid start KES-Pe
 
 ## Generating a normal address, register a stake address, register a stake pool
 
-Lets say we wanna make ourself a normal address were we can send/receive ada, we want this to be nicknamed mywallet.
+Lets say we wanna make ourself a normal address to send/receive ada, we want this to be nicknamed mywallet.
 Than we want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
