@@ -1,8 +1,8 @@
 #!/bin/bash
 
-socket="db-ff/node.socket"
+socket="db/node.socket"
 
-genesisfile="configuration-ff/genesis.json"
+genesisfile="config/ff-genesis.json"
 
 magicparam="--testnet-magic 42"
 
@@ -11,11 +11,18 @@ cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
 
 
+#--------- only for kes/opcert update and upload via scp -----
 
+remoteServerAddr="yourserver.com" 			#RemoteServer ip or dns name
+remoteServerUser="username" 				#RemoteServer userlogin via ssh keys
+remoteServerSSHport="22" 				#RemoteServer SSH port number
+remoteServerDestDir="~/cardano/config-core/." 		#Destination directory were to copy the files to
+remoteServerPostCommand="~/cardano/restartCore.sh"	#Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
 
-#-------------------------------------------------------
+#--------- don't edit below here -----------------------------
+#-------------------------------------------------------------
 export CARDANO_NODE_SOCKET_PATH=${socket}
-#-------------------------------------------------------
+#-------------------------------------------------------------
 #Subroutine for user interaction
 ask() {
     local prompt default reply
