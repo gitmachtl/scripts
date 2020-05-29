@@ -12,6 +12,11 @@
 
 if [[ ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <name>"; exit 2; fi
 
+#check that *.kes.counter and *.node.counter is present
+if [ ! -f "${addrName}.kes.counter" ]; then echo -e "\e[0mERROR - Please generate new KES Keys with ${addrName}.kes.counter first ...\e[0m"; exit 2; fi
+if [ ! -f "${addrName}.node.counter" ]; then echo -e "\e[0mERROR - Please generate Node Keys with ${addrName}.node.counter first with script 04a ...\e[0m"; exit 2; fi
+
+
 #grab the next issue number from the counter file
 nextKESnumber=$(cat ${addrName}.node.counter | awk 'match($0,/Next certificate issue number: [0-9]+/) {print substr($0, RSTART+31,RLENGTH-31)}')
 nextKESnumber=$(printf "%03d" ${nextKESnumber})  #to get a nice 4 digit output
