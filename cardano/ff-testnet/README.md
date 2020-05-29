@@ -1,4 +1,4 @@
-# Description
+# Description (Scripts from ATADA Stakepool)
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
@@ -108,7 +108,7 @@ If you wanna send over all funds from your mywallet call the script like
    1. ```04c_genKESKeys.sh mypool```
    1. ```04d_genNodeOpCert.sh mypool```
 1. Now you have all the key files to start your coreNode with them
-1. Make sure you have enought funds on your owner.payment.addr to pay the pool registration fee in the next steps. Make sure to make your fund big enought to stay above the pledge that we will set in the next step.
+1. Make sure you have enough funds on your owner.payment.addr to pay the pool registration fee in the next steps. Make sure to make your fund big enough to stay above the pledge that we will set in the next step.
 1. Generate your stakepool certificate with lets say 200k ADA pledge, 10k ADA costs per epoch and 10% pool margin
 <br>```05a_genStakepoolCert.sh mypool owner 200000000000 10000000000 0.1```
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner```
