@@ -64,7 +64,7 @@ If you have an address and you wanna use it just do a simple:
 <br>```./04c_genKESKeys.sh mypool```
 
 * **04d_genNodeOpCert.sh:** calculates the current KES period from the genesis.json and issues a new name.node-xxx.opcert certificate.
-it also generates the name.kes.expire file which contains the valid start KES-Period and also contains infos when the generated kes-keys will expire. to renew your kes/opcert before the keys of your node expires just rerun 04c and 04d! after that, update the files on your stakepool server and restart the coreNode
+it also generates the name.kes-expire.json file which contains the valid start KES-Period and also contains infos when the generated kes-keys will expire. to renew your kes/opcert before the keys of your node expires just rerun 04c and 04d! after that, update the files on your stakepool server and restart the coreNode
 <br>```./04d_genNodeOpCert.sh <name>```
 <br>```./04d_genNodeOpCert.sh mypool```
 
