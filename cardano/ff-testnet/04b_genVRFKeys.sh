@@ -1,23 +1,31 @@
 #!/bin/bash
 
+# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+
 #load variables from common.sh
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic paramter
+#       magicparam      TestnetMagic parameter
+#       cardanocli      Path to the cardano-cli executable
+#       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-if [[ ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <name>"; exit 2; fi
+if [[ ! $1 == "" ]]; then nodeName=$1; else echo "ERROR - Usage: $0 <NodePoolName>"; exit 2; fi
 
 echo
 echo -e "\e[0mCreating VRF operational Keypairs"
 echo
 
-${cardanocli} shelley node key-gen-VRF --verification-key-file ${addrName}.vrf.vkey --signing-key-file ${addrName}.vrf.skey
+file_unlock ${nodeName}.vrf.vkey
+file_unlock ${nodeName}.vrf.skey
+${cardanocli} shelley node key-gen-VRF --verification-key-file ${nodeName}.vrf.vkey --signing-key-file ${nodeName}.vrf.skey
+file_lock ${nodeName}.vrf.vkey
+file_lock ${nodeName}.vrf.skey
 
 echo
-echo -e "\e[0mNode operational VRF-Verification-Key:\e[32m ${addrName}.vrf.vkey \e[90m"
-cat ${addrName}.vrf.vkey
+echo -e "\e[0mNode operational VRF-Verification-Key:\e[32m ${nodeName}.vrf.vkey \e[90m"
+cat ${nodeName}.vrf.vkey
 echo
-echo -e "\e[0mNode operational VRF-Signing-Key:\e[32m ${addrName}.vrf.skey \e[90m"
-cat ${addrName}.vrf.skey
+echo -e "\e[0mNode operational VRF-Signing-Key:\e[32m ${nodeName}.vrf.skey \e[90m"
+cat ${nodeName}.vrf.skey
 echo

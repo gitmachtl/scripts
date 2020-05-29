@@ -1,9 +1,13 @@
 #!/bin/bash
 
+# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+
 #load variables from common.sh
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic paramter
+#       magicparam      TestnetMagic parameter
+#       cardanocli      Path to the cardano-cli executable
+#       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
@@ -17,7 +21,11 @@ EOF
 echo
 echo -e "\e[0mCreate a delegation registration certificate for Delegator\e[32m ${delegateStakeAddr}.staking.vkey\e[0m to the PoolNode\e[32m ${toPoolNodeName}.node.vkey\e[90m:"
 
+file_unlock ${delegateStakeAddr}.deleg.cert
+
 ${cardanocli} shelley stake-address delegation-certificate --staking-verification-key-file ${delegateStakeAddr}.staking.vkey --stake-pool-verification-key-file ${toPoolNodeName}.node.vkey --out-file ${delegateStakeAddr}.deleg.cert
+
+file_lock ${delegateStakeAddr}.deleg.cert
 
 echo
 echo -e "\e[0mDelegation registration certificate:\e[32m ${delegateStakeAddr}.deleg.cert \e[90m"

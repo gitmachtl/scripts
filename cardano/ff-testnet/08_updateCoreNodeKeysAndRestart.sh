@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+
 #load variables from common.sh
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json

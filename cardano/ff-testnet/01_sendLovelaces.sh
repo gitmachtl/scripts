@@ -1,9 +1,13 @@
 #!/bin/bash
 
+# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+
 #load variables from common.sh
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic paramter
+#       magicparam      TestnetMagic parameter
+#       cardanocli      Path to the cardano-cli executable
+#       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
@@ -79,7 +83,7 @@ echo
 #Getting protocol parameters from the blockchain, calculating fees
 ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
 fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} --signing-key-file ${fromAddr}.skey | awk '{ print $2 }')
-echo -e "\e[0mMimimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m ${fee} lovelaces \e[90m"
+echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m ${fee} lovelaces \e[90m"
 
 #If sending ALL funds
 if [[ ${rxcnt} == 1 ]]; then lovelacesToSend=$(( ${totalLovelaces} - ${fee} )); fi

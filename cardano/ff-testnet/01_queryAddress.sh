@@ -1,9 +1,13 @@
 #!/bin/bash
 
+# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+
 #load variables from common.sh
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic paramter
+#       magicparam      TestnetMagic parameter
+#       cardanocli      Path to the cardano-cli executable
+#       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
 if [[ ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <AdressName>"; exit 2; fi

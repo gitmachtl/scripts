@@ -19,8 +19,12 @@ remoteServerSSHport="22" 				#RemoteServer SSH port number
 remoteServerDestDir="~/cardano/config-core/." 		#Destination directory were to copy the files to
 remoteServerPostCommand="~/cardano/restartCore.sh"	#Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
 
-#--------- don't edit below here -----------------------------
-#-------------------------------------------------------------
+
+
+
+
+#--------- don't edit below here -----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------------
 export CARDANO_NODE_SOCKET_PATH=${socket}
 #-------------------------------------------------------------
 #Subroutine for user interaction
@@ -58,6 +62,19 @@ ask() {
         esac
 
     done
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Subroutines to set read/write flags for important files
+file_lock()
+{
+if [ -f "$1" ]; then chmod 400 $1; fi
+}
+
+file_unlock()
+{
+if [ -f "$1" ]; then chmod 600 $1; fi
 }
 #-------------------------------------------------------
 

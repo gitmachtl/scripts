@@ -1,9 +1,13 @@
 #!/bin/bash
 
+# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+
 #load variables from common.sh
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic paramter
+#       magicparam      TestnetMagic parameter
+#       cardanocli      Path to the cardano-cli executable
+#       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
 if [[ ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <name>"; exit 2; fi
@@ -35,12 +39,22 @@ expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
 expireTimeSec=$(( ${startTimeSec} + ( ${slotLength} * ${expiresKESperiod} * ${slotsPerKESPeriod} ) ))
 expireDate=$(date --date=@${expireTimeSec})
 
-echo -e "Latest KES-Keys and OpCert with KES-Counter#: ${latestKESnumber}\nValid starting with KES-Period: ${currentKESperiod}\nExpire after KES-Period: ${expiresKESperiod}\nExpire after Date: ${expireDate}\n" > ${addrName}.kes.expire
+file_unlock ${addrName}.kes-expire.json
+echo -e "{\n\t\"latestKESfileindex\": ${latestKESnumber},\n\t\"currentKESperiod\": ${currentKESperiod},\n\t\"expireKESperiod\": ${expiresKESperiod},\n\t\"expireKESdate\": \"${expireDate}\"\n}" > ${addrName}.kes-expire.json
+file_lock ${addrName}.kes-expire.json
 
 echo -e "\e[0mCurrent KES period:\e[32m ${currentKESperiod}\e[90m"
 echo
 
+
+file_unlock ${addrName}.node-${latestKESnumber}.opcert
+file_unlock ${addrName}.node.counter
+
 ${cardanocli} shelley node issue-op-cert --hot-kes-verification-key-file ${addrName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${addrName}.node.skey --operational-certificate-issue-counter ${addrName}.node.counter --kes-period ${currentKESperiod} --out-file ${addrName}.node-${latestKESnumber}.opcert
+
+file_lock ${addrName}.node-${latestKESnumber}.opcert
+file_lock ${addrName}.node.counter
+
 
 echo
 echo -e "\e[0mNode operational certificate:\e[32m ${addrName}.node-${latestKESnumber}.opcert \e[90m"
@@ -53,8 +67,8 @@ cat ${addrName}.node.counter
 echo
 
 echo
-echo -e "\e[0mUpdated Expire date file:\e[32m ${addrName}.kes.expire \e[90m"
-cat ${addrName}.kes.expire
+echo -e "\e[0mUpdated Expire date json:\e[32m ${addrName}.kes-expire.json \e[90m"
+cat ${addrName}.kes-expire.json
 echo
 
 

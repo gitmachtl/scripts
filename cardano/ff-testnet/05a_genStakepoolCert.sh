@@ -1,9 +1,13 @@
 #!/bin/bash
 
+# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+
 #load variables from common.sh
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic paramter
+#       magicparam      TestnetMagic parameter
+#       cardanocli      Path to the cardano-cli executable
+#       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
@@ -38,9 +42,11 @@ echo -e "\e[0mMargin:\e[32m ${poolMargin} \e[0m"
 #                                                               --out-file FILE
 #  Create a stake pool registration certificate
 
-
+file_unlock ${poolName}.pool.cert
 
 ${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${ownerName}.staking.vkey --pool-owner-stake-verification-key-file ${ownerName}.staking.vkey --out-file ${poolName}.pool.cert
+
+file_lock ${poolName}.pool.cert
 
 echo
 echo -e "\e[0mStakepool registration certificate:\e[32m ${poolName}.pool.cert \e[90m"

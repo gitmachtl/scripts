@@ -1,9 +1,13 @@
 #!/bin/bash
 
+# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+
 #load variables from common.sh
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
 #       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic paramter
+#       magicparam      TestnetMagic parameter
+#       cardanocli      Path to the cardano-cli executable
+#       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
@@ -128,13 +132,17 @@ ${cardanocli} shelley transaction sign --tx-body-file tx_${ownerName}.txbody --s
 cat tx_${ownerName}.tx
 echo
 
+#Read out the POOL-ID and store it in a file
 poolID=$(cat ${ownerName}.deleg.cert | tail -n 1 | cut -c 6-)
-echo ${poolID} > ${poolName}.pool.id
 
-echo -e "\e[0mPool ID:\e[32m ${poolID} \e[90m"
+file_unlock ${poolName}.pool.id
+echo ${poolID} > ${poolName}.pool.id
+file_lock ${poolName}.pool.id
+
+echo -e "\e[0mPool-ID:\e[32m ${poolID} \e[90m"
 echo
 
-if ask "\e[33mDoes this look good for you? Do you have enought pledge in your ${ownerName}.payment, continue ?" N; then
+if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${ownerName}.payment, continue ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
         ${cardanocli} shelley transaction submit --tx-file tx_${ownerName}.tx ${magicparam}
