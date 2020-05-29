@@ -76,7 +76,7 @@ it also generates the name.kes.expire file which contains the valid start KES-Pe
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
 
-* **05c_regStakepoolCert.sh:** register your name.pool.cert certificate and also the owner name.deleg.cert certificate with funds from name.payment.addr on the blockchain. it also generates the name.pool.id file.
+* **05c_regStakepoolCert.sh:** register your **name.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also generates the name.pool.id file.
 <br>```./05c_regStakepoolCert.sh <PoolNodeName> <OwnerStakeAddressName>```
 <br>```./05c_regStakepoolCert.sh mypool owner``` this will register your pool mypool with the ownerStake owner on the blockchain
 
@@ -84,9 +84,9 @@ it also generates the name.kes.expire file which contains the valid start KES-Pe
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
 <br>```./05d_checkPoolOnChain.sh mypool``` checks if the pool mypool is registered on the blockchain
 
-* **06_regJustDelegationCert.sh:** register a simple delegation name.deleg.cert to a pool name.node.vkey 
-<br>```./06_regJustDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
-<br>```./06_regJustDelegationCert.sh yourpool someone``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name someone to the pool yourpool paying for fees with the funds from someone.payment.addr
+* **06_regDelegationCert.sh:** register a simple delegation name.deleg.cert to a pool name.node.vkey 
+<br>```./06_regDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
+<br>```./06_regDelegationCert.sh yourpool someone``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name someone to the pool yourpool paying for fees with the funds from someone.payment.addr
 
 # Examples
 
@@ -129,6 +129,6 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
 1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
 1. Register the delegator stakeaddress on the blockchain ```03b_regStakingAddrCert.sh delegator.staking delegator.payment```
 1. Generate the delegation certificate ```./05b_genDelegationCert.sh yourpool delegator```
-1. Register the delegation certificate on the blockchain ```./06_regJustDelegationCert.sh yourpool delegator```
+1. Register the delegation certificate on the blockchain ```./06_regDelegationCert.sh yourpool delegator```
 
 Done.
