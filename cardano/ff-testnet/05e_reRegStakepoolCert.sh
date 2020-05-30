@@ -96,7 +96,7 @@ ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-paramet
 
 fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} --signing-key-file ${ownerName}.payment.skey --signing-key-file ${poolName}.node.skey --signing-key-file ${ownerName}.staking.skey --certificate ${poolName}.pool.cert --certificate ${ownerName}.deleg.cert | awk '{ print $2 }')
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 2x Certificate: \e[32m ${fee} lovelaces \e[90m"
-poolDepositFee=$(cat protocol-parameters.json | jq -r .poolDeposit)
+poolDepositFee=0 # for re-registration, no pool deposit fee, yay!  $(cat protocol-parameters.json | jq -r .poolDeposit)
 echo -e "\e[0mPool Deposit Fee: \e[32m ${poolDepositFee} lovelaces \e[90m"
 minRegistrationFund=$(( ${poolDepositFee}+${fee} ))
 
