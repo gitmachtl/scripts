@@ -8,8 +8,6 @@ magicparam="--testnet-magic 42"
 
 cardanocli="./cardano-cli"
 
-cardanonode="./cardano-node"
-
 
 #--------- only for kes/opcert update and upload via scp -----
 
