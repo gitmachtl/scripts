@@ -188,3 +188,13 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
 1. Register the delegation certificate on the blockchain ```./06_regDelegationCert.sh yourpool delegator```
 
 Done.
+
+## Update stakepool parameters on the blockchain
+
+If you wanna update you pledge or your costs on a registered stakepool just do the following
+
+1. Edit the existing mypool.pool.json file, only edit the poolPledge/poolCost/poolMargin values, save it.
+1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
+1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool```<br>No delegation update needed.
+
+Done.  
