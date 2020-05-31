@@ -16,7 +16,7 @@ name.payment.addr, name.payment.skey, name.payment.vkey, name.deleg.cert
 name.staking.addr, name.staking.skey, name.staking.vkey, name.staking.cert
 
 Node files:
-name.node.vkey, name.node.skey, name.node.counter, name.pool.cert, name.pool.id
+name.node.vkey, name.node.skey, name.node.counter, name.pool.cert, name.pool.dereg-cert, name.pool.json
 name.vrf.vkey, name.vrf.skey
 name.kes-xxx.vkey, name.kes-xxx.skey, name.node-xxx.opcert (xxx increments with each KES generation = name.kes.counter)
 name.kes.counter, name.kes-expire.json
@@ -69,18 +69,33 @@ it also generates the name.kes-expire.json file which contains the valid start K
 <br>```./04d_genNodeOpCert.sh mypool```
 
 * **05a_genStakepoolCert.sh:** generates the certificate name.pool.cert to register a stakepool on the blockchain
-<br>```./05a_genStakepoolCert.sh <PoolNodeName> <OwnerStakeAddressName> <pledge> <poolCost> <poolMargin 0.01-1.00>```
-<br>```./05a_genStakepoolCert.sh mypool owner 250000000000 10000000000 0.08``` will generate a certificate mypool.pool.cert with the ownerStakeName owner 250000k ADA pledge set, costs per epoch 10k ADA and a poolMargin of 8% per epoch.
+  <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate from name.pool.json file<br>
+  The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName, pledge, poolCost & poolMargin(0.01-1.00) like:
+  <br>
+  ```
+   {
+      "poolName": "mypool",
+      "ownerName": "owner",
+      "poolPledge": "100000000000",
+      "poolCost": "500000000",
+      "poolMargin": "0.10",
+   }
+   ```
+   poolName is the name of your poolFiles from steps 04a-04d, ownerName is the name of the StakeOwner from steps 03, poolPledge in
+   lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>
+   **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.** After the edit,
+   reRun the script with the name again!
+
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool name.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
 
-* **05c_regStakepoolCert.sh:** register your **name.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also generates the name.pool.id file.
-<br>```./05c_regStakepoolCert.sh <PoolNodeName> <OwnerStakeAddressName>```
-<br>```./05c_regStakepoolCert.sh mypool owner``` this will register your pool mypool with the ownerStake owner on the blockchain
+* **05c_regStakepoolCert.sh:** register your **name.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also updates the pool-ID and the registration date in the name.pool.json
+<br>```./05c_regStakepoolCert.sh <PoolNodeName>```
+<br>```./05c_regStakepoolCert.sh mypool``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain
 
-* **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> name.pool.id
+* **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> name.pool.json
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
 <br>```./05d_checkPoolOnChain.sh mypool``` checks if the pool mypool is registered on the blockchain
 
@@ -96,27 +111,38 @@ Lets say we wanna make ourself a normal address to send/receive ada, we want thi
 Than we want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
-1. Generate a simple address to receive some ADA ```02_genPaymentAddrOnly.sh mywallet```
+1. Generate a simple address to receive some ADA ```./02_genPaymentAddrOnly.sh mywallet```
 1. Transfer some ADA to that new address mywallet.addr
-1. Check that you received it using ```01_queryAddress.sh mywallet```
-1. Generate the owner stake/payment combo with ```03a_genStakingPaymentAddr.sh owner```
+1. Check that you received it using ```./01_queryAddress.sh mywallet```
+1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner```
 1. Send yourself over some funds to that new address owner.payment.addr to pay for the registration fees
 <br>```./02_sendLovelaces.sh mywallet owner.payment 10000000```<br>
 If you wanna send over all funds from your mywallet call the script like
 <br>```./02_sendLovelaces.sh mywallet owner.payment ALL```
-1. Check that you received it using ```01_queryAddress.sh owner.payment```
-1. Register the owner stakeaddress on the blockchain ```03b_regStakingAddrCert.sh owner.staking owner.payment```
+1. Check that you received it using ```./01_queryAddress.sh owner.payment```
+1. Register the owner stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh owner.staking owner.payment```
 1. Generate the keys for your coreNode
-   1. ```04a_genNodeKeys.sh mypool```
-   1. ```04b_genVRFKeys.sh mypool```
-   1. ```04c_genKESKeys.sh mypool```
-   1. ```04d_genNodeOpCert.sh mypool```
+   1. ```./04a_genNodeKeys.sh mypool```
+   1. ```./04b_genVRFKeys.sh mypool```
+   1. ```./04c_genKESKeys.sh mypool```
+   1. ```./04d_genNodeOpCert.sh mypool```
 1. Now you have all the key files to start your coreNode with them
 1. Make sure you have enough funds on your owner.payment.addr to pay the pool registration fee in the next steps. Make sure to make your fund big enough to stay above the pledge that we will set in the next step.
-1. Generate your stakepool certificate with lets say 200k ADA pledge, 10k ADA costs per epoch and 10% pool margin
-<br>```05a_genStakepoolCert.sh mypool owner 200000000000 10000000000 0.1```
+1. Generate your stakepool certificate
+   1. ```./05a_genStakePoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it
+   1. We want 200k ADA pledge, 10k ADA costs per epoch and 8% pool margin so let us set these values in the json file like
+   ```
+   {
+      "poolName": "mypool",
+      "ownerName": "owner",
+      "poolPledge": "200000000000",
+      "poolCost": "10000000000",
+      "poolMargin": "0.08",
+   }
+   ```
+   1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner```
-1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner```    
+1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool```    
 
 Done.
 
@@ -125,9 +151,9 @@ Done.
 Lets say we wanna create a payment(base)/stake address combo with the nickname delegator and we wanna delegate the funds in the payment(base) address of that to the pool yourpool. (You'll need the yourpool.node.vkey for that.)
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
-1. Generate the delegator stake/payment combo with ```03a_genStakingPaymentAddr.sh delegator```
+1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator```
 1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
-1. Register the delegator stakeaddress on the blockchain ```03b_regStakingAddrCert.sh delegator.staking delegator.payment```
+1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```
 1. Generate the delegation certificate ```./05b_genDelegationCert.sh yourpool delegator```
 1. Register the delegation certificate on the blockchain ```./06_regDelegationCert.sh yourpool delegator```
 
