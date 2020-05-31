@@ -84,7 +84,8 @@ it also generates the name.kes-expire.json file which contains the valid start K
    poolName is the name of your poolFiles from steps 04a-04d, ownerName is the name of the StakeOwner from steps 03, poolPledge in
    lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.** After the edit,
-   reRun the script with the name again. If you have already registered a stakepool on the chain and want to change some parameters, simply change them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will do a re-registration instead of a new registration than for you.
+   rerun the script with the name again.<br>
+   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply change them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool name.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
@@ -92,8 +93,8 @@ it also generates the name.kes-expire.json file which contains the valid start K
 
 * **05c_regStakepoolCert.sh:** (re)register your **name.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also updates the pool-ID and the registration date in the name.pool.json
 <br>```./05c_regStakepoolCert.sh <PoolNodeName> [optional FORCE keyword]```
-<br>```./05c_regStakepoolCert.sh mypool``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain
-If the pool was registered before, there is a **regSubmitted** value in the name.pool.json file. In that case the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration. If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword FORCE on the commandline like ```./05c_regStakepoolCert.sh mypool FORCE```
+<br>```./05c_regStakepoolCert.sh mypool``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain.<br>
+If the pool was registered before (when there is a **regSubmitted** value in the name.pool.json file), the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration. If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword FORCE on the commandline like ```./05c_regStakepoolCert.sh mypool FORCE```
 
 * **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> name.pool.json
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
@@ -102,6 +103,27 @@ If the pool was registered before, there is a **regSubmitted** value in the name
 * **06_regDelegationCert.sh:** register a simple delegation name.deleg.cert to a pool name.node.vkey 
 <br>```./06_regDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./06_regDelegationCert.sh yourpool someone``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name someone to the pool yourpool paying for fees with the funds from someone.payment.addr
+
+### name.pool.json
+
+The json file could end up like this one after the pool was registered and also retired later...
+```
+{
+  "poolName": "test",
+  "ownerName": "owner",
+  "poolPledge": "111000000000",
+  "poolCost": "11100000000",
+  "poolMargin": "0.20",
+  "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
+  "regCertFile": "test.pool.cert",
+  "poolID": "68c2d7335f542f2d8b961bf6de5d5fd046b912b671868b30b79c3e2219f7e51a",
+  "regSubmitted": "So Mai 31 14:39:46 CEST 2020",
+  "deregCertCreated": "So Mai 31 17:14:14 CEST 2020",
+  "deregCertFile": "test.pool.dereg-cert",
+  "deregEpoch": "28",
+  "deregSubmitted": "So Mai 31 17:14:43 CEST 2020"
+}
+```
 
 # Examples
 
