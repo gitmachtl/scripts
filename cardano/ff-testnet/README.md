@@ -26,6 +26,15 @@ The *.addr files contains the address in the format "61386ab8..." or "011d4e1cdc
 If you have an address and you wanna use it just do a simple:
 ```echo "61386ab8..." > myaddress.addr```
 
+### File autolock
+
+For a security reason, all important generated files are automatically locked against deleting/overwriting them via accident! Only the scripts will unlock/lock them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
+```
+chmod 600 name.pool.json
+nano name.pool.json
+chmod 400 name.pool.json
+```
+
 ## Scriptfiles short info
 
 * **00_common.sh:** set your variables in there for your config, will be used by the scripts. you can also use it to set the CARDANO_NODE_SOCKET_PATH variable by just calling ```source ./00_common.sh```
