@@ -68,7 +68,7 @@ it also generates the name.kes-expire.json file which contains the valid start K
 <br>```./04d_genNodeOpCert.sh <name>```
 <br>```./04d_genNodeOpCert.sh mypool```
 
-* **05a_genStakepoolCert.sh:** generates the certificate name.pool.cert to register a stakepool on the blockchain
+* **05a_genStakepoolCert.sh:** generates the certificate name.pool.cert to (re)register a stakepool on the blockchain
   <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate from name.pool.json file<br>
   The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName, pledge, poolCost & poolMargin(0.01-1.00) like:
   <br>
@@ -84,16 +84,16 @@ it also generates the name.kes-expire.json file which contains the valid start K
    poolName is the name of your poolFiles from steps 04a-04d, ownerName is the name of the StakeOwner from steps 03, poolPledge in
    lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.** After the edit,
-   reRun the script with the name again!
-
+   reRun the script with the name again. If you have already registered a stakepool on the chain and want to change some parameters, simply change them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will do a re-registration instead of a new registration than for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool name.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
 
-* **05c_regStakepoolCert.sh:** register your **name.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also updates the pool-ID and the registration date in the name.pool.json
-<br>```./05c_regStakepoolCert.sh <PoolNodeName>```
+* **05c_regStakepoolCert.sh:** (re)register your **name.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also updates the pool-ID and the registration date in the name.pool.json
+<br>```./05c_regStakepoolCert.sh <PoolNodeName> [optional FORCE keyword]```
 <br>```./05c_regStakepoolCert.sh mypool``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain
+If the pool was registered before, there is a **regSubmitted** value in the name.pool.json file. In that case the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration. If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword FORCE on the commandline like ```./05c_regStakepoolCert.sh mypool FORCE```
 
 * **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> name.pool.json
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
