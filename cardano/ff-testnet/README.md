@@ -162,8 +162,8 @@ If you wanna send over all funds from your mywallet call the script like
       "poolMargin": "0.08",
    }
    ```
-   1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file
-1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner```
+   1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
+1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool```    
 
 Done.
