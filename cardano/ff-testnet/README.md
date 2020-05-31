@@ -15,7 +15,7 @@ Payment(Base)/Staking address combo:
 name.payment.addr, name.payment.skey, name.payment.vkey, name.deleg.cert
 name.staking.addr, name.staking.skey, name.staking.vkey, name.staking.cert
 
-Node files:
+Node/Pool files:
 name.node.vkey, name.node.skey, name.node.counter, name.pool.cert, name.pool.dereg-cert, name.pool.json
 name.vrf.vkey, name.vrf.skey
 name.kes-xxx.vkey, name.kes-xxx.skey, name.node-xxx.opcert (xxx increments with each KES generation = name.kes.counter)
