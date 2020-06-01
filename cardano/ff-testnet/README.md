@@ -1,5 +1,7 @@
 # Description (Scripts from ATADA Stakepool)
 
+**TESTED WITH PIONEER-WAVE2 TAG!**
+
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
 Feel free to reach out to me on telegram @atada_stakepool
