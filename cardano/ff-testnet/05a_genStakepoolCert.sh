@@ -18,7 +18,8 @@ if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[33mERROR - \"${poolFile}
 echo "
 {
 	\"poolName\":   \"${poolFile}\",
-	\"ownerName\":  \"owner\",
+	\"poolOwner\":  \"owner\",
+        \"poolRewards\":  \"owner\",
 	\"poolPledge\": \"100000000000\",
 	\"poolCost\":   \"10000000000\",
 	\"poolMargin\": \"0.10\"
@@ -42,7 +43,8 @@ echo "${param}"
 
 #Read the pool JSON file and extract the parameters -> report an error is something is missing or wrong/empty
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 2; fi
-ownerName=$(readJSONparam "ownerName"); if [[ ! $? == 0 ]]; then exit 2; fi
+ownerName=$(readJSONparam "poolOwner"); if [[ ! $? == 0 ]]; then exit 2; fi
+rewardsName=$(readJSONparam "poolRewards"); if [[ ! $? == 0 ]]; then exit 2; fi
 poolPledge=$(readJSONparam "poolPledge"); if [[ ! $? == 0 ]]; then exit 2; fi
 poolCost=$(readJSONparam "poolCost"); if [[ ! $? == 0 ]]; then exit 2; fi
 poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 2; fi
@@ -62,14 +64,18 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 2; fi
 if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.node.vkey is missing, please generate it with script 04a !\e[0m"; exit 2; fi
 if [ ! -f "${poolName}.vrf.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.vrf.vkey is missing, please generate it with script 04b !\e[0m"; exit 2; fi
 if [ ! -f "${ownerName}.staking.vkey" ]; then echo -e "\e[0mERROR - ${ownerName}.staking.vkey is missing, please generate it with script 03a !\e[0m"; exit 2; fi
+if [ ! -f "${rewardsName}.staking.vkey" ]; then echo -e "\e[0mERROR - ${rewardsName}.staking.vkey is missing, please generate it with script 03a !\e[0m"; exit 2; fi
+
+
 
 echo
 echo -e "\e[0mCreate a Stakepool registration certificate for PoolNode with \e[32m ${poolName}.node.vkey, ${poolName}.vrf.vkey\e[0m:"
 echo
-echo -e "\e[0mOwnerStake:\e[32m ${ownerName}.staking.vkey \e[0m"
-echo -e "\e[0m    Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
-echo -e "\e[0m      Cost:\e[32m ${poolCost} \e[90mlovelaces"
-echo -e "\e[0m    Margin:\e[32m ${poolMargin} \e[0m"
+echo -e "\e[0m  Owner Stake:\e[32m ${ownerName}.staking.vkey \e[0m"
+echo -e "\e[0mRewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
+echo -e "\e[0m       Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
+echo -e "\e[0m         Cost:\e[32m ${poolCost} \e[90mlovelaces"
+echo -e "\e[0m       Margin:\e[32m ${poolMargin} \e[0m"
 
 #Usage: cardano-cli shelley stake-pool registration-certificate --cold-verification-key-file FILE
 #                                                               --vrf-verification-key-file FILE
@@ -82,7 +88,7 @@ echo -e "\e[0m    Margin:\e[32m ${poolMargin} \e[0m"
 #  Create a stake pool registration certificate
 
 file_unlock ${poolName}.pool.cert
-${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${ownerName}.staking.vkey --pool-owner-stake-verification-key-file ${ownerName}.staking.vkey --out-file ${poolName}.pool.cert
+${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey --pool-owner-stake-verification-key-file ${ownerName}.staking.vkey --out-file ${poolName}.pool.cert
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
 	file_unlock ${poolFile}.pool.json

@@ -28,8 +28,11 @@ echo "${param}"
 
 #Read the pool JSON file and extract the parameters -> report an error is something is missing or wrong/empty and exit
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 2; fi
-ownerName=$(readJSONparam "ownerName"); if [[ ! $? == 0 ]]; then exit 2; fi
+ownerName=$(readJSONparam "poolOwner"); if [[ ! $? == 0 ]]; then exit 2; fi
+rewardsName=$(readJSONparam "poolRewards"); if [[ ! $? == 0 ]]; then exit 2; fi
 poolPledge=$(readJSONparam "poolPledge"); if [[ ! $? == 0 ]]; then exit 2; fi
+poolCost=$(readJSONparam "poolCost"); if [[ ! $? == 0 ]]; then exit 2; fi
+poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 2; fi
 regCertFile=$(readJSONparam "regCertFile"); if [[ ! $? == 0 ]]; then exit 2; fi
 
 #Load regSubmitted value from the pool.json. If there is an entry, than do a Re-Registration (changes the Fee!)
@@ -48,6 +51,7 @@ if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[34mERROR - \"${regCertFile}\" d
 if [ ! -f "${ownerName}.payment.addr" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.payment.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
 if [ ! -f "${ownerName}.payment.skey" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.payment.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
 if [ ! -f "${ownerName}.staking.skey" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.staking.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
+if [ ! -f "${rewardsName}.staking.skey" ]; then echo -e "\n\e[34mERROR - \"${rewardsName}.staking.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
 if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[34mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 2; fi
 
 
@@ -55,6 +59,12 @@ if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[34mERROR - \"${poolName}
 
 echo
 echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m and PoolOwner Delegation Certificate\e[32m ${ownerName}.deleg.cert\e[0m with funds from Address\e[32m ${ownerName}.payment.addr\e[0m:"
+echo
+echo -e "\e[0m  Owner Stake:\e[32m ${ownerName}.staking.vkey \e[0m"
+echo -e "\e[0mRewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
+echo -e "\e[0m       Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
+echo -e "\e[0m         Cost:\e[32m ${poolCost} \e[90mlovelaces"
+echo -e "\e[0m       Margin:\e[32m ${poolMargin} \e[0m"
 echo
 
 #get values to register the staking address on the blockchain
@@ -106,7 +116,6 @@ echo
 #Getting protocol parameters from the blockchain, calculating fees
 ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
 
-
 #cardano-cli shelley transaction calculate-min-fee \
 #    --tx-in-count 1 \
 #    --tx-out-count 1 \
@@ -119,7 +128,11 @@ ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-paramet
 #    --certificate deleg.cert \
 #    --protocol-params-file params.json
 
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} --signing-key-file ${ownerName}.payment.skey --signing-key-file ${poolName}.node.skey --signing-key-file ${ownerName}.staking.skey --certificate ${regCertFile} --certificate ${ownerName}.deleg.cert | awk '{ print $2 }')
+#Make a variable for all signing keys, also depenting if we have to add a different rewards staking address or not
+signingKeys="--signing-key-file ${ownerName}.payment.skey --signing-key-file ${poolName}.node.skey --signing-key-file ${ownerName}.staking.skey"
+if [[ ! "${ownerName}" == "${rewardsName}" ]]; then signingKeys="${signingKeys} --signing-key-file ${rewardsName}.staking.skey"; fi
+
+fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} ${signingKeys} --certificate ${regCertFile} --certificate ${ownerName}.deleg.cert | awk '{ print $2 }')
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 2x Certificate: \e[32m ${fee} lovelaces \e[90m"
 
 #Check if pool was registered before and calculate Fee for registration or set it to zero for re-registration
@@ -154,16 +167,16 @@ echo
 #Building unsigned transaction body
 ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file tx_${ownerName}.txbody --certificate ${regCertFile} --certificate ${ownerName}.deleg.cert
 
-cat tx_${ownerName}.txbody
+cat tx_${ownerName}.txbody | head -n 6   #only show first 6 lines
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m,\e[32m ${ownerName}.staking.skey\e[0m & \e[32m${poolName}.node.skey\e[0m: \e[32m tx_${ownerName}.tx \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m,\e[32m ${ownerName}.staking.skey (rewards ${rewardsName}.staking.skey)\e[0m & \e[32m${poolName}.node.skey\e[0m Keys: \e[32m tx_${ownerName}.tx \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file tx_${ownerName}.txbody --signing-key-file ${ownerName}.payment.skey --signing-key-file ${poolName}.node.skey --signing-key-file ${ownerName}.staking.skey --tx-file tx_${ownerName}.tx ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file tx_${ownerName}.txbody ${signingKeys} --tx-file tx_${ownerName}.tx ${magicparam}
 
-cat tx_${ownerName}.tx
+cat tx_${ownerName}.tx | head -n 6   #only show first 6 lines
 echo
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
@@ -190,7 +203,7 @@ if [[ ! "${regSubmitted}" == "" ]]; then   #pool registered before
 				  echo -e "\e[35mThis will be a Pool Re-Registration\e[0m\n";
 fi
 
-if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${ownerName}.payment, continue ?" N; then
+if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${ownerName}.payment account, continue and register on chain ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
         ${cardanocli} shelley transaction submit --tx-file tx_${ownerName}.tx ${magicparam}
