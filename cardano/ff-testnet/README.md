@@ -107,7 +107,7 @@ If the pool was registered before (when there is a **regSubmitted** value in the
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
 <br>```./05d_checkPoolOnChain.sh mypool``` checks if the pool mypool is registered on the blockchain
 
-* **06_regDelegationCert.sh:** register a simple delegation name.deleg.cert to a pool poolname.node.vkey 
+* **06_regDelegationCert.sh:** register a simple delegation (from 05b) name.deleg.cert to a pool poolname.node.vkey 
 <br>```./06_regDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./06_regDelegationCert.sh yourpool someone``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name someone to the pool yourpool paying for fees with the funds from someone.payment.addr
 
