@@ -169,7 +169,7 @@ If you wanna send over all funds from your mywallet call the script like
       "poolRewards": "owner",
       "poolPledge": "200000000000",
       "poolCost": "10000000000",
-      "poolMargin": "0.08",
+      "poolMargin": "0.08"
    }
    ```
    1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
