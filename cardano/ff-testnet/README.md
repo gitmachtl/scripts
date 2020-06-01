@@ -79,7 +79,7 @@ chmod 400 poolname.pool.json
 * **05a_genStakepoolCert.sh:** generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain
   <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
   The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName, RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) like:
-  <br>**Sample poolname.pool.json**
+  <br>**Sample mypool.pool.json**
   ```
    {
       "poolName": "mypool",
@@ -113,23 +113,19 @@ If the pool was registered before (when there is a **regSubmitted** value in the
 
 ### poolname.pool.json
 
-The json file could end up like this one after the pool was registered (and also retired later). In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
+The json file could end up like this one after the pool was registered. If it was also retired, some additional entries can be found.<br>In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
 ```
 {
   "poolName": "mypool",
   "poolOwner": "owner",
   "poolRewards": "owner",
-  "poolPledge": "111000000000",
-  "poolCost": "50000000",
-  "poolMargin": "0.20",
+  "poolPledge": "100000000000",
+  "poolCost": "500000000",
+  "poolMargin": "0.10",
   "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
   "regCertFile": "mypool.pool.cert",
   "poolID": "68c2d7335f542f2d8b961bf6de5d5fd046b912b671868b30b79c3e2219f7e51a",
   "regSubmitted": "So Mai 31 14:39:46 CEST 2020",
-  "deregCertCreated": "So Mai 31 17:14:14 CEST 2020",
-  "deregCertFile": "mypool.pool.dereg-cert",
-  "deregEpoch": "28",
-  "deregSubmitted": "So Mai 31 17:14:43 CEST 2020"
 }
 ```
 
