@@ -79,20 +79,20 @@ it also generates the name.kes-expire.json file which contains the valid start K
 
 * **05a_genStakepoolCert.sh:** generates the certificate name.pool.cert to (re)register a stakepool on the blockchain
   <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate name.pool.cert from name.pool.json file<br>
-  The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName, pledge, poolCost & poolMargin(0.01-1.00) like:
+  The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName, RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) like:
   <br>**Sample name.pool.json**
   ```
    {
       "poolName": "mypool",
-      "ownerName": "owner",
+      "poolOwner": "owner",
+      "poolRewards": "owner",
       "poolPledge": "100000000000",
       "poolCost": "500000000",
       "poolMargin": "0.10",
    }
    ```
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
-   poolName is the name of your poolFiles from steps 04a-04d, ownerName is the name of the StakeOwner from steps 03, poolPledge in
-   lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>After the edit, rerun the script with the name again.<br>
+   poolName is the name of your poolFiles from steps 04a-04d, poolOwner is the name of the StakeOwner from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>After the edit, rerun the script with the name again.<br>
    **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply change them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool name.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
@@ -118,7 +118,8 @@ The json file could end up like this one after the pool was registered and also 
 ```
 {
   "poolName": "test",
-  "ownerName": "owner",
+  "poolOwner": "owner",
+  "poolRewards": "owner",
   "poolPledge": "111000000000",
   "poolCost": "11100000000",
   "poolMargin": "0.20",
@@ -164,7 +165,8 @@ If you wanna send over all funds from your mywallet call the script like
    ```
    {
       "poolName": "mypool",
-      "ownerName": "owner",
+      "poolOwner": "owner",
+      "poolRewards": "owner",
       "poolPledge": "200000000000",
       "poolCost": "10000000000",
       "poolMargin": "0.08",
