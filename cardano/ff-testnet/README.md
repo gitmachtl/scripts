@@ -8,7 +8,7 @@ Feel free to reach out to me on telegram @atada_stakepool
 
 I use the following naming scheme for the files:<br>
 ``` 
-Simple "enterprise" address:
+Simple "enterprise" address to receive/send funds:
 name.addr, name.vkey, name.skey
 
 Payment(Base)/Staking address combo:
