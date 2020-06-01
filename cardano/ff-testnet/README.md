@@ -77,8 +77,8 @@ it also generates the name.kes-expire.json file which contains the valid start K
 <br>```./04d_genNodeOpCert.sh <name>```
 <br>```./04d_genNodeOpCert.sh mypool```
 
-* **05a_genStakepoolCert.sh:** generates the certificate name.pool.cert to (re)register a stakepool on the blockchain
-  <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate name.pool.cert from name.pool.json file<br>
+* **05a_genStakepoolCert.sh:** generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain
+  <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
   The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName, RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) like:
   <br>**Sample name.pool.json**
   ```
@@ -99,7 +99,7 @@ it also generates the name.kes-expire.json file which contains the valid start K
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
 
-* **05c_regStakepoolCert.sh:** (re)register your **name.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also updates the pool-ID and the registration date in the name.pool.json
+* **05c_regStakepoolCert.sh:** (re)register your **poolname.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also updates the pool-ID and the registration date in the name.pool.json
 <br>```./05c_regStakepoolCert.sh <PoolNodeName> [optional FORCE keyword]```
 <br>```./05c_regStakepoolCert.sh mypool``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain.<br>
 If the pool was registered before (when there is a **regSubmitted** value in the name.pool.json file), the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration. If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword FORCE on the commandline like ```./05c_regStakepoolCert.sh mypool FORCE```
