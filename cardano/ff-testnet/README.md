@@ -113,21 +113,21 @@ If the pool was registered before (when there is a **regSubmitted** value in the
 
 ### poolname.pool.json
 
-The json file could end up like this one after the pool was registered and also retired later. In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
+The json file could end up like this one after the pool was registered (and also retired later). In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
 ```
 {
-  "poolName": "test",
+  "poolName": "mypool",
   "poolOwner": "owner",
   "poolRewards": "owner",
   "poolPledge": "111000000000",
-  "poolCost": "11100000000",
+  "poolCost": "50000000",
   "poolMargin": "0.20",
   "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
-  "regCertFile": "test.pool.cert",
+  "regCertFile": "mypool.pool.cert",
   "poolID": "68c2d7335f542f2d8b961bf6de5d5fd046b912b671868b30b79c3e2219f7e51a",
   "regSubmitted": "So Mai 31 14:39:46 CEST 2020",
   "deregCertCreated": "So Mai 31 17:14:14 CEST 2020",
-  "deregCertFile": "test.pool.dereg-cert",
+  "deregCertFile": "mypool.pool.dereg-cert",
   "deregEpoch": "28",
   "deregSubmitted": "So Mai 31 17:14:43 CEST 2020"
 }
