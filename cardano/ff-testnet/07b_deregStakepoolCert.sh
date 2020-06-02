@@ -29,7 +29,6 @@ echo "${param}"
 #Read the pool JSON file and extract the parameters -> report an error is something is missing or wrong/empty and exit
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 1; fi
 ownerName=$(readJSONparam "poolOwner"); if [[ ! $? == 0 ]]; then exit 1; fi
-rewardsName=$(readJSONparam "poolRewards"); if [[ ! $? == 0 ]]; then exit 2; fi
 deregCertFile=$(readJSONparam "deregCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Load deregSubmitted value from the pool.json. If there is an entry, than do a Re-Registration (changes the Fee!)

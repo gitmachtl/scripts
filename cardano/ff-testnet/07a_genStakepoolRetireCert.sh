@@ -20,6 +20,7 @@ if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[33mERROR - \"${poolFile}
 echo "
 {
 	\"poolName\":   \"${poolFile}\",
+        \"poolOwner\":  \"owner\"
 }
 " > ${poolFile}.pool.json
 echo

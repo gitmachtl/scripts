@@ -108,7 +108,7 @@ echo
 
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
 			${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file tx_${fromAddr}.txbody
-			else  #Sending choosen amount (rxcnt=2)
+			else  #Sending chosen amount (rxcnt=2)
 			${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out ${sendFromAddr}+${lovelacesToReturn} --ttl ${ttl} --fee ${fee} --tx-body-file tx_${fromAddr}.txbody
 fi
 
