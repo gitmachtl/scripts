@@ -113,9 +113,21 @@ If the pool was registered before (when there is a **regSubmitted** value in the
 <br>```./06_regDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./06_regDelegationCert.sh yourpool someone``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name someone to the pool yourpool paying for fees with the funds from someone.payment.addr
 
+* **07a_genStakepoolRetireCert.sh:** generates the de-registration certificate poolname.pool.dereg-cert to retire a stakepool from the blockchain
+  <br>```./07a_genStakepoolRetireCert.sh <PoolNodeName> [optional retire EPOCH]```
+  <br>```./07a_genStakepoolRetireCert.sh mypool``` generates the mypool.pool.dereg-cert to retire the pool in the NEXT epoch
+  <br>```./07a_genStakepoolRetireCert.sh mypool 253``` generates the poolname.pool.dereg-cert to retire the pool in epoch 253<br>
+  The script requires a poolname.pool.json file with values for at least the PoolNodeName & OwnerStakeAddressName. It is the same json file we're already using since script 05a, so a total pool history json file.<br>
+  **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
+   poolName is the name of your poolFiles from steps 04a-04d, poolOwner is the name of the StakeOwner from steps 03
+
+* **07b_deregStakepoolCert.sh:** de-register (retire) your pool with the **poolname.pool.dereg-cert certificate** with funds from name.payment.addr from the blockchain. it also updates the de-registration date in the poolname.pool.json
+<br>```./07b_deregStakepoolCert.sh <PoolNodeName>```
+<br>```./07b_deregStakepoolCert.sh mypool``` this will retire your pool mypool with the cert generated with script 07a from the blockchain.<br>
+
 ### poolname.pool.json
 
-The json file could end up like this one after the pool was registered. If it was also retired, some additional entries can be found.<br>In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
+The json file could end up like this one after the pool was registered and also later de-registered.<br>In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
 ```
 {
   "poolName": "mypool",
@@ -127,7 +139,12 @@ The json file could end up like this one after the pool was registered. If it wa
   "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
   "regCertFile": "mypool.pool.cert",
   "poolID": "68c2d7335f542f2d8b961bf6de5d5fd046b912b671868b30b79c3e2219f7e51a",
+  "regEpoch": "21",
   "regSubmitted": "So Mai 31 14:39:46 CEST 2020",
+  "deregCertCreated": "Di Jun  2 17:13:39 CEST 2020",
+  "deregCertFile": "mypool.pool.dereg-cert",
+  "deregEpoch": "37",
+  "deregSubmitted": "Di Jun  2 17:14:38 CEST 2020"
 }
 ```
 
