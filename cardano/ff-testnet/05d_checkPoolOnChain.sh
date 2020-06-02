@@ -29,7 +29,7 @@ echo "${param}"
 poolID=$(readJSONparam "poolID"); if [[ ! $? == 0 ]]; then exit 2; fi
 
 echo
-echo -e "\e[0mChecking about Pool-ID \e[32m ${poolName}.pool.id\e[0m: ${poolID}"
+echo -e "\e[0mChecking \e[32m ${poolFile}.pool.json\e[0m about the Pool-ID: ${poolID}"
 echo
 
 #check ledger-state

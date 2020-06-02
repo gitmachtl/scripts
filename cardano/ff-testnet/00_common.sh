@@ -8,6 +8,8 @@ magicparam="--testnet-magic 42"
 
 cardanocli="./cardano-cli"
 
+cardanonode="./cardano-node"
+
 
 #--------- only for kes/opcert update and upload via scp -----
 
@@ -73,6 +75,36 @@ if [ -f "$1" ]; then chmod 400 $1; fi
 file_unlock()
 {
 if [ -f "$1" ]; then chmod 600 $1; fi
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Subroutines to calculate current epoch from genesis.json
+get_currentEpoch()
+{
+local startTimeGenesis=$(cat ${genesisfile} | jq -r .startTime)
+local startTimeSec=$(date --date=${startTimeGenesis} +%s)     #in seconds (UTC)
+local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
+local epochLength=$(cat ${genesisfile} | jq -r .epochLength)
+local currentEPOCH=$(( (${currentTimeSec}-${startTimeSec}) / ${epochLength} ))  #returns a integer number, we like that
+echo ${currentEPOCH}
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Subroutines to calculate current slotHeight(tip)
+get_currentTip()
+{
+local currentTip=$(${cardanocli} shelley query tip ${magicparam} | awk 'match($0,/unSlotNo = [0-9]+/) {print substr($0, RSTART+11,RLENGTH-11)}')
+echo ${currentTip}
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Subroutines to calculate current TTL
+get_currentTTL()
+{
+echo $(( $(get_currentTip) + 10000 ))
 }
 #-------------------------------------------------------
 

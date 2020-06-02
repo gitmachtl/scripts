@@ -33,8 +33,9 @@ echo -e "\e[0mSending lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to Addr
 echo
 
 #get live values
-currentTip=$(${cardanocli} shelley query tip ${magicparam} | awk 'match($0,/unSlotNo = [0-9]+/) {print substr($0, RSTART+11,RLENGTH-11)}')
-ttl=$(( ${currentTip} + 10000 ))  #just add 10000 slots to the current one
+currentTip=$(get_currentTip)
+ttl=$(get_currentTTL)
+currentEPOCH=$(get_currentEpoch)
 
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL to ${ttl})"
 echo

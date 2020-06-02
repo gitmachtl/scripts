@@ -79,10 +79,11 @@ echo -e "\e[0mStaking-Address-Registration-Certificate built: \e[32m ${addrName}
 cat ${addrName}.staking.cert
 echo
 
-#get values to register the staking address on the blockchain
-
-currentTip=$(${cardanocli} shelley query tip ${magicparam} | awk 'match($0,/unSlotNo = [0-9]+/) {print substr($0, RSTART+11,RLENGTH-11)}')
-ttl=$(( ${currentTip} + 10000 ))  #just add 10000 slots to the current one
+#get values to calculate fees for the staking address registration on the blockchain
+#get live values
+currentTip=$(get_currentTip)
+ttl=$(get_currentTTL)
+currentEPOCH=$(get_currentEpoch)
 
 #calculating minimum fee
 #cardano-cli shelley transaction calculate-min-fee \

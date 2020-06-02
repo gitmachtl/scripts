@@ -18,23 +18,15 @@ Usage:  $(basename $0) <PoolNodeName> <DelegatorStakeAddressName>
 EOF
   exit 1;; esac
 
-
-#case $# in
-#  2 ) stakeAddr="$1";
-#      fromAddr="$2";;
-#  * ) cat >&2 <<EOF
-#Usage:  $(basename $0) <StakeAddressName> <Base/PaymentAddressName (paying for the registration fees)>
-#Example: $(basename $0) atada.staking atada.payment
-#EOF
-#  exit 1;; esac
-
 echo
 echo -e "\e[0mRegister Delegation Certificate\e[32m ${delegName}.deleg.cert\e[0m with funds from Address\e[32m ${delegName}.payment.addr\e[0m:"
 echo
 
 #get values to register the staking address on the blockchain
-currentTip=$(${cardanocli} shelley query tip ${magicparam} | awk 'match($0,/unSlotNo = [0-9]+/) {print substr($0, RSTART+11,RLENGTH-11)}')
-ttl=$(( ${currentTip} + 10000 ))  #just add 10000 slots to the current one
+#get live values
+currentTip=$(get_currentTip)
+ttl=$(get_currentTTL)
+currentEPOCH=$(get_currentEpoch)
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 

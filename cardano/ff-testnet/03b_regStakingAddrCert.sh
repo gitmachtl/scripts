@@ -24,8 +24,10 @@ echo -e "\e[0mRegister Staking Address\e[32m ${stakeAddr}.addr\e[0m with funds f
 echo
 
 #get values to register the staking address on the blockchain
-currentTip=$(${cardanocli} shelley query tip ${magicparam} | awk 'match($0,/unSlotNo = [0-9]+/) {print substr($0, RSTART+11,RLENGTH-11)}')
-ttl=$(( ${currentTip} + 10000 ))  #just add 10000 slots to the current one
+#get live values
+currentTip=$(get_currentTip)
+ttl=$(get_currentTTL)
+currentEPOCH=$(get_currentEpoch)
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 

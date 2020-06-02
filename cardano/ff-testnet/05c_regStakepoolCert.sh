@@ -19,21 +19,21 @@ if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[34mERROR - ${poolFile}.p
 #Small subroutine to read the value of the JSON and output an error if parameter is empty/missing
 function readJSONparam() {
 param=$(jq -r .$1 ${poolFile}.pool.json 2> /dev/null)
-if [[ $? -ne 0 ]]; then echo "ERROR - ${poolFile}.pool.json is not a valid JSON file" >&2; exit 2;
-elif [[ "${param}" == null ]]; then echo "ERROR - Parameter \"$1\" in ${poolFile}.pool.json does not exist" >&2; exit 2;
-elif [[ "${param}" == "" ]]; then echo "ERROR - Parameter \"$1\" in ${poolFile}.pool.json is empty" >&2; exit 2;
+if [[ $? -ne 0 ]]; then echo "ERROR - ${poolFile}.pool.json is not a valid JSON file" >&2; exit 1;
+elif [[ "${param}" == null ]]; then echo "ERROR - Parameter \"$1\" in ${poolFile}.pool.json does not exist" >&2; exit 1;
+elif [[ "${param}" == "" ]]; then echo "ERROR - Parameter \"$1\" in ${poolFile}.pool.json is empty" >&2; exit 1;
 fi
 echo "${param}"
 }
 
 #Read the pool JSON file and extract the parameters -> report an error is something is missing or wrong/empty and exit
-poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 2; fi
-ownerName=$(readJSONparam "poolOwner"); if [[ ! $? == 0 ]]; then exit 2; fi
-rewardsName=$(readJSONparam "poolRewards"); if [[ ! $? == 0 ]]; then exit 2; fi
-poolPledge=$(readJSONparam "poolPledge"); if [[ ! $? == 0 ]]; then exit 2; fi
-poolCost=$(readJSONparam "poolCost"); if [[ ! $? == 0 ]]; then exit 2; fi
-poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 2; fi
-regCertFile=$(readJSONparam "regCertFile"); if [[ ! $? == 0 ]]; then exit 2; fi
+poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 1; fi
+ownerName=$(readJSONparam "poolOwner"); if [[ ! $? == 0 ]]; then exit 1; fi
+rewardsName=$(readJSONparam "poolRewards"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolPledge=$(readJSONparam "poolPledge"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolCost=$(readJSONparam "poolCost"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
+regCertFile=$(readJSONparam "regCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Load regSubmitted value from the pool.json. If there is an entry, than do a Re-Registration (changes the Fee!)
 regSubmitted=$(jq -r .regSubmitted ${poolFile}.pool.json 2> /dev/null)
@@ -57,21 +57,23 @@ if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[34mERROR - \"${poolName}
 
 #-------------------------------------------------------------------------
 
+
+#get values to register the staking address on the blockchain
+currentTip=$(get_currentTip)
+ttl=$(get_currentTTL)
+currentEPOCH=$(get_currentEpoch)
+
 echo
 echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m and PoolOwner Delegation Certificate\e[32m ${ownerName}.deleg.cert\e[0m with funds from Address\e[32m ${ownerName}.payment.addr\e[0m:"
 echo
-echo -e "\e[0m  Owner Stake:\e[32m ${ownerName}.staking.vkey \e[0m"
-echo -e "\e[0mRewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
-echo -e "\e[0m       Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
-echo -e "\e[0m         Cost:\e[32m ${poolCost} \e[90mlovelaces"
-echo -e "\e[0m       Margin:\e[32m ${poolMargin} \e[0m"
+echo -e "\e[0m        Owner Stake:\e[32m ${ownerName}.staking.vkey \e[0m"
+echo -e "\e[0m      Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
+echo -e "\e[0m             Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
+echo -e "\e[0m               Cost:\e[32m ${poolCost} \e[90mlovelaces"
+echo -e "\e[0m             Margin:\e[32m ${poolMargin} \e[0m"
 echo
-
-#get values to register the staking address on the blockchain
-currentTip=$(${cardanocli} shelley query tip ${magicparam} | awk 'match($0,/unSlotNo = [0-9]+/) {print substr($0, RSTART+11,RLENGTH-11)}')
-ttl=$(( ${currentTip} + 10000 ))  #just add 10000 slots to the current one
-
-echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
+echo -e "\e[0m      Current EPOCH:\e[32m ${currentEPOCH}\e[0m"
+echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
@@ -211,7 +213,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${o
 	#No error, so lets update the pool JSON file with the date and file the certFile was created
 	if [[ $? -eq 0 ]]; then
         file_unlock ${poolFile}.pool.json
-        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regSubmitted: \"$(date)\"}")
+        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date)\"}")
 	echo "${newJSON}" > ${poolFile}.pool.json
         file_lock ${poolFile}.pool.json
 	fi
