@@ -1,8 +1,10 @@
 # Description (Scripts from ATADA Stakepool)
 
-**TESTED WITH PIONEER-WAVE2 TAG!**
+**TESTED WITH PIONEER-WAVE2 TAG !**
 
 **SCRIPTS ARE CURRENTLY FOR A SINGLE STAKEPOOL OWNER/OPERATOR, MULTIOWNER DEVELOPMENT STARTING SOON :-)**
+
+**EXAMPLE USAGE BELOW !**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
@@ -216,3 +218,14 @@ If you wanna update you pledge or your costs on a registered stakepool just do t
 1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool```<br>No delegation update needed.
 
 Done.  
+
+## Retire a stakepool from the blockchain
+
+If you wanna retire your registered stakepool mypool, you have to just do two things
+
+1. Generate the retirement certificate for the stakepool mypool from data in mypool.pool.json<br>
+   ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
+1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool```, done.
+1. You can check the current status of your onchain registration via the script 05d like<br>
+   ```./05d_checkPoolOnChain.sh mypool```
+ 
