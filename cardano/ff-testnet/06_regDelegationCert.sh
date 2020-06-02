@@ -86,9 +86,7 @@ ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-paramet
 #    --ttl 430000 \
 #    --testnet-magic 42 \
 #    --signing-key-file pay.skey \
-#    --signing-key-file node.skey \
 #    --signing-key-file stake.skey \
-#    --certificate pool.cert \
 #    --certificate deleg.cert \
 #    --protocol-params-file params.json
 
