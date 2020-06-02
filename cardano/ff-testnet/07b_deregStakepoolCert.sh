@@ -11,7 +11,7 @@
 . "$(dirname "$0")"/00_common.sh
 
 #Check command line parameter
-if [[ ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> [optional keyword FORCE to force a de-registration again]"; exit 2; fi
+if [[ ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName>"; exit 2; fi
 
 #Check if referenced JSON file exists
 if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[34mERROR - ${poolFile}.pool.json does not exist! Please create a minimal first with script 07a.\e[0m"; exit 2; fi
@@ -30,15 +30,6 @@ echo "${param}"
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 1; fi
 ownerName=$(readJSONparam "poolOwner"); if [[ ! $? == 0 ]]; then exit 1; fi
 deregCertFile=$(readJSONparam "deregCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
-
-#Load deregSubmitted value from the pool.json. If there is an entry, than do a Re-Registration (changes the Fee!)
-deregSubmitted=$(jq -r .deregSubmitted ${poolFile}.pool.json 2> /dev/null)
-if [[ "${deregSubmitted}" == null ]]; then deregSubmitted=""; fi
-
-#Force registration instead of re-registration via optional command line command "force"
-forceParam=$2
-if [[ ${forceParam^^} == "FORCE" ]]; then deregSubmitted=""; fi #progress like no regSubmitted before
-
 
 #Checks for needed files
 if [ ! -f "${deregCertFile}" ]; then echo -e "\n\e[34mERROR - \"${deregCertFile}\" does not exist! Please create it first with script 05d.\e[0m"; exit 2; fi
