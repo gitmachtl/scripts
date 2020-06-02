@@ -1,5 +1,7 @@
 # Description (Scripts from ATADA Stakepool)
 
+**TESTED WITH PIONEER-WAVE2 TAG!**
+
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
 Feel free to reach out to me on telegram @atada_stakepool
@@ -8,18 +10,18 @@ Feel free to reach out to me on telegram @atada_stakepool
 
 I use the following naming scheme for the files:<br>
 ``` 
-Simple "enterprise" address:
+Simple "enterprise" address to receive/send funds:
 name.addr, name.vkey, name.skey
 
 Payment(Base)/Staking address combo:
-name.payment.addr, name.payment.skey, name.payment.vkey, name.deleg.cert
-name.staking.addr, name.staking.skey, name.staking.vkey, name.staking.cert
+name.payment.addr, name.payment.skey/vkey, name.deleg.cert
+name.staking.addr, name.staking.skey/vkey, name.staking.cert
 
 Node/Pool files:
-name.node.vkey, name.node.skey, name.node.counter, name.pool.cert, name.pool.dereg-cert, name.pool.json
-name.vrf.vkey, name.vrf.skey
-name.kes-xxx.vkey, name.kes-xxx.skey, name.node-xxx.opcert (xxx increments with each KES generation = name.kes.counter)
-name.kes.counter, name.kes-expire.json
+poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert, poolname.pool.dereg-cert, poolname.pool.json
+poolname.vrf.skey/vkey
+poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
+poolname.kes.counter, poolname.kes-expire.json
 ```
 
 The *.addr files contains the address in the format "61386ab8..." or "011d4e1cdcdb000ff11e9430..." for example.
@@ -30,9 +32,9 @@ If you have an address and you wanna use it just do a simple:
 
 For a security reason, all important generated files are automatically locked against deleting/overwriting them via accident! Only the scripts will unlock/lock them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
 ```
-chmod 600 name.pool.json
-nano name.pool.json
-chmod 400 name.pool.json
+chmod 600 poolname.pool.json
+nano poolname.pool.json
+chmod 400 poolname.pool.json
 ```
 
 ## Scriptfiles short info
@@ -60,27 +62,26 @@ chmod 400 name.pool.json
 <br>```./03a_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
 <br>```./03a_regStakingAddrCert.sh owner.staking owner.payment``` will register the staking addr owner.staking using the owner.staking.cert with funds from owner.payment on the blockchain. this will also introduce the blockchain with your owner.payment address, so the chain knows the staking/base address relationship.<br>
 
-* **04a_genNodeKeys.sh:** generates the name.node.vkey and name.node.skey cold keys and resets the name.node.counter file
-<br>```./04a_genNodeKeys.sh <name>```
+* **04a_genNodeKeys.sh:** generates the poolname.node.vkey and poolname.node.skey cold keys and resets the poolname.node.counter file
+<br>```./04a_genNodeKeys.sh <poolname>```
 <br>```./04a_genNodeKeys.sh mypool```
 
-* **04b_genVRFKeys.sh:** generates the name.vrf.vkey/skey files
-<br>```./04b_genVRFKeys.sh <name>```
+* **04b_genVRFKeys.sh:** generates the poolname.vrf.vkey/skey files
+<br>```./04b_genVRFKeys.sh <poolname>```
 <br>```./04b_genVRFKeys.sh mypool```
 
-* **04c_genKESKeys.sh:** generates a new pair of name.kes-xxx.vkey/skey files, and updates the name.kes.latest counter file. every time you generate a new keypair the number(xxx) autoincrements. To renew your kes/opcert before the keys of your node expires just rerun 04c and 04d!
-<br>```./04c_genKESKeys.sh <name>```
+* **04c_genKESKeys.sh:** generates a new pair of poolname.kes-xxx.vkey/skey files, and updates the poolname.kes.counter file. every time you generate a new keypair the number(xxx) autoincrements. To renew your kes/opcert before the keys of your node expires just rerun 04c and 04d!
+<br>```./04c_genKESKeys.sh <poolname>```
 <br>```./04c_genKESKeys.sh mypool```
 
-* **04d_genNodeOpCert.sh:** calculates the current KES period from the genesis.json and issues a new name.node-xxx.opcert certificate.
-it also generates the name.kes-expire.json file which contains the valid start KES-Period and also contains infos when the generated kes-keys will expire. to renew your kes/opcert before the keys of your node expires just rerun 04c and 04d! after that, update the files on your stakepool server and restart the coreNode
-<br>```./04d_genNodeOpCert.sh <name>```
+* **04d_genNodeOpCert.sh:** calculates the current KES period from the genesis.json and issues a new poolname.node-xxx.opcert certificate. it also generates the poolname.kes-expire.json file which contains the valid start KES-Period and also contains infos when the generated kes-keys will expire. to renew your kes/opcert before the keys of your node expires just rerun 04c and 04d! after that, update the files on your stakepool server and restart the coreNode
+<br>```./04d_genNodeOpCert.sh <poolname>```
 <br>```./04d_genNodeOpCert.sh mypool```
 
-* **05a_genStakepoolCert.sh:** generates the certificate name.pool.cert to (re)register a stakepool on the blockchain
-  <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate name.pool.cert from name.pool.json file<br>
+* **05a_genStakepoolCert.sh:** generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain
+  <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
   The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName, RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) like:
-  <br>**Sample name.pool.json**
+  <br>**Sample mypool.pool.json**
   ```
    {
       "poolName": "mypool",
@@ -95,42 +96,38 @@ it also generates the name.kes-expire.json file which contains the valid start K
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is the name of the StakeOwner from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>After the edit, rerun the script with the name again.<br>
    **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply change them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
-* **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool name.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
+* **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
 
-* **05c_regStakepoolCert.sh:** (re)register your **name.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also updates the pool-ID and the registration date in the name.pool.json
+* **05c_regStakepoolCert.sh:** (re)register your **poolname.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also updates the pool-ID and the registration date in the poolname.pool.json
 <br>```./05c_regStakepoolCert.sh <PoolNodeName> [optional FORCE keyword]```
 <br>```./05c_regStakepoolCert.sh mypool``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain.<br>
 If the pool was registered before (when there is a **regSubmitted** value in the name.pool.json file), the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration. If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword FORCE on the commandline like ```./05c_regStakepoolCert.sh mypool FORCE```
 
-* **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> name.pool.json
+* **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> poolname.pool.json
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
 <br>```./05d_checkPoolOnChain.sh mypool``` checks if the pool mypool is registered on the blockchain
 
-* **06_regDelegationCert.sh:** register a simple delegation name.deleg.cert to a pool name.node.vkey 
+* **06_regDelegationCert.sh:** register a simple delegation (from 05b) name.deleg.cert to a pool poolname.node.vkey 
 <br>```./06_regDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./06_regDelegationCert.sh yourpool someone``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name someone to the pool yourpool paying for fees with the funds from someone.payment.addr
 
-### name.pool.json
+### poolname.pool.json
 
-The json file could end up like this one after the pool was registered and also retired later. In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
+The json file could end up like this one after the pool was registered. If it was also retired, some additional entries can be found.<br>In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
 ```
 {
-  "poolName": "test",
+  "poolName": "mypool",
   "poolOwner": "owner",
   "poolRewards": "owner",
-  "poolPledge": "111000000000",
-  "poolCost": "11100000000",
-  "poolMargin": "0.20",
+  "poolPledge": "100000000000",
+  "poolCost": "500000000",
+  "poolMargin": "0.10",
   "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
-  "regCertFile": "test.pool.cert",
+  "regCertFile": "mypool.pool.cert",
   "poolID": "68c2d7335f542f2d8b961bf6de5d5fd046b912b671868b30b79c3e2219f7e51a",
   "regSubmitted": "So Mai 31 14:39:46 CEST 2020",
-  "deregCertCreated": "So Mai 31 17:14:14 CEST 2020",
-  "deregCertFile": "test.pool.dereg-cert",
-  "deregEpoch": "28",
-  "deregSubmitted": "So Mai 31 17:14:43 CEST 2020"
 }
 ```
 
