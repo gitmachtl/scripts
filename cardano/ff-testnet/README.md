@@ -43,7 +43,7 @@ chmod 400 poolname.pool.json
 
 ## Scriptfiles short info
 
-* **00_common.sh:** set your variables in there for your config, will be used by the scripts. you can also use it to set the CARDANO_NODE_SOCKET_PATH variable by just calling ```source ./00_common.sh```
+* **00_common.sh:** set your variables in there for your config, will be used by the scripts. you can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
 * **01_queryAddress.sh:** checks the amount of lovelaces on an address
 <br>```./01_queryAddress.sh <name>```
