@@ -10,7 +10,7 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-if [[ ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <name>"; exit 2; fi
+if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <name>"; exit 2; fi
 
 #check that *.kes.counter and *.node.counter is present
 if [ ! -f "${addrName}.kes.counter" ]; then echo -e "\e[0mERROR - Please generate new KES Keys with ${addrName}.kes.counter first ...\e[0m"; exit 2; fi
