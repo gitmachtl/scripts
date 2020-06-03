@@ -24,9 +24,10 @@ latestKESnumber=$(cat ${nodeName}.kes.counter)
 
 #Copy them to a new filename in the upload folder with fixed names
 mkdir -p ./upload
-cp ./${nodeName}.kes-${latestKESnumber}.skey ./upload/${nodeName}.kes.skey	 #Copy latest KES key over to fixed name nodeName.kes.skey
-cp ./${nodeName}.vrf.skey ./upload/${nodeName}.vrf.skey				 #Copy vrf key over to fixed name nodeName.vrf.skey
+cp ./${nodeName}.kes-${latestKESnumber}.skey ./upload/${nodeName}.kes.skey       #Copy latest KES key over to fixed name nodeName.kes.skey
+cp ./${nodeName}.kes-expire.json ./upload/${nodeName}.kes-expire.json		 #Copy latest KES expire information -> to automated alerts from the coreNode
 cp ./${nodeName}.node-${latestKESnumber}.opcert ./upload/${nodeName}.node.opcert #Copy latest opcert over to fixed name nodeName.node.opcert
+cp ./${nodeName}.vrf.skey ./upload/${nodeName}.vrf.skey				 #Copy vrf key over to fixed name nodeName.vrf.skey
 
 echo -e "\e[0mUploading new files now ...\e[90m"
 #Upload them to the CoreNode Server
