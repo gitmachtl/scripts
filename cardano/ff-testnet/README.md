@@ -62,9 +62,9 @@ chmod 400 poolname.pool.json
 <br>```./03a_genStakingPaymentAddr.sh <name>```
 <br>```./03a_genStakingPaymentAddr.sh owner``` will generate the files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert<br>
 
-* **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate
-<br>```./03a_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
-<br>```./03a_regStakingAddrCert.sh owner.staking owner.payment``` will register the staking addr owner.staking using the owner.staking.cert with funds from owner.payment on the blockchain. this will also introduce the blockchain with your owner.payment address, so the chain knows the staking/base address relationship.<br>
+* **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
+<br>```./03b_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
+<br>```./03b_regStakingAddrCert.sh owner.staking owner.payment``` will register the staking addr owner.staking using the owner.staking.cert with funds from owner.payment on the blockchain. this will also introduce the blockchain with your owner.payment address, so the chain knows the staking/base address relationship.<br>
 
 * **04a_genNodeKeys.sh:** generates the poolname.node.vkey and poolname.node.skey cold keys and resets the poolname.node.counter file
 <br>```./04a_genNodeKeys.sh <poolname>```
