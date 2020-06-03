@@ -26,6 +26,12 @@ remoteServerPostCommand="~/cardano/restartCore.sh"	#Command to execute via SSH a
 #--------- don't edit below here -----------------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------------------------------------------------
 export CARDANO_NODE_SOCKET_PATH=${socket}
+
+#Searching the temp directory (used for transactions files), tempDir=/tmp for example
+tempDir=$(dirname $(mktemp tmp.XXXX -ut))
+
+
+
 #-------------------------------------------------------------
 #Subroutine for user interaction
 ask() {

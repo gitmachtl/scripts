@@ -94,13 +94,15 @@ if [[ ${lovelacesToSend} -lt 0 ]]; then echo -e "\e[35mNot enough funds on the p
 echo -e "\e[0mLovelaces that will be return to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m"
 echo
 
+txBodyFile="${tempDir}/${fromAddr}.txbody"
+txFile="${tempDir}/${fromAddr}.tx"
+
 echo
-echo -e "\e[0mBuilding the unsigned transaction body with the\e[32m ${stakeAddr}.cert\e[0m certificate: \e[32m ${fromAddr}.txbody \e[90m"
+echo -e "\e[0mBuilding the unsigned transaction body with the\e[32m ${stakeAddr}.cert\e[0m certificate: \e[32m ${txBodyFile} \e[90m"
 echo
 
 #Building unsigned transaction body
-#echo -e "${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${fromAddr}.txbody --certificate ${stakeAddr}.cert"
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${fromAddr}.txbody --certificate ${stakeAddr}.cert
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} --certificate ${stakeAddr}.cert
 
 #for more input(utxos) or outputaddresse just add more like
 #cardano-cli shelley transaction build-raw \
@@ -114,23 +116,23 @@ ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}
 #     --tx-body-file tx.raw
 #     (--certificate cert.file)
 
-cat ${fromAddr}.txbody
+cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${fromAddr}.tx \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${fromAddr}.txbody --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey --tx-file ${fromAddr}.tx ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey --tx-file ${txFile} ${magicparam}
 
-cat ${fromAddr}.tx
+cat ${txFile}
 echo
 
 
 if ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file ${fromAddr}.tx ${magicparam}
+        ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
         echo -e "\e[32mDONE\n"
 fi
 

@@ -99,29 +99,32 @@ if [[ ${lovelacesToSend} -lt 0 ]]; then echo -e "\e[35mNot enough funds on the p
 echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m"
 echo
 
+txBodyFile="${tempDir}/${delegName}.txbody"
+txFile="${tempDir}/${delegName}.tx"
+
 echo
-echo -e "\e[0mBuilding the unsigned transaction body with Delegation Certificate\e[32m ${delegName}.deleg.cert\e[0m certificates: \e[32m ${delegName}.txbody \e[90m"
+echo -e "\e[0mBuilding the unsigned transaction body with Delegation Certificate\e[32m ${delegName}.deleg.cert\e[0m certificates: \e[32m ${txBodyFile} \e[90m"
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${delegName}.txbody --certificate ${delegName}.deleg.cert
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} --certificate ${delegName}.deleg.cert
 
-cat ${delegName}.txbody
+cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${delegName}.payment.skey\e[0m & \e[32m${delegName}.staking.skey\e[0m: \e[32m ${delegName}.tx \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${delegName}.payment.skey\e[0m & \e[32m${delegName}.staking.skey\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${delegName}.txbody --signing-key-file ${delegName}.payment.skey --signing-key-file ${delegName}.staking.skey --tx-file ${delegName}.tx ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${delegName}.payment.skey --signing-key-file ${delegName}.staking.skey --tx-file ${txFile} ${magicparam}
 
-cat ${delegName}.tx
+cat ${txFile}
 echo
 
 if ask "\e[33mDoes this look good for you ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file ${delegName}.tx ${magicparam}
+        ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
         echo -e "\e[32mDONE\n"
 fi
 

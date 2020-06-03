@@ -125,23 +125,26 @@ if [[ ${lovelacesToSend} -lt 0 ]]; then echo -e "\e[35mNot enough funds on the p
 echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m"
 echo
 
+txBodyFile="${tempDir}/${ownerName}.txbody"
+txFile="${tempDir}/${ownerName}.tx"
+
 echo
-echo -e "\e[0mBuilding the unsigned transaction body with\e[32m ${deregCertFile}\e[0m certificate: \e[32m ${ownerName}.txbody \e[90m"
+echo -e "\e[0mBuilding the unsigned transaction body with\e[32m ${deregCertFile}\e[0m certificate: \e[32m ${txBodyFile} \e[90m"
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${ownerName}.txbody --certificate ${deregCertFile}
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} --certificate ${deregCertFile}
 
-cat ${ownerName}.txbody
+cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m & \e[32m${poolName}.node.skey\e[0m: \e[32m ${ownerName}.tx \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m & \e[32m${poolName}.node.skey\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${ownerName}.txbody ${signingKeys} --tx-file ${ownerName}.tx ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKeys} --tx-file ${txFile} ${magicparam}
 
-cat ${ownerName}.tx
+cat ${txFile}
 echo
 
 #Show a message if it's a reRegistration
@@ -152,7 +155,7 @@ echo
 if ask "\e[33mDoes this look good for you? Continue ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file ${ownerName}.tx ${magicparam}
+        ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
 
 	#No error, so lets update the pool JSON file with the date and file the deregistration
 	if [[ $? -eq 0 ]]; then

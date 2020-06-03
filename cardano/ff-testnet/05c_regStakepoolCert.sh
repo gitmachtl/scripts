@@ -162,23 +162,26 @@ if [[ ${lovelacesToSend} -lt 0 ]]; then echo -e "\e[35mNot enough funds on the p
 echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m"
 echo
 
+txBodyFile="${tempDir}/${ownerName}.txbody"
+txFile="${tempDir}/${ownerName}.tx"
+
 echo
-echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\e[0m and PoolOwner Delegation Certificate\e[32m ${ownerName}.deleg.cert\e[0m certificates: \e[32m ${ownerName}.txbody \e[90m"
+echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\e[0m and PoolOwner Delegation Certificate\e[32m ${ownerName}.deleg.cert\e[0m certificates: \e[32m ${txBodyFile} \e[90m"
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${ownerName}.txbody --certificate ${regCertFile} --certificate ${ownerName}.deleg.cert
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} --certificate ${regCertFile} --certificate ${ownerName}.deleg.cert
 
-cat ${ownerName}.txbody | head -n 6   #only show first 6 lines
+cat ${txBodyFile} | head -n 6   #only show first 6 lines
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m,\e[32m ${ownerName}.staking.skey (rewards ${rewardsName}.staking.skey)\e[0m & \e[32m${poolName}.node.skey\e[0m Keys: \e[32m ${ownerName}.tx \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m,\e[32m ${ownerName}.staking.skey (rewards ${rewardsName}.staking.skey)\e[0m & \e[32m${poolName}.node.skey\e[0m Keys: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${ownerName}.txbody ${signingKeys} --tx-file ${ownerName}.tx ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKeys} --tx-file ${txFile} ${magicparam}
 
-cat ${ownerName}.tx | head -n 6   #only show first 6 lines
+cat ${txFile} | head -n 6   #only show first 6 lines
 echo
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
@@ -208,9 +211,9 @@ fi
 if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${ownerName}.payment account, continue and register on chain ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file ${ownerName}.tx ${magicparam}
+        ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
 
-	#No error, so lets update the pool JSON file with the date and file the certFile was created
+	#No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
 	if [[ $? -eq 0 ]]; then
         file_unlock ${poolFile}.pool.json
         newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date)\"}")
