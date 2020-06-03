@@ -163,22 +163,22 @@ echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus
 echo
 
 echo
-echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\e[0m and PoolOwner Delegation Certificate\e[32m ${ownerName}.deleg.cert\e[0m certificates: \e[32m tx_${ownerName}.txbody \e[90m"
+echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\e[0m and PoolOwner Delegation Certificate\e[32m ${ownerName}.deleg.cert\e[0m certificates: \e[32m ${ownerName}.txbody \e[90m"
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file tx_${ownerName}.txbody --certificate ${regCertFile} --certificate ${ownerName}.deleg.cert
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${ownerName}.txbody --certificate ${regCertFile} --certificate ${ownerName}.deleg.cert
 
-cat tx_${ownerName}.txbody | head -n 6   #only show first 6 lines
+cat ${ownerName}.txbody | head -n 6   #only show first 6 lines
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m,\e[32m ${ownerName}.staking.skey (rewards ${rewardsName}.staking.skey)\e[0m & \e[32m${poolName}.node.skey\e[0m Keys: \e[32m tx_${ownerName}.tx \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m,\e[32m ${ownerName}.staking.skey (rewards ${rewardsName}.staking.skey)\e[0m & \e[32m${poolName}.node.skey\e[0m Keys: \e[32m ${ownerName}.tx \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file tx_${ownerName}.txbody ${signingKeys} --tx-file tx_${ownerName}.tx ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file ${ownerName}.txbody ${signingKeys} --tx-file ${ownerName}.tx ${magicparam}
 
-cat tx_${ownerName}.tx | head -n 6   #only show first 6 lines
+cat ${ownerName}.tx | head -n 6   #only show first 6 lines
 echo
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
@@ -208,7 +208,7 @@ fi
 if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${ownerName}.payment account, continue and register on chain ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file tx_${ownerName}.tx ${magicparam}
+        ${cardanocli} shelley transaction submit --tx-file ${ownerName}.tx ${magicparam}
 
 	#No error, so lets update the pool JSON file with the date and file the certFile was created
 	if [[ $? -eq 0 ]]; then

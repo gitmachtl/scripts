@@ -128,22 +128,22 @@ echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus
 echo
 
 echo
-echo -e "\e[0mBuilding the unsigned transaction body with\e[32m ${deregCertFile}\e[0m certificate: \e[32m tx_${ownerName}.txbody \e[90m"
+echo -e "\e[0mBuilding the unsigned transaction body with\e[32m ${deregCertFile}\e[0m certificate: \e[32m ${ownerName}.txbody \e[90m"
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file tx_${ownerName}.txbody --certificate ${deregCertFile}
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${ownerName}.txbody --certificate ${deregCertFile}
 
-cat tx_${ownerName}.txbody
+cat ${ownerName}.txbody
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m & \e[32m${poolName}.node.skey\e[0m: \e[32m tx_${ownerName}.tx \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m & \e[32m${poolName}.node.skey\e[0m: \e[32m ${ownerName}.tx \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file tx_${ownerName}.txbody ${signingKeys} --tx-file tx_${ownerName}.tx ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file ${ownerName}.txbody ${signingKeys} --tx-file ${ownerName}.tx ${magicparam}
 
-cat tx_${ownerName}.tx
+cat ${ownerName}.tx
 echo
 
 #Show a message if it's a reRegistration
@@ -154,7 +154,7 @@ echo
 if ask "\e[33mDoes this look good for you? Continue ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file tx_${ownerName}.tx ${magicparam}
+        ${cardanocli} shelley transaction submit --tx-file ${ownerName}.tx ${magicparam}
 
 	#No error, so lets update the pool JSON file with the date and file the deregistration
 	if [[ $? -eq 0 ]]; then
