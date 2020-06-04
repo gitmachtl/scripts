@@ -2,13 +2,16 @@
 
 **TESTED WITH PIONEER-WAVE2 TAG !**
 
-**SCRIPTS 05a & 05b ARE CURRENTLY FOR A SINGLE OWNER/OPERATOR, MULTIOWNER DEVELOPMENT IN PROGRESS :-)**
+**SCRIPTS 05a & 05b ARE CURRENTLY FOR A SINGLE OWNER/OPERATOR, MULTIOWNER IN PROGRESS :-)**
 
 **NO DIRECTORY STRUCTURE, CURRENTLY ALL FLAT**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
 Feel free to reach out to me on telegram @atada_stakepool
+
+If you can't hold back and wanna give me a little Tip, here's my MainNet Ada Address, thx! :-)
+```DdzFFzCqrhsyR1YeYAK47tFH7GSuw2hnuZsqGtTgSbmae9sqLjCm8b6vNvYHK7ZVFmDA9GRXA2ZJXy2dWEK7Wej5i9LXJMZvjtKawknc```
 
 ## Filenames used
 
