@@ -88,7 +88,7 @@ echo -e "\e[0m       Margin:\e[32m ${poolMargin} \e[0m"
 #  Create a stake pool registration certificate
 
 file_unlock ${poolName}.pool.cert
-${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey --pool-owner-stake-verification-key-file ${ownerName}.staking.vkey --out-file ${poolName}.pool.cert
+${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey --pool-owner-stake-verification-key-file ${ownerName}.staking.vkey ${magicparam} --out-file ${poolName}.pool.cert
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
 	file_unlock ${poolFile}.pool.json
