@@ -11,10 +11,10 @@
 . "$(dirname "$0")"/00_common.sh
 
 #Check command line parameter
-if [[ $# -eq 1 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> [optional keyword FORCE to force a registration instead of a re-Registration]"; exit 2; fi
+if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> [optional keyword FORCE to force a registration instead of a re-Registration]"; exit 2; fi
 
 #Check if referenced JSON file exists
-if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[34mERROR - ${poolFile}.pool.json does not exist! Please create it first with script 05a.\e[0m"; exit 2; fi
+if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[35mERROR - ${poolFile}.pool.json does not exist! Please create it first with script 05a.\e[0m"; exit 2; fi
 
 #Small subroutine to read the value of the JSON and output an error if parameter is empty/missing
 function readJSONparam() {
