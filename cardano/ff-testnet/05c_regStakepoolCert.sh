@@ -53,6 +53,7 @@ if [ ! -f "${ownerName}.payment.skey" ]; then echo -e "\n\e[34mERROR - \"${owner
 if [ ! -f "${ownerName}.staking.skey" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.staking.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
 if [ ! -f "${rewardsName}.staking.skey" ]; then echo -e "\n\e[34mERROR - \"${rewardsName}.staking.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
 if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[34mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 2; fi
+if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\n\e[34mERROR - \"${poolName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 2; fi
 
 
 #-------------------------------------------------------------------------
@@ -185,7 +186,8 @@ cat ${txFile} | head -n 6   #only show first 6 lines
 echo
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
-poolID=$(cat ${ownerName}.deleg.cert | tail -n 1 | cut -c 6-)
+#poolID=$(cat ${ownerName}.deleg.cert | tail -n 1 | cut -c 6-) #Old method
+poolID=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)	#New method since 1.13.0
 
 file_unlock ${poolFile}.pool.json
 newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
