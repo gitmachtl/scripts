@@ -98,6 +98,20 @@ echo ${currentEPOCH}
 #-------------------------------------------------------
 
 #-------------------------------------------------------
+#Subroutines to calculate time until next epoch from genesis.json
+get_timeUntilNextEpoch()
+{
+local startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)
+local startTimeSec=$(date --date=${startTimeGenesis} +%s)     #in seconds (UTC)
+local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
+local epochLength=$(cat ${genesisfile} | jq -r .epochLength)
+local currentEPOCH=$(( (${currentTimeSec}-${startTimeSec}) / ${epochLength} ))  #returns a integer number, we like that
+local timeUntilNextEpoch=$(( ${epochLength} - (${currentTimeSec}-${startTimeSec}) + (${currentEPOCH}*${epochLength}) ))
+echo ${timeUntilNextEpoch}
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
 #Subroutines to calculate current slotHeight(tip)
 get_currentTip()
 {
