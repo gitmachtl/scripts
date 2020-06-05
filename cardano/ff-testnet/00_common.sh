@@ -88,7 +88,7 @@ if [ -f "$1" ]; then chmod 600 $1; fi
 #Subroutines to calculate current epoch from genesis.json
 get_currentEpoch()
 {
-local startTimeGenesis=$(cat ${genesisfile} | jq -r .startTime)
+local startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)
 local startTimeSec=$(date --date=${startTimeGenesis} +%s)     #in seconds (UTC)
 local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
 local epochLength=$(cat ${genesisfile} | jq -r .epochLength)
