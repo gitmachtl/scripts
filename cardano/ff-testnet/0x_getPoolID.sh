@@ -21,13 +21,3 @@ poolID=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}
 echo
 echo -e "\e[0mChecking\e[32m ${poolName}.node.vkey\e[0m about the Pool-ID: ${poolID}"
 echo
-
-#check ledger-state to see if the poolID is on the blockchain
-poolInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | grep "poolPubKey" | grep  "${poolID}" | wc -l)
-
-if [[ ${poolInLedgerCnt} -gt 0 ]]; then
-					echo -e "\e[32mPool-ID is on the chain!\e[0m";
-				    else
-					echo -e "\e[35mPool-ID is NOT on the chain!\e[0m";
-fi
-echo
