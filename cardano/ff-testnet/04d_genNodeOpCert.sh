@@ -31,7 +31,7 @@ echo -e "\e[0mIssue a new Node operational certificate using KES-vKey \e[32m${ad
 echo
 
 #calculating current KES period
-startTimeGenesis=$(cat ${genesisfile} | jq -r .startTime)
+startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)
 startTimeSec=$(date --date=${startTimeGenesis} +%s)	#in seconds (UTC)
 currentTimeSec=$(date -u +%s)				#in seconds (UTC)
 slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)

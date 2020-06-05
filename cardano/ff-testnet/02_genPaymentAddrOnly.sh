@@ -28,7 +28,7 @@ echo
 
 #Building a Payment Address
 file_unlock ${addrName}.addr
-${cardanocli} shelley address build --payment-verification-key-file ${addrName}.vkey > ${addrName}.addr
+${cardanocli} shelley address build --payment-verification-key-file ${addrName}.vkey ${magicparam} > ${addrName}.addr
 file_lock ${addrName}.addr
 
 echo -e "\e[0mPaymentOnly(Enterprise)-Address built: \e[32m ${addrName}.addr \e[90m"

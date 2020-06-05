@@ -47,7 +47,7 @@ echo
 
 #Building a Payment Address
 file_unlock ${addrName}.payment.addr
-${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey > ${addrName}.payment.addr
+${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${magicparam} > ${addrName}.payment.addr
 file_lock ${addrName}.payment.addr
 
 echo -e "\e[0mPayment(Base)-Address built: \e[32m ${addrName}.payment.addr \e[90m"
@@ -56,7 +56,7 @@ echo
 
 #Building a Staking Address
 file_unlock ${addrName}.staking.addr
-${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey > ${addrName}.staking.addr
+${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${magicparam} > ${addrName}.staking.addr
 file_lock ${addrName}.staking.addr
 
 echo -e "\e[0mStaking(Rewards)-Address built: \e[32m ${addrName}.staking.addr \e[90m"
@@ -64,7 +64,7 @@ cat ${addrName}.staking.addr
 echo
 
 #Building a Enterprise Address
-#${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey > ${addrName}.enterprise.addr
+#${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey ${magicparam} > ${addrName}.enterprise.addr
 #
 #echo -e "\e[0mEnterprise-Address built: \e[32m ${addrName}.enterprise.addr \e[90m"
 #cat ${addrName}.enterprise.addr
