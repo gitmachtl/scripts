@@ -1,5 +1,7 @@
 # Description (Scripts from ATADA Stakepool)
 
+## First of all, you don't need them all! :-)
+
 **FOR CARDANO-NODE TAG: 1.13.0 and latest genesis.json !**
 
 **SCRIPTS 05a & 05b ARE CURRENTLY FOR A SINGLE OWNER/OPERATOR, MULTIOWNER IN PROGRESS :-)**
