@@ -24,18 +24,18 @@ name.addr, name.vkey, name.skey
 
 Payment(Base)/Staking address combo:
 name.payment.addr, name.payment.skey/vkey, name.deleg.cert
-name.staking.addr, name.staking.skey/vkey, name.staking.cert
+name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
 
 Node/Pool files:
-poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert, poolname.pool.dereg-cert, poolname.pool.json
+poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json
 poolname.vrf.skey/vkey
 poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
 poolname.kes.counter, poolname.kes-expire.json
 ```
 
-The *.addr files contains the address in the format "61386ab8..." or "011d4e1cdcdb000ff11e9430..." for example.
+The *.addr files contains the address in the format "60386ab8..." or "001d4e1cdcdb000ff11e9430..." for example.
 If you have an address and you wanna use it just do a simple:
-```echo "61386ab8..." > myaddress.addr```
+```echo "60386ab8..." > myaddress.addr```
 
 ### File autolock
 
