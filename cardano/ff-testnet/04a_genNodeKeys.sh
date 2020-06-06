@@ -36,3 +36,5 @@ echo
 echo -e "\e[0mResetting Operational Certificate Issue Counter:\e[32m ${nodeName}.node.counter \e[90m"
 cat ${nodeName}.node.counter
 echo
+
+echo -e "\e[0m\n"

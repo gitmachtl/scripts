@@ -40,3 +40,5 @@ file_lock ${nodeName}.kes.counter
 echo -e "\e[0mUpdated KES-Counter:\e[32m ${nodeName}.kes.counter \e[90m"
 cat ${nodeName}.kes.counter
 echo
+
+echo -e "\e[0m\n"

@@ -106,6 +106,7 @@ minRegistrationFund=$((${keyDepositFee}+${fee}))
 echo
 echo -e "\e[35mIf you wanna register the Staking-Address:\n\nPlease transfer now at least ${minRegistrationFund} lovelaces to your ${addrName}.payment.addr!\nIt will be used to pay for the registration fee of your Staking Address ${addrName}.staking.addr.\nSo the blockchain knows about the payment/staking address relationship !\e[0m"
 
+echo -e "\e[0m\n"
 
 
 #--network-magic not needed on mainnet later

@@ -41,3 +41,4 @@ if [[ ${poolInLedgerCnt} -gt 0 ]]; then
 					echo -e "\e[35mPool-ID is NOT on the chain!\e[0m";
 fi
 echo
+echo -e "\e[0m\n"

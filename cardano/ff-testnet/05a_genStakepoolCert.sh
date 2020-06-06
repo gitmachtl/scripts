@@ -110,5 +110,3 @@ cat ${poolFile}.pool.json
 echo
 
 echo -e "\e[0m"
-
-

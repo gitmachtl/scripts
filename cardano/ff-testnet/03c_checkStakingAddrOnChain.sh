@@ -24,7 +24,7 @@ echo
 #check ledger-state
 stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | grep "${checkAddr}" | wc -l)
 
-if [[ ${stakeAddrInLedgerCnt} -gt 0 ]]; then 
+if [[ ${stakeAddrInLedgerCnt} -gt 0 ]]; then
 					echo -e "\e[32mStake-Address is on the chain!\e[0m";
 				    else
 					echo -e "\e[35mStake-Address is NOT on the chain!\e[0m";

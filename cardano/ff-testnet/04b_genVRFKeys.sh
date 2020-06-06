@@ -29,3 +29,5 @@ echo
 echo -e "\e[0mNode operational VRF-Signing-Key:\e[32m ${nodeName}.vrf.skey \e[90m"
 cat ${nodeName}.vrf.skey
 echo
+
+echo -e "\e[0m\n"

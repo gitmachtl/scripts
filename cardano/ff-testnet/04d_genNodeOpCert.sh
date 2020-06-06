@@ -80,4 +80,4 @@ echo
 echo -e "\e[0mNew \e[32m${addrName}.kes-${latestKESnumber}.skey\e[0m and \e[32m${addrName}.node-${latestKESnumber}.opcert\e[0m files ready for upload to the server."
 echo
 
-
+echo -e "\e[0m\n"

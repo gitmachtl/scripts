@@ -35,3 +35,5 @@ echo -e "\e[0mPaymentOnly(Enterprise)-Address built: \e[32m ${addrName}.addr \e[
 cat ${addrName}.addr
 echo
 
+echo -e "\e[0m\n"
+
