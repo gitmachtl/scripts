@@ -197,7 +197,7 @@ If you wanna send over all funds from your mywallet call the script like
 1. Now you have all the key files to start your coreNode with them
 1. Make sure you have enough funds on your owner.payment.addr to pay the pool registration fee in the next steps. Make sure to make your fund big enough to stay above the pledge that we will set in the next step.
 1. Generate your stakepool certificate
-   1. ```./05a_genStakePoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it
+   1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it
    1. We want 200k ADA pledge, 10k ADA costs per epoch and 8% pool margin so let us set these values in the json file like
    ```
    {
