@@ -10,6 +10,7 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
+#Check the commandline parameter
 if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <AdressName>"; exit 2; fi
 
 checkAddr=$(cat ${addrName}.addr)
@@ -28,7 +29,6 @@ echo
 
 #Calculating the total amount of lovelaces in all utxos on this address
 totalLovelaces=0
-txInString=""
 
 while IFS= read -r utx0entry
 do
@@ -40,5 +40,5 @@ totalLovelaces=$((${totalLovelaces}+${sourceLovelaces}))
 done < <(printf "${utx0}\n" | tail -n ${txcnt})
 
 echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
-echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[90m"
+echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[0m"
 echo
