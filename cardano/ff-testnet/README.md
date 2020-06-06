@@ -71,6 +71,10 @@ chmod 400 poolname.pool.json
 <br>```./03b_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
 <br>```./03b_regStakingAddrCert.sh owner.staking owner.payment``` will register the staking addr owner.staking using the owner.staking.cert with funds from owner.payment on the blockchain. this will also introduce the blockchain with your owner.payment address, so the chain knows the staking/base address relationship.<br>
 
+* **03c_checkStakingAddrOnChain.sh:** check the blockchain about the staking address
+<br>```./03c_checkStakingAddrOnChain.sh <name>```
+<br>```./03c_checkStakingAddrOnChain.sh owner``` will check if the address in owner.staking.addr is currently registered on the blockchain
+
 * **04a_genNodeKeys.sh:** generates the poolname.node.vkey and poolname.node.skey cold keys and resets the poolname.node.counter file
 <br>```./04a_genNodeKeys.sh <poolname>```
 <br>```./04a_genNodeKeys.sh mypool```
@@ -134,6 +138,15 @@ If the pool was registered before (when there is a **regSubmitted** value in the
 <br>```./07b_deregStakepoolCert.sh <PoolNodeName>```
 <br>```./07b_deregStakepoolCert.sh mypool``` this will retire your pool mypool with the cert generated with script 07a from the blockchain.<br>
 
+* **08a_genStakingAddrRetireCert.sh:** generates the de-registration certificate name.staking.dereg-cert to retire a stake-address form the blockchain
+  <br>```./08a_genStakingAddrRetireCert.sh <name>```
+  <br>```./08a_genStakingAddrRetireCert.sh owner``` generates the owner.staking.dereg-cert to retire the owner.staking.addr
+  
+* **08b_deregStakingAddrCert.sh:** re-register (retire) you stake-address with the **name.staking.dereg-cert certificate** with funds from name.payment.add from the blockchain.
+  <br>```./08b_deregStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
+  <br>```./08b_deregStakingAddrCert.sh owner.staking owner.payment``` this will retire your owner staking address with the cert generated with script 08a from the blockchain.
+
+
 ### poolname.pool.json
 
 The json file could end up like this one after the pool was registered and also later de-registered.<br>In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
@@ -175,6 +188,7 @@ If you wanna send over all funds from your mywallet call the script like
 <br>```./01_sendLovelaces.sh mywallet owner.payment ALL```
 1. Check that you received it using ```./01_queryAddress.sh owner.payment```
 1. Register the owner stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh owner.staking owner.payment```
+1. (Optional: you can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh owner``` if you don't see it, wait a little and retry)
 1. Generate the keys for your coreNode
    1. ```./04a_genNodeKeys.sh mypool```
    1. ```./04b_genVRFKeys.sh mypool```
@@ -198,6 +212,7 @@ If you wanna send over all funds from your mywallet call the script like
    1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool```    
+1. (Optional: you can verify that your stakepool is now on the blockchain by running ```./05d_checkPoolOnChain.sh mypool```<br>If you dont see it, wait a little and retry)
 
 Done.
 
@@ -226,11 +241,26 @@ Done.
 
 ## Retire a stakepool from the blockchain
 
-If you wanna retire your registered stakepool mypool, you have to just do two things
+If you wanna retire your registered stakepool mypool, you have to do just a few things
 
 1. Generate the retirement certificate for the stakepool mypool from data in mypool.pool.json<br>
    ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
-1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool```, done.
+1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool```
 1. You can check the current status of your onchain registration via the script 05d like<br>
    ```./05d_checkPoolOnChain.sh mypool```
  
+Done.
+
+## Retire a stakeaddress from the blockchain
+
+If you wanna retire the staking address owner, you have to do just a few things
+
+1. Generate the retirement certificate for the stake-address ```./08a_genStakingAddrRetireCert.sh owner```<br>this will generate the owner.staking.dereg-cert file
+1. De-Register your stake-address from the blockchain with ```./08b_deregStakingAddrCert.sh owner.staking owner.payment```<br>you don't need to have funds on the owner.payment base address. you'll get the keyDepositFee back onto it!
+1. You can check the current status of your onchain registration via the script 03c like<br>
+   ```./03c_checkStakingAddrOnChain.sh owner```<br>If it doesn't go away directly, wait a little and retry this script.
+ 
+Done.
+
+
+
