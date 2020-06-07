@@ -19,8 +19,12 @@ if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[33mERROR - \"${poolFile}
 #Generate Dummy JSON File
 echo "
 {
-	\"poolName\":   \"${poolFile}\",
-        \"poolOwner\":  \"owner\"
+        \"poolName\":   \"${poolFile}\",
+        \"poolOwner\": [
+                {
+                \"ownerName\": \"set_your_owner_name_here\"
+                }
+        ]
 }
 " > ${poolFile}.pool.json
 echo
@@ -49,17 +53,24 @@ echo
 echo -e "\e[0mCreate a Stakepool de-Registration (retire) certificate for PoolNode with \e[32m ${poolName}.node.vkey\e[0m:"
 echo
 
+#Getting protocol parameters from the blockchain, checking epochMax (eMax)
+${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+eMax=$(cat protocol-parameters.json | jq -r .eMax)
+
 currentEPOCH=$(get_currentEpoch)
-
 minRetireEpoch=$(( ${currentEPOCH} + 1 ))	#earliest one
-maxRetireEpoch=$(( ${currentEPOCH} + 99 ))	#latest one
+maxRetireEpoch=$(( ${currentEPOCH} + ${eMax} ))	#latest one
 
-if [[ "${retireEPOCH}" == "" ]]; then retireEPOCH=${minRetireEpoch}; fi #use the earliest retirement epoch
-if [[ ${retireEPOCH} -lt ${minRetireEpoch} ]]; then retireEPOCH=${minRetireEpoch}; fi #set it to the earliest possible retirement epoch
-if [[ ${retireEPOCH} -gt ${maxRetireEpoch} ]]; then retireEPOCH=${maxRetireEpoch}; fi #set it to the latest possible retirement epoch
+if [[ "${retireEPOCH}" == "" ]]; then retireEPOCH=${minRetireEpoch}; #use the earliest retirement epoch
+elif [[ ${retireEPOCH} -lt ${minRetireEpoch} ]]; then retireEPOCH=${minRetireEpoch}; #set it to the earliest possible retirement epoch
+elif [[ ${retireEPOCH} -gt ${maxRetireEpoch} ]]; then retireEPOCH=${maxRetireEpoch}; fi #set it to the latest possible retirement epoch
 
-echo -e "    Current EPOCH is:\e[32m ${currentEPOCH}\e[0m"
-echo -e " Retire EPOCH set to:\e[32m ${retireEPOCH}\e[0m"
+echo -e "      Current EPOCH:\e[32m ${currentEPOCH}\e[0m"
+echo -e "   Min Retire EPOCH:\e[32m ${minRetireEpoch}\e[0m (current + 1)"
+echo -e "   Max Retire EPOCH:\e[32m ${maxRetireEpoch}\e[0m (current + ${eMax})"
+echo
+echo -e "Retire EPOCH set to:\e[32m ${retireEPOCH}\e[0m"
+
 
 #Usage: cardano-cli shelley stake-pool deregistration-certificate --cold-verification-key-file FILE
 #                                                                 --epoch NATURAL
