@@ -12,6 +12,11 @@
 
 if [[ $# -eq 1 && ! $1 == "" ]]; then nodeName=$1; else echo "ERROR - Usage: $0 <NodePoolName>"; exit 2; fi
 
+if [ -f "${nodeName}.vrf.vkey" ]; then echo -e "\e[35mWARNING - ${nodeName}.vrf.vkey already present, delete it or use another name !\e[0m"; exit 2; fi
+if [ -f "${nodeName}.vrf.skey" ]; then echo -e "\e[35mWARNING - ${nodeName}.vrf.skey already present, delete it or use another name !\e[0m"; exit 2; fi
+
+
+
 echo
 echo -e "\e[0mCreating VRF operational Keypairs"
 echo

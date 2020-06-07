@@ -12,6 +12,13 @@
 
 if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <AddressName>"; exit 2; fi
 
+#warnings
+if [ -f "${addrName}.vkey" ]; then echo -e "\e[35mWARNING - ${addrName}.vkey already present, delete it or use another name !\e[0m"; exit 2; fi
+if [ -f "${addrName}.skey" ]; then echo -e "\e[35mWARNING - ${addrName}.skey already present, delete it or use another name !\e[0m"; exit 2; fi
+if [ -f "${addrName}.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.addr already present, delete it or use another name !\e[0m"; exit 2; fi
+
+
+
 ${cardanocli} shelley address key-gen --verification-key-file ${addrName}.vkey --signing-key-file ${addrName}.skey
 file_lock ${addrName}.vkey
 file_lock ${addrName}.skey
