@@ -4,7 +4,7 @@
 
 **FOR CARDANO-NODE TAG: 1.13.0 and latest genesis.json !**
 
-**SCRIPTS 05a & 05b ARE CURRENTLY FOR A SINGLE OWNER/OPERATOR, MULTIOWNER IN PROGRESS**
+**SCRIPTS 05a & 05c NOW SUPPORT MULTIOWNER :-)**
 
 **NO DIRECTORY STRUCTURE, CURRENTLY ALL FLAT**
 
@@ -93,12 +93,16 @@ chmod 400 poolname.pool.json
 
 * **05a_genStakepoolCert.sh:** generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain
   <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
-  The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName, RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) like:
+  The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName(s), RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) like:
   <br>**Sample mypool.pool.json**
   ```
    {
       "poolName": "mypool",
-      "poolOwner": "owner",
+      "poolOwner": [
+         {
+         "ownerName": "owner"
+         }
+      ],
       "poolRewards": "owner",
       "poolPledge": "100000000000",
       "poolCost": "500000000",
@@ -106,17 +110,17 @@ chmod 400 poolname.pool.json
    }
    ```
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
-   poolName is the name of your poolFiles from steps 04a-04d, poolOwner is the name of the StakeOwner from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>After the edit, rerun the script with the name again.<br>
+   poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>After the edit, rerun the script with the name again.<br>
    **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply change them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
 
-* **05c_regStakepoolCert.sh:** (re)register your **poolname.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from name.payment.addr on the blockchain. it also updates the pool-ID and the registration date in the poolname.pool.json
-<br>```./05c_regStakepoolCert.sh <PoolNodeName> [optional FORCE keyword]```
-<br>```./05c_regStakepoolCert.sh mypool``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain.<br>
-If the pool was registered before (when there is a **regSubmitted** value in the name.pool.json file), the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration. If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword FORCE on the commandline like ```./05c_regStakepoolCert.sh mypool FORCE```
+* **05c_regStakepoolCert.sh:** (re)register your **poolname.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from the given name.addr on the blockchain. it also updates the pool-ID and the registration date in the poolname.pool.json
+<br>```./05c_regStakepoolCert.sh <PoolNodeName> <PaymentAddrForRegistration> [optional FORCE keyword]```
+<br>```./05c_regStakepoolCert.sh mypool owner.payment``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain. Owner.payment.addr will pay for the fees.<br>
+If the pool was registered before (when there is a **regSubmitted** value in the name.pool.json file), the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration. If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword FORCE on the commandline like ```./05c_regStakepoolCert.sh mypool mywallet FORCE```
 
 * **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> poolname.pool.json
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
@@ -135,8 +139,8 @@ If the pool was registered before (when there is a **regSubmitted** value in the
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is the name of the StakeOwner from steps 03
 
 * **07b_deregStakepoolCert.sh:** de-register (retire) your pool with the **poolname.pool.dereg-cert certificate** with funds from name.payment.addr from the blockchain. it also updates the de-registration date in the poolname.pool.json
-<br>```./07b_deregStakepoolCert.sh <PoolNodeName>```
-<br>```./07b_deregStakepoolCert.sh mypool``` this will retire your pool mypool with the cert generated with script 07a from the blockchain.<br>
+<br>```./07b_deregStakepoolCert.sh <PoolNodeName> <PaymentAddrForDeRegistration>```
+<br>```./07b_deregStakepoolCert.sh mypool mywallet``` this will retire your pool mypool with the cert generated with script 07a from the blockchain. The transactions fees will be paid from the mywallet.addr account.<br>
 
 * **08a_genStakingAddrRetireCert.sh:** generates the de-registration certificate name.staking.dereg-cert to retire a stake-address form the blockchain
   <br>```./08a_genStakingAddrRetireCert.sh <name>```
@@ -153,7 +157,14 @@ The json file could end up like this one after the pool was registered and also 
 ```
 {
   "poolName": "mypool",
-  "poolOwner": "owner",
+  "poolOwner": [
+         {
+         "ownerName": "owner"
+         }
+         {
+         "ownerName": "otherowner2"
+         }
+   ],
   "poolRewards": "owner",
   "poolPledge": "100000000000",
   "poolCost": "500000000",
@@ -202,7 +213,11 @@ If you wanna send over all funds from your mywallet call the script like
    ```
    {
       "poolName": "mypool",
-      "poolOwner": "owner",
+      "poolOwner": [
+         {
+         "ownerName": "owner"
+         }
+      ],
       "poolRewards": "owner",
       "poolPledge": "200000000000",
       "poolCost": "10000000000",
@@ -211,7 +226,7 @@ If you wanna send over all funds from your mywallet call the script like
    ```
    1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
-1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool```    
+1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner.payment```    
 1. (Optional: you can verify that your stakepool is now on the blockchain by running ```./05d_checkPoolOnChain.sh mypool```<br>If you dont see it, wait a little and retry)
 
 Done.
@@ -231,11 +246,11 @@ Done.
 
 ## Update stakepool parameters on the blockchain
 
-If you wanna update you pledge or your costs on a registered stakepool just do the following
+If you wanna update you pledge, costs or owners on a registered stakepool just do the following
 
 1. Edit the existing mypool.pool.json file, only edit the poolPledge/poolCost/poolMargin values, save it.
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
-1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool```<br>No delegation update needed.
+1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool owner.payment```<br>No delegation update needed.
 
 Done.  
 
@@ -245,7 +260,7 @@ If you wanna retire your registered stakepool mypool, you have to do just a few 
 
 1. Generate the retirement certificate for the stakepool mypool from data in mypool.pool.json<br>
    ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
-1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool```
+1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool owner.payment```
 1. You can check the current status of your onchain registration via the script 05d like<br>
    ```./05d_checkPoolOnChain.sh mypool```
  
