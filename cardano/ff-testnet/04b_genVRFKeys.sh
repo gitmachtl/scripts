@@ -16,8 +16,6 @@ echo
 echo -e "\e[0mCreating VRF operational Keypairs"
 echo
 
-file_unlock ${nodeName}.vrf.vkey
-file_unlock ${nodeName}.vrf.skey
 ${cardanocli} shelley node key-gen-VRF --verification-key-file ${nodeName}.vrf.vkey --signing-key-file ${nodeName}.vrf.skey
 file_lock ${nodeName}.vrf.vkey
 file_lock ${nodeName}.vrf.skey

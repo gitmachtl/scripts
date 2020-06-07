@@ -14,11 +14,7 @@ if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 
 
 #We need a normal payment(base) keypair with vkey and skey, so let's create that one
 
-file_unlock ${addrName}.payment.vkey
-file_unlock ${addrName}.payment.skey
-
 ${cardanocli} shelley address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
-
 file_lock ${addrName}.payment.vkey
 file_lock ${addrName}.payment.skey
 
@@ -29,11 +25,7 @@ echo -e "\e[0mPayment(Base)-Signing-Key: \e[32m ${addrName}.payment.skey \e[90m"
 cat ${addrName}.payment.skey
 echo
 
-file_unlock ${addrName}.staking.vkey
-file_unlock ${addrName}.staking.skey
-
 ${cardanocli} shelley stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey 
-
 file_lock ${addrName}.staking.vkey
 file_lock ${addrName}.staking.skey
 
@@ -46,7 +38,6 @@ cat ${addrName}.staking.skey
 echo
 
 #Building a Payment Address
-file_unlock ${addrName}.payment.addr
 ${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${magicparam} > ${addrName}.payment.addr
 file_lock ${addrName}.payment.addr
 
@@ -55,7 +46,6 @@ cat ${addrName}.payment.addr
 echo
 
 #Building a Staking Address
-file_unlock ${addrName}.staking.addr
 ${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${magicparam} > ${addrName}.staking.addr
 file_lock ${addrName}.staking.addr
 
@@ -71,7 +61,6 @@ echo
 #echo
 
 #create an address registration certificate
-file_unlock ${addrName}.staking.cert
 ${cardanocli} shelley stake-address registration-certificate --staking-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.cert
 file_lock ${addrName}.staking.cert
 

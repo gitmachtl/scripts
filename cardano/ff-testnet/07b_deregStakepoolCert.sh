@@ -11,7 +11,13 @@
 . "$(dirname "$0")"/00_common.sh
 
 #Check command line parameter
-if [[ $# -eq 1 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName>"; exit 2; fi
+case $# in
+  2 ) deregPayName="$2";
+      poolFile="$1";;
+  * ) cat >&2 <<EOF
+ERROR - Usage: $(basename $0) <PoolNodeName> <PaymentAddrForDeRegistration>
+EOF
+  exit 1;; esac
 
 #Check if referenced JSON file exists
 if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[34mERROR - ${poolFile}.pool.json does not exist! Please create a minimal first with script 07a.\e[0m"; exit 2; fi
@@ -28,19 +34,18 @@ echo "${param}"
 
 #Read the pool JSON file and extract the parameters -> report an error is something is missing or wrong/empty and exit
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 1; fi
-ownerName=$(readJSONparam "poolOwner"); if [[ ! $? == 0 ]]; then exit 1; fi
 deregCertFile=$(readJSONparam "deregCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Checks for needed files
 if [ ! -f "${deregCertFile}" ]; then echo -e "\n\e[34mERROR - \"${deregCertFile}\" does not exist! Please create it first with script 05d.\e[0m"; exit 2; fi
-if [ ! -f "${ownerName}.payment.addr" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.payment.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
-if [ ! -f "${ownerName}.payment.skey" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.payment.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
 if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[34mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 2; fi
+if [ ! -f "${deregPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${deregPayName}.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
+if [ ! -f "${deregPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${deregPayName}.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
 
 #-------------------------------------------------------------------------
 
 echo
-echo -e "\e[0mDe-Register (retire) StakePool Certificate\e[32m ${deregCertFile}\e[0m with funds from Address\e[32m ${ownerName}.payment.addr\e[0m:"
+echo -e "\e[0mDe-Register (retire) StakePool Certificate\e[32m ${deregCertFile}\e[0m with funds from Address\e[32m ${deregPayName}.addr\e[0m:"
 echo
 
 #get live values
@@ -52,11 +57,11 @@ echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
-sendFromAddr=$(cat ${ownerName}.payment.addr)
-sendToAddr=$(cat ${ownerName}.payment.addr)
+sendFromAddr=$(cat ${deregPayName}.addr)
+sendToAddr=$(cat ${deregPayName}.addr)
 
 echo
-echo -e "Pay fees from Address\e[32m ${ownerName}.payment.addr\e[0m: ${sendFromAddr}"
+echo -e "Pay fees from Address\e[32m ${deregPayName}.addr\e[0m: ${sendFromAddr}"
 echo
 
 
@@ -106,7 +111,7 @@ ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-paramet
 
 
 #Make a variable for all signing keys
-signingKeys="--signing-key-file ${ownerName}.payment.skey --signing-key-file ${poolName}.node.skey"
+signingKeys="--signing-key-file ${deregPayName}.skey --signing-key-file ${poolName}.node.skey"
 
 fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} ${signingKeys} --certificate ${deregCertFile} | awk '{ print $2 }')
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m ${fee} lovelaces \e[90m"
@@ -125,8 +130,8 @@ if [[ ${lovelacesToSend} -lt 0 ]]; then echo -e "\e[35mNot enough funds on the p
 echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m"
 echo
 
-txBodyFile="${tempDir}/${ownerName}.txbody"
-txFile="${tempDir}/${ownerName}.tx"
+txBodyFile="${tempDir}/${poolName}.txbody"
+txFile="${tempDir}/${poolName}.tx"
 
 echo
 echo -e "\e[0mBuilding the unsigned transaction body with\e[32m ${deregCertFile}\e[0m certificate: \e[32m ${txBodyFile} \e[90m"
@@ -138,7 +143,7 @@ ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}
 cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m & \e[32m${poolName}.node.skey\e[0m: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${deregPayName}.skey\e[0m & \e[32m${poolName}.node.skey\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
@@ -146,11 +151,6 @@ ${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKey
 
 cat ${txFile}
 echo
-
-#Show a message if it's a reRegistration
-#if [[ ! "${regSubmitted}" == "" ]]; then   #pool registered before
-#				  echo -e "\e[35mThis will be a Pool Re-Registration\e[0m\n";
-#fi
 
 if ask "\e[33mDoes this look good for you? Continue ?" N; then
         echo

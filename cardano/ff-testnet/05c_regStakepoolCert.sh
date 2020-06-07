@@ -11,10 +11,16 @@
 . "$(dirname "$0")"/00_common.sh
 
 #Check command line parameter
-if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> [optional keyword FORCE to force a registration instead of a re-Registration]"; exit 2; fi
+case $# in
+  2 ) regPayName="$2";
+      poolFile="$1";;
+  * ) cat >&2 <<EOF
+ERROR - Usage: $(basename $0) <PoolNodeName> <PaymentAddrForRegistration> [optional keyword FORCE to force a registration instead of a re-Registration]
+EOF
+  exit 1;; esac
 
 #Check if referenced JSON file exists
-if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[35mERROR - ${poolFile}.pool.json does not exist! Please create it first with script 05a.\e[0m"; exit 2; fi
+if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[35mERROR - ${poolFile}.pool.json does not exist! Please create it first with script 05a.\e[0m"; exit 1; fi
 
 #Small subroutine to read the value of the JSON and output an error if parameter is empty/missing
 function readJSONparam() {
@@ -40,20 +46,37 @@ regSubmitted=$(jq -r .regSubmitted ${poolFile}.pool.json 2> /dev/null)
 if [[ "${regSubmitted}" == null ]]; then regSubmitted=""; fi
 
 #Force registration instead of re-registration via optional command line command "force"
-forceParam=$2
+if [[ $# -eq 3 ]]; then forceParam=$3; fi
 if [[ ${forceParam^^} == "FORCE" ]]; then regSubmitted=""; fi #progress like no regSubmitted before
 
 
-
 #Checks for needed files
-if [ ! -f "${ownerName}.deleg.cert" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 2; fi
-if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[34mERROR - \"${regCertFile}\" does not exist! Please create it first with script 05a.\e[0m"; exit 2; fi
-if [ ! -f "${ownerName}.payment.addr" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.payment.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
-if [ ! -f "${ownerName}.payment.skey" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.payment.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
-if [ ! -f "${ownerName}.staking.skey" ]; then echo -e "\n\e[34mERROR - \"${ownerName}.staking.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
-if [ ! -f "${rewardsName}.staking.skey" ]; then echo -e "\n\e[34mERROR - \"${rewardsName}.staking.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
-if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[34mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 2; fi
-if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\n\e[34mERROR - \"${poolName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 2; fi
+if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[35mERROR - \"${regCertFile}\" does not exist! Please create it first with script 05a.\e[0m"; exit 1; fi
+if [ ! -f "${rewardsName}.staking.skey" ]; then echo -e "\n\e[35mERROR - \"${rewardsName}.staking.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
+if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
+if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
+if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
+if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
+
+ownerCnt=$(jq -r '.poolOwner | length' ${poolFile}.pool.json)
+certCnt=$(( ${ownerCnt} + 1 ))
+signingKeys="--signing-key-file ${regPayName}.skey --signing-key-file ${poolName}.node.skey"
+registrationCerts="--certificate ${regCertFile}"
+rewardsAccountIncluded="no"
+for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
+do
+  ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName ${poolFile}.pool.json)
+  if [ ! -f "${ownerName}.staking.skey" ]; then echo -e "\e[35mERROR - ${ownerName}.staking.skey is missing, please generate it with script 03a !\e[0m"; exit 1; fi
+  if [ ! -f "${ownerName}.deleg.cert" ]; then echo -e "e[35mERROR - \"${ownerName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 1; fi
+  #When we are in the loop, just build up also all the needed signingkeys & certificates for the transaction
+  signingKeys="${signingKeys} --signing-key-file ${ownerName}.staking.skey"
+  registrationCerts="${registrationCerts} --certificate ${ownerName}.deleg.cert"
+  #Also check, if the ownername is the same as the one in the rewards account, if so we don't need an extra signing key later
+  if [[ "${ownerName}" == "${rewardsName}" ]]; then rewardsAccountIncluded="yes"; fi
+done
+
+#Add the rewards account signing staking key if needed
+if [[ "${rewardsAccountIncluded}" == "no" ]]; then signingKeys="${signingKeys} --signing-key-file ${rewardsName}.staking.skey"; fi
 
 
 #-------------------------------------------------------------------------
@@ -65,9 +88,14 @@ ttl=$(get_currentTTL)
 currentEPOCH=$(get_currentEpoch)
 
 echo
-echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m and PoolOwner Delegation Certificate\e[32m ${ownerName}.deleg.cert\e[0m with funds from Address\e[32m ${ownerName}.payment.addr\e[0m:"
+echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m with funds from Address\e[32m ${regPayName}.addr\e[0m:"
 echo
-echo -e "\e[0m        Owner Stake:\e[32m ${ownerName}.staking.vkey \e[0m"
+echo -e "\e[0m   Owner Stake Keys:\e[32m ${ownerCnt}\e[0m owner(s) with the key(s)"
+for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
+do
+  ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName ${poolFile}.pool.json)
+  echo -e "\e[0m                    \e[32m ${ownerName}.staking.vkey\e[0m & \e[32m${ownerName}.deleg.cert \e[0m"
+done
 echo -e "\e[0m      Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
 echo -e "\e[0m             Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
 echo -e "\e[0m               Cost:\e[32m ${poolCost} \e[90mlovelaces"
@@ -78,11 +106,11 @@ echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${tt
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
-sendFromAddr=$(cat ${ownerName}.payment.addr)
-sendToAddr=$(cat ${ownerName}.payment.addr)
+sendFromAddr=$(cat ${regPayName}.addr)
+sendToAddr=$(cat ${regPayName}.addr)
 
 echo
-echo -e "Pay fees from Address\e[32m ${ownerName}.payment.addr\e[0m: ${sendFromAddr}"
+echo -e "Pay fees from Address\e[32m ${regPayName}.addr\e[0m: ${sendFromAddr}"
 echo
 
 
@@ -131,12 +159,8 @@ ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-paramet
 #    --certificate deleg.cert \
 #    --protocol-params-file params.json
 
-#Make a variable for all signing keys, also depenting if we have to add a different rewards staking address or not
-signingKeys="--signing-key-file ${ownerName}.payment.skey --signing-key-file ${poolName}.node.skey --signing-key-file ${ownerName}.staking.skey"
-if [[ ! "${ownerName}" == "${rewardsName}" ]]; then signingKeys="${signingKeys} --signing-key-file ${rewardsName}.staking.skey"; fi
-
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} ${signingKeys} --certificate ${regCertFile} --certificate ${ownerName}.deleg.cert | awk '{ print $2 }')
-echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 2x Certificate: \e[32m ${fee} lovelaces \e[90m"
+fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} ${signingKeys} ${registrationCerts} | awk '{ print $2 }')
+echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m ${fee} lovelaces \e[90m"
 
 #Check if pool was registered before and calculate Fee for registration or set it to zero for re-registration
 if [[ "${regSubmitted}" == "" ]]; then   #pool not registered before
@@ -163,20 +187,20 @@ if [[ ${lovelacesToSend} -lt 0 ]]; then echo -e "\e[35mNot enough funds on the p
 echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m"
 echo
 
-txBodyFile="${tempDir}/${ownerName}.txbody"
-txFile="${tempDir}/${ownerName}.tx"
+txBodyFile="${tempDir}/${poolName}.txbody"
+txFile="${tempDir}/${poolName}.tx"
 
 echo
-echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\e[0m and PoolOwner Delegation Certificate\e[32m ${ownerName}.deleg.cert\e[0m certificates: \e[32m ${txBodyFile} \e[90m"
+echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\e[0m and all PoolOwner Delegation certificates: \e[32m ${txBodyFile} \e[90m"
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} --certificate ${regCertFile} --certificate ${ownerName}.deleg.cert
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} ${registrationCerts}
 
 cat ${txBodyFile} | head -n 6   #only show first 6 lines
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${ownerName}.payment.skey\e[0m,\e[32m ${ownerName}.staking.skey (rewards ${rewardsName}.staking.skey)\e[0m & \e[32m${poolName}.node.skey\e[0m Keys: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${regPayName}.skey\e[0m,\e[32m ${poolName}.node.skey\e[0m and all PoolOwner Staking Keys: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
@@ -201,8 +225,8 @@ echo
 echo -e "\e[0mPool-ID:\e[32m ${poolID} \e[90m"
 echo
 
-#Show a warning, if the minimum Pledge will be not respected after the pool registration
-if [[ ${lovelacesToSend} -lt ${poolPledge} ]]; then echo -e "\e[35mWARNING - You're registered Pledge will not be respected after registration. Not enough stake on the payment Addr!\e[0m\n"; fi
+#Show a warning to respect the pledge amount
+if [[ ${poolPledge} -gt 0 ]]; then echo -e "\e[35mATTENTION - You're registered Pledge will be set to ${poolPledge} lovelaces, please respected it with the sum of all registered owner addresses!\e[0m\n"; fi
 
 
 #Show a message if it's a reRegistration

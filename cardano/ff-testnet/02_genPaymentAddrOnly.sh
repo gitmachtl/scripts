@@ -12,8 +12,6 @@
 
 if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <AddressName>"; exit 2; fi
 
-file_unlock ${addrName}.vkey
-file_unlock ${addrName}.skey
 ${cardanocli} shelley address key-gen --verification-key-file ${addrName}.vkey --signing-key-file ${addrName}.skey
 file_lock ${addrName}.vkey
 file_lock ${addrName}.skey
@@ -27,7 +25,6 @@ cat ${addrName}.skey
 echo
 
 #Building a Payment Address
-file_unlock ${addrName}.addr
 ${cardanocli} shelley address build --payment-verification-key-file ${addrName}.vkey ${magicparam} > ${addrName}.addr
 file_lock ${addrName}.addr
 
