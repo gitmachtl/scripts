@@ -16,10 +16,6 @@ echo
 echo -e "\e[0mCreating Node Offline Keys\e[32m ${nodeName}.node.vkey/skey\e[0m and Issue.Counter File\e[32m ${nodeName}.node.counter"
 echo
 
-file_unlock ${nodeName}.node.vkey
-file_unlock ${nodeName}.node.skey
-file_unlock ${nodeName}.node.counter
-
 ${cardanocli} shelley node key-gen --verification-key-file ${nodeName}.node.vkey --signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter
 
 file_lock ${nodeName}.node.vkey
