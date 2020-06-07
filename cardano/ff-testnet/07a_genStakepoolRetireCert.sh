@@ -12,7 +12,7 @@
 
 if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> [optional retirement EPOCH value]"; exit 1; fi
 
-retireEPOCH=$2
+if [[ $# -eq 2 ]]; then retireEPOCH=$2; fi
 
 #Check if json file exists
 if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[33mERROR - \"${poolFile}.pool.json\" does not exist, a dummy one with minimum parameters for deRegistration was created, please retry.\e[0m";
