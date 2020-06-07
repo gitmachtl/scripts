@@ -187,8 +187,8 @@ if [[ ${lovelacesToSend} -lt 0 ]]; then echo -e "\e[35mNot enough funds on the p
 echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m"
 echo
 
-txBodyFile="${tempDir}/${poolName}.txbody"
-txFile="${tempDir}/${poolName}.tx"
+txBodyFile="${tempDir}/$(basename ${poolName}).txbody"
+txFile="${tempDir}/$(basename ${poolName}).tx"
 
 echo
 echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\e[0m and all PoolOwner Delegation certificates: \e[32m ${txBodyFile} \e[90m"

@@ -96,8 +96,8 @@ echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m ${lovelacesToRetur
 
 echo
 
-txBodyFile="${tempDir}/${fromAddr}.txbody"
-txFile="${tempDir}/${fromAddr}.tx"
+txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
+txFile="${tempDir}/$(basename ${fromAddr}).tx"
 
 echo
 echo -e "\e[0mBuilding the unsigned transaction body: \e[32m ${txBodyFile} \e[90m"
