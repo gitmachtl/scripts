@@ -12,7 +12,7 @@
 
 #Check command line parameter
 case $# in
-  2 ) regPayName="$2";
+  2|3) regPayName="$2";
       poolFile="$1";;
   * ) cat >&2 <<EOF
 ERROR - Usage: $(basename $0) <PoolNodeName> <PaymentAddrForRegistration> [optional keyword FORCE to force a registration instead of a re-Registration]
