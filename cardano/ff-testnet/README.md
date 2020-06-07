@@ -254,6 +254,38 @@ If you wanna update you pledge, costs or owners on a registered stakepool just d
 
 Done.  
 
+## Register a multiowner stake pool
+
+It's similar to a single owner stake pool registration (example above). All owners must have a registered stake address on the blockchain first! Here is a 2 owner example ...
+
+1. Generate the stakepool certificate
+   1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it for multiowner usage and set your owners and also the rewards account. The rewards account is also a stake address (but not delegated to the pool!):
+    ```
+   {
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "owner-1"
+         },
+         {
+         "ownerName": "owner-2"
+         }
+      ],
+      "poolRewards": "rewards-account",
+      "poolPledge": "200000000000",
+      "poolCost": "10000000000",
+      "poolMargin": "0.08"
+   }
+   ```
+   1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
+1. Delegate all owners to the pool -> pledge
+<br>```./05b_genDelegationCert.sh mypool owner-1``` this will generate the owner-1.deleg.cert
+<br>```./05b_genDelegationCert.sh mypool owner-2``` this will generate the owner-2.deleg.cert
+1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool paymentaddress```    
+
+Done.
+
+
 ## Retire a stakepool from the blockchain
 
 If you wanna retire your registered stakepool mypool, you have to do just a few things
