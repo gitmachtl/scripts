@@ -126,9 +126,9 @@ If the pool was registered before (when there is a **regSubmitted** value in the
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
 <br>```./05d_checkPoolOnChain.sh mypool``` checks if the pool mypool is registered on the blockchain
 
-* **06_regDelegationCert.sh:** register a simple delegation (from 05b) name.deleg.cert to a pool poolname.node.vkey 
-<br>```./06_regDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
-<br>```./06_regDelegationCert.sh yourpool someone``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name someone to the pool yourpool paying for fees with the funds from someone.payment.addr
+* **06_regDelegationCert.sh:** register a simple delegation (from 05b) name.deleg.cert 
+<br>```./06_regDelegationCert.sh <delegatorName> <nameOfPaymentAddr>```
+<br>```./06_regDelegationCert.sh someone someone.payment``` this will register the delegation certificate someone.deleg.cert for the stake-address someone.staking.addr on the blockchain. The transaction fees will be paid from someone.payment.addr.
 
 * **07a_genStakepoolRetireCert.sh:** generates the de-registration certificate poolname.pool.dereg-cert to retire a stakepool from the blockchain
   <br>```./07a_genStakepoolRetireCert.sh <PoolNodeName> [optional retire EPOCH]```
@@ -240,8 +240,8 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
 1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
 1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```
 1. (Optional: you can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command)
-1. Generate the delegation certificate ```./05b_genDelegationCert.sh yourpool delegator```
-1. Register the delegation certificate on the blockchain ```./06_regDelegationCert.sh yourpool delegator```
+1. Generate the delegation certificate delegator.deleg.cert with ```./05b_genDelegationCert.sh yourpool delegator```
+1. Register the delegation certificate now on the blockchain with funds from delegator.payment.addr<br>```./06_regDelegationCert.sh delegator delegator.payment```
 
 Done.
 
