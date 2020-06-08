@@ -11,15 +11,25 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  2 ) poolName="$1";
-      delegName="$2";;
+  2 ) delegName="$1";
+      regPayName="$2";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <PoolNodeName> <DelegatorStakeAddressName>
+
+Usage:  $(basename $0) <DelegatorName> <PaymentAddrForRegistration>
+
+Ex.: $(basename $0) owner owner.payment   (reg. owner.staking.addr with owner.deleg.cert, owner.payment.addr is paying the fees)
+Ex.: $(basename $0) delegator1 myfunds    (reg. delegator1.staking.addr with delegator1.deleg.cert, myfunds.addr is payming the fees)
+
 EOF
   exit 1;; esac
 
+if [ ! -f "${delegName}.deleg.cert" ]; then echo -e "\n\e[35mERROR - \"${delegName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 1; fi
+if [ ! -f "${delegName}.staking.skey" ]; then echo -e "\n\e[35mERROR - \"${delegName}.staking.skey\" does not exist! Please create it first with script 03a & 03b.\e[0m"; exit 1; fi
+if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
+if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
+
 echo
-echo -e "\e[0mRegister Delegation Certificate\e[32m ${delegName}.deleg.cert\e[0m with funds from Address\e[32m ${delegName}.payment.addr\e[0m:"
+echo -e "\e[0mRegister Delegation Certificate\e[32m ${delegName}.deleg.cert\e[0m with funds from Address\e[32m ${regPayName}.addr\e[0m:"
 echo
 
 #get values to register the staking address on the blockchain
@@ -32,11 +42,11 @@ echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
-sendFromAddr=$(cat ${delegName}.payment.addr)
-sendToAddr=$(cat ${delegName}.payment.addr)
+sendFromAddr=$(cat ${regPayName}.addr)
+sendToAddr=$(cat ${regPayName}.addr)
 
 echo
-echo -e "Pay fees from Address\e[32m ${delegName}.payment.addr\e[0m: ${sendFromAddr}"
+echo -e "Pay fees from Address\e[32m ${regPayName}.addr\e[0m: ${sendFromAddr}"
 echo
 
 
@@ -82,7 +92,7 @@ ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-paramet
 #    --certificate deleg.cert \
 #    --protocol-params-file params.json
 
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} --signing-key-file ${delegName}.payment.skey --signing-key-file ${delegName}.staking.skey --certificate ${delegName}.deleg.cert | awk '{ print $2 }')
+fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} --signing-key-file ${regPayName}.skey --signing-key-file ${delegName}.staking.skey --certificate ${delegName}.deleg.cert | awk '{ print $2 }')
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m ${fee} lovelaces \e[90m"
 minRegistrationFund=$(( ${fee} ))
 
@@ -99,8 +109,8 @@ if [[ ${lovelacesToSend} -lt 0 ]]; then echo -e "\e[35mNot enough funds on the p
 echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m"
 echo
 
-txBodyFile="${tempDir}/$(basename ${delegName}).txbody"
-txFile="${tempDir}/$(basename ${delegName}).tx"
+txBodyFile="${tempDir}/$(basename ${regPayName}).txbody"
+txFile="${tempDir}/$(basename ${regPayName}).tx"
 
 echo
 echo -e "\e[0mBuilding the unsigned transaction body with Delegation Certificate\e[32m ${delegName}.deleg.cert\e[0m certificates: \e[32m ${txBodyFile} \e[90m"
@@ -112,11 +122,11 @@ ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}
 cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${delegName}.payment.skey\e[0m & \e[32m${delegName}.staking.skey\e[0m: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${regPayName}.skey\e[0m & \e[32m${delegName}.staking.skey\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${delegName}.payment.skey --signing-key-file ${delegName}.staking.skey --tx-file ${txFile} ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey --signing-key-file ${delegName}.staking.skey --tx-file ${txFile} ${magicparam}
 
 cat ${txFile}
 echo
