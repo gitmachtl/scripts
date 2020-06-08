@@ -239,6 +239,7 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
 1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator```
 1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
 1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```
+1. (Optional: you can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` 
 1. Generate the delegation certificate ```./05b_genDelegationCert.sh yourpool delegator```
 1. Register the delegation certificate on the blockchain ```./06_regDelegationCert.sh yourpool delegator```
 
