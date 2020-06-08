@@ -2,8 +2,8 @@
 
 @LordWotton83 nominated me as an **Cardano Ambassador Content Creator!**
 
-If you don't mind, you could vote for me on the following link. It would mean a lot to me,<br>
-i love to support other members in the cardano community.<br>
+If you don't mind, you could nominate for me on the following link.<br>
+It would mean a lot to me, **i love to support other members in the cardano community.**<br>
 That's what i do, beside running my own Stakepool. :-)
 
 https://cardano.org/ambassadors/en/nominate-an-ambassador/
