@@ -2,11 +2,11 @@
 
 @LordWotton83 nominated me as an **Cardano Ambassador Content Creator!**
 
-If you don't mind, you could nominate for me on the following [link](https://cardanocommunity.typeform.com/to/koCLwW){:target="_blank"}.<br>
+If you don't mind, you could nominate for me on the following [link](https://cardanocommunity.typeform.com/to/koCLwW).<br>
 It would mean a lot to me, **i love to support other members in the cardano community.**<br>
 That's what i do, beside running my own Stakepool. :-)
 
-[Link to the Nomination](https://cardanocommunity.typeform.com/to/koCLwW){:target="_blank"}
+[Link to the Nomination](https://cardanocommunity.typeform.com/to/koCLwW) (RightClick open in new tab/window)
 
 To fill out:
 
