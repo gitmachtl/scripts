@@ -6,9 +6,7 @@ If you don't mind, you could nominate for me on the following link.<br>
 It would mean a lot to me, **i love to support other members in the cardano community.**<br>
 That's what i do, beside running my own Stakepool. :-)
 
-<a href="https://cardano.org/ambassadors/en/nominate-an-ambassador/" target="_blank">https://cardano.org/ambassadors/en/nominate-an-ambassador/</a>
-
-**-> Nomination Form**
+<a href="https://cardano.org/ambassadors/en/nominate-an-ambassador/" target="_blank">https://cardano.org/ambassadors/en/nominate-an-ambassador/</a> **-> Nomination Form**
 
 My name is "Martin Lang" -> Content Creator -> Yes, 3 links & 1 in the last month
 
