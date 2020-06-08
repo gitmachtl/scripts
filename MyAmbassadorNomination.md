@@ -10,7 +10,7 @@ That's what i do, beside running my own Stakepool. :-)
 
 My name is "Martin Lang" -> Content Creator -> Yes, 3 links & 1 in the last month
 
-Links to copy in:<br>
+Links to copy in:
 ```
 https://github.com/gitmachtl/scripts/tree/master/cardano/ff-testnet<br>
 https://forum.cardano.org/t/checking-your-connections-on-your-stakepool-with-pingnodes<br>
