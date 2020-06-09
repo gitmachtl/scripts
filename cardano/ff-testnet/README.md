@@ -69,7 +69,7 @@ chmod 400 poolname.pool.json
 
 * **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
 <br>```./03b_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
-<br>```./03b_regStakingAddrCert.sh owner.staking owner.payment``` will register the staking addr owner.staking using the owner.staking.cert with funds from owner.payment on the blockchain. this will also introduce the blockchain with your owner.payment address, so the chain knows the staking/base address relationship.<br>
+<br>```./03b_regStakingAddrCert.sh owner.staking addr1``` will register the staking addr owner.staking using the owner.staking.cert with funds from addr1 on the blockchain. you could of course also use the owner.payment address here for funding.<br>
 
 * **03c_checkStakingAddrOnChain.sh:** check the blockchain about the staking address
 <br>```./03c_checkStakingAddrOnChain.sh <name>```
