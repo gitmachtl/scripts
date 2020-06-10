@@ -25,7 +25,12 @@ latestKESnumber=$(cat ${nodeName}.kes.counter)
 #Copy them to a new filename in the upload folder with fixed names
 mkdir -p ./upload
 
+#unlock the files in the upload directory so they can be overwritten
 file_unlock ./upload/${nodeName}.kes-expire.json
+file_unlock ./upload/${nodeName}.kes.skey
+file_unlock ./upload/${nodeName}.node.opcert
+file_unlock ./upload/${nodeName}.vrf.skey
+
 cp ./${nodeName}.kes-${latestKESnumber}.skey ./upload/${nodeName}.kes.skey       #Copy latest KES key over to fixed name nodeName.kes.skey
 cp ./${nodeName}.kes-expire.json ./upload/${nodeName}.kes-expire.json		 #Copy latest KES expire information -> to automated alerts from the coreNode
 cp ./${nodeName}.node-${latestKESnumber}.opcert ./upload/${nodeName}.node.opcert #Copy latest opcert over to fixed name nodeName.node.opcert
