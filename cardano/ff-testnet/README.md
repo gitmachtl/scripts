@@ -1,16 +1,14 @@
-# Description (Scripts from ATADA Stakepool)
+# Description - Useful setup scripts 
 
-## First of all, you don't need them all! Examples are at the bottom of this page :-)
+## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/ff-testnet/README.md#examples) are at the bottom of this page :-)
 
 **FOR CARDANO-NODE TAG: 1.13.0 and latest genesis.json !**
-
-**SCRIPTS 05a & 05c NOW SUPPORT MULTIOWNER :-)**
 
 **NO DIRECTORY STRUCTURE, CURRENTLY ALL FLAT**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
-Feel free to reach out to me on telegram @atada_stakepool
+Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter - [@ATADA_Stakepool](https://twitter.com/ATADA_Stakepool), Homepage - https://stakepool.at https://at-ada.net
 
 If you can't hold back and wanna give me a little Tip, here's my MainNet Ada Address, thx! :-)
 ```DdzFFzCqrhsyR1YeYAK47tFH7GSuw2hnuZsqGtTgSbmae9sqLjCm8b6vNvYHK7ZVFmDA9GRXA2ZJXy2dWEK7Wej5i9LXJMZvjtKawknc```
@@ -39,7 +37,7 @@ If you have an address and you wanna use it just do a simple:
 
 ### File autolock
 
-For a security reason, all important generated files are automatically locked against deleting/overwriting them via accident! Only the scripts will unlock/lock them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
+For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
 ```
 chmod 600 poolname.pool.json
 nano poolname.pool.json
@@ -69,7 +67,7 @@ chmod 400 poolname.pool.json
 
 * **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
 <br>```./03b_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
-<br>```./03b_regStakingAddrCert.sh owner.staking owner.payment``` will register the staking addr owner.staking using the owner.staking.cert with funds from owner.payment on the blockchain. this will also introduce the blockchain with your owner.payment address, so the chain knows the staking/base address relationship.<br>
+<br>```./03b_regStakingAddrCert.sh owner.staking addr1``` will register the staking addr owner.staking using the owner.staking.cert with funds from addr1 on the blockchain. you could of course also use the owner.payment address here for funding.<br>
 
 * **03c_checkStakingAddrOnChain.sh:** check the blockchain about the staking address
 <br>```./03c_checkStakingAddrOnChain.sh <name>```
@@ -111,7 +109,7 @@ chmod 400 poolname.pool.json
    ```
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>After the edit, rerun the script with the name again.<br>
-   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply change them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
+   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](https://github.com/gitmachtl/scripts/blob/master/cardano/ff-testnet/README.md#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
@@ -249,8 +247,9 @@ Done.
 
 If you wanna update you pledge, costs or owners on a registered stakepool just do the following
 
-1. Edit the existing mypool.pool.json file, only edit the poolPledge/poolCost/poolMargin values, save it.
+1. [Unlock](https://github.com/gitmachtl/scripts/blob/master/cardano/ff-testnet/README.md#file-autolock) the existing mypool.pool.json file and edit it. Only edit the poolOwnerAccount/poolRewardsAccount/poolPledge/poolCost/poolMargin values, save it.
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
+1. (Optional create delegation certificates if you have added an owner or an extra rewards account with script 05b)
 1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool owner.payment```<br>No delegation update needed.
 
 Done.  
