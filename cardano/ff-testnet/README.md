@@ -35,7 +35,7 @@ If you have an address and you wanna use it just do a simple:
 
 ### Directory Structure
 
-There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. However, if you wanna use directories there is a way: 
+There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Description](https://github.com/gitmachtl/scripts/tree/master/cardano/ff-testnet#scriptfiles-short-info) below.<p>However, if you wanna use directories there is a way: 
 1. Making a directory for a complete set: (all wallet and poolfiles in one directory)
    1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
    1. Make a directory whereever you like
@@ -47,7 +47,7 @@ There is no directory structure, the current design is FLAT. So all Examples bel
    1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
    <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
    <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
-   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them, thx!
+   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them. Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading ., .. or /. Thx!
 
 ### File autolock
 
