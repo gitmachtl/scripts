@@ -26,7 +26,8 @@ echo "
         \"poolRewards\":  \"set_your_rewards_name_here_can_be_same_as_owner\",
 	\"poolPledge\": \"100000000000\",
 	\"poolCost\":   \"10000000000\",
-	\"poolMargin\": \"0.10\"
+	\"poolMargin\": \"0.10\",
+        \"poolMetadataURL\":   \"https://set_your_webserver_url_here/$(basename ${poolFile}).metadata.json\"
 }
 " > ${poolFile}.pool.json
 echo
