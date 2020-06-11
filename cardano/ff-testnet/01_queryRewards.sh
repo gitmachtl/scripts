@@ -23,10 +23,10 @@ echo
 echo -e "\e[0mChecking Rewards on Stake-Address-File\e[32m ${addrName}.addr\e[0m: ${stakingAddr}"
 echo
 
-rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${stakingAddr} --testnet-magic 42 | jq 'flatten | .[0].rewardAccountBalance')
-
-echo -e "Current Rewards: \e[33m${rewardsAmount} lovelaces\e[0m"
+rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${stakingAddr} --testnet-magic 42 | jq -r .\"${stakingAddr}\".rewardAccountBalance)
 
 #Checking about rewards on the stake address
-if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards on the stake Addr!\e[0m\n"; exit; fi
+if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards found on the stake Addr!\e[0m\n"; exit; fi
+
+echo -e "Current Rewards: \e[33m${rewardsAmount} lovelaces\e[0m\n"
 
