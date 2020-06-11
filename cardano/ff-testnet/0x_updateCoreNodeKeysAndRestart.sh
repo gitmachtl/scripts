@@ -13,11 +13,22 @@
 
 if [[ ! $1 == "" ]]; then nodeName=$1; else echo "ERROR - Usage: $0 <PoolNodeName>"; exit 2; fi
 
-#Generate a new KES Pair
+
+
+#--  STEP 1  --------------------------------------------
+# Generate new KES Pair and a new OpCert for the coreNode
+#--------------------------------------------------------
+
 ./04c_genKESKeys.sh ${nodeName}
 
-#Generate a new opcert
 ./04d_genNodeOpCert.sh ${nodeName}
+
+
+
+
+#--  STEP 2  -----------------------------------------------------------
+# Copy the new files into the ./upload directory and give them fixed names
+#-----------------------------------------------------------------------
 
 #Get the latest version number
 latestKESnumber=$(cat ${nodeName}.kes.counter)
@@ -31,17 +42,32 @@ file_unlock ./upload/${nodeName}.kes.skey
 file_unlock ./upload/${nodeName}.node.opcert
 file_unlock ./upload/${nodeName}.vrf.skey
 
+cp ./${nodeName}.kes-expire.json ./upload/${nodeName}.kes-expire.json            #Copy latest KES expire information -> to automated alerts from the coreNode
 cp ./${nodeName}.kes-${latestKESnumber}.skey ./upload/${nodeName}.kes.skey       #Copy latest KES key over to fixed name nodeName.kes.skey
-cp ./${nodeName}.kes-expire.json ./upload/${nodeName}.kes-expire.json		 #Copy latest KES expire information -> to automated alerts from the coreNode
 cp ./${nodeName}.node-${latestKESnumber}.opcert ./upload/${nodeName}.node.opcert #Copy latest opcert over to fixed name nodeName.node.opcert
 cp ./${nodeName}.vrf.skey ./upload/${nodeName}.vrf.skey				 #Copy vrf key over to fixed name nodeName.vrf.skey
+
+
+
+
+#--  STEP 3  ----------------------------------------------------------
+# Upload the files from the ./upload to the coreNode via SCP connection
+#----------------------------------------------------------------------
 
 echo -e "\e[0mUploading new files now ...\e[90m"
 #Upload them to the CoreNode Server
 scp -P ${remoteServerSSHport} ./upload/* ${remoteServerUser}@${remoteServerAddr}:${remoteServerDestDir}
-echo -e "\e[0mDONE. Initiating coreNode restart ...\e[90m"
+echo -e "\e[0mDONE.\e[90m\n"
+
+
+
+
+#--  STEP 4  ---------------------------------------------------------
+# Execute the core restart script on the coreNode to load the new keys
+#---------------------------------------------------------------------
 
 #Executing a coreNode restart on the server
+echo -e "\e[0mInitiating coreNode restart ...\e[90m"
 ssh -p ${remoteServerSSHport} -tq ${remoteServerUser}@${remoteServerAddr} ${remoteServerPostCommand}
 echo -e "\e[0mDONE. coreNode now running with the new Keys!"
 echo
