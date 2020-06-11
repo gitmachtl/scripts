@@ -4,8 +4,6 @@
 
 **FOR CARDANO-NODE TAG: 1.13.0 and latest genesis.json !**
 
-**NO DIRECTORY STRUCTURE, CURRENTLY ALL FLAT**
-
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
 Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter - [@ATADA_Stakepool](https://twitter.com/ATADA_Stakepool), Homepage - https://stakepool.at https://at-ada.net
@@ -13,7 +11,7 @@ Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter -
 If you can't hold back and wanna give me a little Tip, here's my MainNet Ada Address, thx! :-)
 ```DdzFFzCqrhsyR1YeYAK47tFH7GSuw2hnuZsqGtTgSbmae9sqLjCm8b6vNvYHK7ZVFmDA9GRXA2ZJXy2dWEK7Wej5i9LXJMZvjtKawknc```
 
-## Filenames used
+### Filenames used
 
 I use the following naming scheme for the files:<br>
 ``` 
@@ -34,6 +32,22 @@ poolname.kes.counter, poolname.kes-expire.json
 The *.addr files contains the address in the format "60386ab8..." or "001d4e1cdcdb000ff11e9430..." for example.
 If you have an address and you wanna use it just do a simple:
 ```echo "60386ab8..." > myaddress.addr```
+
+### Directory Structure
+
+There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. However, if you wanna use directories there is a way: 
+1. Making a directory for a complete set: (all wallet and poolfiles in one directory)
+   1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
+   1. Make a directory whereever you like
+   1. Call the scripts from within this directory, all files will be generated/used in this directory<p>
+1. Using subdirectories from a base directory:
+   1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
+   1. Make a directory that is your BASE directory like /home/user/cardano
+   1. Go into this directory ```cd /home/user/cardano``` and make other subdirectories like ```mkdir mywallets``` and ```mkdir mypools```
+   1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
+   <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
+   <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
+   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories!
 
 ### File autolock
 
