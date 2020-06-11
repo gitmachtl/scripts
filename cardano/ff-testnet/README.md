@@ -74,7 +74,7 @@ chmod 400 poolname.pool.json
 <br>```./02_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
 
 * **01_queryRewards.sh:** checks the amount of rewards on a stake-address
-<br>```./01_queryRewards.sh <name>```
+<br>```./01_queryRewards.sh <nameOfStakeAddr>```
 <br>```./02_queryRewards.sh owner.staking``` shows the rewards from the owner.staking.addr
 
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
