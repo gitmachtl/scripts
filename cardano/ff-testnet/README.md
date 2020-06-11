@@ -71,6 +71,11 @@ chmod 400 poolname.pool.json
 <br>```./02_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./02_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
 
+* **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
+<br>```./02_sendLovelaces.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
+<br>```./02_sendLovelaces.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
+<br>```./02_sendLovelaces.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
+
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
 <br>```./02_genPaymentAddrOnly.sh <name>```
 <br>```./02_genPaymentAddrOnly.sh addr1``` will generate the files addr1.addr, addr1.skey, addr1.vkey<br>
