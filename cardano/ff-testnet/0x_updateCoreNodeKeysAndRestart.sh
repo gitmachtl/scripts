@@ -35,21 +35,23 @@ if [[ ! $1 == "" ]]; then nodeName=$1; else echo "ERROR - Usage: $0 <PoolNodeNam
 latestKESnumber=$(cat ${nodeName}.kes.counter)
 
 #Copy them to a new filename in the upload folder with fixed names
+nodeBaseName="$(basename ${nodeName})"  #grab the basename of the given PoolNodeName
+
 mkdir -p ./upload
 
 #unlock the files in the upload directory so they can be overwritten
-file_unlock ./upload/${nodeName}.kes-expire.json
-file_unlock ./upload/${nodeName}.kes.skey
-file_unlock ./upload/${nodeName}.node.opcert
-file_unlock ./upload/${nodeName}.vrf.skey
+file_unlock ./upload/${nodeBaseName}.kes-expire.json
+file_unlock ./upload/${nodeBaseName}.kes.skey
+file_unlock ./upload/${nodeBaseName}.node.opcert
+file_unlock ./upload/${nodeBaseName}.vrf.skey
 
-cp ./${nodeName}.kes-expire.json ./upload/${nodeName}.kes-expire.json            #Copy latest KES expire information to automate alerts from the coreNode if needed
-cp ./${nodeName}.kes-${latestKESnumber}.skey ./upload/${nodeName}.kes.skey       #Copy latest KES key over to fixed name nodeName.kes.skey
-cp ./${nodeName}.node-${latestKESnumber}.opcert ./upload/${nodeName}.node.opcert #Copy latest opcert over to fixed name nodeName.node.opcert
-cp ./${nodeName}.vrf.skey ./upload/${nodeName}.vrf.skey				 #Copy vrf key over to fixed name nodeName.vrf.skey, sure is sure :-)
+cp ./${nodeName}.kes-expire.json ./upload/${nodeBaseName}.kes-expire.json            #Copy latest KES expire information to automate alerts from the coreNode if needed
+cp ./${nodeName}.kes-${latestKESnumber}.skey ./upload/${nodeBaseName}.kes.skey       #Copy latest KES key over to fixed name nodeName.kes.skey
+cp ./${nodeName}.node-${latestKESnumber}.opcert ./upload/${nodeBaseName}.node.opcert #Copy latest opcert over to fixed name nodeName.node.opcert
+cp ./${nodeName}.vrf.skey ./upload/${nodeBaseName}.vrf.skey				 #Copy vrf key over to fixed name nodeName.vrf.skey, sure is sure :-)
 
 
-
+exit
 
 #--  STEP 3  --------------------------------------------------------------------
 # Upload the files from the ./upload directory to the coreNode via SCP connection
