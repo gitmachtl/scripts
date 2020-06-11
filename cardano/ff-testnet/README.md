@@ -4,6 +4,8 @@
 
 **FOR CARDANO-NODE TAG: 1.13.0 and latest genesis.json !**
 
+**ATTENTION - 01_queryRewards and 01_claimRewards needs the latest MASTER branch !**
+
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
 Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter - [@ATADA_Stakepool](https://twitter.com/ATADA_Stakepool), Homepage - https://stakepool.at https://at-ada.net
@@ -71,10 +73,14 @@ chmod 400 poolname.pool.json
 <br>```./02_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./02_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
 
+* **01_queryRewards.sh:** checks the amount of rewards on a stake-address
+<br>```./01_queryRewards.sh <name>```
+<br>```./02_queryRewards.sh owner.staking``` shows the rewards from the owner.staking.addr
+
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
-<br>```./02_sendLovelaces.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
-<br>```./02_sendLovelaces.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
-<br>```./02_sendLovelaces.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
+<br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
+<br>```./01_claimRewards.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
+<br>```./01_claimRewards.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
 
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
 <br>```./02_genPaymentAddrOnly.sh <name>```
