@@ -15,7 +15,7 @@ If you can't hold back and wanna give me a little Tip, here's my MainNet Ada Add
 
 I use the following naming scheme for the files:<br>
 ``` 
-Simple "enterprise" address to receive/send funds:
+Simple "enterprise" address to only receive/send funds (no staking possible with these type of addresses):
 name.addr, name.vkey, name.skey
 
 Payment(Base)/Staking address combo:
