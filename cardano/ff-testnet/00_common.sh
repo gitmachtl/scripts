@@ -31,6 +31,11 @@ export CARDANO_NODE_SOCKET_PATH=${socket}
 tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 
 
+#AddressType prefixes (testnet)
+addrTypeEnterprise="60"   	#61 for mainnet
+addrTypeBase="00"		#01 for mainnet
+addrTypeStake="58"		#e1 for mainnet
+
 
 #-------------------------------------------------------------
 #Subroutine for user interaction
