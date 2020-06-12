@@ -67,7 +67,7 @@ chmod 400 poolname.pool.json
 * **01_queryAddress.sh:** checks the amount of lovelaces on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
 <br>```./01_queryAddress.sh <name>```
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
-<br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
+<br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr (MASTER branch needed)
 
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces from one address to another, uses always all UTXOs of the source address
 <br>```./02_sendLovelaces.sh <fromAddr> <toAddr> <lovelaces>```
