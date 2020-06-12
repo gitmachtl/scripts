@@ -64,18 +64,15 @@ chmod 400 poolname.pool.json
 
 * **00_common.sh:** set your variables in there for your config, will be used by the scripts. you can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
-* **01_queryAddress.sh:** checks the amount of lovelaces on an address
+* **01_queryAddress.sh:** checks the amount of lovelaces on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
 <br>```./01_queryAddress.sh <name>```
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
+<br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
 
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces from one address to another, uses always all UTXOs of the source address
 <br>```./02_sendLovelaces.sh <fromAddr> <toAddr> <lovelaces>```
 <br>```./02_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./02_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
-
-* **01_queryRewards.sh:** checks the amount of rewards on a stake-address
-<br>```./01_queryRewards.sh <nameOfStakeAddr>```
-<br>```./02_queryRewards.sh owner.staking``` shows the rewards from the owner.staking.addr
 
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
 <br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
