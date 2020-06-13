@@ -2,9 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/ff-testnet/README.md#examples) are at the bottom of this page :-)
 
-**FOR CARDANO-NODE TAG: 1.13.0 and latest genesis.json !**
-
-**ATTENTION - 01_queryRewards and 01_claimRewards needs the latest MASTER branch !**
+**TESTED FOR CARDANO-NODE TAG: 1.13.0-rewards !**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
@@ -67,7 +65,7 @@ chmod 400 poolname.pool.json
 * **01_queryAddress.sh:** checks the amount of lovelaces on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
 <br>```./01_queryAddress.sh <name>```
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
-<br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
+<br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr (**MASTER branch needed**)
 
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces from one address to another, uses always all UTXOs of the source address
 <br>```./02_sendLovelaces.sh <fromAddr> <toAddr> <lovelaces>```
