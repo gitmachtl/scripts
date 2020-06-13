@@ -20,7 +20,7 @@ Ex.: $(basename $0) atada.staking atada.payment funds  (claims the rewards from 
 EOF
   exit 1;; esac
 
-#Check if an optional fee payment address is there and different to the receiver address
+#Check if an optional fee payment address is given and different to the receiver address
 fromAddr=${toAddr}
 if [[ $# -eq 3 ]]; then fromAddr=$3; fi
 if [[ "${fromAddr}" == "${toAddr}" ]]; then rxcnt="1"; else rxcnt="2"; fi

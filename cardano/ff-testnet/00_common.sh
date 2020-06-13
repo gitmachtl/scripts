@@ -22,7 +22,6 @@ remoteServerPostCommand="~/cardano/restartCore.sh"	#Command to execute via SSH a
 
 
 
-
 #--------- don't edit below here -----------------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------------------------------------------------
 export CARDANO_NODE_SOCKET_PATH=${socket}

@@ -17,7 +17,7 @@ checkAddr=$(cat ${addrName}.addr)
 
 typeOfAddr=${checkAddr:0:2}
 
-#What type of address is it? Base&Enterprise or Stake
+#What type of Address is it? Base&Enterprise or Stake
 if [[ ${typeOfAddr} == ${addrTypeEnterprise} || ${typeOfAddr} == ${addrTypeBase} ]]; then  #Enterprise and Base UTXO adresses
 
 	echo
