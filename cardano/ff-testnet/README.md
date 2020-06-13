@@ -2,9 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/ff-testnet/README.md#examples) are at the bottom of this page :-)
 
-**TESTED FOR CARDANO-NODE TAG: 1.13.0 !**
-
-**ATTENTION - 01_claimRewards needs the latest MASTER branch !**
+**TESTED FOR CARDANO-NODE TAG: 1.13.0-rewards !**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
