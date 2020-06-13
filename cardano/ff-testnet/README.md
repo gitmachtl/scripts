@@ -2,7 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/ff-testnet/README.md#examples) are at the bottom of this page :-)
 
-**FOR CARDANO-NODE TAG: 1.13.0 and latest genesis.json !**
+**TESTED FOR CARDANO-NODE TAG: 1.13.0 !**
 
 **ATTENTION - 01_claimRewards needs the latest MASTER branch !**
 
