@@ -22,11 +22,11 @@ echo -e "\e[0mChecking the ledger-state about the \e[32m ${addrName}.staking.add
 echo
 
 #check ledger-state
-stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | grep "${checkAddr}" | wc -l)
+stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | jq ._delegationState._dstate._rewards | grep "${checkAddr}" | wc -l)
 
 if [[ ${stakeAddrInLedgerCnt} -gt 0 ]]; then
-					echo -e "\e[32mStake-Address is on the blockchain!\e[90m Could also be a reference to it from a StakePool as owner/rewards address.\e[0m";
+					echo -e "\e[32mStake-Address is registered on the chain!\e[0m";
 				    else
-					echo -e "\e[35mStake-Address is NOT on the chain!\e[0m";
+					echo -e "\e[35mStake-Address is NOT registered on the chain!\e[0m";
 fi
 echo
