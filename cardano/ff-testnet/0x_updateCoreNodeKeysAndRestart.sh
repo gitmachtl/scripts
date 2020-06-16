@@ -60,7 +60,7 @@ cp ./${nodeName}.vrf.skey ./upload/${nodeBaseName}.vrf.skey				 #Copy vrf key ov
 
 echo -e "\e[0mUploading new files now ...\e[90m"
 #Upload them to the CoreNode Server
-scp -P ${remoteServerSSHport} ./upload/* ${remoteServerUser}@${remoteServerAddr}:${remoteServerDestDir}
+scp -P ${remoteServerSSHport} ./upload/${nodeBaseName}.* ${remoteServerUser}@${remoteServerAddr}:${remoteServerDestDir}
 echo -e "\e[0mDONE.\e[90m\n"
 
 
