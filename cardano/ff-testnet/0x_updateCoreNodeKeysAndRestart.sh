@@ -51,8 +51,6 @@ cp ./${nodeName}.node-${latestKESnumber}.opcert ./upload/${nodeBaseName}.node.op
 cp ./${nodeName}.vrf.skey ./upload/${nodeBaseName}.vrf.skey				 #Copy vrf key over to fixed name nodeName.vrf.skey, sure is sure :-)
 
 
-exit
-
 #--  STEP 3  --------------------------------------------------------------------
 # Upload the files from the ./upload directory to the coreNode via SCP connection
 #
