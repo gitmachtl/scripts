@@ -1,7 +1,9 @@
-## Directory name changed, please go to: ##
-## https://github.com/gitmachtl/scripts/tree/master/cardano/shelley-testnet ##
+## Directory name changed, please go to:
+## https://github.com/gitmachtl/scripts/tree/master/cardano/shelley-testnet
 <p>
-### Thanks! ###
+  
+** Thanks! **
+
 <p>
 Useful scripts from ATADA_StakePool_Austria
 
