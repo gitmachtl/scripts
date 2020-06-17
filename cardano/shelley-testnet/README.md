@@ -33,6 +33,10 @@ The *.addr files contains the address in the format "60386ab8..." or "001d4e1cdc
 If you have an address and you wanna use it just do a simple:
 ```echo "60386ab8..." > myaddress.addr```
 
+**The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
+**If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
+
+
 ### Directory Structure
 
 There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Description](https://github.com/gitmachtl/scripts/tree/master/cardano/shelley-testnet#scriptfiles-short-info) below.<p>However, if you wanna use directories there is a way: 
@@ -206,7 +210,7 @@ The json file could end up like this one after the pool was registered and also 
 Lets say we wanna make ourself a normal address to send/receive ada, we want this to be nicknamed mywallet.
 Than we want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
 
-1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
+1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files and source it (```source ./00_common.sh```)
 1. Generate a simple address to receive some ADA ```./02_genPaymentAddrOnly.sh mywallet```
 1. Transfer some ADA to that new address mywallet.addr
 1. Check that you received it using ```./01_queryAddress.sh mywallet```
