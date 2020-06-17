@@ -1,6 +1,6 @@
 # Description - Useful setup scripts 
 
-## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/ff-testnet/README.md#examples) are at the bottom of this page :-)
+## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#examples) are at the bottom of this page :-)
 
 **TESTED FOR CARDANO-NODE TAG: 1.13.0-rewards !**
 
@@ -35,7 +35,7 @@ If you have an address and you wanna use it just do a simple:
 
 ### Directory Structure
 
-There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Description](https://github.com/gitmachtl/scripts/tree/master/cardano/ff-testnet#scriptfiles-short-info) below.<p>However, if you wanna use directories there is a way: 
+There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Description](https://github.com/gitmachtl/scripts/tree/master/cardano/shelley-testnet#scriptfiles-short-info) below.<p>However, if you wanna use directories there is a way: 
 * **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
 1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
 1. Make a directory whereever you like
@@ -129,7 +129,7 @@ chmod 400 poolname.pool.json
    ```
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>After the edit, rerun the script with the name again.<br>
-   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](https://github.com/gitmachtl/scripts/blob/master/cardano/ff-testnet/README.md#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
+   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
@@ -267,7 +267,7 @@ Done.
 
 If you wanna update you pledge, costs or owners on a registered stakepool just do the following
 
-1. [Unlock](https://github.com/gitmachtl/scripts/blob/master/cardano/ff-testnet/README.md#file-autolock) the existing mypool.pool.json file and edit it. Only edit the poolOwnerAccount/poolRewardsAccount/poolPledge/poolCost/poolMargin values, save it.
+1. [Unlock](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) the existing mypool.pool.json file and edit it. Only edit the poolOwnerAccount/poolRewardsAccount/poolPledge/poolCost/poolMargin values, save it.
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
 1. (Optional create delegation certificates if you have added an owner or an extra rewards account with script 05b)
 1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool owner.payment```<br>No delegation update needed.
