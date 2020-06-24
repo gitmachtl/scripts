@@ -15,7 +15,7 @@ case $# in
   2|3) regPayName="$2";
       poolFile="$1";;
   * ) cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <PoolNodeName> <PaymentAddrForRegistration> [optional keyword FORCE to force a registration instead of a re-Registration]
+ERROR - Usage: $(basename $0) <PoolNodeName> <PaymentAddrForRegistration> [optional keyword REG to force a registration, REREG to force a re-registration]
 EOF
   exit 1;; esac
 
@@ -47,7 +47,9 @@ if [[ "${regSubmitted}" == null ]]; then regSubmitted=""; fi
 
 #Force registration instead of re-registration via optional command line command "force"
 if [[ $# -eq 3 ]]; then forceParam=$3; fi
-if [[ ${forceParam^^} == "FORCE" ]]; then regSubmitted=""; fi #progress like no regSubmitted before
+if [[ ${forceParam^^} == "REG" ]]; then regSubmitted="";  	#force a new registration
+elif [[ ${forceParam^^} == "REREG" ]]; then regSubmitted="xxx";	#force a re-registration
+fi
 
 
 #Checks for needed files
