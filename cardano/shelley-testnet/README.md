@@ -4,6 +4,8 @@
 
 **TESTED FOR CARDANO-NODE TAG: 1.13.0-rewards, 05a now working with 1.14.0, ledgerstate is currently broken so 03c/05d will not work !**
 
+**READ THE CHANGES FOR SCRIPT 05a at the description !!!**
+
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
 Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter - [@ATADA_Stakepool](https://twitter.com/ATADA_Stakepool), Homepage - https://stakepool.at https://at-ada.net
@@ -207,7 +209,8 @@ The json file could end up like this one after the pool was registered and also 
   "poolMetaDescription": "This is the description of my Pool!",
   "poolMetaTicker": "POOL",
   "poolMetaHomepage": "https://mypool.com",
-  "poolMetaUrl": "https://mypool.com/mypool.metadata.json"
+  "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+  "poolMetaHash": "f792c672a350971266b5404f04ff3bd47deb1544bc411566a2f95c090c1202cf",
   "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
   "regCertFile": "mypool.pool.cert",
   "poolID": "68c2d7335f542f2d8b961bf6de5d5fd046b912b671868b30b79c3e2219f7e51a",
