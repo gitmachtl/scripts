@@ -265,19 +265,20 @@ If you wanna send over all funds from your mywallet call the script like
       "poolPledge": "200000000000",
       "poolCost": "10000000000",
       "poolMargin": "0.08"
-      "poolRelaySingleIPv4": "10.11.12.13",
-      "poolRelaySingleDNS": "",
+      "poolRelaySingleIPv4": "",
+      "poolRelaySingleDNS": "relay.mypool.com",
       "poolRelayPort": "3001",
       "poolMetaName": "This is my Pool",
       "poolMetaDescription": "This is the description of my Pool!",
       "poolMetaTicker": "POOL",
       "poolMetaHomepage": "https://mypool.com",
       "poolMetaUrl": "https://mypool.com/mypool.metadata.json"
-  }
-  ```
+   }
+   ```
    1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner.payment```    
+1. Don't forget to upload your ```mypool.metadata.json``` file onto your webserver so that it is reachable via the URL you specified in the poolMetaUrl entry!
 1. (Optional: you can verify that your stakepool is now on the blockchain by running ```./05d_checkPoolOnChain.sh mypool```<br>If you dont see it, wait a little and retry)
 
 Done.
