@@ -27,7 +27,8 @@ echo "
 	\"poolPledge\": \"100000000000\",
 	\"poolCost\":   \"10000000000\",
 	\"poolMargin\": \"0.10\",
-        \"poolRelaySingleIPv4\":   \"the_ip_of_your_single_relay\",
+        \"poolRelaySingleIPv4\":   \"the_ip_of_your_single_relay_or_dns_below\",
+        \"poolRelaySingleDNS\":   \"the_dns_name_of_your_single_relay_or_ip_above\",
         \"poolRelayPort\":   \"the_port_of_your_single_relay(ip or dns)\",
         \"poolMetaName\":   \"THE NAME OF YOUR POOL\",
         \"poolMetaDescription\":   \"THE DESCRIPTION OF YOUR POOL\",
@@ -63,14 +64,14 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Check PoolRelay Entries
 poolRelaySingleIPv4=$(jq -r .poolRelaySingleIPv4 ${poolFile}.pool.json 2> /dev/null); if [[ "${poolRelaySingleIPv4}" == null ]]; then echo "ERROR - Parameter \"poolRelaySingleIPv4\" in ${poolFile}.pool.json does not exist"; exit 1; fi
-#poolRelaySingleDNS=$(jq -r .poolRelaySingleDNS ${poolFile}.pool.json 2> /dev/null); if [[ "${poolRelaySingleDNS}" == null ]]; then echo "ERROR - Parameter \"poolRelaySingleDNS\" in ${poolFile}.pool.json does not exist"; exit 1; fi
+poolRelaySingleDNS=$(jq -r .poolRelaySingleDNS ${poolFile}.pool.json 2> /dev/null); if [[ "${poolRelaySingleDNS}" == null ]]; then echo "ERROR - Parameter \"poolRelaySingleDNS\" in ${poolFile}.pool.json does not exist"; exit 1; fi
 poolRelayEntryCnt=0
 if [[ ! "${poolRelaySingleIPv4}" == "" ]]; then poolRelayEntryCnt=$poolRelayEntryCnt+1; fi
-#if [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelayEntryCnt=$poolRelayEntryCnt+1; fi
-#if [[ "${poolRelayEntryCnt}" -gt 1 ]]; then echo -e "\e[0mERROR - Please use only one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
-#elif [[ "${poolRelayEntryCnt}" == 0 ]]; then echo -e "\e[0mERROR - Please use at least one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
-#fi
-if [[ "${poolRelayEntryCnt}" == 0 ]]; then echo -e "\e[0mERROR - Please enter your public Pool-Relay-IP in poolRelaySingleIPv4 in your ${poolFile}.pool.json !\e[0m"; exit 1;fi
+if [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelayEntryCnt=$poolRelayEntryCnt+1; fi
+if [[ "${poolRelayEntryCnt}" -gt 1 ]]; then echo -e "\e[0mERROR - Please use only one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
+elif [[ "${poolRelayEntryCnt}" == 0 ]]; then echo -e "\e[0mERROR - Please use at least one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
+fi
+#if [[ "${poolRelayEntryCnt}" == 0 ]]; then echo -e "\e[0mERROR - Please enter your public Pool-Relay-IP in poolRelaySingleIPv4 in your ${poolFile}.pool.json !\e[0m"; exit 1;fi
 
 poolRelayPort=$(readJSONparam "poolRelayPort"); if [[ ! $? == 0 ]]; then exit 1; fi
 
@@ -137,7 +138,7 @@ done
 #Build the RelayInfo for the registration
 poolRelays=""
 if [[ ! "${poolRelaySingleIPv4}" == "" ]]; then poolRelays="--pool-relay-port ${poolRelayPort} --pool-relay-ipv4 ${poolRelaySingleIPv4}";
-elif [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelays="--pool-relay-port ${poolRelayPort} --single-host-pool-relay ${poolRelaySingleDNS}";
+elif [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelays="--single-host-pool-relay \"${poolRelaySingleDNS}\" --pool-relay-port ${poolRelayPort}";
 fi
 
 
@@ -187,10 +188,9 @@ echo
 
 
 file_unlock ${poolName}.pool.cert
-${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
+${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url \"${poolMetaUrl}\" --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
 
-echo "${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert"
-
+#echo "${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url \"${poolMetaUrl}\" --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert"
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
 	file_unlock ${poolFile}.pool.json
