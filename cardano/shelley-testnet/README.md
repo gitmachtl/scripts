@@ -2,7 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#examples) are at the bottom of this page :-)
 
-**TESTED FOR CARDANO-NODE TAG: 1.13.0-rewards !**
+**TESTED FOR CARDANO-NODE TAG: 1.13.0-rewards, 05a now working with 1.14.0, ledgerstate is currently broken so 03c/05d will not work !**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
@@ -23,7 +23,7 @@ name.payment.addr, name.payment.skey/vkey, name.deleg.cert
 name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
 
 Node/Pool files:
-poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json
+poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json, poolname.metadata.json
 poolname.vrf.skey/vkey
 poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
 poolname.kes.counter, poolname.kes-expire.json
@@ -115,7 +115,7 @@ chmod 400 poolname.pool.json
 
 * **05a_genStakepoolCert.sh:** generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain
   <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
-  The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName(s), RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) like:
+  The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName(s), RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) and PoolMetaData. This script will also generate the poolname.metadata.json file for the upload to your webserver:
   <br>**Sample mypool.pool.json**
   ```
    {
@@ -129,10 +129,19 @@ chmod 400 poolname.pool.json
       "poolPledge": "100000000000",
       "poolCost": "500000000",
       "poolMargin": "0.10",
-   }
+      "poolRelaySingleIPv4": "10.11.12.13",
+      "poolRelaySingleDNS": "",
+      "poolRelayPort": "3001",
+      "poolMetaName": "This is my Pool",
+      "poolMetaDescription": "This is the description of my Pool!",
+      "poolMetaTicker": "POOL",
+      "poolMetaHomepage": "https://mypool.com",
+      "poolMetaUrl": "https://mypool.com/mypool.metadata.json"
+    }
    ```
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
-   poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>After the edit, rerun the script with the name again.<br>
+   poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>
+   Currently only the poolRelaySingleIPv4 Entry is supported (DNS not working) so put your public IP address of your Relay in there, poolRelayPort is your public Relay port, MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location).<br>After the edit, rerun the script with the name again.<br>
    **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
@@ -191,6 +200,14 @@ The json file could end up like this one after the pool was registered and also 
   "poolPledge": "100000000000",
   "poolCost": "500000000",
   "poolMargin": "0.10",
+  "poolRelaySingleIPv4": "10.11.12.13",
+  "poolRelaySingleDNS": "",
+  "poolRelayPort": "3001",
+  "poolMetaName": "This is my Pool",
+  "poolMetaDescription": "This is the description of my Pool!",
+  "poolMetaTicker": "POOL",
+  "poolMetaHomepage": "https://mypool.com",
+  "poolMetaUrl": "https://mypool.com/mypool.metadata.json"
   "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
   "regCertFile": "mypool.pool.cert",
   "poolID": "68c2d7335f542f2d8b961bf6de5d5fd046b912b671868b30b79c3e2219f7e51a",
@@ -231,7 +248,7 @@ If you wanna send over all funds from your mywallet call the script like
 1. Make sure you have enough funds on your owner.payment.addr to pay the pool registration fee in the next steps. Make sure to make your fund big enough to stay above the pledge that we will set in the next step.
 1. Generate your stakepool certificate
    1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it
-   1. We want 200k ADA pledge, 10k ADA costs per epoch and 8% pool margin so let us set these values in the json file like
+   1. We want 200k ADA pledge, 10k ADA costs per epoch and 8% pool margin so let us set these and the Metadata values in the json file like
    ```
    {
       "poolName": "mypool",
@@ -244,8 +261,16 @@ If you wanna send over all funds from your mywallet call the script like
       "poolPledge": "200000000000",
       "poolCost": "10000000000",
       "poolMargin": "0.08"
-   }
-   ```
+      "poolRelaySingleIPv4": "10.11.12.13",
+      "poolRelaySingleDNS": "",
+      "poolRelayPort": "3001",
+      "poolMetaName": "This is my Pool",
+      "poolMetaDescription": "This is the description of my Pool!",
+      "poolMetaTicker": "POOL",
+      "poolMetaHomepage": "https://mypool.com",
+      "poolMetaUrl": "https://mypool.com/mypool.metadata.json"
+  }
+  ```
    1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner.payment```    
@@ -299,7 +324,7 @@ It's similar to a single owner stake pool registration (example above). All owne
       "poolPledge": "200000000000",
       "poolCost": "10000000000",
       "poolMargin": "0.08"
-   }
+   ...
    ```
    1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
 1. Delegate all owners to the pool -> pledge
