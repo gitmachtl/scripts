@@ -28,7 +28,6 @@ echo "
 	\"poolCost\":   \"10000000000\",
 	\"poolMargin\": \"0.10\",
         \"poolRelaySingleIPv4\":   \"the_ip_of_your_single_relay\",
-        \"poolRelaySingleDNS\":   \"the_dns_name_of_your_single_relay\",
         \"poolRelayPort\":   \"the_port_of_your_single_relay(ip or dns)\",
         \"poolMetaName\":   \"THE NAME OF YOUR POOL\",
         \"poolMetaDescription\":   \"THE DESCRIPTION OF YOUR POOL\",
@@ -42,6 +41,7 @@ echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
 exit 1; fi
+
 
 #Small subroutine to read the value of the JSON and output an error is parameter is empty/missing
 function readJSONparam() {
@@ -63,13 +63,15 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Check PoolRelay Entries
 poolRelaySingleIPv4=$(jq -r .poolRelaySingleIPv4 ${poolFile}.pool.json 2> /dev/null); if [[ "${poolRelaySingleIPv4}" == null ]]; then echo "ERROR - Parameter \"poolRelaySingleIPv4\" in ${poolFile}.pool.json does not exist"; exit 1; fi
-poolRelaySingleDNS=$(jq -r .poolRelaySingleDNS ${poolFile}.pool.json 2> /dev/null); if [[ "${poolRelaySingleDNS}" == null ]]; then echo "ERROR - Parameter \"poolRelaySingleDNS\" in ${poolFile}.pool.json does not exist"; exit 1; fi
+#poolRelaySingleDNS=$(jq -r .poolRelaySingleDNS ${poolFile}.pool.json 2> /dev/null); if [[ "${poolRelaySingleDNS}" == null ]]; then echo "ERROR - Parameter \"poolRelaySingleDNS\" in ${poolFile}.pool.json does not exist"; exit 1; fi
 poolRelayEntryCnt=0
 if [[ ! "${poolRelaySingleIPv4}" == "" ]]; then poolRelayEntryCnt=$poolRelayEntryCnt+1; fi
-if [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelayEntryCnt=$poolRelayEntryCnt+1; fi
-if [[ "${poolRelayEntryCnt}" -gt 1 ]]; then echo -e "\e[0mERROR - Please use only one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
-elif [[ "${poolRelayEntryCnt}" == 0 ]]; then echo -e "\e[0mERROR - Please use at least one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
-fi
+#if [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelayEntryCnt=$poolRelayEntryCnt+1; fi
+#if [[ "${poolRelayEntryCnt}" -gt 1 ]]; then echo -e "\e[0mERROR - Please use only one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
+#elif [[ "${poolRelayEntryCnt}" == 0 ]]; then echo -e "\e[0mERROR - Please use at least one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
+#fi
+if [[ "${poolRelayEntryCnt}" == 0 ]]; then echo -e "\e[0mERROR - Please enter your public Pool-Relay-IP in poolRelaySingleIPv4 in your ${poolFile}.pool.json !\e[0m"; exit 1;fi
+
 poolRelayPort=$(readJSONparam "poolRelayPort"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Check PoolMetadata Entries
@@ -78,6 +80,9 @@ poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; 
 poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaHomepage=$(readJSONparam "poolMetaHomepage"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
+if [[ "${#poolMetaUrl}" -gt 64 ]]; then echo -e "\e[0mERROR - The poolMetaUrl Entry in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m"; exit 1; fi
+
+
 
 #Generate new <poolFile>.metadata.json File with the Entries and also read out the Hash of it
 file_unlock ${poolFile}.metadata.json
