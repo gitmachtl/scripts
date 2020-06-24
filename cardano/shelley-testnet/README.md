@@ -151,9 +151,10 @@ chmod 400 poolname.pool.json
 <br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
 
 * **05c_regStakepoolCert.sh:** (re)register your **poolname.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from the given name.addr on the blockchain. it also updates the pool-ID and the registration date in the poolname.pool.json
-<br>```./05c_regStakepoolCert.sh <PoolNodeName> <PaymentAddrForRegistration> [optional FORCE keyword]```
+<br>```./05c_regStakepoolCert.sh <PoolNodeName> <PaymentAddrForRegistration> [optional REG / REREG keyword]```
 <br>```./05c_regStakepoolCert.sh mypool owner.payment``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain. Owner.payment.addr will pay for the fees.<br>
-If the pool was registered before (when there is a **regSubmitted** value in the name.pool.json file), the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration. If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword FORCE on the commandline like ```./05c_regStakepoolCert.sh mypool mywallet FORCE```
+If the pool was registered before (when there is a **regSubmitted** value in the name.pool.json file), the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration. If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword REG on the commandline like ```./05c_regStakepoolCert.sh mypool mywallet REG```<br>
+Also you can force the script to do a re-registration by adding the keyword REREG on the command line like ```./05c_regStakepoolCert.sh mypool mywallet REREG```
 
 * **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> poolname.pool.json
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
