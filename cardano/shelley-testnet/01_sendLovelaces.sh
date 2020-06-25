@@ -19,6 +19,10 @@ Usage:  $(basename $0) <From AddressName> <To AddressName> <Amount in lovelaces 
 EOF
   exit 1;; esac
 
+#Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
+if [ ! -f "$2.addr" ]; then echo "$2" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
+
+
 #Choose between sending ALL funds or a given amount of lovelaces out
 if [[ ${lovelacesToSend^^} == "ALL" ]]; then
 						#Sending ALL lovelaces, so only 1 receiver addresses
