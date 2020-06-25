@@ -17,7 +17,7 @@ if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[33mERROR - \"${poolFile}
 #Generate Dummy JSON File
 echo "
 {
-  \"poolName\":   \"${poolFile}\",
+  \"poolName\": \"${poolFile}\",
   \"poolOwner\": [
     {
     \"ownerName\": \"set_your_owner_name_here\"
