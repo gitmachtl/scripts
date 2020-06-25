@@ -17,30 +17,31 @@ if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[33mERROR - \"${poolFile}
 #Generate Dummy JSON File
 echo "
 {
-	\"poolName\":   \"${poolFile}\",
-	\"poolOwner\": [
-		{
-		\"ownerName\": \"set_your_owner_name_here\"
-		}
-	],
-        \"poolRewards\":  \"set_your_rewards_name_here_can_be_same_as_owner\",
-	\"poolPledge\": \"100000000000\",
-	\"poolCost\":   \"10000000000\",
-	\"poolMargin\": \"0.10\",
-        \"poolRelaySingleIPv4\":   \"the_ip_of_your_single_relay_or_dns_below\",
-        \"poolRelaySingleDNS\":   \"the_dns_name_of_your_single_relay_or_ip_above\",
-        \"poolRelayPort\":   \"the_port_of_your_single_relay(ip or dns)\",
-        \"poolMetaName\":   \"THE NAME OF YOUR POOL\",
-        \"poolMetaDescription\":   \"THE DESCRIPTION OF YOUR POOL\",
-        \"poolMetaTicker\":   \"THE TICKER OF YOUR POOL\",
-        \"poolMetaHomepage\":   \"https://set_your_webserver_url_here\",
-        \"poolMetaUrl\":   \"https://set_your_webserver_url_here/$(basename ${poolFile}).metadata.json\"
+  \"poolName\":   \"${poolFile}\",
+  \"poolOwner\": [
+    {
+    \"ownerName\": \"set_your_owner_name_here\"
+    }
+  ],
+  \"poolRewards\": \"set_your_rewards_name_here_can_be_same_as_owner\",
+  \"poolPledge\": \"100000000000\",
+  \"poolCost\": \"10000000000\",
+  \"poolMargin\": \"0.10\",
+  \"poolRelaySingleIPv4\": \"the_ip_of_your_single_relay_or_dns_below\",
+  \"poolRelaySingleDNS\": \"the_dns_name_of_your_single_relay_or_ip_above\",
+  \"poolRelayPort\": \"3001\",
+  \"poolMetaName\": \"THE NAME OF YOUR POOL\",
+  \"poolMetaDescription\": \"THE DESCRIPTION OF YOUR POOL\",
+  \"poolMetaTicker\": \"THE TICKER OF YOUR POOL\",
+  \"poolMetaHomepage\": \"https://set_your_webserver_url_here\",
+  \"poolMetaUrl\": \"https://set_your_webserver_url_here/$(basename ${poolFile}).metadata.json\"
 }
 " > ${poolFile}.pool.json
 echo
 echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
+echo -e "\e[0m"
 exit 1; fi
 
 
@@ -90,10 +91,10 @@ file_unlock ${poolFile}.metadata.json
 #Generate Dummy JSON File
 echo "
 {
-	\"name\": \"${poolMetaName}\",
-	\"description\": \"${poolMetaDescription}\",
-	\"ticker\": \"${poolMetaTicker}\",
-	\"homepage\": \"${poolMetaHomepage}\"
+  \"name\": \"${poolMetaName}\",
+  \"description\": \"${poolMetaDescription}\",
+  \"ticker\": \"${poolMetaTicker}\",
+  \"homepage\": \"${poolMetaHomepage}\"
 }
 " > ${poolFile}.metadata.json
 file_lock ${poolFile}.metadata.json
@@ -138,7 +139,7 @@ done
 #Build the RelayInfo for the registration
 poolRelays=""
 if [[ ! "${poolRelaySingleIPv4}" == "" ]]; then poolRelays="--pool-relay-port ${poolRelayPort} --pool-relay-ipv4 ${poolRelaySingleIPv4}";
-elif [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelays="--single-host-pool-relay \"${poolRelaySingleDNS}\" --pool-relay-port ${poolRelayPort}";
+elif [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelays="--single-host-pool-relay ${poolRelaySingleDNS} --pool-relay-port ${poolRelayPort}";
 fi
 
 
@@ -188,9 +189,8 @@ echo
 
 
 file_unlock ${poolName}.pool.cert
-${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url \"${poolMetaUrl}\" --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
+${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
 
-#echo "${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url \"${poolMetaUrl}\" --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert"
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
 	file_unlock ${poolFile}.pool.json

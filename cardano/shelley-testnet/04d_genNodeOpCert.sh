@@ -45,7 +45,7 @@ expireTimeSec=$(( ${startTimeSec} + ( ${slotLength} * ${expiresKESperiod} * ${sl
 expireDate=$(date --date=@${expireTimeSec})
 
 file_unlock ${nodeName}.kes-expire.json
-echo -e "{\n\t\"latestKESfileindex\": ${latestKESnumber},\n\t\"currentKESperiod\": ${currentKESperiod},\n\t\"expireKESperiod\": ${expiresKESperiod},\n\t\"expireKESdate\": \"${expireDate}\"\n}" > ${nodeName}.kes-expire.json
+echo -e "{\n\t\"latestKESfileindex\": \"${latestKESnumber}\",\n\t\"currentKESperiod\": \"${currentKESperiod}\",\n\t\"expireKESperiod\": \"${expiresKESperiod}\",\n\t\"expireKESdate\": \"${expireDate}\"\n}" > ${nodeName}.kes-expire.json
 file_lock ${nodeName}.kes-expire.json
 
 echo -e "\e[0mCurrent KES period:\e[32m ${currentKESperiod}\e[90m"
