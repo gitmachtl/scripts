@@ -34,7 +34,8 @@ echo "
   \"poolMetaDescription\": \"THE DESCRIPTION OF YOUR POOL\",
   \"poolMetaTicker\": \"THE TICKER OF YOUR POOL\",
   \"poolMetaHomepage\": \"https://set_your_webserver_url_here\",
-  \"poolMetaUrl\": \"https://set_your_webserver_url_here/$(basename ${poolFile}).metadata.json\"
+  \"poolMetaUrl\": \"https://set_your_webserver_url_here/$(basename ${poolFile}).metadata.json\",
+  \"---\": \"--- DO NOT EDIT BELOW THIS LINE ---\"
 }
 " > ${poolFile}.pool.json
 echo
