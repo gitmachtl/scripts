@@ -2,7 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#examples) are at the bottom of this page :-)
 
-**TESTED FOR CARDANO-NODE TAG: 1.14.0, ledgerstate is currently broken so 03c/05d will not work !**
+**TESTED FOR CARDANO-NODE TAG: 1.14.0 & 1.14.1, ledgerstate is currently broken so 03c/05d will not work !**
 
 **READ THE CHANGES FOR SCRIPT 05a at the description !!!**
 
@@ -69,14 +69,17 @@ chmod 400 poolname.pool.json
 * **00_common.sh:** set your variables in there for your config, will be used by the scripts. you can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
 * **01_queryAddress.sh:** checks the amount of lovelaces on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
-<br>```./01_queryAddress.sh <name>```
+<br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
 <br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
+<br>```./01_queryAddress.sh 60bb2ed9c8fc475291ad68cbc89b14f963c2af8ad26a78a4882f70633f``` shows the lovelaces on this given HASH address
+<br>```./01_queryAddress.sh 581de0f310053736d894abf0a854fece5ff9a0bb5216fc975da6b342859ac4``` shows the rewards on this given HASH address
 
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces from one address to another, uses always all UTXOs of the source address
-<br>```./02_sendLovelaces.sh <fromAddr> <toAddr> <lovelaces>```
+<br>```./02_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` **NEW** you can now send to an HASH address too
 <br>```./02_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./02_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
+<br>```./02_sendLovelaces.sh addr1 60bb2ed9c8fc475291ad68cbc89b14f963c2af8ad26a78a4882f70633f ALL``` send ALL funds from addr1.addr to the given HASH address
 
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
 <br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
