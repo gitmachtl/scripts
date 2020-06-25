@@ -15,7 +15,7 @@ case $# in
       toAddr="$2";
       lovelacesToSend="$3";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName> <Amount in lovelaces or keyword ALL>
+Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces or keyword ALL>
 EOF
   exit 1;; esac
 
