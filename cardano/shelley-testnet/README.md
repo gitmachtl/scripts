@@ -302,9 +302,9 @@ Done.
 
 ## Update stakepool parameters on the blockchain
 
-If you wanna update you pledge, costs or owners on a registered stakepool just do the following
+If you wanna update you pledge, costs, owners or metadata on a registered stakepool just do the following
 
-1. [Unlock](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) the existing mypool.pool.json file and edit it. Only edit the poolOwnerAccount/poolRewardsAccount/poolPledge/poolCost/poolMargin values, save it.
+1. [Unlock](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) the existing mypool.pool.json file and edit it. Only edit the poolOwnerAccount/poolRewardsAccount/poolPledge/poolCost/poolMargin and poolMetaXXX values, save it.
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
 1. (Optional create delegation certificates if you have added an owner or an extra rewards account with script 05b)
 1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool owner.payment```<br>No delegation update needed.
