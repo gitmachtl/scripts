@@ -141,7 +141,8 @@ chmod 400 poolname.pool.json
       "poolMetaDescription": "This is the description of my Pool!",
       "poolMetaTicker": "POOL",
       "poolMetaHomepage": "https://mypool.com",
-      "poolMetaUrl": "https://mypool.com/mypool.metadata.json"
+      "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+      "---": "--- DO NOT EDIT BELOW THIS LINE ---"
     }
    ```
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
@@ -214,6 +215,7 @@ The json file could end up like this one after the pool was registered and also 
   "poolMetaTicker": "POOL",
   "poolMetaHomepage": "https://mypool.com",
   "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+  "---": "--- DO NOT EDIT BELOW THIS LINE ---",
   "poolMetaHash": "f792c672a350971266b5404f04ff3bd47deb1544bc411566a2f95c090c1202cf",
   "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
   "regCertFile": "mypool.pool.cert",
@@ -275,7 +277,8 @@ If you wanna send over all funds from your mywallet call the script like
       "poolMetaDescription": "This is the description of my Pool!",
       "poolMetaTicker": "POOL",
       "poolMetaHomepage": "https://mypool.com",
-      "poolMetaUrl": "https://mypool.com/mypool.metadata.json"
+      "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+      "---": "--- DO NOT EDIT BELOW THIS LINE ---"
    }
    ```
    1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
