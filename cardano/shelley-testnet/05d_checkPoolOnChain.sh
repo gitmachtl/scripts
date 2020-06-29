@@ -33,7 +33,7 @@ echo -e "\e[0mChecking \e[32m ${poolFile}.pool.json\e[0m about the Pool-ID: ${po
 echo
 
 #check ledger-state
-poolInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | grep "poolPubKey" | grep  "${poolID}" | wc -l)
+poolInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | grep "publicKey" | grep  "${poolID}" | wc -l)
 
 if [[ ${poolInLedgerCnt} -gt 0 ]]; then 
 					echo -e "\e[32mPool-ID is on the chain!\e[0m";

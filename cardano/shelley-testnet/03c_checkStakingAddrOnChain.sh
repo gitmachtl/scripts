@@ -22,7 +22,10 @@ echo -e "\e[0mChecking the ledger-state about the \e[32m ${addrName}.staking.add
 echo
 
 #check ledger-state
-stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | jq ._delegationState._dstate._stkCreds | grep "${checkAddr}" | wc -l)
+#stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | jq ._delegationState._dstate._stkCreds | grep "${checkAddr}" | wc -l)
+stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | grep "${checkAddr}" | wc -l)
+
+
 
 if [[ ${stakeAddrInLedgerCnt} -gt 0 ]]; then
 					echo -e "\e[32mStake-Address is registered on the chain!\e[0m";
