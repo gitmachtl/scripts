@@ -134,9 +134,13 @@ chmod 400 poolname.pool.json
       "poolPledge": "100000000000",
       "poolCost": "500000000",
       "poolMargin": "0.10",
-      "poolRelaySingleIPv4": "",
-      "poolRelaySingleDNS": "relay.mypool.com",
-      "poolRelayPort": "3001",
+      "poolRelays": [
+         {
+         "relayType": "ip or dns",
+         "relayEntry": "x.x.x.x or the dns-name of your relay",
+         "relayPort": "3001"
+         }
+      ],
       "poolMetaName": "This is my Pool",
       "poolMetaDescription": "This is the description of my Pool!",
       "poolMetaTicker": "POOL",
@@ -147,7 +151,7 @@ chmod 400 poolname.pool.json
    ```
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>
-   Use the SingleIPv4 OR the SingleDNS entry, not both, the other one must be empty like "". Put your public IP address of your Relay in poolRelaySingleIPv4 or your public DNS name in poolRelaySingleDNS, poolRelayPort is your public Relay port, MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location).<br>After the edit, rerun the script with the name again.<br>
+   poolRelays is an array of your IPv4/IPv6 or DNS named public pool relays. Currently the types DNS, IP, IP4, IPv4, IP6 and IPv6 are supported.<br> MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location).<br>After the edit, rerun the script with the name again.<br>
    **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
@@ -207,9 +211,18 @@ The json file could end up like this one after the pool was registered and also 
   "poolPledge": "100000000000",
   "poolCost": "500000000",
   "poolMargin": "0.10",
-  "poolRelaySingleIPv4": "10.11.12.13",
-  "poolRelaySingleDNS": "",
-  "poolRelayPort": "3001",
+  "poolRelays": [
+         {
+         "relayType": "dns",
+         "relayEntry": "relay-1.mypool.com",
+         "relayPort": "3001"
+         },
+         {
+         "relayType": "dns",
+         "relayEntry": "relay-2.mypool.com",
+         "relayPort": "3001"
+         }
+  ],
   "poolMetaName": "This is my Pool",
   "poolMetaDescription": "This is the description of my Pool!",
   "poolMetaTicker": "POOL",
@@ -270,9 +283,13 @@ If you wanna send over all funds from your mywallet call the script like
       "poolPledge": "200000000000",
       "poolCost": "10000000000",
       "poolMargin": "0.08"
-      "poolRelaySingleIPv4": "",
-      "poolRelaySingleDNS": "relay.mypool.com",
-      "poolRelayPort": "3001",
+      "poolRelays": [
+         {
+         "relayType": "dns",
+         "relayEntry": "relay.mypool.com",
+         "relayPort": "3001"
+         }
+      ],
       "poolMetaName": "This is my Pool",
       "poolMetaDescription": "This is the description of my Pool!",
       "poolMetaTicker": "POOL",
@@ -344,7 +361,6 @@ It's similar to a single owner stake pool registration (example above). All owne
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool paymentaddress```    
 
 Done.
-
 
 ## Retire a stakepool from the blockchain
 
