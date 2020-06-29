@@ -151,7 +151,7 @@ chmod 400 poolname.pool.json
    ```
    **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>
-   poolRelays is an array of your IPv4/IPv6 or DNS named public pool relays. Currently the types DNS, IP, IP4, IPv4, IP6 and IPv6 are supported.<br> MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location).<br>After the edit, rerun the script with the name again.<br>
+   poolRelays is an array of your IPv4/IPv6 or DNS named public pool relays. Currently the types DNS, IP, IP4, IPv4, IP6 and IPv6 are supported. Examples of multiple relays can be found [HERE](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#using-multiple-relays-in-your-poolnamepooljson) <br> MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location).<br>After the edit, rerun the script with the name again.<br>
    **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
@@ -383,7 +383,7 @@ Your poolRelays array section in the json file should like similar to:
   ],
 ```
 
-### Using three ipv4 named relay entries
+### Using a mixed relay setup
 
 Your poolRelays array section in the json file should like similar to:
 
@@ -402,7 +402,7 @@ Your poolRelays array section in the json file should like similar to:
   ],
 ```
 
-### Using a mixed relay setup
+### Using three ipv4 named relay entries
 
 Your poolRelays array section in the json file should like similar to:
 
