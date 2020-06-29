@@ -77,10 +77,11 @@ poolRelays=""	#building string for the certificate
 for (( tmpCnt=0; tmpCnt<${poolRelayCnt}; tmpCnt++ ))
 do
   poolRelayEntryContent=$(jq -r .poolRelays[${tmpCnt}].relayEntry ${poolFile}.pool.json 2> /dev/null);
-  if [[ "${poolRelayEntryContent}" == null || "${poolRelayEntryContent}" == "" ]]; then echo "ERROR - Parameter \"relayEntry\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
+  if [[ "${poolRelayEntryContent}" == null || "${poolRelayEntryContent}" == "" ]]; then echo "ERROR - Parameter \"relayEntry\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1;
+  elif [[ "${#poolRelayEntryContent}" -gt 64 ]]; then echo -e "\e[0mERROR - The relayEntry parameter with content \"${poolRelayEntryContent}\" in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m"; exit 1; fi
 
+  #Load relay port data, verify later depending on the need (multihost does not need a port)
   poolRelayEntryPort=$(jq -r .poolRelays[${tmpCnt}].relayPort ${poolFile}.pool.json 2> /dev/null);
-  if [[ "${poolRelayEntryPort}" == null || "${poolRelayEntryPort}" == "" ]]; then echo "ERROR - Parameter \"relayPort\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
 
   poolRelayEntryType=$(jq -r .poolRelays[${tmpCnt}].relayType ${poolFile}.pool.json 2> /dev/null);
   if [[ "${poolRelayEntryType}" == null || "${poolRelayEntryType}" == "" ]]; then echo "ERROR - Parameter \"relayType\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
@@ -89,16 +90,23 @@ do
   poolRelayEntryType=${poolRelayEntryType^^}  #convert to uppercase
   case ${poolRelayEntryType} in
   IP|IP4|IPV4)  #generate an IPv4 relay entry
-      poolRelays="${poolRelays} --pool-relay-ipv4 ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
+	if [[ "${poolRelayEntryPort}" == null || "${poolRelayEntryPort}" == "" ]]; then echo "ERROR - Parameter \"relayPort\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
+	poolRelays="${poolRelays} --pool-relay-ipv4 ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
 
   IP6|IPV6)  #generate an IPv6 relay entry
-      poolRelays="${poolRelays} --pool-relay-ipv6 ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
+	if [[ "${poolRelayEntryPort}" == null || "${poolRelayEntryPort}" == "" ]]; then echo "ERROR - Parameter \"relayPort\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
+	poolRelays="${poolRelays} --pool-relay-ipv6 ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
 
-  DNS) #generate a dns relay entry
-      poolRelays="${poolRelays} --single-host-pool-relay ${poolRelaySingleDNS} ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
+  DNS) #generate a dns single-relay A or AAAA entry
+	if [[ "${poolRelayEntryPort}" == null || "${poolRelayEntryPort}" == "" ]]; then echo "ERROR - Parameter \"relayPort\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
+	poolRelays="${poolRelays} --single-host-pool-relay ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
+
+  MULTISRV) #generate a dns SRV multi-relay entry
+	#No port needed
+        poolRelays="${poolRelays} --multi-host-pool-relay ${poolRelayEntryContent}";;
 
   * ) #unkown relay type
-      echo "ERROR - Parameter \"relayType\" in ${poolFile}.pool.json is unknown. Only \"IP/IP4/IPv4\", \"IP6/IPv6\" or \"DNS\" is supported!"; exit 1;;
+      echo "ERROR - The relayType parameter in ${poolFile}.pool.json with content \"${poolRelayEntryType}\" is unknown. Only \"IP/IP4/IPv4\", \"IP6/IPv6\", \"DNS\" or , \"MULTISRV\" is supported!"; exit 1;;
   esac
 done
 
