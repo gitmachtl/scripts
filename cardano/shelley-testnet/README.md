@@ -362,6 +362,72 @@ It's similar to a single owner stake pool registration (example above). All owne
 
 Done.
 
+## Using multiple relays in your poolname.pool.json
+
+### Using two dns named relay entries
+
+Your poolRelays array section in the json file should like similar to:
+
+```
+  "poolRelays": [
+         {
+         "relayType": "dns",
+         "relayEntry": "relay-1.mypool.com",
+         "relayPort": "3001"
+         },
+         {
+         "relayType": "dns",
+         "relayEntry": "relay-2.mypool.com",
+         "relayPort": "3001"
+         }
+  ],
+```
+
+### Using three ipv4 named relay entries
+
+Your poolRelays array section in the json file should like similar to:
+
+```
+  "poolRelays": [
+         {
+         "relayType": "dns",
+         "relayEntry": "relay.mypool.com",
+         "relayPort": "3001"
+         },
+         {
+         "relayType": "ip",
+         "relayEntry": "287.10.10.1",
+         "relayPort": "3001"
+         }
+  ],
+```
+
+### Using a mixed relay setup
+
+Your poolRelays array section in the json file should like similar to:
+
+```
+  "poolRelays": [
+         {
+         "relayType": "ip",
+         "relayEntry": "287.10.10.1",
+         "relayPort": "3001"
+         },
+         {
+         "relayType": "ip",
+         "relayEntry": "287.10.0.1",
+         "relayPort": "3002"
+         },
+         {
+         "relayType": "ip",
+         "relayEntry": "317.10.0.1",
+         "relayPort": "3001"
+         }
+  ],
+```
+
+
+
 ## Retire a stakepool from the blockchain
 
 If you wanna retire your registered stakepool mypool, you have to do just a few things
