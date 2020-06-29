@@ -27,9 +27,13 @@ echo "
   \"poolPledge\": \"100000000000\",
   \"poolCost\": \"10000000000\",
   \"poolMargin\": \"0.10\",
-  \"poolRelaySingleIPv4\": \"the_ip_of_your_single_relay_or_dns_below\",
-  \"poolRelaySingleDNS\": \"the_dns_name_of_your_single_relay_or_ip_above\",
-  \"poolRelayPort\": \"3001\",
+  \"poolRelays\": [
+    {
+      \"relayType\": \"ip or dns\",
+      \"relayEntry\": \"x.x.x.x or the dns-name of your relay\",
+      \"relayPort\": \"3001\"
+    }
+  ],
   \"poolMetaName\": \"THE NAME OF YOUR POOL\",
   \"poolMetaDescription\": \"THE DESCRIPTION OF YOUR POOL\",
   \"poolMetaTicker\": \"THE TICKER OF YOUR POOL\",
@@ -65,17 +69,39 @@ poolCost=$(readJSONparam "poolCost"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Check PoolRelay Entries
-poolRelaySingleIPv4=$(jq -r .poolRelaySingleIPv4 ${poolFile}.pool.json 2> /dev/null); if [[ "${poolRelaySingleIPv4}" == null ]]; then echo "ERROR - Parameter \"poolRelaySingleIPv4\" in ${poolFile}.pool.json does not exist"; exit 1; fi
-poolRelaySingleDNS=$(jq -r .poolRelaySingleDNS ${poolFile}.pool.json 2> /dev/null); if [[ "${poolRelaySingleDNS}" == null ]]; then echo "ERROR - Parameter \"poolRelaySingleDNS\" in ${poolFile}.pool.json does not exist"; exit 1; fi
-poolRelayEntryCnt=0
-if [[ ! "${poolRelaySingleIPv4}" == "" ]]; then poolRelayEntryCnt=$poolRelayEntryCnt+1; fi
-if [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelayEntryCnt=$poolRelayEntryCnt+1; fi
-if [[ "${poolRelayEntryCnt}" -gt 1 ]]; then echo -e "\e[0mERROR - Please use only one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
-elif [[ "${poolRelayEntryCnt}" == 0 ]]; then echo -e "\e[0mERROR - Please use at least one Entry: poolRelaySingleIPv4 OR poolRelaySingleDNS in your ${poolFile}.pool.json !\e[0m"; exit 1;
-fi
-#if [[ "${poolRelayEntryCnt}" == 0 ]]; then echo -e "\e[0mERROR - Please enter your public Pool-Relay-IP in poolRelaySingleIPv4 in your ${poolFile}.pool.json !\e[0m"; exit 1;fi
+tmp=$(readJSONparam "poolRelays"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolRelayCnt=$(jq -r '.poolRelays | length' ${poolFile}.pool.json)
 
-poolRelayPort=$(readJSONparam "poolRelayPort"); if [[ ! $? == 0 ]]; then exit 1; fi
+#Build the RelayInfo for the registration
+poolRelays=""	#building string for the certificate
+for (( tmpCnt=0; tmpCnt<${poolRelayCnt}; tmpCnt++ ))
+do
+  poolRelayEntryContent=$(jq -r .poolRelays[${tmpCnt}].relayEntry ${poolFile}.pool.json 2> /dev/null);
+  if [[ "${poolRelayEntryContent}" == null || "${poolRelayEntryContent}" == "" ]]; then echo "ERROR - Parameter \"relayEntry\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
+
+  poolRelayEntryPort=$(jq -r .poolRelays[${tmpCnt}].relayPort ${poolFile}.pool.json 2> /dev/null);
+  if [[ "${poolRelayEntryPort}" == null || "${poolRelayEntryPort}" == "" ]]; then echo "ERROR - Parameter \"relayPort\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
+
+  poolRelayEntryType=$(jq -r .poolRelays[${tmpCnt}].relayType ${poolFile}.pool.json 2> /dev/null);
+  if [[ "${poolRelayEntryType}" == null || "${poolRelayEntryType}" == "" ]]; then echo "ERROR - Parameter \"relayType\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
+
+  #Build relaystring depending on relaytype
+  poolRelayEntryType=${poolRelayEntryType^^}  #convert to uppercase
+  case ${poolRelayEntryType} in
+  IP|IP4|IPV4)  #generate an IPv4 relay entry
+      poolRelays="${poolRelays} --pool-relay-ipv4 ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
+
+  IP6|IPV6)  #generate an IPv6 relay entry
+      poolRelays="${poolRelays} --pool-relay-ipv6 ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
+
+  DNS) #generate a dns relay entry
+      poolRelays="${poolRelays} --single-host-pool-relay ${poolRelaySingleDNS} ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
+
+  * ) #unkown relay type
+      echo "ERROR - Parameter \"relayType\" in ${poolFile}.pool.json is unknown. Only \"IP/IP4/IPv4\", \"IP6/IPv6\" or \"DNS\" is supported!"; exit 1;;
+  esac
+done
+
 
 #Check PoolMetadata Entries
 poolMetaName=$(readJSONparam "poolMetaName"); if [[ ! $? == 0 ]]; then exit 1; fi
@@ -84,8 +110,6 @@ poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 
 poolMetaHomepage=$(readJSONparam "poolMetaHomepage"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
 if [[ "${#poolMetaUrl}" -gt 64 ]]; then echo -e "\e[0mERROR - The poolMetaUrl Entry in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m"; exit 1; fi
-
-
 
 #Generate new <poolFile>.metadata.json File with the Entries and also read out the Hash of it
 file_unlock ${poolFile}.metadata.json
@@ -121,7 +145,8 @@ else #already an array, so check the number of owners in there
 	ownerCnt=$(jq -r '.poolOwner | length' ${poolFile}.pool.json)
 fi
 
-ownerKeys=""
+
+ownerKeys="" #building string for the certificate
 
 #Check needed inputfiles
 if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.node.vkey is missing, please generate it with script 04a !\e[0m"; exit 1; fi
@@ -135,14 +160,6 @@ do
   ownerKeys="${ownerKeys} --pool-owner-stake-verification-key-file ${ownerName}.staking.vkey"
 done
 #OK, all needed files are present, continue
-
-
-#Build the RelayInfo for the registration
-poolRelays=""
-if [[ ! "${poolRelaySingleIPv4}" == "" ]]; then poolRelays="--pool-relay-port ${poolRelayPort} --pool-relay-ipv4 ${poolRelaySingleIPv4}";
-elif [[ ! "${poolRelaySingleDNS}" == "" ]]; then poolRelays="--single-host-pool-relay ${poolRelaySingleDNS} --pool-relay-port ${poolRelayPort}";
-fi
-
 
 
 
