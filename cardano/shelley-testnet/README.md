@@ -2,7 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#examples) are at the bottom of this page :-)
 
-**TESTED FOR CARDANO-NODE TAG: 1.14.0 & 1.14.1, ledgerstate is currently broken so 03c/05d will not work !**
+**TESTED FOR CARDANO-NODE: release/1.14.x !**
 
 **READ THE CHANGES FOR SCRIPT 05a at the description !!!**
 
