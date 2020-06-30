@@ -342,6 +342,19 @@ I'am sure you wanna claim some of your rewards that you earned running your stak
 
 Done.  
 
+### Claiming rewards from the ITN Testnet with only SK/PK keys
+
+If you ran a stakepool on the ITN and you only have your owner SK and PK ed25519 keys you can claim your rewards like:
+
+1. Convert your ITN keys into a Shelley Staking Address by running: 
+   <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName>  <ITN Private/Secret Key HASH>  <ITN Verification/Public Key HASH>```
+   <br>```./0x_convertITNtoStakeAddress.sh myitnrewards  ed25519e_sk1qq... ed25519_pk1u62x9...```
+   <br>This will generate a new Shelley stakeaddress with the 3 files myitnrewards.staking.skey, myitnrewards.staking.vkey and myitnrewards.staking.addr
+1. Now you can claim your rewards by running ```./01_claimRewards.sh myitnrewards.staking destinationaccount``` like a normal rewards claim procedure, example above!
+
+Done.  
+
+
 
 ## Register a multiowner stake pool
 
@@ -463,15 +476,4 @@ If you wanna retire the staking address owner, you have to do just a few things
  
 Done.
 
-## Claiming rewards from the ITN Testnet with only SK/PK keys
-
-If you ran a stakepool on the ITN and you only have your owner SK and PK ed25519 keys you can claim your rewards like:
-
-1. Convert your ITN keys into a Shelley Staking Address by running: 
-   <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName>  <ITN Private/Secret Key HASH>  <ITN Verification/Public Key HASH>```
-   <br>```./0x_convertITNtoStakeAddress.sh myitnrewards  ed25519e_sk1qq... ed25519_pk1u62x9...```
-   <br>This will generate a new Shelley stakeaddress with the 3 files myitnrewards.staking.skey, myitnrewards.staking.vkey and myitnrewards.staking.addr
-1. Now you can claim your rewards by running ```./01_claimRewards.sh myitnrewards.staking destinationaccount``` like a normal rewards claim procedure (example above)
-
-Done.  
 
