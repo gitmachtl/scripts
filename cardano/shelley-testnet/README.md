@@ -350,7 +350,8 @@ If you ran a stakepool on the ITN and you only have your owner SK and PK ed25519
    <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName>  <ITN Private/Secret Key HASH>  <ITN Verification/Public Key HASH>```
    <br>```./0x_convertITNtoStakeAddress.sh myitnrewards  ed25519e_sk1qq... ed25519_pk1u62x9...```
    <br>This will generate a new Shelley stakeaddress with the 3 files myitnrewards.staking.skey, myitnrewards.staking.vkey and myitnrewards.staking.addr
-1. Now you can claim your rewards by running ```./01_claimRewards.sh myitnrewards.staking destinationaccount``` like a normal rewards claim procedure, example above!
+1. You can check now your rewards by running ```./01_queryAddress.sh myitnrewards.staking```
+1. You can claim your rewards by running ```./01_claimRewards.sh myitnrewards.staking destinationaccount``` like a normal rewards claim procedure, example above!
 
 Done.  
 
