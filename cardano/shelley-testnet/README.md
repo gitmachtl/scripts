@@ -331,6 +331,18 @@ If you wanna update you pledge, costs, owners or metadata on a registered stakep
 
 Done.  
 
+## Claiming rewards on the Shelley blockchain
+
+I'am sure you wanna claim some of your rewards that you earned running your stakepool. So lets say you have rewards in your owner.staking address and you wanna claim it to the owner.payment address.
+
+1. You can always check that you have rewards in your stakeaccount by running ```./01_queryAddress.sh owner.staking```
+1. Now you can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment```
+   This will claim the rewards from the owner.staking account and sends it to the owner.payment address, also owner.payment will pay for the transaction fees. It is only possible to claim all rewards, not only a part of it.<br>
+   ATTENTION, claiming rewards costs transaction fees! So you have two choices for that: The destination address pays for the transaction fees, or you specify an additional account that pays for the transaction fees. You can find examples for that above at the script 01_querryAddress.sh description.
+
+Done.  
+
+
 ## Register a multiowner stake pool
 
 It's similar to a single owner stake pool registration (example above). All owners must have a registered stake address on the blockchain first! Here is a 2 owner example ...
@@ -451,5 +463,15 @@ If you wanna retire the staking address owner, you have to do just a few things
  
 Done.
 
+## Claiming rewards from the ITN Testnet with only SK/PK keys
 
+If you ran a stakepool on the ITN and you only have your owner SK and PK ed25519 keys you can claim your rewards like:
+
+1. Convert your ITN keys into a Shelley Staking Address by running: 
+   <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName>  <ITN Private/Secret Key HASH>  <ITN Verification/Public Key HASH>```
+   <br>```./0x_convertITNtoStakeAddress.sh myitnrewards  ed25519e_sk1qq... ed25519_pk1u62x9...```
+   <br>This will generate a new Shelley stakeaddress with the 3 files myitnrewards.staking.skey, myitnrewards.staking.vkey and myitnrewards.staking.addr
+1. Now you can claim your rewards by running ```./01_claimRewards.sh myitnrewards.staking destinationaccount``` like a normal rewards claim procedure (example above)
+
+Done.  
 
