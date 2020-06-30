@@ -23,7 +23,7 @@ echo
 
 #check ledger-state
 #stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | jq ._delegationState._dstate._stkCreds | grep "${checkAddr}" | wc -l)
-stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | grep "${checkAddr}" | wc -l)
+stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | grep "\"${checkAddr}\"" | wc -l)
 
 
 
