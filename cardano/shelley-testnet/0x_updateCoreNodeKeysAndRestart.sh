@@ -51,12 +51,19 @@ cp ./${nodeName}.node-${latestKESnumber}.opcert ./upload/${nodeBaseName}.node.op
 cp ./${nodeName}.vrf.skey ./upload/${nodeBaseName}.vrf.skey				 #Copy vrf key over to fixed name nodeName.vrf.skey, sure is sure :-)
 
 
+
+
 #--  STEP 3  --------------------------------------------------------------------
 # Upload the files from the ./upload directory to the coreNode via SCP connection
 #
 # You need to provide your remote connection settings in the 00_common.sh file!!!
 # Make sure you can ssh into your remote server with ssh public/private keypairs
 #--------------------------------------------------------------------------------
+
+chmod 644 ./upload/${nodeBaseName}.kes-expire.json	#change from 400 to 644 so the key can be read from another user (maybe systemd) too on the coreNode
+chmod 644 ./upload/${nodeBaseName}.kes.skey
+chmod 644 ./upload/${nodeBaseName}.node.opcert
+chmod 644 ./upload/${nodeBaseName}.vrf.skey
 
 echo -e "\e[0mUploading new files now ...\e[90m"
 #Upload them to the CoreNode Server
