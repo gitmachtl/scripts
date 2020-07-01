@@ -348,7 +348,7 @@ If you ran a stakepool on the ITN and you only have your owner SK and PK ed25519
 
 1. If you have ed25519 keys and not ed25519**e** keys you can skip to the next step. Otherwise you have to convert your SK first into the ed25519 format with the following syntax    (owner.prv hold your SK): <br>```cat owner.prv | jcli key to-bytes | sed -e 's/^\(.\{64\}\).*/\1/' | jcli key from-bytes --type ed25519```
 1. Convert your ITN keys into a Shelley Staking Address by running: 
-   <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName>  <ITN_Private/Secret_Key_HASH_ed25519>  <ITN_Verification/Public_Key_HASH_ed25519>```
+   <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName> <Private_Key_HASH_ed25519>  <Public_Key_HASH_ed25519>```
    <br>```./0x_convertITNtoStakeAddress.sh myitnrewards  ed25519_sk1qq... ed25519_pk1u62x9...```
    <br>This will generate a new Shelley stakeaddress with the 3 files myitnrewards.staking.skey, myitnrewards.staking.vkey and myitnrewards.staking.addr
 1. You can check now your rewards by running ```./01_queryAddress.sh myitnrewards.staking```
