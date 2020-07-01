@@ -2,7 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#examples) are at the bottom of this page :-)
 
-**TESTED FOR CARDANO-NODE: release/1.14.x !**
+**TESTED FOR CARDANO-NODE: release/1.14.2 !**
 
 **READ THE CHANGES FOR SCRIPT 05a at the description !!!**
 
@@ -346,7 +346,7 @@ Done.
 
 If you ran a stakepool on the ITN and you only have your owner SK and PK ed25519 keys you can claim your rewards like:
 
-1. If you have ed25519 keys and not ed25519**e** keys you can skip to the next step. Otherwise you have to convert your SK first into the ed25519 format with the following syntax    (owner.prv hold your SK): <br>```cat owner.prv | jcli key to-bytes | sed -e 's/^\(.\{64\}\).*/\1/' | jcli key from-bytes --type ed25519```
+1. If you have ed25519 keys and not ed25519**e** keys you can skip to the next step. Otherwise you have to wait a a little longer to claim your rewards. ed25519e keys are currently not supported. But you still can check your balance if you wanna continue...
 1. Convert your ITN keys into a Shelley Staking Address by running: 
    <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName> <Private_Key_HASH_ed25519>  <Public_Key_HASH_ed25519>```
    <br>```./0x_convertITNtoStakeAddress.sh myitnrewards  ed25519_sk1qq... ed25519_pk1u62x9...```
