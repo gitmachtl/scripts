@@ -40,6 +40,9 @@ poolPledge=$(readJSONparam "poolPledge"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolCost=$(readJSONparam "poolCost"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 regCertFile=$(readJSONparam "regCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolMetaHash=$(readJSONparam "poolMetaHash"); if [[ ! $? == 0 ]]; then exit 1; fi
+
 
 #Load regSubmitted value from the pool.json. If there is an entry, than do a Re-Registration (changes the Fee!)
 regSubmitted=$(jq -r .regSubmitted ${poolFile}.pool.json 2> /dev/null)
@@ -50,7 +53,6 @@ if [[ $# -eq 3 ]]; then forceParam=$3; fi
 if [[ ${forceParam^^} == "REG" ]]; then regSubmitted="";  	#force a new registration
 elif [[ ${forceParam^^} == "REREG" ]]; then regSubmitted="xxx";	#force a re-registration
 fi
-
 
 #Checks for needed files
 if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[35mERROR - \"${regCertFile}\" does not exist! Please create it first with script 05a.\e[0m"; exit 1; fi
@@ -92,6 +94,36 @@ currentEPOCH=$(get_currentEpoch)
 echo
 echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m with funds from Address\e[32m ${regPayName}.addr\e[0m:"
 echo
+
+#Metadata-JSON HASH PreCheck: Check and compare the online metadata.json file hash with
+#the one in the currently pool.json file. If they match up, continue. Otherwise exit with an ERROR
+#Fetch online metadata.json file from the pool webserver
+echo -ne "\e[0mMetadata HASH Check: Fetching the MetaData JSON file from \e[32m${poolMetaUrl}\e[0m ... "
+tmpMetadataJSON="${tempDir}/$(basename ${poolName}).metadata.json"
+curl -s "${poolMetaUrl}" -o "${tmpMetadataJSON}" 2> /dev/null
+if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR, can't fetch the file!\e[0m\n"; exit 1; fi
+#Check the downloaded file that is a valid JSON file
+tmpCheckJSON=$(jq . "${tmpMetadataJSON}"  2> /dev/null)
+if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR - Not a valid JSON file on the webserver!\e[0m\n"; exit 1; fi
+#Ok, downloaded file is a valid JSON file. So now look into the HASH
+onlineMetaHash=$(${cardanocli} shelley stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
+#Compare the HASH now, if they don't match up, output an ERROR message and exit
+if [[ ! "${poolMetaHash}" == "${onlineMetaHash}" ]]; then
+	echo -e "\e[33mERROR - HASH mismatch!\n\nPlease make sure to upload your MetaData JSON file correctly to your webserver!\nPool-Registration aborted! :-(\e[0m\n";
+        echo -e "Your local \e[32m${poolFile}.metadata.json\e[0m with HASH \e[32m${poolMetaHash}\e[0m:\n"
+	echo -e "--- BEGIN ---"
+	cat ${poolFile}.metadata.json
+        echo -e "---  END  ---\n\n"
+        echo -e "Your remote file at \e[32m${poolMetaUrl}\e[0m with HASH \e[32m${onlineMetaHash}\e[0m:\n"
+        echo -e "--- BEGIN ---\e[35m"
+        cat ${tmpMetadataJSON}
+        echo -e "\e[0m---  END  ---"
+	echo -e "\e[0m\n"
+	exit 1;
+else echo -e "\e[32mOK\e[0m\n"; fi
+#Ok, HASH is the same, continue
+
+
 echo -e "\e[0m   Owner Stake Keys:\e[32m ${ownerCnt}\e[0m owner(s) with the key(s)"
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
 do
