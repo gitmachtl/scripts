@@ -122,14 +122,12 @@ if [[ "${#poolMetaUrl}" -gt 64 ]]; then echo -e "\e[0mERROR - The poolMetaUrl En
 #Generate new <poolFile>.metadata.json File with the Entries and also read out the Hash of it
 file_unlock ${poolFile}.metadata.json
 #Generate Dummy JSON File
-echo "
-{
+echo -n "{
   \"name\": \"${poolMetaName}\",
   \"description\": \"${poolMetaDescription}\",
   \"ticker\": \"${poolMetaTicker}\",
   \"homepage\": \"${poolMetaHomepage}\"
-}
-" > ${poolFile}.metadata.json
+}" > ${poolFile}.metadata.json
 file_lock ${poolFile}.metadata.json
 
 #Generate HASH for the <poolFile>.metadata.json
