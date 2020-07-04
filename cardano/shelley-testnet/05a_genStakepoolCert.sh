@@ -235,4 +235,6 @@ echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
 
+echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.metadata.json\e[35m file now to your webserver!"
+
 echo -e "\e[0m"
