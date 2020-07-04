@@ -300,7 +300,7 @@ If you wanna send over all funds from your mywallet call the script like
    ```
    1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
-1. Upload your generated ```mypool.metadata.json``` file onto your webserver so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
+1. **Upload** the generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner.payment```    
 1. (Optional: you can verify that your stakepool is now on the blockchain by running ```./05d_checkPoolOnChain.sh mypool```<br>If you dont see it, wait a little and retry)
 
@@ -326,7 +326,7 @@ If you wanna update you pledge, costs, owners or metadata on a registered stakep
 
 1. [Unlock](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) the existing mypool.pool.json file and edit it. Only edit the poolOwnerAccount/poolRewardsAccount/poolPledge/poolCost/poolMargin and poolMetaXXX values, save it.
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
-1. Upload your new ```mypool.metadata.json``` file onto your webserver so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
+1. **Upload** the new ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
 1. (Optional create delegation certificates if you have added an owner or an extra rewards account with script 05b)
 1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool owner.payment```<br>No delegation update needed.
 
