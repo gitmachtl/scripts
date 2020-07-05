@@ -2,7 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#examples) are at the bottom of this page :-)
 
-**TESTED FOR CARDANO-NODE: release/1.14.2 !**
+> :bulb: **TESTED FOR CARDANO-NODE: release/1.14.2 !**
 
 **READ THE CHANGES FOR SCRIPT 05a at the description !!!**
 
@@ -35,7 +35,7 @@ The *.addr files contains the address in the format "60386ab8..." or "001d4e1cdc
 If you have an address and you wanna use it just do a simple:
 ```echo "60386ab8..." > myaddress.addr```
 
-**The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
+> :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
 **If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
 
 
@@ -53,7 +53,7 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
    <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
    <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
-   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them. Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading ., .. or /. Thx!
+   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them. Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
 
 ### File autolock
 
@@ -149,10 +149,11 @@ chmod 400 poolname.pool.json
       "---": "--- DO NOT EDIT BELOW THIS LINE ---"
     }
    ```
-   **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
+:bulb:   **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
+
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>
    poolRelays is an array of your IPv4/IPv6 or DNS named public pool relays. Currently the types DNS, IP, IP4, IPv4, IP6 and IPv6 are supported. Examples of multiple relays can be found [HERE](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#using-multiple-relays-in-your-poolnamepooljson) <br> MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location).<br>After the edit, rerun the script with the name again.<br>
-   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
+> :bulb:   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
@@ -300,7 +301,7 @@ If you wanna send over all funds from your mywallet call the script like
    ```
    1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
-1. **Upload** the generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
+1. :bulb: **Upload** the generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner.payment```    
 1. (Optional: you can verify that your stakepool is now on the blockchain by running ```./05d_checkPoolOnChain.sh mypool```<br>If you dont see it, wait a little and retry)
 
@@ -326,7 +327,7 @@ If you wanna update you pledge, costs, owners or metadata on a registered stakep
 
 1. [Unlock](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#file-autolock) the existing mypool.pool.json file and edit it. Only edit the poolOwnerAccount/poolRewardsAccount/poolPledge/poolCost/poolMargin and poolMetaXXX values, save it.
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
-1. **Upload** the new ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
+1. :bulb: **Upload** the new ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
 1. (Optional create delegation certificates if you have added an owner or an extra rewards account with script 05b)
 1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool owner.payment```<br>No delegation update needed.
 
