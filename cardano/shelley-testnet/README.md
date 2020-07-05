@@ -65,7 +65,8 @@ chmod 400 poolname.pool.json
 
 ## Scriptfiles Syntax
 
-* **00_common.sh:** set your variables in there for your config, will be used by the scripts. you can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
+* **00_common.sh:** set your variables in there for your config, will be used by the scripts.<br>
+  :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
 * **01_queryAddress.sh:** checks the amount of lovelaces on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
 <br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
@@ -340,7 +341,7 @@ I'am sure you wanna claim some of your rewards that you earned running your stak
 1. You can always check that you have rewards in your stakeaccount by running ```./01_queryAddress.sh owner.staking```
 1. Now you can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment```
    This will claim the rewards from the owner.staking account and sends it to the owner.payment address, also owner.payment will pay for the transaction fees. It is only possible to claim all rewards, not only a part of it.<br>
-   ATTENTION, claiming rewards costs transaction fees! So you have two choices for that: The destination address pays for the transaction fees, or you specify an additional account that pays for the transaction fees. You can find examples for that above at the script 01_querryAddress.sh description.
+   :bulb: ATTENTION, claiming rewards costs transaction fees! So you have two choices for that: The destination address pays for the transaction fees, or you specify an additional account that pays for the transaction fees. You can find examples for that above at the script 01_querryAddress.sh description.
 
 Done.  
 
