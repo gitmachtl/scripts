@@ -63,7 +63,7 @@ nano poolname.pool.json
 chmod 400 poolname.pool.json
 ```
 
-## Scriptfiles short info
+## Scriptfiles Syntax
 
 * **00_common.sh:** set your variables in there for your config, will be used by the scripts. you can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
