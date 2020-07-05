@@ -100,7 +100,7 @@ echo
 #Fetch online metadata.json file from the pool webserver
 echo -ne "\e[0mMetadata HASH Check: Fetching the MetaData JSON file from \e[32m${poolMetaUrl}\e[0m ... "
 tmpMetadataJSON="${tempDir}/$(basename ${poolName}).metadata.json"
-curl -s "${poolMetaUrl}" -o "${tmpMetadataJSON}" 2> /dev/null
+curl -sL "${poolMetaUrl}" -o "${tmpMetadataJSON}" 2> /dev/null
 if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR, can't fetch the file!\e[0m\n"; exit 1; fi
 #Check the downloaded file that is a valid JSON file
 tmpCheckJSON=$(jq . "${tmpMetadataJSON}"  2> /dev/null)
