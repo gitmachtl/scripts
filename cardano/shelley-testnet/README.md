@@ -122,7 +122,7 @@ chmod 400 poolname.pool.json
   <br>```./05a_genStakepoolCert.sh <PoolNodeName>``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
   The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName(s), RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) and PoolMetaData. This script will also generate the poolname.metadata.json file for the upload to your webserver:
   <br>**Sample mypool.pool.json**
-  ```
+  ```console
    {
       "poolName": "mypool",
       "poolOwner": [
@@ -198,7 +198,7 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 ### poolname.pool.json
 
 The json file could end up like this one after the pool was registered and also later de-registered.<br>In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
-```
+```console
 {
   "poolName": "mypool",
   "poolOwner": [
@@ -273,7 +273,7 @@ If you wanna send over all funds from your mywallet call the script like
 1. Generate your stakepool certificate
    1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it
    1. We want 200k ADA pledge, 10k ADA costs per epoch and 8% pool margin so let us set these and the Metadata values in the json file like
-   ```
+   ```console
    {
       "poolName": "mypool",
       "poolOwner": [
@@ -367,7 +367,7 @@ It's similar to a single owner stake pool registration (example above). All owne
 
 1. Generate the stakepool certificate
    1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it for multiowner usage and set your owners and also the rewards account. The rewards account is also a stake address (but not delegated to the pool!):
-    ```
+    ```console
    {
       "poolName": "mypool",
       "poolOwner": [
@@ -398,7 +398,7 @@ Done.
 
 Your poolRelays array section in the json file should like similar to:
 
-```
+```console
   "poolRelays": [
          {
          "relayType": "dns",
@@ -417,7 +417,7 @@ Your poolRelays array section in the json file should like similar to:
 
 Your poolRelays array section in the json file should like similar to:
 
-```
+```console
   "poolRelays": [
          {
          "relayType": "dns",
@@ -436,7 +436,7 @@ Your poolRelays array section in the json file should like similar to:
 
 Your poolRelays array section in the json file should like similar to:
 
-```
+```console
   "poolRelays": [
          {
          "relayType": "ip",
