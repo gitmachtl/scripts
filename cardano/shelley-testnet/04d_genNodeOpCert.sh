@@ -42,7 +42,7 @@ currentKESperiod=$(( (${currentTimeSec}-${startTimeSec}) / (${slotsPerKESPeriod}
 maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
 expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
 expireTimeSec=$(( ${startTimeSec} + ( ${slotLength} * ${expiresKESperiod} * ${slotsPerKESPeriod} ) ))
-expireDate=$(date --date=@${expireTimeSec})
+expireDate=$(date -R --date=@${expireTimeSec})
 
 file_unlock ${nodeName}.kes-expire.json
 echo -e "{\n\t\"latestKESfileindex\": \"${latestKESnumber}\",\n\t\"currentKESperiod\": \"${currentKESperiod}\",\n\t\"expireKESperiod\": \"${expiresKESperiod}\",\n\t\"expireKESdate\": \"${expireDate}\"\n}" > ${nodeName}.kes-expire.json
