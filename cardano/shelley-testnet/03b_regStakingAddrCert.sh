@@ -75,7 +75,12 @@ echo
 
 #Getting protocol parameters from the blockchain, calculating fees
 ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey --certificate ${stakeAddr}.cert | awk '{ print $2 }')
+
+#Generate Dummy-TxBody file for fee calculation
+        txBodyFile="${tempDir}/dummy.txbody"
+        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
+fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $2 }')
+
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m ${fee} lovelaces \e[90m"
 keyDepositFee=$(cat protocol-parameters.json | jq -r .keyDeposit)
 echo -e "\e[0mKey Deposit Fee: \e[32m ${keyDepositFee} lovelaces \e[90m"
@@ -102,7 +107,7 @@ echo -e "\e[0mBuilding the unsigned transaction body with the\e[32m ${stakeAddr}
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} --certificate ${stakeAddr}.cert
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
 
 #for more input(utxos) or outputaddresse just add more like
 #cardano-cli shelley transaction build-raw \
@@ -123,7 +128,7 @@ echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey --tx-file ${txFile} ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey --out-file ${txFile} ${magicparam}
 
 cat ${txFile}
 echo

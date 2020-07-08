@@ -65,6 +65,7 @@ if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.
 ownerCnt=$(jq -r '.poolOwner | length' ${poolFile}.pool.json)
 certCnt=$(( ${ownerCnt} + 1 ))
 signingKeys="--signing-key-file ${regPayName}.skey --signing-key-file ${poolName}.node.skey"
+witnessCount=2
 registrationCerts="--certificate ${regCertFile}"
 rewardsAccountIncluded="no"
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
@@ -74,13 +75,14 @@ do
   if [ ! -f "${ownerName}.deleg.cert" ]; then echo -e "e[35mERROR - \"${ownerName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 1; fi
   #When we are in the loop, just build up also all the needed signingkeys & certificates for the transaction
   signingKeys="${signingKeys} --signing-key-file ${ownerName}.staking.skey"
+  witnessCount=$(( ${witnessCount} + 1 ))
   registrationCerts="${registrationCerts} --certificate ${ownerName}.deleg.cert"
   #Also check, if the ownername is the same as the one in the rewards account, if so we don't need an extra signing key later
   if [[ "${ownerName}" == "${rewardsName}" ]]; then rewardsAccountIncluded="yes"; fi
 done
 
 #Add the rewards account signing staking key if needed
-if [[ "${rewardsAccountIncluded}" == "no" ]]; then signingKeys="${signingKeys} --signing-key-file ${rewardsName}.staking.skey"; fi
+if [[ "${rewardsAccountIncluded}" == "no" ]]; then signingKeys="${signingKeys} --signing-key-file ${rewardsName}.staking.skey";   witnessCount=$(( ${witnessCount} + 1 )); fi
 
 
 #-------------------------------------------------------------------------
@@ -131,6 +133,7 @@ do
   echo -e "\e[0m                    \e[32m ${ownerName}.staking.vkey\e[0m & \e[32m${ownerName}.deleg.cert \e[0m"
 done
 echo -e "\e[0m      Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
+echo -e "\e[0m      Witness Count:\e[32m ${witnessCount} signing keys \e[0m"
 echo -e "\e[0m             Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
 echo -e "\e[0m               Cost:\e[32m ${poolCost} \e[90mlovelaces"
 echo -e "\e[0m             Margin:\e[32m ${poolMargin} \e[0m"
@@ -181,19 +184,11 @@ echo
 #Getting protocol parameters from the blockchain, calculating fees
 ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
 
-#cardano-cli shelley transaction calculate-min-fee \
-#    --tx-in-count 1 \
-#    --tx-out-count 1 \
-#    --ttl 430000 \
-#    --testnet-magic 42 \
-#    --signing-key-file pay.skey \
-#    --signing-key-file node.skey \
-#    --signing-key-file stake.skey \
-#    --certificate pool.cert \
-#    --certificate deleg.cert \
-#    --protocol-params-file params.json
+#Generate Dummy-TxBody file for fee calculation
+        txBodyFile="${tempDir}/dummy.txbody"
+        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
 
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} ${signingKeys} ${registrationCerts} | awk '{ print $2 }')
+fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $2 }')
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m ${fee} lovelaces \e[90m"
 
 #Check if pool was registered before and calculate Fee for registration or set it to zero for re-registration
@@ -229,7 +224,7 @@ echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} ${registrationCerts}
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
 
 cat ${txBodyFile} | head -n 6   #only show first 6 lines
 echo
@@ -238,7 +233,7 @@ echo -e "\e[0mSign the unsigned transaction body with the \e[32m${regPayName}.sk
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKeys} --tx-file ${txFile} ${magicparam}
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKeys} --out-file ${txFile} ${magicparam}
 
 cat ${txFile} | head -n 6   #only show first 6 lines
 echo

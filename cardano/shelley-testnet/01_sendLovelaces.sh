@@ -83,7 +83,15 @@ echo
 
 #Getting protocol parameters from the blockchain, calculating fees
 ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} --signing-key-file ${fromAddr}.skey | awk '{ print $2 }')
+
+#Generate Dummy-TxBody file for fee calculation
+	txBodyFile="${tempDir}/dummy.txbody"
+	if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
+                        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${dummyShelleyAddr}+0 --ttl ${ttl} --fee 0 --out-file ${txBodyFile}
+                        else  #Sending chosen amount (rxcnt=2)
+                        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${dummyShelleyAddr}+0 --tx-out ${dummyShelleyAddr}+0 --ttl ${ttl} --fee 0 --out-file ${txBodyFile}
+	fi
+fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $2 }')
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m ${fee} lovelaces \e[90m"
 
 #If sending ALL funds
@@ -108,11 +116,10 @@ echo -e "\e[0mBuilding the unsigned transaction body: \e[32m ${txBodyFile} \e[90
 echo
 
 #Building unsigned transaction body
-
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-			${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile}
+			${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --out-file ${txBodyFile}
 			else  #Sending chosen amount (rxcnt=2)
-			${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out ${sendFromAddr}+${lovelacesToReturn} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile}
+			${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out ${sendFromAddr}+${lovelacesToReturn} --ttl ${ttl} --fee ${fee} --out-file ${txBodyFile}
 fi
 
 #for more input(utxos) or outputaddresse just add more like
@@ -134,7 +141,7 @@ echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --tx-file ${txFile} ${magicparam} 
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile} 
 
 cat ${txFile}
 echo

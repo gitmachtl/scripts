@@ -30,10 +30,22 @@ export CARDANO_NODE_SOCKET_PATH=${socket}
 tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 
 
-#AddressType prefixes (testnet)
-addrTypeEnterprise="60"   	#61 for mainnet
-addrTypeBase="00"		#01 for mainnet
-addrTypeStake="58"		#e1 for mainnet
+
+#Dummy Shelley Payment_Addr
+dummyShelleyAddr="addr_test1vpx40rml0k5yyx266xnwtgpzj9ndp9v3ava22jz5mlzcnvgcczpr3"
+
+#AddressType check
+get_addressType() {
+${cardanocli} shelley address info --address $1 | grep "Type" | cut -d":" -f 2 | sed 's/ //'
+}
+
+get_addressEra() {
+${cardanocli} shelley address info --address $1 | grep "Era" | cut -d":" -f 2 | sed 's/ //'
+}
+
+addrTypePayment="Payment address"
+addrTypeStake="Stake address"
+
 
 
 #-------------------------------------------------------------
