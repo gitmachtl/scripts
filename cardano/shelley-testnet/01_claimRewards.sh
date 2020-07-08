@@ -46,12 +46,9 @@ currentEPOCH=$(get_currentEpoch)
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 
-sendFromAddr=$(cat ${fromAddr}.addr)
-sendToAddr=$(cat ${toAddr}.addr)
-stakingAddr=$(cat ${stakeAddr}.addr)
-
-rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${stakingAddr} ${magicparam} | jq 'flatten | .[0].rewardAccountBalance')
-
+sendFromAddr=$(cat ${fromAddr}.addr); check_address "${sendFromAddr}";
+sendToAddr=$(cat ${toAddr}.addr); check_address "${sendToAddr}";
+stakingAddr=$(cat ${stakeAddr}.addr); check_address "${stakingAddr}";
 
 echo
 echo -e "Claim all rewards from Address ${stakeAddr}.addr: \e[33m${rewardsAmount} lovelaces\e[0m"
@@ -61,6 +58,7 @@ echo -e "Pay fees from Address ${fromAddr}.addr: \e[32m${sendFromAddr}\e[0m"
 echo
 
 #Checking about rewards on the stake address
+rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${stakingAddr} ${magicparam} | jq 'flatten | .[0].rewardAccountBalance')
 if [[ ${rewardsAmount} == 0 || ${rewardsAmount} == null ]]; then echo -e "\e[35mNo rewards on the stake Addr!\e[0m\n"; exit; fi
 
 
@@ -102,13 +100,16 @@ ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-paramet
 
 #Generate Dummy-TxBody file for fee calculation
         txBodyFile="${tempDir}/dummy.txbody"
+	rm ${txBodyFile} 2> /dev/null
         if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
                         ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${dummyShelleyAddr}+0 --ttl ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
+			checkError "$?"
                         else  #Sending chosen amount (rxcnt=2)
                         ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${dummyShelleyAddr}+0 --tx-out ${dummyShelleyAddr}+0 --ttl ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
+			checkError "$?"
         fi
 fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --withdrawal ${withdrawal} --witness-count 2 --byron-witness-count 0 | awk '{ print $2 }')
-
+checkError "$?"
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & Withdrawal: \e[32m ${fee} lovelaces \e[90m"
 
 #If only one address (paying for the fees and also receiving the rewards)
@@ -142,13 +143,14 @@ echo -e "\e[0mBuilding the unsigned transaction body: \e[32m ${txBodyFile} \e[90
 echo
 
 #Building unsigned transaction body
-
+rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then
 			${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToReturn} --ttl ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+			checkError "$?"
 			else
                         ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendFromAddr}+${lovelacesToReturn} --tx-out ${sendToAddr}+${rewardsAmount} --ttl ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+			checkError "$?"
 fi
-
 
 cat ${txBodyFile}
 echo
@@ -157,15 +159,17 @@ echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey
 echo
 
 #Sign the unsigned transaction body with the SecureKey
+rm ${txFile} 2> /dev/null
 ${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey --out-file ${txFile} ${magicparam}
+checkError "$?"
 cat ${txFile}
 echo
-
 
 if ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
         ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
+	checkError "$?"
         echo -e "\e[32mDONE\n"
 fi
 

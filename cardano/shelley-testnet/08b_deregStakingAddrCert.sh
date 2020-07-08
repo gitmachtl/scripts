@@ -33,8 +33,8 @@ echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
-sendFromAddr=$(cat ${fromAddr}.addr)
-sendToAddr=$(cat ${fromAddr}.addr)
+sendFromAddr=$(cat ${fromAddr}.addr); check_address "${sendFromAddr}";
+sendToAddr=$(cat ${fromAddr}.addr); check_address "${sendToAddr}";
 
 echo
 echo -e "Pay fees from Address\e[32m ${fromAddr}.addr\e[0m: ${sendFromAddr}"
@@ -42,7 +42,7 @@ echo
 
 
 #Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam})
+utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam}); checkError "$?";
 utx0linecnt=$(echo "${utx0}" | wc -l)
 txcnt=$((${utx0linecnt}-2))
 
@@ -73,7 +73,16 @@ echo
 
 #Getting protocol parameters from the blockchain, calculating fees
 ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey --certificate ${stakeAddr}.dereg-cert | awk '{ print $2 }')
+
+#Generate Dummy-TxBody file for fee calculation
+        txBodyFile="${tempDir}/dummy.txbody"
+        rm ${txBodyFile} 2> /dev/null
+        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 --certificate ${stakeAddr}.dereg-cert --out-file ${txBodyFile}
+        checkError "$?"
+
+fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $2 }')
+checkError "$?"
+
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m ${fee} lovelaces \e[90m"
 keyDepositFee=$(cat protocol-parameters.json | jq -r .keyDeposit)
 echo -e "\e[0mKey Deposit Fee that will be refunded: \e[32m ${keyDepositFee} lovelaces \e[90m"
@@ -101,17 +110,19 @@ echo -e "\e[0mBuilding the unsigned transaction body with the\e[32m ${stakeAddr}
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} --certificate ${stakeAddr}.dereg-cert
-
+rm ${txBodyFile} 2> /dev/null
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --certificate ${stakeAddr}.dereg-cert --out-file ${txBodyFile}
+checkError "$?"
 cat ${txBodyFile}
 echo
-
+echo
 echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey --tx-file ${txFile} ${magicparam}
-
+rm ${txFile} 2> /dev/null
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey ${magicparam} --out-file ${txFile}
+checkError "$?"
 cat ${txFile}
 echo
 
@@ -120,6 +131,7 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
         ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
+	checkError "$?"
         echo -e "\e[32mDONE\n"
 fi
 

@@ -109,6 +109,7 @@ tmpCheckJSON=$(jq . "${tmpMetadataJSON}"  2> /dev/null)
 if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR - Not a valid JSON file on the webserver!\e[0m\n"; exit 1; fi
 #Ok, downloaded file is a valid JSON file. So now look into the HASH
 onlineMetaHash=$(${cardanocli} shelley stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
+checkError "$?"
 #Compare the HASH now, if they don't match up, output an ERROR message and exit
 if [[ ! "${poolMetaHash}" == "${onlineMetaHash}" ]]; then
 	echo -e "\e[33mERROR - HASH mismatch!\n\nPlease make sure to upload your MetaData JSON file correctly to your webserver!\nPool-Registration aborted! :-(\e[0m\n";
@@ -152,7 +153,7 @@ echo
 
 
 #Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam})
+utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam}); checkError "$?"
 utx0linecnt=$(echo "${utx0}" | wc -l)
 txcnt=$((${utx0linecnt}-2))
 
@@ -183,12 +184,15 @@ echo
 
 #Getting protocol parameters from the blockchain, calculating fees
 ${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+checkError "$?"
 
 #Generate Dummy-TxBody file for fee calculation
         txBodyFile="${tempDir}/dummy.txbody"
+	rm ${txBodyFile} 2> /dev/null
         ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
-
+	checkError "$?"
 fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $2 }')
+checkError "$?"
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m ${fee} lovelaces \e[90m"
 
 #Check if pool was registered before and calculate Fee for registration or set it to zero for re-registration
@@ -224,8 +228,9 @@ echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\
 echo
 
 #Building unsigned transaction body
+rm ${txBodyFile} 2> /dev/null
 ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
-
+checkError "$?"
 cat ${txBodyFile} | head -n 6   #only show first 6 lines
 echo
 
@@ -233,14 +238,16 @@ echo -e "\e[0mSign the unsigned transaction body with the \e[32m${regPayName}.sk
 echo
 
 #Sign the unsigned transaction body with the SecureKey
+rm ${txFile} 2> /dev/null
 ${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKeys} --out-file ${txFile} ${magicparam}
-
+checkError "$?"
 cat ${txFile} | head -n 6   #only show first 6 lines
 echo
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
 #poolID=$(cat ${ownerName}.deleg.cert | tail -n 1 | cut -c 6-) #Old method
 poolID=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)	#New method since 1.13.0
+checkError "$?"
 
 file_unlock ${poolFile}.pool.json
 newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
@@ -267,7 +274,6 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${o
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
         ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
-
 	#No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
 	if [[ $? -eq 0 ]]; then
         file_unlock ${poolFile}.pool.json

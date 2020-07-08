@@ -80,6 +80,7 @@ echo -e "Retire EPOCH set to:\e[32m ${retireEPOCH}\e[0m"
 file_unlock ${poolName}.pool.dereg-cert
 
 ${cardanocli} shelley stake-pool deregistration-certificate --cold-verification-key-file ${poolName}.node.vkey --epoch ${retireEPOCH} --out-file ${poolName}.pool.dereg-cert
+checkError "$?"
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then

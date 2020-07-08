@@ -35,6 +35,12 @@ tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 dummyShelleyAddr="addr_test1vpx40rml0k5yyx266xnwtgpzj9ndp9v3ava22jz5mlzcnvgcczpr3"
 
 #AddressType check
+
+check_address() {
+tmp=$(${cardanocli} shelley address info --address $1 2> /dev/null)
+if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Unknown address format for address: $1 !\e[0m"; exit 1; fi
+}
+
 get_addressType() {
 ${cardanocli} shelley address info --address $1 | grep "Type" | cut -d":" -f 2 | sed 's/ //'
 }
@@ -143,5 +149,14 @@ get_currentTTL()
 echo $(( $(get_currentTip) + 10000 ))
 }
 #-------------------------------------------------------
+
+#-------------------------------------------------------
+#Displays an Errormessage if parameter is not 0
+checkError()
+{
+if [[ $1 -ne 0 ]]; then echo -e "\e[35mERROR (Code $1) !\e[0m"; exit 1; fi
+}
+#-------------------------------------------------------
+
 
 

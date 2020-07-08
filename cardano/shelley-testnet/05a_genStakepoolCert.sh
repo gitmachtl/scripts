@@ -132,6 +132,7 @@ file_lock ${poolFile}.metadata.json
 
 #Generate HASH for the <poolFile>.metadata.json
 poolMetaHash=$(${cardanocli} shelley stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
+checkError "$?"
 
 #Add the HASH to the <poolFile>.pool.json info file
 file_unlock ${poolFile}.pool.json
@@ -214,6 +215,7 @@ echo
 
 file_unlock ${poolName}.pool.cert
 ${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
+checkError "$?"
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
