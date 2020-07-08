@@ -131,7 +131,7 @@ echo ${timeUntilNextEpoch}
 #Subroutines to calculate current slotHeight(tip)
 get_currentTip()
 {
-local currentTip=$(${cardanocli} shelley query tip ${magicparam} | awk 'match($0,/unSlotNo = [0-9]+/) {print substr($0, RSTART+11,RLENGTH-11)}')
+local currentTip=$(${cardanocli} shelley query tip ${magicparam} | jq -r .slotNo)
 echo ${currentTip}
 }
 #-------------------------------------------------------
