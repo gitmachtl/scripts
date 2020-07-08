@@ -10,26 +10,32 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $(basename $0) <StakeAddressName> (pointing to the StakeAddressName.staking.addr file)"; exit 1; fi
+#Check the commandline parameter
+if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <AdressName or HASH>"; exit 2; fi
 
-#Check if addr file exists
-if [ ! -f "${addrName}.staking.addr" ]; then echo -e "\n\e[33mERROR - \"${addrName}.staking.addr\" does not exist.\e[0m"; exit 1; fi
+#Check if Address file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
+if [ ! -f "$1.addr" ]; then echo "$1" > ${tempDir}/tempAddr.addr; addrName="${tempDir}/tempAddr"; fi
 
-checkAddr=$(cat ${addrName}.staking.addr | cut -c 7-)
+checkAddr=$(cat ${addrName}.addr)
 
-echo
-echo -e "\e[0mChecking the ledger-state about the \e[32m ${addrName}.staking.addr\e[0m: ${checkAddr}"
-echo
+typeOfAddr=$(get_addressType "${checkAddr}")
 
-#check ledger-state
-#stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | jq ._delegationState._dstate._stkCreds | grep "${checkAddr}" | wc -l)
-stakeAddrInLedgerCnt=$(${cardanocli} shelley query ledger-state ${magicparam} | grep "\"${checkAddr}\"" | wc -l)
+#What type of Address is it? Stake?
+if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
+	echo
+	echo -e "\e[0mChecking ChainStatus of Stake-Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
+	echo
 
+        rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
 
-if [[ ${stakeAddrInLedgerCnt} -gt 0 ]]; then
-					echo -e "\e[32mStake-Address is registered on the chain!\e[0m";
-				    else
-					echo -e "\e[35mStake-Address is NOT registered on the chain!\e[0m";
+	#Checking about the content
+        if [[ ${rewardsAmount} == null ]]; then echo -e "\e[35mStaking Address is NOT on the chain, register it first !\e[0m\n";
+	else echo -e "\e[32mStaking Address is on the chain !\e[0m\n"
+	fi
+
+else #unsupported address type
+
+	echo -e "\e[35mAddress type unknown!\e[0m";
 fi
-echo
+
