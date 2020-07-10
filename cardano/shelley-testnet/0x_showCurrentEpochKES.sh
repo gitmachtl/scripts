@@ -32,3 +32,6 @@ expireDate=$(date --date=@${expireTimeSec})
 echo -e "Current KES Period: ${currentKESperiod}"
 echo -e "KES Keys expire after Period: ${expiresKESperiod} (${expireDate})"
 
+#Calculate current slot
+currentSlot=$(( (${currentTimeSec}-${startTimeSec}) / ${slotLength} ))
+echo -e "Current Slot: ${currentSlot}"

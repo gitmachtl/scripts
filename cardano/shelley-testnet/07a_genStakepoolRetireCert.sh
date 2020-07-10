@@ -85,7 +85,7 @@ checkError "$?"
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
 	file_unlock ${poolFile}.pool.json
-	newJSON=$(cat ${poolFile}.pool.json | jq ". += {deregCertCreated: \"$(date)\"}" | jq ". += {deregCertFile: \"${poolName}.pool.dereg-cert\"}" | jq ". += {deregEpoch: \"${retireEPOCH}\"}" )
+	newJSON=$(cat ${poolFile}.pool.json | jq ". += {deregCertCreated: \"$(date -R)\"}" | jq ". += {deregCertFile: \"${poolName}.pool.dereg-cert\"}" | jq ". += {deregEpoch: \"${retireEPOCH}\"}" )
 	echo "${newJSON}" > ${poolFile}.pool.json
         file_lock ${poolFile}.pool.json
 fi

@@ -127,6 +127,11 @@ else echo -e "\e[32mOK\e[0m\n"; fi
 #Ok, HASH is the same, continue
 
 
+#Getting protocol parameters from the blockchain for fee calculation, minPoolCost, ...
+${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+checkError "$?"
+minPoolCost=$(cat protocol-parameters.json | jq -r .minPoolCost)
+
 echo -e "\e[0m   Owner Stake Keys:\e[32m ${ownerCnt}\e[0m owner(s) with the key(s)"
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
 do
@@ -137,12 +142,16 @@ echo -e "\e[0m      Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
 echo -e "\e[0m      Witness Count:\e[32m ${witnessCount} signing keys \e[0m"
 echo -e "\e[0m             Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
 echo -e "\e[0m               Cost:\e[32m ${poolCost} \e[90mlovelaces"
+echo -e "\e[0m      Chain minCost:\e[32m ${minPoolCost} \e[90mlovelaces"
 echo -e "\e[0m             Margin:\e[32m ${poolMargin} \e[0m"
 echo
 echo -e "\e[0m      Current EPOCH:\e[32m ${currentEPOCH}\e[0m"
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
+
+#Check again about the minPoolCost
+if [[ ${poolCost} -lt ${minPoolCost} ]]; then echo -e "\e[35mYou poolCost setting is too low, the current minPoolCost is ${minPoolCost} lovelaces !\e[0m"; exit 1; fi
 
 sendFromAddr=$(cat ${regPayName}.addr)
 sendToAddr=$(cat ${regPayName}.addr)
@@ -181,10 +190,6 @@ done < <(printf "${utx0}\n" | tail -n ${txcnt})
 
 echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[90m"
 echo
-
-#Getting protocol parameters from the blockchain, calculating fees
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
-checkError "$?"
 
 #Generate Dummy-TxBody file for fee calculation
         txBodyFile="${tempDir}/dummy.txbody"
@@ -277,7 +282,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${o
 	#No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
 	if [[ $? -eq 0 ]]; then
         file_unlock ${poolFile}.pool.json
-        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date)\"}")
+        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R)\"}")
 	echo "${newJSON}" > ${poolFile}.pool.json
         file_lock ${poolFile}.pool.json
 	fi
