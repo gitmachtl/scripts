@@ -4,7 +4,7 @@
 
 :bulb: **TESTED FOR CARDANO-NODE: release/1.14.2 !**
 
-:bulb: **Scripts for 1.15.1 are coming soon, i wanna test them more. You can risk to use them using the 'beta' branch. But no blame on me until i release them on the 'master' branch ! **
+:bulb: **Scripts for 1.15.1 are coming soon, i wanna test them more. You can risk to use them using the 'beta' branch. But no blame on me until i release them on the 'master' branch !**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
