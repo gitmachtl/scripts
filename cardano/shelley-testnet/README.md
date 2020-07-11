@@ -168,9 +168,9 @@ If the pool was registered before (when there is a **regSubmitted** value in the
   > :bulb: If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword REG on the commandline like ```./05c_regStakepoolCert.sh mypool mywallet REG```<br>
 Also you can force the script to do a re-registration by adding the keyword REREG on the command line like ```./05c_regStakepoolCert.sh mypool mywallet REREG```
 
-* **05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> poolname.pool.json
+* ~~**05d_checkPoolOnChain.sh:** checks the ledger-state about a given pool name -> poolname.pool.json
 <br>```./05d_checkPoolOnChain.sh <PoolNodeName>```
-<br>```./05d_checkPoolOnChain.sh mypool``` checks if the pool mypool is registered on the blockchain
+<br>```./05d_checkPoolOnChain.sh mypool``` checks if the pool mypool is registered on the blockchain~~
 
 * **06_regDelegationCert.sh:** register a simple delegation (from 05b) name.deleg.cert 
 <br>```./06_regDelegationCert.sh <delegatorName> <nameOfPaymentAddr>```
