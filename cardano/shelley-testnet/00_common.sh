@@ -32,7 +32,7 @@ tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 
 
 #Dummy Shelley Payment_Addr
-dummyShelleyAddr="addr_test1vpx40rml0k5yyx266xnwtgpzj9ndp9v3ava22jz5mlzcnvgcczpr3"
+dummyShelleyAddr="addr1vyde3cg6cccdzxf4szzpswgz53p8m3r4hu76j3zw0tagyvgdy3s4p"
 
 #AddressType check
 
