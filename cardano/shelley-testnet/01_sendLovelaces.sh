@@ -97,7 +97,7 @@ ${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > p
                         ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${dummyShelleyAddr}+0 --tx-out ${dummyShelleyAddr}+0 --ttl ${ttl} --fee 0 --out-file ${txBodyFile}
 			checkError "$?"
 	fi
-fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $2 }')
+fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m ${fee} lovelaces \e[90m"
 
@@ -162,7 +162,7 @@ echo
 if ask "\e[33mDoes this look good for you, continue ?" N; then
 	echo
 	echo -ne "\e[0mSubmitting the transaction via the node..."
-	${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
+	${cardanocli} shelley transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
 	checkError "$?"
 	echo -e "\e[32mDONE\n"
 fi

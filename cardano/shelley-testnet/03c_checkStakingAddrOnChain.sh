@@ -27,7 +27,7 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 	echo -e "\e[0mChecking ChainStatus of Stake-Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
 	echo
 
-        rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
+        rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
 
 	#Checking about the content
         if [[ ${rewardsAmount} == null ]]; then echo -e "\e[35mStaking Address is NOT on the chain, register it first !\e[0m\n";

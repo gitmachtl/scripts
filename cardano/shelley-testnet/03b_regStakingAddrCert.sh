@@ -43,7 +43,7 @@ echo -e "Pay fees from Address\e[32m ${fromAddr}.addr\e[0m: ${sendFromAddr}"
 echo
 
 #Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam})
+utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} --cardano-mode ${magicparam})
 utx0linecnt=$(echo "${utx0}" | wc -l)
 txcnt=$((${utx0linecnt}-2))
 
@@ -73,14 +73,14 @@ echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[90m"
 echo
 
 #Getting protocol parameters from the blockchain, calculating fees
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 
 #Generate Dummy-TxBody file for fee calculation
         txBodyFile="${tempDir}/dummy.txbody"
 	rm ${txBodyFile} 2> /dev/null
         ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
 	checkError "$?"
-fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $2 }')
+fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"
 
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m ${fee} lovelaces \e[90m"
@@ -131,7 +131,7 @@ echo
 if ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
+        ${cardanocli} shelley transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
 	checkError "$?"
         echo -e "\e[32mDONE\n"
 fi

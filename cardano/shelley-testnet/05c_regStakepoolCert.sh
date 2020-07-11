@@ -196,7 +196,7 @@ echo
 	rm ${txBodyFile} 2> /dev/null
         ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
 	checkError "$?"
-fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $2 }')
+fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m ${fee} lovelaces \e[90m"
 
@@ -278,7 +278,7 @@ fi
 if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${ownerName}.payment account, continue and register on chain ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
+        ${cardanocli} shelley transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
 	#No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
 	if [[ $? -eq 0 ]]; then
         file_unlock ${poolFile}.pool.json
