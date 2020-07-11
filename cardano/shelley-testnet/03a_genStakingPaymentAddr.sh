@@ -24,6 +24,7 @@ if [ -f "${addrName}.staking.cert" ]; then echo -e "\e[35mWARNING - ${addrName}.
 
 #We need a normal payment(base) keypair with vkey and skey, so let's create that one
 ${cardanocli} shelley address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
+checkError "$?"
 file_lock ${addrName}.payment.vkey
 file_lock ${addrName}.payment.skey
 
@@ -34,7 +35,8 @@ echo -e "\e[0mPayment(Base)-Signing-Key: \e[32m ${addrName}.payment.skey \e[90m"
 cat ${addrName}.payment.skey
 echo
 
-${cardanocli} shelley stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey 
+${cardanocli} shelley stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
+checkError "$?"
 file_lock ${addrName}.staking.vkey
 file_lock ${addrName}.staking.skey
 
@@ -47,7 +49,8 @@ cat ${addrName}.staking.skey
 echo
 
 #Building a Payment Address
-${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${magicparam} > ${addrName}.payment.addr
+${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey --mainnet > ${addrName}.payment.addr
+checkError "$?"
 file_lock ${addrName}.payment.addr
 
 echo -e "\e[0mPayment(Base)-Address built: \e[32m ${addrName}.payment.addr \e[90m"
@@ -55,57 +58,24 @@ cat ${addrName}.payment.addr
 echo
 
 #Building a Staking Address
-${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${magicparam} > ${addrName}.staking.addr
+${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey --mainnet > ${addrName}.staking.addr
+checkError "$?"
 file_lock ${addrName}.staking.addr
 
 echo -e "\e[0mStaking(Rewards)-Address built: \e[32m ${addrName}.staking.addr \e[90m"
 cat ${addrName}.staking.addr
 echo
 
-#Building a Enterprise Address
-#${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey ${magicparam} > ${addrName}.enterprise.addr
-#
-#echo -e "\e[0mEnterprise-Address built: \e[32m ${addrName}.enterprise.addr \e[90m"
-#cat ${addrName}.enterprise.addr
-#echo
-
 #create an address registration certificate
 ${cardanocli} shelley stake-address registration-certificate --staking-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.cert
+checkError "$?"
 file_lock ${addrName}.staking.cert
 
 echo -e "\e[0mStaking-Address-Registration-Certificate built: \e[32m ${addrName}.staking.cert \e[90m"
 cat ${addrName}.staking.cert
 echo
-
-#get values to calculate fees for the staking address registration on the blockchain
-#get live values
-currentTip=$(get_currentTip)
-ttl=$(get_currentTTL)
-currentEPOCH=$(get_currentEpoch)
-
-#calculating minimum fee
-#cardano-cli shelley transaction calculate-min-fee \
-#     --tx-in-count 1 \
-#     --tx-out-count 1 \
-#     --ttl 200000 \
-#     --testnet-magic 42 \
-#     --signing-key-file payment.skey \
-#     --signing-key-file staking.skey \
-#     --certificate staking.cert \
-#     --protocol-params-file protocol.json
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count 1 --tx-out-count 1 --ttl ${ttl} ${magicparam} --signing-key-file ${addrName}.payment.skey --signing-key-file ${addrName}.staking.skey --certificate ${addrName}.staking.cert | awk '{ print $2 }')
-echo -e "\e[0mMimimum Registration Transfer Fee: \e[32m ${fee} lovelaces \e[90m"
-keyDepositFee=$(cat protocol-parameters.json | jq -r .keyDeposit)
-echo -e "\e[0mKey Deposit Fee: \e[32m ${keyDepositFee} lovelaces \e[90m"
-
-minRegistrationFund=$((${keyDepositFee}+${fee}))
-
 echo
-echo -e "\e[35mIf you wanna register the Staking-Address:\n\nPlease transfer now at least ${minRegistrationFund} lovelaces to your ${addrName}.payment.addr!\nIt will be used to pay for the registration fee of your Staking Address ${addrName}.staking.addr.\nSo the blockchain knows about the payment/staking address relationship !\e[0m"
+echo -e "\e[35mIf you wanna register the Staking-Address, please now run the script 03b_regStakingAddrCert.sh !\e[0m"
+echo
 
-echo -e "\e[0m\n"
-
-
-#--network-magic not needed on mainnet later
 

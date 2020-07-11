@@ -57,8 +57,8 @@ echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
-sendFromAddr=$(cat ${deregPayName}.addr)
-sendToAddr=$(cat ${deregPayName}.addr)
+sendFromAddr=$(cat ${deregPayName}.addr); check_address "${sendFromAddr}";
+sendToAddr=$(cat ${deregPayName}.addr); check_address "${sendToAddr}";
 
 echo
 echo -e "Pay fees from Address\e[32m ${deregPayName}.addr\e[0m: ${sendFromAddr}"
@@ -66,7 +66,7 @@ echo
 
 
 #Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam})
+utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} --cardano-mode ${magicparam}); checkError "$?";
 utx0linecnt=$(echo "${utx0}" | wc -l)
 txcnt=$((${utx0linecnt}-2))
 
@@ -96,24 +96,20 @@ echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[90m"
 echo
 
 #Getting protocol parameters from the blockchain, calculating fees
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
-
-#cardano-cli shelley transaction calculate-min-fee \
-#    --tx-in-count 1 \
-#    --tx-out-count 1 \
-#    --ttl 430000 \
-#    --testnet-magic 42 \
-#    --signing-key-file pay.skey \
-#    --signing-key-file staking.skey \
-#    --signing-key-file node.skey \
-#    --certificate pool.dereg-cert \
-#    --protocol-params-file params.json
-
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 
 #Make a variable for all signing keys
 signingKeys="--signing-key-file ${deregPayName}.skey --signing-key-file ${poolName}.node.skey"
 
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} ${signingKeys} --certificate ${deregCertFile} | awk '{ print $2 }')
+#Generate Dummy-TxBody file for fee calculation
+        txBodyFile="${tempDir}/dummy.txbody"
+        rm ${txBodyFile} 2> /dev/null
+        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 --certificate ${deregCertFile} --out-file ${txBodyFile}
+        checkError "$?"
+
+fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
+checkError "$?"
+
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m ${fee} lovelaces \e[90m"
 
 minDeRegistrationFund=${fee}
@@ -138,24 +134,27 @@ echo -e "\e[0mBuilding the unsigned transaction body with\e[32m ${deregCertFile}
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} --certificate ${deregCertFile}
-
+rm ${txBodyFile} 2> /dev/null
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --certificate ${deregCertFile} --out-file ${txBodyFile}
+checkError "$?"
 cat ${txBodyFile}
 echo
-
+echo
 echo -e "\e[0mSign the unsigned transaction body with the \e[32m${deregPayName}.skey\e[0m & \e[32m${poolName}.node.skey\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKeys} --tx-file ${txFile} ${magicparam}
-
+rm ${txFile} 2> /dev/null
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKeys} ${magicparam} --out-file ${txFile}
+checkError "$?"
 cat ${txFile}
 echo
 
 if ask "\e[33mDoes this look good for you? Continue ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
+        ${cardanocli} shelley transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
+	checkError "$?"
 
 	#No error, so lets update the pool JSON file with the date and file the deregistration
 	if [[ $? -eq 0 ]]; then

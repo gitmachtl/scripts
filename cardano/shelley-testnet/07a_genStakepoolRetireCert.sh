@@ -54,7 +54,7 @@ echo -e "\e[0mCreate a Stakepool de-Registration (retire) certificate for PoolNo
 echo
 
 #Getting protocol parameters from the blockchain, checking epochMax (eMax)
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 eMax=$(cat protocol-parameters.json | jq -r .eMax)
 
 currentEPOCH=$(get_currentEpoch)
@@ -80,11 +80,12 @@ echo -e "Retire EPOCH set to:\e[32m ${retireEPOCH}\e[0m"
 file_unlock ${poolName}.pool.dereg-cert
 
 ${cardanocli} shelley stake-pool deregistration-certificate --cold-verification-key-file ${poolName}.node.vkey --epoch ${retireEPOCH} --out-file ${poolName}.pool.dereg-cert
+checkError "$?"
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
 	file_unlock ${poolFile}.pool.json
-	newJSON=$(cat ${poolFile}.pool.json | jq ". += {deregCertCreated: \"$(date)\"}" | jq ". += {deregCertFile: \"${poolName}.pool.dereg-cert\"}" | jq ". += {deregEpoch: \"${retireEPOCH}\"}" )
+	newJSON=$(cat ${poolFile}.pool.json | jq ". += {deregCertCreated: \"$(date -R)\"}" | jq ". += {deregCertFile: \"${poolName}.pool.dereg-cert\"}" | jq ". += {deregEpoch: \"${retireEPOCH}\"}" )
 	echo "${newJSON}" > ${poolFile}.pool.json
         file_lock ${poolFile}.pool.json
 fi

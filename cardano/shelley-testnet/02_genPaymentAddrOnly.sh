@@ -20,6 +20,7 @@ if [ -f "${addrName}.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.addr alr
 
 
 ${cardanocli} shelley address key-gen --verification-key-file ${addrName}.vkey --signing-key-file ${addrName}.skey
+checkError "$?"
 file_lock ${addrName}.vkey
 file_lock ${addrName}.skey
 
@@ -32,7 +33,8 @@ cat ${addrName}.skey
 echo
 
 #Building a Payment Address
-${cardanocli} shelley address build --payment-verification-key-file ${addrName}.vkey ${magicparam} > ${addrName}.addr
+${cardanocli} shelley address build --payment-verification-key-file ${addrName}.vkey --mainnet > ${addrName}.addr
+checkError "$?"
 file_lock ${addrName}.addr
 
 echo -e "\e[0mPaymentOnly(Enterprise)-Address built: \e[32m ${addrName}.addr \e[90m"

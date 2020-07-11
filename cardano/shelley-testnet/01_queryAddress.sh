@@ -18,17 +18,17 @@ if [ ! -f "$1.addr" ]; then echo "$1" > ${tempDir}/tempAddr.addr; addrName="${te
 
 checkAddr=$(cat ${addrName}.addr)
 
-typeOfAddr=${checkAddr:0:2}
+typeOfAddr=$(get_addressType "${checkAddr}")
 
 #What type of Address is it? Base&Enterprise or Stake
-if [[ ${typeOfAddr} == ${addrTypeEnterprise} || ${typeOfAddr} == ${addrTypeBase} ]]; then  #Enterprise and Base UTXO adresses
+if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO adresses
 
 	echo
 	echo -e "\e[0mChecking UTXO of Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
 	echo
 
 	#Get UTX0 Data for the address
-	utx0=$(${cardanocli} shelley query utxo --address ${checkAddr} ${magicparam})
+	utx0=$(${cardanocli} shelley query utxo --address ${checkAddr} --cardano-mode ${magicparam})
 	utx0linecnt=$(echo "${utx0}" | wc -l)
 	txcnt=$((${utx0linecnt}-2))
 
@@ -57,16 +57,21 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 	echo -e "\e[0mChecking Rewards on Stake-Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
 	echo
 
-	rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --testnet-magic 42 | jq -r .\"${checkAddr}\".rewardAccountBalance)
+	#rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} ${magicparam} | jq -r .\"${checkAddr}\".rewardAccountBalance)
+        rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
+	delegationPoolID=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].delegation")
 
 	#Checking about rewards on the stake address
-	if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards found on the stake Addr!\e[0m\n"; exit; fi
+	if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards found on the stake Addr !\e[0m\n";
+        elif [[ ${rewardsAmount} == null ]]; then echo -e "\e[35mStaking Address is not on the chain, register it first !\e[0m\n";
+	else echo -e "Current Rewards: \e[33m${rewardsAmount} lovelaces\e[0m\n"
+	fi
 
-	echo -e "Current Rewards: \e[33m${rewardsAmount} lovelaces\e[0m\n"
+        #If delegated to a pool, show the current pool ID
+        if [[ ! ${delegationPoolID} == null ]]; then echo -e "Account is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m\n"; fi
 
 else #unsupported address type
 
 	echo -e "\e[35mAddress type unknown!\e[0m";
-
 fi
 

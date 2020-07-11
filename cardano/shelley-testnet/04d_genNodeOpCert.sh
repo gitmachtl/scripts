@@ -30,19 +30,30 @@ echo
 echo -e "\e[0mIssue a new Node operational certificate using KES-vKey \e[32m${nodeName}.kes-${latestKESnumber}.vkey\e[0m and Cold-sKey \e[32m${nodeName}.node.skey\e[0m:"
 echo
 
-#calculating current KES period
-startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)
-startTimeSec=$(date --date=${startTimeGenesis} +%s)	#in seconds (UTC)
-currentTimeSec=$(date -u +%s)				#in seconds (UTC)
-slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)
-slotLength=$(cat ${genesisfile} | jq -r .slotLength)
-currentKESperiod=$(( (${currentTimeSec}-${startTimeSec}) / (${slotsPerKESPeriod}*${slotLength}) ))  #returns a integer number, we like that
+#Static
+slotLength=$(cat ${genesisfile} | jq -r .slotLength)                    #In Secs
+epochLength=$(cat ${genesisfile} | jq -r .epochLength)                  #In Secs
+slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)      #Number
+startTimeByron=$(cat ${genesisfile_byron} | jq -r .startTime)           #In Secs(abs)
+startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)             #In Text
+startTimeSec=$(date --date=${startTimeGenesis} +%s)                     #In Secs(abs)
+transTimeEnd=$(( ${startTimeSec}+(2*${epochLength}) ))                  #In Secs(abs) End of the TransitionPhase = Start of KES Period 0
+slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)	#Number
+
+#Dynamic
+currentTimeSec=$(date -u +%s)                                           #In Secs(abs)
+
+#Calculating KES period
+currentKESperiod=$(( (${currentTimeSec}-${transTimeEnd}) / (${slotsPerKESPeriod}*${slotLength}) ))
+if [[ "${currentKESperiod}" -lt 0 ]]; then currentKESperiod=0; fi
 
 #Calculating Expire KES Period and Date/Time
 maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
 expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
-expireTimeSec=$(( ${startTimeSec} + ( ${slotLength} * ${expiresKESperiod} * ${slotsPerKESPeriod} ) ))
-expireDate=$(date -R --date=@${expireTimeSec})
+expireTimeSec=$(( ${transTimeEnd} + (${slotLength}*${expiresKESperiod}*${slotsPerKESPeriod}) ))
+expireDate=$(date --date=@${expireTimeSec} -R)
+
+
 
 file_unlock ${nodeName}.kes-expire.json
 echo -e "{\n\t\"latestKESfileindex\": \"${latestKESnumber}\",\n\t\"currentKESperiod\": \"${currentKESperiod}\",\n\t\"expireKESperiod\": \"${expiresKESperiod}\",\n\t\"expireKESdate\": \"${expireDate}\"\n}" > ${nodeName}.kes-expire.json
@@ -56,6 +67,7 @@ file_unlock ${nodeName}.node-${latestKESnumber}.opcert
 file_unlock ${nodeName}.node.counter
 
 ${cardanocli} shelley node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
+checkError "$?"
 
 file_lock ${nodeName}.node-${latestKESnumber}.opcert
 file_lock ${nodeName}.node.counter

@@ -68,11 +68,29 @@ poolPledge=$(readJSONparam "poolPledge"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolCost=$(readJSONparam "poolCost"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
+
+#Check poolCost Setting
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
+checkError "$?"
+minPoolCost=$(cat protocol-parameters.json | jq -r .minPoolCost)
+if [[ ${poolCost} -lt ${minPoolCost} ]]; then #If poolCost is set to low, than ask for an automatic change
+                echo
+                if ask "\e[33mYour poolCost (${poolCost} lovelaces) is lower than the minPoolCost (${minPoolCost} lovelaces). Do you wanna change it to that ?\e[0m" N; then
+			poolCost=${minPoolCost}
+                        file_unlock ${poolFile}.pool.json       #update the ticker in the json itself to the new one too
+                        newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolCost: \"${poolCost}\"}")
+                        echo "${newJSON}" > ${poolFile}.pool.json
+                else
+                        echo
+                        echo "Please re-edit the poolCost entry in your ${poolFile}.pool.json, thx."
+                        echo
+                        exit 1
+                fi
+        fi
+
 #Check PoolRelay Entries
 tmp=$(readJSONparam "poolRelays"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolRelayCnt=$(jq -r '.poolRelays | length' ${poolFile}.pool.json)
-
-#Build the RelayInfo for the registration
 poolRelays=""	#building string for the certificate
 for (( tmpCnt=0; tmpCnt<${poolRelayCnt}; tmpCnt++ ))
 do
@@ -82,7 +100,6 @@ do
 
   #Load relay port data, verify later depending on the need (multihost does not need a port)
   poolRelayEntryPort=$(jq -r .poolRelays[${tmpCnt}].relayPort ${poolFile}.pool.json 2> /dev/null);
-
   poolRelayEntryType=$(jq -r .poolRelays[${tmpCnt}].relayType ${poolFile}.pool.json 2> /dev/null);
   if [[ "${poolRelayEntryType}" == null || "${poolRelayEntryType}" == "" ]]; then echo "ERROR - Parameter \"relayType\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
 
@@ -112,12 +129,49 @@ done
 
 
 #Check PoolMetadata Entries
-poolMetaName=$(readJSONparam "poolMetaName"); if [[ ! $? == 0 ]]; then exit 1; fi
-poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; then exit 1; fi
-poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolMetaNameOrig=$(readJSONparam "poolMetaName"); if [[ ! $? == 0 ]]; then exit 1; fi
+	poolMetaName=${poolMetaNameOrig//[^[:alnum:][:space:]]/}   #Filter out forbidden chars and replace with _
+	poolMetaName=$(trimString "${poolMetaName}")
+       	if [[ ! "${poolMetaName}" == "${poolMetaNameOrig}" ]]; then #If corrected name is different than to the one in the pool.json file, ask if it is ok to use the new one
+                echo
+                if ask "\e[33mYour poolMetaName was corrected from '${poolMetaNameOrig}' to '${poolMetaName}' to fit the rules! Are you ok with this ?\e[0m" N; then
+                        file_unlock ${poolFile}.pool.json       #update the name in the json itself to the new one too
+                        newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolMetaName: \"${poolMetaName}\"}")
+                        echo "${newJSON}" > ${poolFile}.pool.json
+                else
+                        echo
+                        echo "Please re-edit the poolMetaTicker entry in your ${poolFile}.pool.json, thx."
+                        echo
+                        exit 1
+                fi
+        fi
+
+poolMetaTickerOrig=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
+	poolMetaTicker=${poolMetaTickerOrig//[^[:alnum:]]/_}   #Filter out forbidden chars and replace with _
+	poolMetaTicker=${poolMetaTicker^^} #convert to uppercase
+	if [[ "${#poolMetaTicker}" -lt 3 || "${#poolMetaTicker}" -gt 5 ]]; then echo -e "\e[35mERROR - The poolMetaTicker Entry must be between 3-5 chars long !\e[0m"; exit 1; fi
+	if [[ ! "${poolMetaTicker}" == "${poolMetaTickerOrig}" ]]; then #If corrected ticker is different than to the one in the pool.json file, ask if it is ok to use the new one
+		echo
+		if ask "\e[33mYour poolMetaTicker was corrected from '${poolMetaTickerOrig}' to '${poolMetaTicker}' to fit the rules! Are you ok with this ?\e[0m" N; then
+			file_unlock ${poolFile}.pool.json	#update the ticker in the json itself to the new one too
+			newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolMetaTicker: \"${poolMetaTicker}\"}")
+		        echo "${newJSON}" > ${poolFile}.pool.json
+                else
+			echo
+			echo "Please re-edit the poolMetaTicker entry in your ${poolFile}.pool.json, thx."
+			echo
+			exit 1
+		fi
+        fi
+
 poolMetaHomepage=$(readJSONparam "poolMetaHomepage"); if [[ ! $? == 0 ]]; then exit 1; fi
+if [[ ! "${poolMetaHomepage}" =~ https?://.* || ${#poolMetaHomepage} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaHomepage entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaHomepage entry in your ${poolFile}.pool.json, thx."; exit 1; fi
+
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
-if [[ "${#poolMetaUrl}" -gt 64 ]]; then echo -e "\e[0mERROR - The poolMetaUrl Entry in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m"; exit 1; fi
+if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaUrl entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
+
+poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; then exit 1; fi
+
 
 #Generate new <poolFile>.metadata.json File with the Entries and also read out the Hash of it
 file_unlock ${poolFile}.metadata.json
@@ -132,6 +186,7 @@ file_lock ${poolFile}.metadata.json
 
 #Generate HASH for the <poolFile>.metadata.json
 poolMetaHash=$(${cardanocli} shelley stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
+checkError "$?"
 
 #Add the HASH to the <poolFile>.pool.json info file
 file_unlock ${poolFile}.pool.json
@@ -214,11 +269,12 @@ echo
 
 file_unlock ${poolName}.pool.cert
 ${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
+checkError "$?"
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
 	file_unlock ${poolFile}.pool.json
-	newJSON=$(cat ${poolFile}.pool.json | jq ". += {regCertCreated: \"$(date)\"}" | jq ". += {regCertFile: \"${poolName}.pool.cert\"}")
+	newJSON=$(cat ${poolFile}.pool.json | jq ". += {regCertCreated: \"$(date -R)\"}" | jq ". += {regCertFile: \"${poolName}.pool.cert\"}")
 	echo "${newJSON}" > ${poolFile}.pool.json
         file_lock ${poolFile}.pool.json
 fi

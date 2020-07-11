@@ -65,6 +65,7 @@ if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.
 ownerCnt=$(jq -r '.poolOwner | length' ${poolFile}.pool.json)
 certCnt=$(( ${ownerCnt} + 1 ))
 signingKeys="--signing-key-file ${regPayName}.skey --signing-key-file ${poolName}.node.skey"
+witnessCount=2
 registrationCerts="--certificate ${regCertFile}"
 rewardsAccountIncluded="no"
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
@@ -74,13 +75,14 @@ do
   if [ ! -f "${ownerName}.deleg.cert" ]; then echo -e "e[35mERROR - \"${ownerName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 1; fi
   #When we are in the loop, just build up also all the needed signingkeys & certificates for the transaction
   signingKeys="${signingKeys} --signing-key-file ${ownerName}.staking.skey"
+  witnessCount=$(( ${witnessCount} + 1 ))
   registrationCerts="${registrationCerts} --certificate ${ownerName}.deleg.cert"
   #Also check, if the ownername is the same as the one in the rewards account, if so we don't need an extra signing key later
   if [[ "${ownerName}" == "${rewardsName}" ]]; then rewardsAccountIncluded="yes"; fi
 done
 
 #Add the rewards account signing staking key if needed
-if [[ "${rewardsAccountIncluded}" == "no" ]]; then signingKeys="${signingKeys} --signing-key-file ${rewardsName}.staking.skey"; fi
+if [[ "${rewardsAccountIncluded}" == "no" ]]; then signingKeys="${signingKeys} --signing-key-file ${rewardsName}.staking.skey";   witnessCount=$(( ${witnessCount} + 1 )); fi
 
 
 #-------------------------------------------------------------------------
@@ -107,6 +109,7 @@ tmpCheckJSON=$(jq . "${tmpMetadataJSON}"  2> /dev/null)
 if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR - Not a valid JSON file on the webserver!\e[0m\n"; exit 1; fi
 #Ok, downloaded file is a valid JSON file. So now look into the HASH
 onlineMetaHash=$(${cardanocli} shelley stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
+checkError "$?"
 #Compare the HASH now, if they don't match up, output an ERROR message and exit
 if [[ ! "${poolMetaHash}" == "${onlineMetaHash}" ]]; then
 	echo -e "\e[33mERROR - HASH mismatch!\n\nPlease make sure to upload your MetaData JSON file correctly to your webserver!\nPool-Registration aborted! :-(\e[0m\n";
@@ -124,6 +127,11 @@ else echo -e "\e[32mOK\e[0m\n"; fi
 #Ok, HASH is the same, continue
 
 
+#Getting protocol parameters from the blockchain for fee calculation, minPoolCost, ...
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
+checkError "$?"
+minPoolCost=$(cat protocol-parameters.json | jq -r .minPoolCost)
+
 echo -e "\e[0m   Owner Stake Keys:\e[32m ${ownerCnt}\e[0m owner(s) with the key(s)"
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
 do
@@ -131,14 +139,19 @@ do
   echo -e "\e[0m                    \e[32m ${ownerName}.staking.vkey\e[0m & \e[32m${ownerName}.deleg.cert \e[0m"
 done
 echo -e "\e[0m      Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
+echo -e "\e[0m      Witness Count:\e[32m ${witnessCount} signing keys \e[0m"
 echo -e "\e[0m             Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
 echo -e "\e[0m               Cost:\e[32m ${poolCost} \e[90mlovelaces"
+echo -e "\e[0m      Chain minCost:\e[32m ${minPoolCost} \e[90mlovelaces"
 echo -e "\e[0m             Margin:\e[32m ${poolMargin} \e[0m"
 echo
 echo -e "\e[0m      Current EPOCH:\e[32m ${currentEPOCH}\e[0m"
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
+
+#Check again about the minPoolCost
+if [[ ${poolCost} -lt ${minPoolCost} ]]; then echo -e "\e[35mYou poolCost setting is too low, the current minPoolCost is ${minPoolCost} lovelaces !\e[0m"; exit 1; fi
 
 sendFromAddr=$(cat ${regPayName}.addr)
 sendToAddr=$(cat ${regPayName}.addr)
@@ -149,7 +162,7 @@ echo
 
 
 #Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam})
+utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} --cardano-mode ${magicparam}); checkError "$?"
 utx0linecnt=$(echo "${utx0}" | wc -l)
 txcnt=$((${utx0linecnt}-2))
 
@@ -178,22 +191,13 @@ done < <(printf "${utx0}\n" | tail -n ${txcnt})
 echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[90m"
 echo
 
-#Getting protocol parameters from the blockchain, calculating fees
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
-
-#cardano-cli shelley transaction calculate-min-fee \
-#    --tx-in-count 1 \
-#    --tx-out-count 1 \
-#    --ttl 430000 \
-#    --testnet-magic 42 \
-#    --signing-key-file pay.skey \
-#    --signing-key-file node.skey \
-#    --signing-key-file stake.skey \
-#    --certificate pool.cert \
-#    --certificate deleg.cert \
-#    --protocol-params-file params.json
-
-fee=$(${cardanocli} shelley transaction calculate-min-fee --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --ttl ${ttl} ${magicparam} ${signingKeys} ${registrationCerts} | awk '{ print $2 }')
+#Generate Dummy-TxBody file for fee calculation
+        txBodyFile="${tempDir}/dummy.txbody"
+	rm ${txBodyFile} 2> /dev/null
+        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
+	checkError "$?"
+fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
+checkError "$?"
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m ${fee} lovelaces \e[90m"
 
 #Check if pool was registered before and calculate Fee for registration or set it to zero for re-registration
@@ -229,8 +233,9 @@ echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\
 echo
 
 #Building unsigned transaction body
-${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --tx-body-file ${txBodyFile} ${registrationCerts}
-
+rm ${txBodyFile} 2> /dev/null
+${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
+checkError "$?"
 cat ${txBodyFile} | head -n 6   #only show first 6 lines
 echo
 
@@ -238,14 +243,16 @@ echo -e "\e[0mSign the unsigned transaction body with the \e[32m${regPayName}.sk
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKeys} --tx-file ${txFile} ${magicparam}
-
+rm ${txFile} 2> /dev/null
+${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} ${signingKeys} --out-file ${txFile} ${magicparam}
+checkError "$?"
 cat ${txFile} | head -n 6   #only show first 6 lines
 echo
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
 #poolID=$(cat ${ownerName}.deleg.cert | tail -n 1 | cut -c 6-) #Old method
 poolID=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)	#New method since 1.13.0
+checkError "$?"
 
 file_unlock ${poolFile}.pool.json
 newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
@@ -271,12 +278,11 @@ fi
 if ask "\e[33mDoes this look good for you? Do you have enough pledge in your ${ownerName}.payment account, continue and register on chain ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --tx-file ${txFile} ${magicparam}
-
+        ${cardanocli} shelley transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
 	#No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
 	if [[ $? -eq 0 ]]; then
         file_unlock ${poolFile}.pool.json
-        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date)\"}")
+        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R)\"}")
 	echo "${newJSON}" > ${poolFile}.pool.json
         file_lock ${poolFile}.pool.json
 	fi
