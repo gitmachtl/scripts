@@ -24,7 +24,6 @@ startTimeByron=$(cat ${genesisfile_byron} | jq -r .startTime) 		#In Secs(abs)
 startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)		#In Text
 startTimeSec=$(date --date=${startTimeGenesis} +%s) 			#In Secs(abs)
 transTimeEnd=$(( ${startTimeSec}+(2*${epochLength}) )) 			#In Secs(abs) End of the TransitionPhase
-slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)
 byronSlots=$(( (${startTimeSec}-${startTimeByron}) / 20 ))  		#NumSlots between ByronChainStart and ShelleyGenesisStart(TransitionStart)
 transSlots=$(( (2*${epochLength}) / 20 ))				#NumSlots in the TransitionPhase
 
@@ -50,7 +49,7 @@ expireDate=$(date --date=@${expireTimeSec})
 echo -e "Current KES Period: ${currentKESperiod}"
 echo -e "KES Keys expire after Period: ${expiresKESperiod} (${expireDate})"
 
-echo -e "Current Slot: ${currentSlot}      (byronSlots=${byronSlots}  transSlots=${transSlots}"
+echo -e "Current Slot: ${currentSlot}      (byronSlots=${byronSlots}  transSlots=${transSlots})"
 #echo -e "ByronStartTime: ${startTimeByron}"
 #echo -e "ShelleyStartTime: ${startTimeSec}"
 #echo -e "TransTimeEnd: ${transTimeEnd}"
