@@ -262,7 +262,7 @@ If you wanna send over all funds from your mywallet call the script like
 <br>```./01_sendLovelaces.sh mywallet owner.payment ALL```
 1. Check that you received it using ```./01_queryAddress.sh owner.payment```
 1. Register the owner stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh owner.staking owner.payment```
-1. (Optional: you can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh owner.staking``` if you don't see it, wait a little and retry)
+1. (Optional: you can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh owner``` if you don't see it, wait a little and retry)
 1. Generate the keys for your coreNode
    1. ```./04a_genNodeKeys.sh mypool```
    1. ```./04b_genVRFKeys.sh mypool```
