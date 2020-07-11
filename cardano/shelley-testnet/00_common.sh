@@ -1,8 +1,9 @@
 #!/bin/bash
 
-socket="db/node.socket"
+socket="db-ff/node.socket"
 
-genesisfile="configuration/mainnet_candidate-shelley-genesis.json"  #Shelley
+genesisfile="configuration-ff/mainnet_candidate-shelley-genesis.json"           #Shelley
+genesisfile_byron="configuration-ff/mainnet_candidate-byron-genesis.json"       #Byron
 
 magicparam="--testnet-magic 42"
 
