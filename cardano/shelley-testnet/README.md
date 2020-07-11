@@ -2,9 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](https://github.com/gitmachtl/scripts/blob/master/cardano/shelley-testnet/README.md#examples) are at the bottom of this page :-)
 
-:bulb: **TESTED FOR CARDANO-NODE: release/1.14.2 !**
-
-:bulb: **Scripts for 1.15.1 are coming soon, i wanna test them more. You can risk to use them using the 'beta' branch. But no blame on me until i release them on the 'master' branch !**
+:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.15.1 !**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
@@ -31,9 +29,9 @@ poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each K
 poolname.kes.counter, poolname.kes-expire.json
 ```
 
-The *.addr files contains the address in the format "60386ab8..." or "001d4e1cdcdb000ff11e9430..." for example.
+The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
 If you have an address and you wanna use it just do a simple:
-```echo "60386ab8..." > myaddress.addr```
+```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
 
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
 **If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
@@ -74,14 +72,14 @@ chmod 400 poolname.pool.json
 <br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
 <br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
-<br>```./01_queryAddress.sh 60bb2ed9c8fc475291ad68cbc89b14f963c2af8ad26a78a4882f70633f``` shows the lovelaces on this given HASH address
-<br>```./01_queryAddress.sh 581de0f310053736d894abf0a854fece5ff9a0bb5216fc975da6b342859ac4``` shows the rewards on this given HASH address
+<br>```./01_queryAddress.sh addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m``` shows the lovelaces on this given Bech32 address
+<br>```./01_queryAddress.sh stake1u9w60cpjg0xnp6uje8v3plcsmmrlv3vndcz0t2lgjma0segm2x9gk``` shows the rewards on this given Bech32 address
 
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces from one address to another, uses always all UTXOs of the source address
 <br>```./02_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` **NEW** you can now send to an HASH address too
 <br>```./02_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./02_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
-<br>```./02_sendLovelaces.sh addr1 60bb2ed9c8fc475291ad68cbc89b14f963c2af8ad26a78a4882f70633f ALL``` send ALL funds from addr1.addr to the given HASH address
+<br>```./02_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL funds from addr1.addr to the given Bech32 address
 
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
 <br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
@@ -306,7 +304,7 @@ If you wanna send over all funds from your mywallet call the script like
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
 1. :bulb: **Upload** the generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner.payment```    
-1. (Optional: you can verify that your stakepool is now on the blockchain by running ```./05d_checkPoolOnChain.sh mypool```<br>If you dont see it, wait a little and retry)
+~~1. (Optional: you can verify that your stakepool is now on the blockchain by running ```./05d_checkPoolOnChain.sh mypool```<br>If you dont see it, wait a little and retry)~~
 
 Done.
 
