@@ -49,7 +49,7 @@ cat ${addrName}.staking.skey
 echo
 
 #Building a Payment Address
-${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${magicparam} > ${addrName}.payment.addr
+${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey --mainnet > ${addrName}.payment.addr
 checkError "$?"
 file_lock ${addrName}.payment.addr
 
@@ -58,20 +58,13 @@ cat ${addrName}.payment.addr
 echo
 
 #Building a Staking Address
-${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${magicparam} > ${addrName}.staking.addr
+${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey --mainnet > ${addrName}.staking.addr
 checkError "$?"
 file_lock ${addrName}.staking.addr
 
 echo -e "\e[0mStaking(Rewards)-Address built: \e[32m ${addrName}.staking.addr \e[90m"
 cat ${addrName}.staking.addr
 echo
-
-#Building a Enterprise Address
-#${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey ${magicparam} > ${addrName}.enterprise.addr
-#
-#echo -e "\e[0mEnterprise-Address built: \e[32m ${addrName}.enterprise.addr \e[90m"
-#cat ${addrName}.enterprise.addr
-#echo
 
 #create an address registration certificate
 ${cardanocli} shelley stake-address registration-certificate --staking-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.cert
@@ -85,5 +78,4 @@ echo
 echo -e "\e[35mIf you wanna register the Staking-Address, please now run the script 03b_regStakingAddrCert.sh !\e[0m"
 echo
 
-#--network-magic not needed on mainnet later
 

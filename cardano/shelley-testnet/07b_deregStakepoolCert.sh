@@ -66,7 +66,7 @@ echo
 
 
 #Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam}); checkError "$?";
+utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} --cardano-mode ${magicparam}); checkError "$?";
 utx0linecnt=$(echo "${utx0}" | wc -l)
 txcnt=$((${utx0linecnt}-2))
 
@@ -96,7 +96,7 @@ echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[90m"
 echo
 
 #Getting protocol parameters from the blockchain, calculating fees
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 
 #Make a variable for all signing keys
 signingKeys="--signing-key-file ${deregPayName}.skey --signing-key-file ${poolName}.node.skey"

@@ -54,7 +54,7 @@ echo -e "\e[0mCreate a Stakepool de-Registration (retire) certificate for PoolNo
 echo
 
 #Getting protocol parameters from the blockchain, checking epochMax (eMax)
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 eMax=$(cat protocol-parameters.json | jq -r .eMax)
 
 currentEPOCH=$(get_currentEpoch)

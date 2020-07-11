@@ -28,7 +28,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	echo
 
 	#Get UTX0 Data for the address
-	utx0=$(${cardanocli} shelley query utxo --address ${checkAddr} ${magicparam})
+	utx0=$(${cardanocli} shelley query utxo --address ${checkAddr} --cardano-mode ${magicparam})
 	utx0linecnt=$(echo "${utx0}" | wc -l)
 	txcnt=$((${utx0linecnt}-2))
 
@@ -58,8 +58,8 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 	echo
 
 	#rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} ${magicparam} | jq -r .\"${checkAddr}\".rewardAccountBalance)
-        rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
-	delegationPoolID=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} ${magicparam} | jq -r "flatten | .[0].delegation")
+        rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
+	delegationPoolID=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].delegation")
 
 	#Checking about rewards on the stake address
 	if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards found on the stake Addr !\e[0m\n";

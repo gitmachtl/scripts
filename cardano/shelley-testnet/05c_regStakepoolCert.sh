@@ -128,7 +128,7 @@ else echo -e "\e[32mOK\e[0m\n"; fi
 
 
 #Getting protocol parameters from the blockchain for fee calculation, minPoolCost, ...
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 checkError "$?"
 minPoolCost=$(cat protocol-parameters.json | jq -r .minPoolCost)
 
@@ -162,7 +162,7 @@ echo
 
 
 #Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam}); checkError "$?"
+utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} --cardano-mode ${magicparam}); checkError "$?"
 utx0linecnt=$(echo "${utx0}" | wc -l)
 txcnt=$((${utx0linecnt}-2))
 

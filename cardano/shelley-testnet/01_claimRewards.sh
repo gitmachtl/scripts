@@ -58,12 +58,12 @@ echo -e "Pay fees from Address ${fromAddr}.addr: \e[32m${sendFromAddr}\e[0m"
 echo
 
 #Checking about rewards on the stake address
-rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${stakingAddr} ${magicparam} | jq 'flatten | .[0].rewardAccountBalance')
+rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${stakingAddr} --cardano-mode ${magicparam} | jq 'flatten | .[0].rewardAccountBalance')
 if [[ ${rewardsAmount} == 0 || ${rewardsAmount} == null ]]; then echo -e "\e[35mNo rewards on the stake Addr!\e[0m\n"; exit; fi
 
 
 #Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam})
+utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} --cardano-mode ${magicparam})
 utx0linecnt=$(echo "${utx0}" | wc -l)
 txcnt=$((${utx0linecnt}-2))
 
@@ -96,7 +96,7 @@ echo
 withdrawal="${stakingAddr}+${rewardsAmount}"
 
 #Getting protocol parameters from the blockchain, calculating fees
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 
 #Generate Dummy-TxBody file for fee calculation
         txBodyFile="${tempDir}/dummy.txbody"
