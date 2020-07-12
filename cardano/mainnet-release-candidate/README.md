@@ -76,10 +76,10 @@ chmod 400 poolname.pool.json
 <br>```./01_queryAddress.sh stake1u9w60cpjg0xnp6uje8v3plcsmmrlv3vndcz0t2lgjma0segm2x9gk``` shows the rewards on this given Bech32 address
 
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces from one address to another, uses always all UTXOs of the source address
-<br>```./02_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` **NEW** you can now send to an HASH address too
-<br>```./02_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
-<br>```./02_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
-<br>```./02_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL funds from addr1.addr to the given Bech32 address
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` **NEW** you can now send to an HASH address too
+<br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
+<br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
+<br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL funds from addr1.addr to the given Bech32 address
 
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
 <br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
