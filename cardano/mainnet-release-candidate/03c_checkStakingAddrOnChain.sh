@@ -14,7 +14,7 @@
 if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <AdressName or HASH>"; exit 2; fi
 
 #Check if Address file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
-if [ ! -f "$1.staking.addr" ]; then echo "$1" > ${tempDir}/tempAddr.addr; addrName="${tempDir}/tempAddr"; fi
+if [ ! -f "$1.staking.addr" ]; then echo "$1" > ${tempDir}/tempAddr.staking.addr; addrName="${tempDir}/tempAddr"; fi
 
 checkAddr=$(cat ${addrName}.staking.addr)
 
