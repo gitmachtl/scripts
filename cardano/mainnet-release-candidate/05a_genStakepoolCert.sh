@@ -30,7 +30,7 @@ echo "
   \"poolRelays\": [
     {
       \"relayType\": \"ip or dns\",
-      \"relayEntry\": \"x.x.x.x or the dns-name of your relay\",
+      \"relayEntry\": \"x.x.x.x_or_the_dns-name_of_your_relay\",
       \"relayPort\": \"3001\"
     }
   ],
