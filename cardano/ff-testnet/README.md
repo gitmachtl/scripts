@@ -1,6 +1,6 @@
 ## Directory name changed, please go to:
 
-## https://github.com/gitmachtl/scripts/tree/master/cardano/shelley-testnet
+## [https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet-release-candidate](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet-release-candidate)
  
 Thanks!
 <p>
