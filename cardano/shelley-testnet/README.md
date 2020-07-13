@@ -1,4 +1,4 @@
-## Directory name changed, please go to:
+## This is a temporary fix for the currently new STN Chain (the mainnet candidate chain was set on hold). Please take the script description from [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet-release-candidate/README.md).
 
 ## [https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet-release-candidate](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet-release-candidate)
  
