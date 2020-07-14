@@ -4,9 +4,14 @@ socket="db-STN/node.socket"
 
 genesisfile="configuration-STN/genesis.json"
 
+cardanocli="./cardano-cli"
+cardanonode="./cardano-node"
+
+#STN2 and MainNetCandidate - 14.07.2020
+nodeVersionNeeded="1.15.1"
 magicparam="--testnet-magic 42"
 
-cardanocli="./cardano-cli"
+
 
 #--------- only for kes/opcert update and upload via scp -----
 
@@ -25,6 +30,15 @@ remoteServerPostCommand="~/cardano/restartCore.sh"      #Command to execute via 
 
 
 export CARDANO_NODE_SOCKET_PATH=${socket}
+
+#-------------------------------------------------------------
+#Do a cli and node version check
+versionCheck=$(${cardanocli} --version | grep "${nodeVersionNeeded}" | wc -l)
+if [[ ${versionCheck} -eq 0 ]]; then echo -e "\e[35mERROR - Please use Node and CLI Version ${nodeVersionNeeded} ! \e[0m"; exit 1; fi
+versionCheck=$(${cardanonode} --version | grep "${nodeVersionNeeded}" | wc -l)
+if [[ ${versionCheck} -eq 0 ]]; then echo -e "\e[35mERROR - Please use Node and CLI Version ${nodeVersionNeeded} ! \e[0m"; exit 1; fi
+
+
 
 #-------------------------------------------------------------
 #Searching for the temp directory (used for transactions files)
