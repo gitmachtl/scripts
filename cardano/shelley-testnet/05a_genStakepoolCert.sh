@@ -182,7 +182,7 @@ echo "{
   \"ticker\": \"${poolMetaTicker}\",
   \"homepage\": \"${poolMetaHomepage}\"
 }" > ${poolFile}.metadata.json
-file_lock ${poolFile}.metadata.json
+chmod 444 ${poolFile}.metadata.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
 
 #Generate HASH for the <poolFile>.metadata.json
 poolMetaHash=$(${cardanocli} shelley stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
