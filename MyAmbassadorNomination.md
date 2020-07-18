@@ -14,7 +14,7 @@ My name is "Martin Lang" -> Content Creator -> Yes, 3 links & 1 in the last mont
 
 Links to copy in:
 ```
-https://github.com/gitmachtl/scripts/tree/master/cardano/shelley-testnet
+https://github.com/gitmachtl/scripts/tree/master/cardano
 https://forum.cardano.org/t/checking-your-connections-on-your-stakepool-with-pingnodes
 https://github.com/papacarp/pooltool.io/blob/master/securityhelp/Using_SSH_Tunnel_or_Tor_for_Pooltool.pdf
 ```
