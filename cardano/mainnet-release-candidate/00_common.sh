@@ -1,16 +1,16 @@
 #!/bin/bash
 
-socket="db-ff/node.socket"
+socket="db/node.socket"
 
-genesisfile="configuration-ff/mainnet_candidate-shelley-genesis.json"           #Shelley
-genesisfile_byron="configuration-ff/mainnet_candidate-byron-genesis.json"       #Byron
+genesisfile="config/mainnet_candidate-shelley-genesis.json"           #Shelley
+genesisfile_byron="config/mainnet_candidate-byron-genesis.json"       #Byron
 
 cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
 
 
-#STN2 and MainNetCandidate - 14.07.2020
-nodeVersionNeeded="1.15.1"
+#MainNetCandidate2  - 18.07.2020
+nodeVersionNeeded="1.16.0"
 magicparam="--testnet-magic 42"
 
 

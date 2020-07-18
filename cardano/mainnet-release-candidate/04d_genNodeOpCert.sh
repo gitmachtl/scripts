@@ -18,7 +18,7 @@ if [ ! -f "${nodeName}.node.counter" ]; then echo -e "\e[0mERROR - Please genera
 
 
 #grab the next issue number from the counter file
-nextKESnumber=$(cat ${nodeName}.node.counter | awk 'match($0,/Next certificate issue number: [0-9]+/) {print substr($0, RSTART+31,RLENGTH-31)}')
+nextKESnumber=$(cat ${nodeName}.node.counter | jq -r .description | awk 'match($0,/Next certificate issue number: [0-9]+/) {print substr($0, RSTART+31,RLENGTH-31)}')
 nextKESnumber=$(printf "%03d" ${nextKESnumber})  #to get a nice 4 digit output
 
 #grab the latest generated KES number
