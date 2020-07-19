@@ -151,7 +151,7 @@ echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${tt
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
 #Check again about the minPoolCost
-if [[ ${poolCost} -lt ${minPoolCost} ]]; then echo -e "\e[35mYou poolCost setting is too low, the current minPoolCost is ${minPoolCost} lovelaces !\e[0m"; exit 1; fi
+if [[ ${poolCost} -lt ${minPoolCost} ]]; then echo -e "\e[35mYour poolCost setting is too low, the current minPoolCost is ${minPoolCost} lovelaces !\e[0m"; exit 1; fi
 
 sendFromAddr=$(cat ${regPayName}.addr)
 sendToAddr=$(cat ${regPayName}.addr)

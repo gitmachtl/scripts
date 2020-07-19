@@ -10,7 +10,8 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-if [[ $# -eq 1 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> (pointing to the PoolNodeName.pool.json file)"; exit 1; fi
+if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> (pointing to the PoolNodeName.pool.json file) [optional registration-key]"; exit 1; fi
+if [[ $# -eq 2 ]]; then regKeyHash=$2; fi
 
 #Check if json file exists
 if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[33mERROR - \"${poolFile}.pool.json\" does not exist, a dummy one was created, please edit it and retry.\e[0m";
@@ -39,6 +40,7 @@ echo "
   \"poolMetaTicker\": \"THE TICKER OF YOUR POOL\",
   \"poolMetaHomepage\": \"https://set_your_webserver_url_here\",
   \"poolMetaUrl\": \"https://set_your_webserver_url_here/$(basename ${poolFile}).metadata.json\",
+  \"poolWitnessUrl\: \"\",
   \"---\": \"--- DO NOT EDIT BELOW THIS LINE ---\"
 }
 " > ${poolFile}.pool.json
@@ -70,7 +72,7 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 
 #Check poolCost Setting
-${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
+#${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 checkError "$?"
 minPoolCost=$(cat protocol-parameters.json | jq -r .minPoolCost)
 if [[ ${poolCost} -lt ${minPoolCost} ]]; then #If poolCost is set to low, than ask for an automatic change
@@ -130,7 +132,7 @@ done
 
 #Check PoolMetadata Entries
 poolMetaNameOrig=$(readJSONparam "poolMetaName"); if [[ ! $? == 0 ]]; then exit 1; fi
-	poolMetaName=${poolMetaNameOrig//[^[:alnum:][:space:]]/}   #Filter out forbidden chars and replace with _
+	poolMetaName=${poolMetaNameOrig//[^[:alnum:][:space:]]/}   #Filter out forbidden chars and replace with nothing
 	poolMetaName=$(trimString "${poolMetaName}")
        	if [[ ! "${poolMetaName}" == "${poolMetaNameOrig}" ]]; then #If corrected name is different than to the one in the pool.json file, ask if it is ok to use the new one
                 echo
@@ -172,15 +174,58 @@ if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo 
 
 poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; then exit 1; fi
 
+checkResult=$(curl -s "https://my-ip.at/checkticker?ticker=${poolMetaTicker}&key=${regKeyHash}");
+if [[ ! "${checkResult}" == "OK" ]]; then echo -e "\n\e[35mERROR - There was a problem with Errorcode ${checkResult} while generating the registration certificate. Please ask in the \"Cardano Shelley & StakePool Best Practice Workgroup\" Telegram Group for help, Thx !\e[0m\nhttps://t.me/CardanoStakePoolWorkgroup\n\n"; exit 1; fi;
+
+
+
+#Read out the POOL-ID and store it in the ${poolName}.pool.json
+poolID=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)     #New method since 1.13.0
+checkError "$?"
+file_unlock ${poolFile}.pool.json
+newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
+echo "${newJSON}" > ${poolFile}.pool.json
+file_lock ${poolFile}.pool.json
+
+#Save out the POOL-ID also in the xxx.id file
+file_unlock ${poolFile}.pool.id
+echo "${poolID}" > ${poolFile}.pool.id
+file_lock ${poolFile}.pool.id
+
+
+#Check if there should be a ITN witness processing too
+additionalItnEntry=
+poolWitnessUrl=$(jq -r .poolWitnessUrl ${poolFile}.pool.json 2> /dev/null)
+if [[ "${poolWitnessUrl}" =~ https?://.* && ${#poolWitnessUrl} -lt 65 ]]; then
+	#Correct ITN Witness URL to an extra JSON file is present, so lets continue generate it
+	if [[ -f "${poolFile}.itn.skey" && -f "${poolFile}.itn.vkey" ]]; 
+		then #Ok, itn secret and public key files are present
+
+		if [[ ! -f "${itn_jcli}" ]]; then echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your 'jcli' binary is not present with the right path (00_common.sh) !\e[0m\n\n"; exit 1; fi
+
+		itnWitnessSign=$(${itn_jcli} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id)
+		itnWitnessOwner=$(cat ${poolFile}.itn.vkey)
+		file_unlock ${poolFile}.itn-witness.json
+		#Generate ITN-Witness JSON File
+		echo -e "{\n  \"itn_owner\": \"${itnWitnessOwner}\",\n  \"witness\": \"${itnWitnessSign}\"\n}" > ${poolFile}.itn-witness.json
+		chmod 444 ${poolFile}.itn-witness.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
+		additionalItnEntry=",\n  \"itn_witness\": \"${poolWitnessUrl}\""
+
+		else echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your ${poolFile}.itn.skey or ${poolFile}.itn.vkey file is missing!\e[0m\n\n"; exit 1;
+	fi
+fi
+
+
+
 
 #Generate new <poolFile>.metadata.json File with the Entries and also read out the Hash of it
 file_unlock ${poolFile}.metadata.json
 #Generate Dummy JSON File
-echo "{
+echo -e "{
   \"name\": \"${poolMetaName}\",
   \"description\": \"${poolMetaDescription}\",
   \"ticker\": \"${poolMetaTicker}\",
-  \"homepage\": \"${poolMetaHomepage}\"
+  \"homepage\": \"${poolMetaHomepage}\"${additionalItnEntry}
 }" > ${poolFile}.metadata.json
 chmod 444 ${poolFile}.metadata.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
 
@@ -239,9 +284,6 @@ echo -e "\e[0m          Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
 echo -e "\e[0m            Cost:\e[32m ${poolCost} \e[90mlovelaces"
 echo -e "\e[0m          Margin:\e[32m ${poolMargin} \e[0m"
 echo
-echo -e "\e[0mStakepool Metadata JSON:\e[32m ${poolFile}.metadata.json \e[90m"
-cat ${poolFile}.metadata.json
-echo
 
 #Usage: cardano-cli shelley stake-pool registration-certificate --cold-verification-key-file FILE
 #                                                              --vrf-verification-key-file FILE
@@ -291,6 +333,18 @@ echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
 
-echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.metadata.json\e[35m file now to your webserver!"
+echo -e "\e[0mStakepool Metadata JSON:\e[32m ${poolFile}.metadata.json \e[90m"
+cat ${poolFile}.metadata.json
+echo
+echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.metadata.json\e[35m file now to your webserver (${poolMetaUrl}) !"
+
+if [[ ! "${additionalItnEntry}" == "" ]]; then
+echo
+echo -e "\e[0mStakepool ITN-Witness JSON:\e[32m ${poolFile}.itn-witness.json \e[90m"
+cat ${poolFile}.itn-witness.json
+echo
+echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.itn-witness.json\e[35m file now to your webserver (${poolWitnessUrl}) !"
+fi
+
 
 echo -e "\e[0m"

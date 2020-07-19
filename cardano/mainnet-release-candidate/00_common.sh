@@ -8,10 +8,9 @@ genesisfile_byron="config/mainnet_candidate-byron-genesis.json"       #Byron
 cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
 
-
-#MainNetCandidate2  - 18.07.2020
-nodeVersionNeeded="1.16.0"
 magicparam="--testnet-magic 42"
+
+itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
 
 
 #--------- only for kes/opcert update and upload via scp -----
@@ -31,6 +30,9 @@ remoteServerPostCommand="~/cardano/restartCore.sh"      #Command to execute via 
 ##############################################################################################################################
 
 export CARDANO_NODE_SOCKET_PATH=${socket}
+
+#MainNetCandidate2  - 18.07.2020
+nodeVersionNeeded="1.16.0"
 
 
 #-------------------------------------------------------------
