@@ -72,7 +72,7 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 
 #Check poolCost Setting
-#${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
+${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 checkError "$?"
 minPoolCost=$(cat protocol-parameters.json | jq -r .minPoolCost)
 if [[ ${poolCost} -lt ${minPoolCost} ]]; then #If poolCost is set to low, than ask for an automatic change
