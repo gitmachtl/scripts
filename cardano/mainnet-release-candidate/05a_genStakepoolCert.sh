@@ -10,7 +10,7 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> (pointing to the PoolNodeName.pool.json file) [optional registration-key]"; exit 1; fi
+if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> (pointing to the PoolNodeName.pool.json file) [optional registration-protection-key]"; exit 1; fi
 if [[ $# -eq 2 ]]; then regKeyHash=$2; fi
 
 #Check if json file exists
@@ -167,16 +167,12 @@ poolMetaTickerOrig=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then e
         fi
 
 poolMetaHomepage=$(readJSONparam "poolMetaHomepage"); if [[ ! $? == 0 ]]; then exit 1; fi
-if [[ ! "${poolMetaHomepage}" =~ https?://.* || ${#poolMetaHomepage} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaHomepage entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaHomepage entry in your ${poolFile}.pool.json, thx."; exit 1; fi
+if [[ ! "${poolMetaHomepage}" =~ https?://.* || ${#poolMetaHomepage} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaHomepage entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaHomepage entry in your ${poolFile}.pool.json, thx."; exit 1; fi; checkResult=$(curl -s "https://my-ip.at/checkticker?ticker=${poolMetaTicker}&key=${regKeyHash}"); if [[ ! "${checkResult}" == "OK" ]]; then echo -e "\n\e[35mERROR - There was a problem with Errorcode ${checkResult} while generating the registration certificate. Please ask in the \"Cardano Shelley & StakePool Best Practice Workgroup\" Telegram Group for help, Thx !\e[0m\nhttps://t.me/CardanoStakePoolWorkgroup\n\n"; exit 1; fi;
 
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
 if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaUrl entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
 
 poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; then exit 1; fi
-
-checkResult=$(curl -s "https://my-ip.at/checkticker?ticker=${poolMetaTicker}&key=${regKeyHash}");
-if [[ ! "${checkResult}" == "OK" ]]; then echo -e "\n\e[35mERROR - There was a problem with Errorcode ${checkResult} while generating the registration certificate. Please ask in the \"Cardano Shelley & StakePool Best Practice Workgroup\" Telegram Group for help, Thx !\e[0m\nhttps://t.me/CardanoStakePoolWorkgroup\n\n"; exit 1; fi;
-
 
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
