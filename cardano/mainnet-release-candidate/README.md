@@ -63,6 +63,24 @@ nano poolname.pool.json
 chmod 400 poolname.pool.json
 ```
 
+## :bulb: ITN-Witness Ticker check for wallets
+
+There are currently plans to implement an extended metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
+<br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
+<br>```<poolname>.itn.vkey``` this textfile should hold your ITN public/verification key
+<br>also you would need to add an additional URL for the next extended metadata json file on your webserver to your ```<poolname>.pool.json``` file like:
+```console
+   .
+   .
+   .
+   "poolMetaHomepage": "https://mypool.com",
+   "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+   "poolExtendedMetaUrl": "https://mypool.com/mypool.extended-metadata.json",
+   "---": "--- DO NOT EDIT BELOW THIS LINE ---"
+  }
+``` 
+When you now generate your pool certificate, not only your <poolname>.metadata.json will be created as always, but also the ```<poolname>.extended-metadata.json``` that is holding your ITN witness to proof your Ticker ownership from the ITN. :-)
+
 ## Scriptfiles Syntax
 
 * **00_common.sh:** set your variables in there for your config, will be used by the scripts.<br>
@@ -153,7 +171,7 @@ chmod 400 poolname.pool.json
    :bulb:   **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
 
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>
-   poolRelays is an array of your IPv4/IPv6 or DNS named public pool relays. Currently the types DNS, IP, IP4, IPv4, IP6 and IPv6 are supported. Examples of multiple relays can be found [HERE](#using-multiple-relays-in-your-poolnamepooljson) <br> MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location).<br>After the edit, rerun the script with the name again.<br>
+   poolRelays is an array of your IPv4/IPv6 or DNS named public pool relays. Currently the types DNS, IP, IP4, IPv4, IP6 and IPv6 are supported. Examples of multiple relays can be found [HERE](#using-multiple-relays-in-your-poolnamepooljson) <br> MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location). <br>There is also the option to provide ITN-Witness data in an extended metadata json file. Please read some infos about that [here](#)<br>After the edit, rerun the script with the name again.<br>
    > :bulb:   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
