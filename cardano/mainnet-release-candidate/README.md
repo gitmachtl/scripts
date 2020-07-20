@@ -68,12 +68,12 @@ chmod 400 poolname.pool.json
 
 ## :bulb: ITN-Witness Ticker check for wallets
 
-**DONT USE IT RIGHT NOW, WE HAVE NO GO FOR THIS RIGHT NOW!!!**
+**TEST FEATURE, NOT FOR MAINNET RIGHT NOW!!!**
 
 There are currently plans to implement an extended metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
 <br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
 <br>```<poolname>.itn.vkey``` this textfile should hold your ITN public/verification key
-<br>also you would need to add an additional URL for the next extended metadata json file on your webserver to your ```<poolname>.pool.json``` file like:
+<br>also you would need to add an additional URL **poolExtendedMetaUrl** for the next extended metadata json file on your webserver to your ```<poolname>.pool.json``` file like:
 ```console
    .
    .
