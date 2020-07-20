@@ -40,7 +40,7 @@ echo "
   \"poolMetaTicker\": \"THE TICKER OF YOUR POOL\",
   \"poolMetaHomepage\": \"https://set_your_webserver_url_here\",
   \"poolMetaUrl\": \"https://set_your_webserver_url_here/$(basename ${poolFile}).metadata.json\",
-  \"poolWitnessUrl\: \"\",
+  \"poolExtendedMetaUrl\: \"\",
   \"---\": \"--- DO NOT EDIT BELOW THIS LINE ---\"
 }
 " > ${poolFile}.pool.json
@@ -75,6 +75,7 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 ${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 checkError "$?"
 minPoolCost=$(cat protocol-parameters.json | jq -r .minPoolCost)
+#minPoolCost=228000000
 if [[ ${poolCost} -lt ${minPoolCost} ]]; then #If poolCost is set to low, than ask for an automatic change
                 echo
                 if ask "\e[33mYour poolCost (${poolCost} lovelaces) is lower than the minPoolCost (${minPoolCost} lovelaces). Do you wanna change it to that ?\e[0m" N; then
@@ -189,28 +190,30 @@ echo "${poolID}" > ${poolFile}.pool.id
 file_lock ${poolFile}.pool.id
 
 
-#Check if there should be a ITN witness processing too
-additionalItnEntry=
-poolWitnessUrl=$(jq -r .poolWitnessUrl ${poolFile}.pool.json 2> /dev/null)
-if [[ "${poolWitnessUrl}" =~ https?://.* && ${#poolWitnessUrl} -lt 65 ]]; then
-	#Correct ITN Witness URL to an extra JSON file is present, so lets continue generate it
-	if [[ -f "${poolFile}.itn.skey" && -f "${poolFile}.itn.vkey" ]]; 
+#Check about Extended Metadata
+extendedMetaEntry=
+poolExtendedMetaUrl=$(jq -r .poolExtendedMetaUrl ${poolFile}.pool.json 2> /dev/null)
+if [[ "${poolExtendedMetaUrl}" =~ https?://.* && ${#poolWitnessUrl} -lt 65 ]]; then
+	#OK, a extended MetaDataURL to an extra JSON file is present, so lets continue generate it
+
+	#If ITN Keys are present, generate ITN-Witness entries
+	if [[ -f "${poolFile}.itn.skey" && -f "${poolFile}.itn.vkey" ]];
 		then #Ok, itn secret and public key files are present
 
 		if [[ ! -f "${itn_jcli}" ]]; then echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your 'jcli' binary is not present with the right path (00_common.sh) !\e[0m\n\n"; exit 1; fi
 
 		itnWitnessSign=$(${itn_jcli} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id)
 		itnWitnessOwner=$(cat ${poolFile}.itn.vkey)
-		file_unlock ${poolFile}.itn-witness.json
-		#Generate ITN-Witness JSON File
-		echo -e "{\n  \"itn_owner\": \"${itnWitnessOwner}\",\n  \"witness\": \"${itnWitnessSign}\"\n}" > ${poolFile}.itn-witness.json
-		chmod 444 ${poolFile}.itn-witness.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
-		additionalItnEntry=",\n  \"itn_witness\": \"${poolWitnessUrl}\""
+		file_unlock ${poolFile}.extended-metadata.json
+		#Generate ITN-Witness Entries in the extended json file
+		newJSON=$(echo "{}" | jq ".itn += {owner: \"${itnWitnessOwner}\"}|.itn += {witness: \"${itnWitnessSign}\"}")
+		echo "${newJSON}" > ${poolFile}.extended-metadata.json
+		chmod 444 ${poolFile}.extended-metadata.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
+		extendedMetaEntry=",\n  \"extended\": \"${poolExtendedMetaUrl}\""
 
-		else echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your ${poolFile}.itn.skey or ${poolFile}.itn.vkey file is missing!\e[0m\n\n"; exit 1;
+		#else echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your ${poolFile}.itn.skey or ${poolFile}.itn.vkey file is missing!\e[0m\n\n"; exit 1;
 	fi
 fi
-
 
 
 
@@ -221,7 +224,7 @@ echo -e "{
   \"name\": \"${poolMetaName}\",
   \"description\": \"${poolMetaDescription}\",
   \"ticker\": \"${poolMetaTicker}\",
-  \"homepage\": \"${poolMetaHomepage}\"${additionalItnEntry}
+  \"homepage\": \"${poolMetaHomepage}\"${extendedMetaEntry}
 }" > ${poolFile}.metadata.json
 chmod 444 ${poolFile}.metadata.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
 
@@ -334,12 +337,12 @@ cat ${poolFile}.metadata.json
 echo
 echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.metadata.json\e[35m file now to your webserver (${poolMetaUrl}) !"
 
-if [[ ! "${additionalItnEntry}" == "" ]]; then
+if [[ ! "${extendedMetaEntry}" == "" ]]; then
 echo
-echo -e "\e[0mStakepool ITN-Witness JSON:\e[32m ${poolFile}.itn-witness.json \e[90m"
-cat ${poolFile}.itn-witness.json
+echo -e "\e[0mStakepool Extended-Metadata JSON:\e[32m ${poolFile}.extended-metadata.json \e[90m"
+cat ${poolFile}.extended-metadata.json
 echo
-echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.itn-witness.json\e[35m file now to your webserver (${poolWitnessUrl}) !"
+echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.extended-metadata.json\e[35m file now to your webserver (${poolExtendedMetaUrl}) !"
 fi
 
 
