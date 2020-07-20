@@ -24,9 +24,12 @@ name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
 
 Node/Pool files:
 poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json, poolname.metadata.json
-poolname.vrf.skey/vkey
+poolname.vrf.skey/vkey, poolname.pool.id
 poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
 poolname.kes.counter, poolname.kes-expire.json
+
+ITN witness files:
+poolname.itn.skey/vkey
 ```
 
 The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
