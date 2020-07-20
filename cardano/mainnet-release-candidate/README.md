@@ -84,7 +84,7 @@ There are currently plans to implement an extended metadata.json for the pooldat
    "---": "--- DO NOT EDIT BELOW THIS LINE ---"
   }
 ``` 
-When you now generate your pool certificate, not only your <poolname>.metadata.json will be created as always, but also the ```<poolname>.extended-metadata.json``` that is holding your ITN witness to proof your Ticker ownership from the ITN. :-)
+When you now generate your pool certificate, not only your ```<poolname>.metadata.json``` will be created as always, but also the ```<poolname>.extended-metadata.json``` that is holding your ITN witness to proof your Ticker ownership from the ITN. Upload BOTH to your webserver! :-)
 
 ## Scriptfiles Syntax
 
