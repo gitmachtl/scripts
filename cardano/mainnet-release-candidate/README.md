@@ -165,6 +165,7 @@ When you now generate your pool certificate, not only your <poolname>.metadata.j
       "poolMetaTicker": "POOL",
       "poolMetaHomepage": "https://mypool.com",
       "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+      "poolExtendedMetaUrl": "",
       "---": "--- DO NOT EDIT BELOW THIS LINE ---"
     }
    ```
@@ -249,6 +250,7 @@ The json file could end up like this one after the pool was registered and also 
   "poolMetaTicker": "POOL",
   "poolMetaHomepage": "https://mypool.com",
   "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+  "poolExtendedMetaUrl": "",
   "---": "--- DO NOT EDIT BELOW THIS LINE ---",
   "poolMetaHash": "f792c672a350971266b5404f04ff3bd47deb1544bc411566a2f95c090c1202cf",
   "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
@@ -316,6 +318,7 @@ If you wanna send over all funds from your mywallet call the script like
       "poolMetaTicker": "POOL",
       "poolMetaHomepage": "https://mypool.com",
       "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+      "poolExtendedMetaUrl": "",
       "---": "--- DO NOT EDIT BELOW THIS LINE ---"
    }
    ```
