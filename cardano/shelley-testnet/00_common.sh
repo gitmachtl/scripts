@@ -1,17 +1,15 @@
 #!/bin/bash
 
-socket="db-STN/node.socket"
+socket="./db/node.socket"
 
-genesisfile="configuration-STN/genesis.json"
+genesisfile="./config/genesis.json"
 
 cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
 
-#STN2 and MainNetCandidate - 14.07.2020
-nodeVersionNeeded="1.15.1"
 magicparam="--testnet-magic 42"
 
-
+itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
 
 #--------- only for kes/opcert update and upload via scp -----
 
@@ -28,8 +26,11 @@ remoteServerPostCommand="~/cardano/restartCore.sh"      #Command to execute via 
 #
 ##############################################################################################################################
 
-
 export CARDANO_NODE_SOCKET_PATH=${socket}
+
+#HTN2 - 14.07.2020
+nodeVersionNeeded="1.15.1"
+
 
 #-------------------------------------------------------------
 #Do a cli and node version check

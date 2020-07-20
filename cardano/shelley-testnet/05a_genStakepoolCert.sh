@@ -173,14 +173,54 @@ if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo 
 poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 
+#Read out the POOL-ID and store it in the ${poolName}.pool.json
+poolID=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)     #New method since 1.13.0
+checkError "$?"
+file_unlock ${poolFile}.pool.json
+newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
+echo "${newJSON}" > ${poolFile}.pool.json
+file_lock ${poolFile}.pool.json
+
+#Save out the POOL-ID also in the xxx.id file
+file_unlock ${poolFile}.pool.id
+echo "${poolID}" > ${poolFile}.pool.id
+file_lock ${poolFile}.pool.id
+
+
+
+#Check about Extended Metadata
+extendedMetaEntry=
+poolExtendedMetaUrl=$(jq -r .poolExtendedMetaUrl ${poolFile}.pool.json 2> /dev/null)
+if [[ "${poolExtendedMetaUrl}" =~ https?://.* && ${#poolWitnessUrl} -lt 65 ]]; then
+        #OK, a extended MetaDataURL to an extra JSON file is present, so lets continue generate it
+
+        #If ITN Keys are present, generate ITN-Witness entries
+        if [[ -f "${poolFile}.itn.skey" && -f "${poolFile}.itn.vkey" ]];
+                then #Ok, itn secret and public key files are present
+
+                if [[ ! -f "${itn_jcli}" ]]; then echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your 'jcli' binary is not present with the right path (00_common.sh) !\e[0m\n\n"; exit 1; fi
+
+                itnWitnessSign=$(${itn_jcli} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id)
+                itnWitnessOwner=$(cat ${poolFile}.itn.vkey)
+                file_unlock ${poolFile}.extended-metadata.json
+                #Generate ITN-Witness Entries in the extended json file
+                newJSON=$(echo "{}" | jq ".itn += {owner: \"${itnWitnessOwner}\"}|.itn += {witness: \"${itnWitnessSign}\"}")
+                echo "${newJSON}" > ${poolFile}.extended-metadata.json
+                chmod 444 ${poolFile}.extended-metadata.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
+                extendedMetaEntry=",\n  \"extended\": \"${poolExtendedMetaUrl}\""
+
+                #else echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your ${poolFile}.itn.skey or ${poolFile}.itn.vkey file is missing!\e[0m\n\n"; exit 1;
+        fi
+fi
+
 #Generate new <poolFile>.metadata.json File with the Entries and also read out the Hash of it
 file_unlock ${poolFile}.metadata.json
 #Generate Dummy JSON File
-echo "{
+echo -e "{
   \"name\": \"${poolMetaName}\",
   \"description\": \"${poolMetaDescription}\",
   \"ticker\": \"${poolMetaTicker}\",
-  \"homepage\": \"${poolMetaHomepage}\"
+  \"homepage\": \"${poolMetaHomepage}\"${extendedMetaEntry}
 }" > ${poolFile}.metadata.json
 chmod 444 ${poolFile}.metadata.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
 
@@ -239,9 +279,6 @@ echo -e "\e[0m          Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
 echo -e "\e[0m            Cost:\e[32m ${poolCost} \e[90mlovelaces"
 echo -e "\e[0m          Margin:\e[32m ${poolMargin} \e[0m"
 echo
-echo -e "\e[0mStakepool Metadata JSON:\e[32m ${poolFile}.metadata.json \e[90m"
-cat ${poolFile}.metadata.json
-echo
 
 #Usage: cardano-cli shelley stake-pool registration-certificate --cold-verification-key-file FILE
 #                                                              --vrf-verification-key-file FILE
@@ -291,6 +328,17 @@ echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
 
+echo -e "\e[0mStakepool Metadata JSON:\e[32m ${poolFile}.metadata.json \e[90m"
+cat ${poolFile}.metadata.json
+echo
 echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.metadata.json\e[35m file now to your webserver!"
+
+if [[ ! "${extendedMetaEntry}" == "" ]]; then
+echo
+echo -e "\e[0mStakepool Extended-Metadata JSON:\e[32m ${poolFile}.extended-metadata.json \e[90m"
+cat ${poolFile}.extended-metadata.json
+echo
+echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.extended-metadata.json\e[35m file now to your webserver (${poolExtendedMetaUrl}) !"
+fi
 
 echo -e "\e[0m"
