@@ -43,6 +43,28 @@ versionCheck=$(${cardanonode} --version | grep "${nodeVersionNeeded}" | wc -l)
 if [[ ${versionCheck} -eq 0 ]]; then echo -e "\e[35mERROR - Please use Node and CLI Version ${nodeVersionNeeded} ! \e[0m"; exit 1; fi
 
 
+exists()
+{
+  command -v "$1" >/dev/null 2>&1
+}
+
+#Check if curl and jq is installed
+if ! exists curl; then
+          echo -e "\nYou need the tool 'curl' !\n"
+          echo -e "Install it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install curl\e[0m\n"
+          echo -e "Thx! :-)\n"
+          exit 2
+fi
+
+if ! exists jq; then
+          echo -e "\nYou need the tool 'jq' !\n"
+          echo -e "Install it On Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install jq\e[0m\n"
+          echo -e "Thx! :-)\n"
+          exit 2
+fi
+
+
+
 #-------------------------------------------------------------
 #Searching for the temp directory (used for transactions files)
 tempDir=$(dirname $(mktemp tmp.XXXX -ut))
