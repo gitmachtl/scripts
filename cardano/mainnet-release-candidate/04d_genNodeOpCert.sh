@@ -47,6 +47,12 @@ currentTimeSec=$(date -u +%s)                                           #In Secs
 currentKESperiod=$(( (${currentTimeSec}-${transTimeEnd}) / (${slotsPerKESPeriod}*${slotLength}) ))
 if [[ "${currentKESperiod}" -lt 0 ]]; then currentKESperiod=0; fi
 
+
+######################
+#TEMPORARY FIX
+currentKESperiod=0
+
+
 #Calculating Expire KES Period and Date/Time
 maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
 expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
