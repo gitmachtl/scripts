@@ -198,9 +198,11 @@ if [[ "${poolExtendedMetaUrl}" =~ https?://.* && ${#poolWitnessUrl} -lt 65 ]]; t
         if [[ -f "${poolFile}.itn.skey" && -f "${poolFile}.itn.vkey" ]];
                 then #Ok, itn secret and public key files are present
 
-                if [[ ! -f "${itn_jcli}" ]]; then echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your 'jcli' binary is not present with the right path (00_common.sh) !\e[0m\n\n"; exit 1; fi
+                #JCLI check
+                jcliCheck=$(${itn_jcli} --version)
+                if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your 'jcli' binary is not present with the right path (00_common.sh) !\e[0m\n\n"; exit 1; fi
 
-                itnWitnessSign=$(${itn_jcli} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id)
+                itnWitnessSign=$(${itn_jcli} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id); checkError "$?";
                 itnWitnessOwner=$(cat ${poolFile}.itn.vkey)
                 file_unlock ${poolFile}.extended-metadata.json
                 #Generate ITN-Witness Entries in the extended json file
