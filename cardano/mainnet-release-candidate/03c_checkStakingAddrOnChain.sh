@@ -28,11 +28,16 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 	echo
 
         rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
+	delegationPoolID=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].delegation")
+
 
 	#Checking about the content
         if [[ ${rewardsAmount} == null ]]; then echo -e "\e[35mStaking Address is NOT on the chain, register it first !\e[0m\n";
 	else echo -e "\e[32mStaking Address is on the chain !\e[0m\n"
 	fi
+
+	#If delegated to a pool, show the current pool ID
+        if [[ ! ${delegationPoolID} == null ]]; then echo -e "Account is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m\n"; fi
 
 else #unsupported address type
 

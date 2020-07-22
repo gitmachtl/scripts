@@ -178,6 +178,7 @@ txInString=""
 while IFS= read -r utx0entry
 do
 fromHASH=$(echo ${utx0entry} | awk '{print $1}')
+fromHASH=${fromHASH//\"/}
 fromINDEX=$(echo ${utx0entry} | awk '{print $2}')
 sourceLovelaces=$(echo ${utx0entry} | awk '{print $3}')
 echo -e "HASH: ${fromHASH}\t INDEX: ${fromINDEX}\t LOVELACES: ${sourceLovelaces}"

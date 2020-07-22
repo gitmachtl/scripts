@@ -59,6 +59,7 @@ txInString=""
 while IFS= read -r utx0entry
 do
 fromHASH=$(echo ${utx0entry} | awk '{print $1}')
+fromHASH=${fromHASH//\"/}
 fromINDEX=$(echo ${utx0entry} | awk '{print $2}')
 sourceLovelaces=$(echo ${utx0entry} | awk '{print $3}')
 echo -e "HASH: ${fromHASH}\t INDEX: ${fromINDEX}\t LOVELACES: ${sourceLovelaces}"
@@ -78,8 +79,10 @@ ${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > p
 #Generate Dummy-TxBody file for fee calculation
         txBodyFile="${tempDir}/dummy.txbody"
 	rm ${txBodyFile} 2> /dev/null
-        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
+	echo -e "${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 100 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}"
+        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 100 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
 	checkError "$?"
+
 fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"
 

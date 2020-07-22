@@ -41,6 +41,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	while IFS= read -r utx0entry
 	do
 	fromHASH=$(echo ${utx0entry} | awk '{print $1}')
+	fromHASH=${fromHASH//\"/}
 	fromINDEX=$(echo ${utx0entry} | awk '{print $2}')
 	sourceLovelaces=$(echo ${utx0entry} | awk '{print $3}')
 	echo -e "HASH: ${fromHASH}\tIdx: ${fromINDEX}\tAmount: ${sourceLovelaces}"
