@@ -32,14 +32,14 @@ remoteServerPostCommand="~/cardano/restartCore.sh"      #Command to execute via 
 export CARDANO_NODE_SOCKET_PATH=${socket}
 
 #MainNetCandidate2  - 18.07.2020
-nodeVersionNeeded="1.16.0"
+nodeVersionNeeded="1.16|1.17"
 
 
 #-------------------------------------------------------------
 #Do a cli and node version check
-versionCheck=$(${cardanocli} --version | grep "${nodeVersionNeeded}" | wc -l)
+versionCheck=$(${cardanocli} --version | egrep "${nodeVersionNeeded}" | wc -l)
 if [[ ${versionCheck} -eq 0 ]]; then echo -e "\e[35mERROR - Please use Node and CLI Version ${nodeVersionNeeded} ! \e[0m"; exit 1; fi
-versionCheck=$(${cardanonode} --version | grep "${nodeVersionNeeded}" | wc -l)
+versionCheck=$(${cardanonode} --version | egrep "${nodeVersionNeeded}" | wc -l)
 if [[ ${versionCheck} -eq 0 ]]; then echo -e "\e[35mERROR - Please use Node and CLI Version ${nodeVersionNeeded} ! \e[0m"; exit 1; fi
 
 
