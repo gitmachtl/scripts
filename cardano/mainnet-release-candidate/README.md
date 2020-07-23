@@ -4,7 +4,7 @@
 
 :bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.17.0 !  (git checkout tags/1.17.0)**
 
-:bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/build/3556541/download/1/index.html) -> mainnet_candidate**
+:bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/build/3596468/download/1/index.html) -> mainnet_candidate3**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
