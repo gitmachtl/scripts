@@ -26,10 +26,10 @@ if [ -f "${addrName}.staking.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.
 
 #convert itn key to stake skey/vkey
 echo "${itnPrivateKey}" > ${tempDir}/itn.key; itnKeyFile="${tempDir}/itn.key";
-${cardanocli} shelley stake-address convert-itn-key --itn-signing-key-file ${itnKeyFile} --out-file ${addrName}.staking.skey
+${cardanocli} shelley key convert-itn-key --itn-signing-key-file ${itnKeyFile} --out-file ${addrName}.staking.skey
 
 echo "${itnVerificationKey}" > ${tempDir}/itn.key; itnKeyFile="${tempDir}/itn.key";
-${cardanocli} shelley stake-address convert-itn-key --itn-verification-key-file ${itnKeyFile} --out-file ${addrName}.staking.vkey
+${cardanocli} shelley key convert-itn-key --itn-verification-key-file ${itnKeyFile} --out-file ${addrName}.staking.vkey
 
 rm ${itnKeyFile}
 
