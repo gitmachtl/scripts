@@ -31,8 +31,8 @@ remoteServerPostCommand="~/cardano/restartCore.sh"      #Command to execute via 
 
 export CARDANO_NODE_SOCKET_PATH=${socket}
 
-#MainNetCandidate2  - 18.07.2020
-nodeVersionNeeded="1.16|1.17"
+#MainNetCandidate3  - 23.07.2020
+nodeVersionNeeded="1.17"
 
 
 #-------------------------------------------------------------

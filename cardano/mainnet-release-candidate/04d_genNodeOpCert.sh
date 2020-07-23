@@ -37,7 +37,7 @@ slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)      #Number
 startTimeByron=$(cat ${genesisfile_byron} | jq -r .startTime)           #In Secs(abs)
 startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)             #In Text
 startTimeSec=$(date --date=${startTimeGenesis} +%s)                     #In Secs(abs)
-transTimeEnd=$(( ${startTimeSec}+(17*${epochLength}) ))                  #In Secs(abs) End of the TransitionPhase = Start of KES Period 0
+transTimeEnd=$(( ${startTimeSec}+(3*${epochLength}) ))                 #In Secs(abs) End of the TransitionPhase = Start of KES Period 0
 slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)	#Number
 
 #Dynamic
