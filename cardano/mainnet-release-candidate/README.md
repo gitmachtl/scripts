@@ -2,7 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](#examples) are at the bottom of this page :-)
 
-:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: release/1.16.x !  (git checkout release/1.16.x)**
+:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.17.0 !  (git checkout tags/1.17.0)**
 
 :bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/build/3556541/download/1/index.html) -> mainnet_candidate**
 
