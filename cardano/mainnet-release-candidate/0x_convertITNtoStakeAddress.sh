@@ -45,7 +45,7 @@ cat ${addrName}.staking.skey
 echo
 
 #Building a Staking Address
-${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${magicparam} > ${addrName}.staking.addr
+${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey --mainnet > ${addrName}.staking.addr
 file_lock ${addrName}.staking.addr
 
 echo -e "\e[0mStaking(Rewards)-Address built: \e[32m ${addrName}.staking.addr \e[90m"
