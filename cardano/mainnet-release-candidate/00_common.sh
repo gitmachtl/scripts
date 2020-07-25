@@ -2,8 +2,8 @@
 
 socket="db/node.socket"
 
-genesisfile="config/mainnet_candidate_3-shelley-genesis.json"           #Shelley
-genesisfile_byron="config/mainnet_candidate_3-byron-genesis.json"       #Byron
+genesisfile="config/mainnet_candidate_4-shelley-genesis.json"           #Shelley
+genesisfile_byron="config/mainnet_candidate_4-byron-genesis.json"       #Byron
 
 cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
@@ -31,8 +31,8 @@ remoteServerPostCommand="~/cardano/restartCore.sh"      #Command to execute via 
 
 export CARDANO_NODE_SOCKET_PATH=${socket}
 
-#MainNetCandidate3  - 23.07.2020
-nodeVersionNeeded="1.17"
+#MainNetCandidate4  - 25.07.2020
+nodeVersionNeeded="1.18"
 
 
 #-------------------------------------------------------------
