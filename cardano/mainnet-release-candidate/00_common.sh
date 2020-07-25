@@ -2,8 +2,8 @@
 
 socket="db/node.socket"
 
-genesisfile="config/mainnet_candidate-shelley-genesis.json"           #Shelley
-genesisfile_byron="config/mainnet_candidate-byron-genesis.json"       #Byron
+genesisfile="config/mainnet_candidate_3-shelley-genesis.json"           #Shelley
+genesisfile_byron="config/mainnet_candidate_3-byron-genesis.json"       #Byron
 
 cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
