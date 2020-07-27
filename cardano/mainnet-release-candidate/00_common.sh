@@ -8,7 +8,11 @@ genesisfile_byron="config/mainnet_candidate_4-byron-genesis.json"       #Byron
 cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
 
-magicparam="--testnet-magic 42"
+byronToShelleyEpochs=1 #MC4
+#byronToShelleyEpochs=308  #Mainnet
+
+magicparam="--testnet-magic 42"	#MC4
+#magicparam="--testnet-magic 42" #Mainnet
 
 itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
 

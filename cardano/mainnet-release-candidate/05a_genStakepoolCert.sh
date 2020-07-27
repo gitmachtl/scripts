@@ -132,22 +132,8 @@ done
 
 
 #Check PoolMetadata Entries
-poolMetaNameOrig=$(readJSONparam "poolMetaName"); if [[ ! $? == 0 ]]; then exit 1; fi
-	poolMetaName=${poolMetaNameOrig//[^[:alnum:][:space:]]/}   #Filter out forbidden chars and replace with nothing
-	poolMetaName=$(trimString "${poolMetaName}")
-       	if [[ ! "${poolMetaName}" == "${poolMetaNameOrig}" ]]; then #If corrected name is different than to the one in the pool.json file, ask if it is ok to use the new one
-                echo
-                if ask "\e[33mYour poolMetaName was corrected from '${poolMetaNameOrig}' to '${poolMetaName}' to fit the rules! Are you ok with this ?\e[0m" N; then
-                        file_unlock ${poolFile}.pool.json       #update the name in the json itself to the new one too
-                        newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolMetaName: \"${poolMetaName}\"}")
-                        echo "${newJSON}" > ${poolFile}.pool.json
-                else
-                        echo
-                        echo "Please re-edit the poolMetaTicker entry in your ${poolFile}.pool.json, thx."
-                        echo
-                        exit 1
-                fi
-        fi
+poolMetaName=$(readJSONparam "poolMetaName"); if [[ ! $? == 0 ]]; then exit 1; fi
+	if [[ "${#poolMetaName}" -gt 50 ]]; then echo -e "\e[35mERROR - The poolMetaName is too long. Max. 50chars allowed !\e[0m"; exit 1; fi
 
 poolMetaTickerOrig=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
 	poolMetaTicker=${poolMetaTickerOrig//[^[:alnum:]]/_}   #Filter out forbidden chars and replace with _
