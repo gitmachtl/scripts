@@ -179,7 +179,7 @@ file_lock ${poolFile}.pool.id
 #Check about Extended Metadata
 extendedMetaEntry=
 poolExtendedMetaUrl=$(jq -r .poolExtendedMetaUrl ${poolFile}.pool.json 2> /dev/null)
-if [[ "${poolExtendedMetaUrl}" =~ https?://.* && ${#poolWitnessUrl} -lt 65 ]]; then
+if [[ "${poolExtendedMetaUrl}" =~ https?://.* && ${#poolExtendedMetaUrl} -lt 65 ]]; then
 	#OK, a extended MetaDataURL to an extra JSON file is present, so lets continue generate it
 
 	#If ITN Keys are present, generate ITN-Witness entries
