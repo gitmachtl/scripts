@@ -1,18 +1,22 @@
 #!/bin/bash
 
+####
+#### MAINNET CONFIG
+####
+
 socket="db/node.socket"
 
-genesisfile="config/mainnet_candidate_4-shelley-genesis.json"           #Shelley
-genesisfile_byron="config/mainnet_candidate_4-byron-genesis.json"       #Byron
+genesisfile="config/mainnet-shelley-genesis.json"           #Shelley
+genesisfile_byron="config/mainnet-byron-genesis.json"       #Byron
 
 cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
 
-byronToShelleyEpochs=1 #MC4
-#byronToShelleyEpochs=308  #Mainnet
+#byronToShelleyEpochs=1 #MC4
+byronToShelleyEpochs=308  #Mainnet
 
-magicparam="--testnet-magic 42"	#MC4
-#magicparam="--testnet-magic 42" #Mainnet
+#magicparam="--testnet-magic 42"	#MC4
+magicparam="--mainnet" #Mainnet
 
 itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
 
@@ -35,7 +39,7 @@ remoteServerPostCommand="~/cardano/restartCore.sh"      #Command to execute via 
 
 export CARDANO_NODE_SOCKET_PATH=${socket}
 
-#MainNetCandidate4  - 25.07.2020
+#MainNet  - 29.07.2020
 nodeVersionNeeded="1.18"
 
 
