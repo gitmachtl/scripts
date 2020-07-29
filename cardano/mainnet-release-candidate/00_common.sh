@@ -13,7 +13,7 @@ cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
 
 #byronToShelleyEpochs=1 #MC4
-byronToShelleyEpochs=308  #Mainnet
+byronToShelleyEpochs=208  #Mainnet
 
 #magicparam="--testnet-magic 42"	#MC4
 magicparam="--mainnet" #Mainnet
