@@ -63,7 +63,7 @@ if [[ "${currentKESperiod}" -lt 0 ]]; then currentKESperiod=0; fi
 
 #Calculating Expire KES Period and Date/Time
 maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
-#expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
+expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
 #expireTimeSec=$(( ${transTimeEnd} + (${slotLength}*${expiresKESperiod}*${slotsPerKESPeriod}) ))
 expireTimeSec=$(( ${currentTimeSec} + (${slotLength}*${maxKESEvolutions}*${slotsPerKESPeriod}) ))
 expireDate=$(date --date=@${expireTimeSec})
