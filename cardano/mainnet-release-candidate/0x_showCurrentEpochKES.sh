@@ -9,6 +9,9 @@ convertsecs() {
  printf "%03dh %02dm %02ds\n" $h $m $s
 }
 
+# Byron to Shelley Epoch Transition Length
+byronToShelleyEpochs=208
+
 currentEpoch=$(get_currentEpoch)
 timeUntilNextEpoch=$(convertsecs $(get_timeUntilNextEpoch))
 
@@ -23,9 +26,9 @@ startTimeByron=$(cat ${genesisfile_byron} | jq -r .startTime) 		#In Secs(abs)
 #startTimeByron=1506203091
 startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)		#In Text
 startTimeSec=$(date --date=${startTimeGenesis} +%s) 			#In Secs(abs)
-transTimeEnd=$(( ${startTimeSec}+(2*${epochLength}) )) 			#In Secs(abs) End of the TransitionPhase
+transTimeEnd=$(( ${startTimeSec}+(${byronToShelleyEpochs}*${epochLength}) )) 			#In Secs(abs) End of the TransitionPhase
 byronSlots=$(( (${startTimeSec}-${startTimeByron}) / 20 ))  		#NumSlots between ByronChainStart and ShelleyGenesisStart(TransitionStart)
-transSlots=$(( (2*${epochLength}) / 20 ))				#NumSlots in the TransitionPhase
+transSlots=$(( (${byronToShelleyEpochs}*${epochLength}) / 20 ))				#NumSlots in the TransitionPhase
 
 #Dynamic
 currentTimeSec=$(date -u +%s) 						#In Secs(abs)
@@ -38,7 +41,8 @@ if [[ "${currentTimeSec}" -lt "${transTimeEnd}" ]];
 	currentSlot=$(( ${byronSlots} + ${transSlots} + ((${currentTimeSec}-${transTimeEnd}) / ${slotLength}) ))
 fi
 
-currentKESperiod=$(( (${currentTimeSec}-${transTimeEnd}) / (${slotsPerKESPeriod}*${slotLength}) ))
+#currentKESperiod=$(( (${currentTimeSec}-${transTimeEnd}) / (${slotsPerKESPeriod}*${slotLength}) ))
+currentKESperiod=$(( (${currentSlot}-${byronSlots}) / (${slotsPerKESPeriod}*${slotLength}) ))
 
 #Calculating Expire KES Period and Date/Time
 maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
