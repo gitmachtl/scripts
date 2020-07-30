@@ -46,8 +46,9 @@ currentKESperiod=$(( (${currentSlot}-${byronSlots}) / (${slotsPerKESPeriod}*${sl
 
 #Calculating Expire KES Period and Date/Time
 maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
-expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
-expireTimeSec=$(( ${transTimeEnd} + (${slotLength}*${expiresKESperiod}*${slotsPerKESPeriod}) ))
+#expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
+#expireTimeSec=$(( ${transTimeEnd} + (${slotLength}*${expiresKESperiod}*${slotsPerKESPeriod}) ))
+expireTimeSec=$(( ${currentTimeSec} + (${slotLength}*${maxKESEvolutions}*${slotsPerKESPeriod}) ))
 expireDate=$(date --date=@${expireTimeSec})
 
 echo -e "Current KES Period: ${currentKESperiod}"
