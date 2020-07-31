@@ -19,7 +19,7 @@ byronToShelleyEpochs=208  #Mainnet
 magicparam="--mainnet" #Mainnet
 
 itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
-
+cardanocli_itn="./cardano-cli-1.18.x"
 
 #--------- only for kes/opcert update and upload via scp -----
 

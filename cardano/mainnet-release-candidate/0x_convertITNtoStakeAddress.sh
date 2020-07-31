@@ -10,28 +10,37 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
+#Only now for the ITN conversion
+cardanocli=${cardanocli_itn}
+
 case $# in
   3 ) addrName="$1";
-      itnPrivateKey="$2";
-      itnVerificationKey="$3";;
+      itnSKEYfile="$2";
+      itnVKEYfile="$3";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <StakeAddressName>  <ITN Private/Secret Key HASH>  <ITN Verification/Public Key HASH>
+Usage:  $(basename $0) <StakeAddressName>  <ITN Private/Secret Key File>  <ITN Verification/Public Key File>
 EOF
   exit 1;; esac
 
 #warnings
+if [ ! -f "${itnSKEYfile}" ]; then echo -e "\e[35mWARNING - ${itnSKEYfile} does not exist !\e[0m"; exit 2; fi
+if [ ! -f "${itnVKEYfile}" ]; then echo -e "\e[35mWARNING - ${itnVKEYfile} does not exist !\e[0m"; exit 2; fi
 if [ -f "${addrName}.staking.vkey" ]; then echo -e "\e[35mWARNING - ${addrName}.staking.vkey already present, delete it or use another name !\e[0m"; exit 2; fi
 if [ -f "${addrName}.staking.skey" ]; then echo -e "\e[35mWARNING - ${addrName}.staking.skey already present, delete it or use another name !\e[0m"; exit 2; fi
 if [ -f "${addrName}.staking.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.staking.addr already present, delete it or use another name !\e[0m"; exit 2; fi
 
 #convert itn key to stake skey/vkey
-echo "${itnPrivateKey}" > ${tempDir}/itn.key; itnKeyFile="${tempDir}/itn.key";
-${cardanocli} shelley key convert-itn-key --itn-signing-key-file ${itnKeyFile} --out-file ${addrName}.staking.skey
+itnSkey=$(cat ${itnSKEYfile})
+itnVkey=$(cat ${itnVKEYfile})
 
-echo "${itnVerificationKey}" > ${tempDir}/itn.key; itnKeyFile="${tempDir}/itn.key";
-${cardanocli} shelley key convert-itn-key --itn-verification-key-file ${itnKeyFile} --out-file ${addrName}.staking.vkey
+if [[ "${itnSkey:0:8}" == "ed25519e" ]]; then #extended key
+						${cardanocli} shelley key convert-itn-extended-key --itn-signing-key-file ${itnSKEYfile} --out-file ${addrName}.staking.skey
+elif [[ "${itnSkey:0:7}" == "ed25519" ]]; then #normal key
+                                                ${cardanocli} shelley key convert-itn-key --itn-signing-key-file ${itnSKEYfile} --out-file ${addrName}.staking.skey
+else echo -e "\e[35mWARNING - ${itnSkey} is an unknown key format. Only ed25519 and ed25519e keys are supported !\e[0m"; exit 2;
+fi
 
-rm ${itnKeyFile}
+${cardanocli} shelley key convert-itn-key --itn-verification-key-file ${itnVKEYfile} --out-file ${addrName}.staking.vkey
 
 file_lock ${addrName}.staking.vkey
 file_lock ${addrName}.staking.skey
