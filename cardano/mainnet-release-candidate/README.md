@@ -10,8 +10,8 @@ Theses scripts here should help you to start, i made them for myself, not for a 
 
 Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter - [@ATADA_Stakepool](https://twitter.com/ATADA_Stakepool), Homepage - https://stakepool.at https://at-ada.net
 
-If you can't hold back and wanna give me a little Tip, here's my MainNet Ada Address, thx! :-)
-```DdzFFzCqrhsyR1YeYAK47tFH7GSuw2hnuZsqGtTgSbmae9sqLjCm8b6vNvYHK7ZVFmDA9GRXA2ZJXy2dWEK7Wej5i9LXJMZvjtKawknc```
+If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley Ada Address, thx! :-)
+```addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql```
 
 ### Filenames used
 
