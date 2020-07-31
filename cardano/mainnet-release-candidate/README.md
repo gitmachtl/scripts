@@ -376,12 +376,12 @@ Done.
 
 ### Claiming rewards from the ITN Testnet with only SK/PK keys
 
-If you ran a stakepool on the ITN and you only have your owner SK and PK ed25519 keys you can claim your rewards like:
+If you ran a stakepool on the ITN and you only have your owner SK ed25519(e) and VK keys you can claim your rewards like:
+:bulb: You need the cardano-cli from release/1.18x to work, save it to a new filename like ```cardano-cli-1.18.x```. Make sure to edit the right binary name in the new 00_common.sh !
 
-1. If you have ed25519 keys and not ed25519**e** keys you can skip to the next step. Otherwise you have to wait a a little longer to claim your rewards. ed25519e keys are currently not supported. But you still can check your balance if you wanna continue...
 1. Convert your ITN keys into a Shelley Staking Address by running: 
-   <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName> <Private_Key_HASH_ed25519>  <Public_Key_HASH_ed25519>```
-   <br>```./0x_convertITNtoStakeAddress.sh myitnrewards  ed25519_sk1qq... ed25519_pk1u62x9...```
+   <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName> <Private_ITN_Key_File>  <Public_ITN_Key_File>```
+   <br>```./0x_convertITNtoStakeAddress.sh myitnrewards mypool.itn.skey mypool.itn.vkey```
    <br>This will generate a new Shelley stakeaddress with the 3 files myitnrewards.staking.skey, myitnrewards.staking.vkey and myitnrewards.staking.addr
 1. You can check now your rewards by running ```./01_queryAddress.sh myitnrewards.staking```
 1. You can claim your rewards by running ```./01_claimRewards.sh myitnrewards.staking destinationaccount``` like a normal rewards claim procedure, example above!
