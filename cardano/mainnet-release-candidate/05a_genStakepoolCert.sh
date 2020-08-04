@@ -194,8 +194,8 @@ if [[ "${poolExtendedMetaUrl}" =~ https?://.* && ${#poolExtendedMetaUrl} -lt 65 
 echo "
 {
   \"info\": {
-        \"url_png_icon_64x64\": \"https://\",
-        \"url_png_logo\": \"https://\",
+        \"url_png_icon_64x64\": \"http(s) url to pool icon\",
+        \"url_png_logo\": \"http(s) url to pool logo\",
         \"location\": \"Country, Continent\",
         \"social\": {
             \"twitter_handle\": \"\",
@@ -203,7 +203,8 @@ echo "
             \"facebook_handle\": \"\",
             \"youtube_handle\": \"\",
             \"twitch_handle\": \"\",
-            \"discord_handle\": \"\"
+            \"discord_handle\": \"\",
+	    \"github_handle\": \"\"
         },
         \"company\": {
             \"name\": \"\",
@@ -217,7 +218,8 @@ echo "
             \"me\": \"\",
             \"server\": \"\",
             \"company\": \"\"
-        }
+        },
+	\"rss\": \"http(s) url to valid RSS feed\"
     },
 
   \"telegram-admin-handle\": [
