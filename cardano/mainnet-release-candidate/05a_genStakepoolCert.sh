@@ -75,7 +75,7 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 ${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
 checkError "$?"
 minPoolCost=$(cat protocol-parameters.json | jq -r .minPoolCost)
-#minPoolCost=228000000
+#minPoolCost=340000000
 if [[ ${poolCost} -lt ${minPoolCost} ]]; then #If poolCost is set to low, than ask for an automatic change
                 echo
                 if ask "\e[33mYour poolCost (${poolCost} lovelaces) is lower than the minPoolCost (${minPoolCost} lovelaces). Do you wanna change it to that ?\e[0m" N; then
@@ -179,8 +179,61 @@ file_lock ${poolFile}.pool.id
 #Check about Extended Metadata
 extendedMetaEntry=
 poolExtendedMetaUrl=$(jq -r .poolExtendedMetaUrl ${poolFile}.pool.json 2> /dev/null)
+
+if [[ ${#poolExtendedMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolExtendedMetaUrl entry in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolExtendedMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
 if [[ "${poolExtendedMetaUrl}" =~ https?://.* && ${#poolExtendedMetaUrl} -lt 65 ]]; then
 	#OK, a extended MetaDataURL to an extra JSON file is present, so lets continue generate it
+
+        if [ -f "${poolName}.additional-metadata.json" ]; then
+		additionalMetadata=$(cat ${poolName}.additional-metadata.json | jq -rM . 2> /dev/null)
+                if [[ $? -ne 0 ]]; then echo "ERROR - ${poolFile}.additional-metadata.json is not a valid JSON file"; exit 1; fi
+		extendedMetaEntry=",\n  \"extended\": \"${poolExtendedMetaUrl}\""  #make sure here is the entry for the extended-metadata now
+	else # additional-metadata.json is not present, generate a dummy one
+	echo -e "\n\e[33m\"${poolFile}.additional-metadata.json\" does not exist, a dummy one was created, please edit it and retry.\e[0m";
+	#Generate Dummy JSON File
+echo "
+{
+  \"info\": {
+        \"url_png_icon_64x64\": \"https://\",
+        \"url_png_logo\": \"https://\",
+        \"location\": \"Country, Continent\",
+        \"social\": {
+            \"twitter_handle\": \"\",
+            \"telegram_handle\": \"\",
+            \"facebook_handle\": \"\",
+            \"youtube_handle\": \"\",
+            \"twitch_handle\": \"\",
+            \"discord_handle\": \"\"
+        },
+        \"company\": {
+            \"name\": \"\",
+            \"addr\": \"\",
+            \"city\": \"\",
+            \"country\": \"\",
+            \"company_id\": \"\",
+            \"vat_id\": \"\"
+        },
+        \"about\": {
+            \"me\": \"\",
+            \"server\": \"\",
+            \"company\": \"\"
+        }
+    },
+
+  \"telegram-admin-handle\": [
+        \"\"
+    ],
+
+  \"my-pool-ids\": [
+        \"${poolID}\"
+    ],
+  \"when-satured-then-recommend\": [
+        \"${poolID}\"
+    ]
+}
+" > ${poolFile}.additional-metadata.json
+
+        fi
 
 	#If ITN Keys are present, generate ITN-Witness entries
 	if [[ -f "${poolFile}.itn.skey" && -f "${poolFile}.itn.vkey" ]];
@@ -192,18 +245,17 @@ if [[ "${poolExtendedMetaUrl}" =~ https?://.* && ${#poolExtendedMetaUrl} -lt 65 
 
 		itnWitnessSign=$(${itn_jcli} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id); checkError "$?";
 		itnWitnessOwner=$(cat ${poolFile}.itn.vkey)
-		file_unlock ${poolFile}.extended-metadata.json
-		#Generate ITN-Witness Entries in the extended json file
-		newJSON=$(echo "{}" | jq ".itn += {owner: \"${itnWitnessOwner}\"}|.itn += {witness: \"${itnWitnessSign}\"}")
-		echo "${newJSON}" > ${poolFile}.extended-metadata.json
-		chmod 444 ${poolFile}.extended-metadata.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
+                itnJSON=$(echo "{}" | jq ".itn += {owner: \"${itnWitnessOwner}\"}|.itn += {witness: \"${itnWitnessSign}\"}")
 		extendedMetaEntry=",\n  \"extended\": \"${poolExtendedMetaUrl}\""
-
-		#else echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your ${poolFile}.itn.skey or ${poolFile}.itn.vkey file is missing!\e[0m\n\n"; exit 1;
 	fi
 fi
 
-
+#Combine the data for the extended-metadata.json if some data is present
+if [[ ! "${extendedMetaEntry}" == "" ]]; then
+	file_unlock ${poolFile}.extended-metadata.json
+	echo "${itnJSON} ${additionalMetadata}" | jq -rs 'reduce .[] as $item ({}; . * $item)' > ${poolFile}.extended-metadata.json
+	chmod 444 ${poolFile}.extended-metadata.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
+fi
 
 #Generate new <poolFile>.metadata.json File with the Entries and also read out the Hash of it
 file_unlock ${poolFile}.metadata.json
