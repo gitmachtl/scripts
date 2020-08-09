@@ -7,7 +7,6 @@
 #       genesisfile     Path to the genesis.json
 #       magicparam      TestnetMagic parameter
 #       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
