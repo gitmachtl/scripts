@@ -250,21 +250,18 @@ checkError "$?"
 cat ${txFile} | head -n 6   #only show first 6 lines
 echo
 
-#Read out the POOL-ID and store it in the ${poolName}.pool.json
-#poolID=$(cat ${ownerName}.deleg.cert | tail -n 1 | cut -c 6-) #Old method
-poolID=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)	#New method since 1.13.0
+#Read out the POOL-ID
+poolIDhex=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey --output-format hex)	#New method since 1.19.0
 checkError "$?"
 
-file_unlock ${poolFile}.pool.json
-newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
-echo "${newJSON}" > ${poolFile}.pool.json
-file_lock ${poolFile}.pool.json
+poolIDbech=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)      #New method since 1.19.0
+checkError "$?"
 
 echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
 
-echo -e "\e[0mPool-ID:\e[32m ${poolID} \e[90m"
+echo -e "\e[0mPool-ID:\e[32m ${poolIDhex} / ${poolIDbech} \e[90m"
 echo
 
 #Show a warning to respect the pledge amount

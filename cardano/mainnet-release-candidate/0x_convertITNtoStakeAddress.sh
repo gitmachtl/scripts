@@ -10,9 +10,6 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-#Only now for the ITN conversion
-cardanocli=${cardanocli_itn}
-
 case $# in
   3 ) addrName="$1";
       itnSKEYfile="$2";

@@ -1,34 +1,29 @@
 #!/bin/bash
 
-####
-#### MAINNET CONFIG
-####
+socket="db-mainnet/node.socket"
 
-socket="db/node.socket"
-
-genesisfile="config/mainnet-shelley-genesis.json"           #Shelley
-genesisfile_byron="config/mainnet-byron-genesis.json"       #Byron
+genesisfile="configuration-mainnet/mainnet-shelley-genesis.json"           #Shelley
+genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byron
 
 cardanocli="./cardano-cli"
 cardanonode="./cardano-node"
 
-#byronToShelleyEpochs=1 #MC4
-byronToShelleyEpochs=208  #Mainnet
+byronToShelleyEpochs=208
 
-#magicparam="--testnet-magic 42"	#MC4
-magicparam="--mainnet" #Mainnet
+magicparam="--mainnet"
 
 itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
-cardanocli_itn="./cardano-cli-1.18.x"
+
+
+
 
 #--------- only for kes/opcert update and upload via scp -----
 
-
-remoteServerAddr="yourserver.com"                       #RemoteServer ip or dns name
-remoteServerUser="username"                             #RemoteServer userlogin via ssh keys
+remoteServerAddr="remoteserver address or ip"                       #RemoteServer ip or dns name
+remoteServerUser="remoteuser"                             #RemoteServer userlogin via ssh keys
 remoteServerSSHport="22"                                #RemoteServer SSH port number
-remoteServerDestDir="~/cardano/config-core/."           #Destination directory were to copy the files to
-remoteServerPostCommand="~/cardano/restartCore.sh"      #Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
+remoteServerDestDir="~/remoteuser/core-###NODENAME###/."           #Destination directory were to copy the files to
+remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
 
 
 ##############################################################################################################################
@@ -39,9 +34,8 @@ remoteServerPostCommand="~/cardano/restartCore.sh"      #Command to execute via 
 
 export CARDANO_NODE_SOCKET_PATH=${socket}
 
-#MainNet  - 29.07.2020
-nodeVersionNeeded="1.18"
-
+#MainNet
+nodeVersionNeeded="1.19"
 
 #-------------------------------------------------------------
 #Do a cli and node version check
@@ -49,7 +43,6 @@ versionCheck=$(${cardanocli} --version | egrep "${nodeVersionNeeded}" | wc -l)
 if [[ ${versionCheck} -eq 0 ]]; then echo -e "\e[35mERROR - Please use Node and CLI Version ${nodeVersionNeeded} ! \e[0m"; exit 1; fi
 versionCheck=$(${cardanonode} --version | egrep "${nodeVersionNeeded}" | wc -l)
 if [[ ${versionCheck} -eq 0 ]]; then echo -e "\e[35mERROR - Please use Node and CLI Version ${nodeVersionNeeded} ! \e[0m"; exit 1; fi
-
 
 exists()
 {

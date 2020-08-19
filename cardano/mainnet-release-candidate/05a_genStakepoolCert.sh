@@ -163,7 +163,7 @@ poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; 
 
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
-poolID=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)     #New method since 1.13.0
+poolID=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey --output-format hex)     #New method since 1.19.0
 checkError "$?"
 file_unlock ${poolFile}.pool.json
 newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
@@ -174,6 +174,13 @@ file_lock ${poolFile}.pool.json
 file_unlock ${poolFile}.pool.id
 echo "${poolID}" > ${poolFile}.pool.id
 file_lock ${poolFile}.pool.id
+
+poolIDbech=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)     #New method since 1.19.0
+checkError "$?"
+#Save out the POOL-ID also in the xxx.id-bech file
+file_unlock ${poolFile}.pool.id-bech
+echo "${poolIDbech}" > ${poolFile}.pool.id-bech
+file_lock ${poolFile}.pool.id-bech
 
 
 #Check about Extended Metadata
