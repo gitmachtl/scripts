@@ -2,7 +2,7 @@
 
 ## First of all, you don't need them all! [Examples](#examples) are at the bottom of this page :-)
 
-:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.18.0 !  (git checkout tags/1.18.0)**
+:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.19.0 !  (git checkout tags/1.19.0)**
 
 :bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/build/3627488/download/1/index.html) -> mainnet**
 
@@ -26,7 +26,7 @@ name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
 
 Node/Pool files:
 poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json, poolname.metadata.json
-poolname.vrf.skey/vkey, poolname.pool.id
+poolname.vrf.skey/vkey, poolname.pool.id, poolname.pool.id-bech
 poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
 poolname.kes.counter, poolname.kes-expire.json
 
@@ -375,7 +375,7 @@ Done.
 ### Claiming rewards from the ITN Testnet with only SK/PK keys
 
 If you ran a stakepool on the ITN and you only have your owner SK ed25519(e) and VK keys you can claim your rewards now<br>
-:bulb: You need the **cardano-cli from release/1.18.x** to work, save it to a new filename like ```cardano-cli-1.18.x```. Make sure to edit the right binary name in the new 00_common.sh !
+:bulb: You need the **cardano-cli from release/1.19.0** to work !
 
 1. Convert your ITN keys into a Shelley Staking Address by running: 
    <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName> <Private_ITN_Key_File>  <Public_ITN_Key_File>```
