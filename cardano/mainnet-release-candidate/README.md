@@ -375,7 +375,6 @@ Done.
 ### Claiming rewards from the ITN Testnet with only SK/PK keys
 
 If you ran a stakepool on the ITN and you only have your owner SK ed25519(e) and VK keys you can claim your rewards now<br>
-:bulb: You need the **cardano-cli from release/1.19.0** to work !
 
 1. Convert your ITN keys into a Shelley Staking Address by running: 
    <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName> <Private_ITN_Key_File>  <Public_ITN_Key_File>```
