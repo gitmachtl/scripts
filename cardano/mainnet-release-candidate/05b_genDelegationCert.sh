@@ -23,7 +23,7 @@ echo -e "\e[0mCreate a delegation registration certificate for Delegator\e[32m $
 
 file_unlock ${delegateStakeAddr}.deleg.cert
 
-${cardanocli} shelley stake-address delegation-certificate --staking-verification-key-file ${delegateStakeAddr}.staking.vkey --stake-pool-verification-key-file ${toPoolNodeName}.node.vkey --out-file ${delegateStakeAddr}.deleg.cert
+${cardanocli} shelley stake-address delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --cold-verification-key-file ${toPoolNodeName}.node.vkey --out-file ${delegateStakeAddr}.deleg.cert
 checkError "$?"
 
 file_lock ${delegateStakeAddr}.deleg.cert
