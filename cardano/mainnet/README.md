@@ -229,7 +229,7 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 ### poolname.pool.json
 
-The json file could end up like this one after the pool was registered and also later de-registered.<br>In the future we can add values like poolTicker, poolRelays & poolHomepage for example.
+The json file could end up like this one after the pool was registered and also later de-registered.
 ```console
 {
   "poolName": "mypool",
