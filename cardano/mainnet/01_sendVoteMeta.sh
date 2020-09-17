@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
-# Modified by @TheRealAdamDean (BUFFY & SPIKE)
+# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool in
+# cooperation with @TheRealAdamDean (BUFFY & SPIKE)
 
 #load variables from common.sh
 #       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
@@ -11,14 +11,16 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  4 ) fromAddr="$1";
-      toAddr="$2";
-      lovelacesToSend="$3";
-      metafile="$4.json";;
+  2 ) fromAddr="$1";
+      metafile="$2.json";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces or keyword ALL> <VoteFileName>.json
+Usage:  $(basename $0) <From AddressName> <VoteFileName>.json
 EOF
   exit 1;; esac
+
+#This is a simplified Version of the sendLovelaces.sh script so, it will always be a SendALLLovelaces transaction + Metafile
+toAddr=${fromAddr}
+lovelacesToSend="ALL"
 
 #Throw an error if the voting.json file does not exist
 if [ ! -f "${metafile}" ]; then
@@ -47,28 +49,22 @@ if [[ $objectType == 'VoteBallot' ]]; then
   yesnovote=$(readMetaParam "Vote" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
   choicevote=$(readMetaParam "Choices" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
   if [[ $yesnovote == null && $choicevote == null ]]; then
-    echo "ERROR - No voting preferences found in ballot." >&2;
+    echo "ERROR - No voting preferences found in ballot.";
     exit 1;
   fi
+else
+    echo "ERROR - JSON is not of type VoteBallot.";
+    exit 1;
 fi
-
-#Check if toAddr file does not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
-if [ ! -f "$2.addr" ]; then echo "$2" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
 
 sendFromAddr=$(cat ${fromAddr}.addr)
 sendToAddr=$(cat ${toAddr}.addr)
 check_address "${sendFromAddr}"
 check_address "${sendToAddr}"
 
-# If only doing a simple metadata submission and the source and destination address is the same, set the Lovelace to send to "ALL"
-# to avoid an empty utxo and increased fees
-if [[ "${sendFromAddr}" == "${sendToAddr}" ]]; then
-	lovelacesToSend="ALL"
-fi
-
 #Choose between sending ALL funds or a given amount of lovelaces out
 if [[ ${lovelacesToSend^^} == "ALL" ]]; then
-  #Sending ALL lovelaces, so only 1 receiver addresses
+  #Sending ALL lovelaces, so only 1 receiver address
   rxcnt="1"
 else
   #Sending a free amount, so 2 receiver addresses
@@ -76,7 +72,7 @@ else
 fi
 
 echo
-echo -e "\e[0mSending lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr with metafile ${metafile}\e[0m:"
+echo -e "\e[0mUsing lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to send the metafile\e[32m ${metafile}\e[0m:"
 echo
 
 #get live values
@@ -86,19 +82,11 @@ currentEPOCH=$(get_currentEpoch)
 
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL to ${ttl})"
 echo
-
-# sendFromAddr=$(cat ${fromAddr}.addr)
-# sendToAddr=$(cat ${toAddr}.addr)
-
-# check_address "${sendFromAddr}"
-# check_address "${sendToAddr}"
-
-echo -e "\e[0mSource Address ${fromAddr}.addr:\e[32m ${sendFromAddr} \e[90m"
-echo -e "\e[0mDestination Address ${toAddr}.addr:\e[32m ${sendToAddr} \e[90m"
+echo -e "\e[0mSource/Destination Address ${fromAddr}.addr:\e[32m ${sendFromAddr} \e[90m"
 echo -e "\e[0mAttached Metafile:\e[32m ${metafile} \e[90m"
 echo
 
-#Get UTX0 Data for the sendFromAddr
+#Get UTXO Data for the sendFromAddr
 utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} --cardano-mode ${magicparam})
 utx0linecnt=$(echo "${utx0}" | wc -l)
 txcnt=$((${utx0linecnt}-2))
@@ -108,7 +96,6 @@ if [[ ${txcnt} -lt 1 ]]; then echo -e "\e[35mNo funds on the source Addr!\e[0m";
 echo
 
 #Calculating the total amount of lovelaces in all utxos on this address
-
 totalLovelaces=0
 txInString=""
 
@@ -161,8 +148,7 @@ if [[ ${lovelacesToReturn} -lt 0 || ${lovelacesToSend} -lt 0 ]]; then echo -e "\
 lovelacesMinCheck=$(( ${totalLovelaces} - ${fee} )) #hold the value of the lovelaces that will be transfered out no mather what type of transaction
 if [[ ${lovelacesMinCheck} -lt ${minUTXO} ]]; then echo -e "\e[35mAt least ${minUTXO} lovelaces must be transfered (ParameterSetting)!\e[0m"; exit; fi
 
-echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m ${lovelacesToSend} lovelaces \e[90m"
-echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m ${lovelacesToReturn} lovelaces \e[90m"
+echo -e "\e[0mLovelaces to return to ${toAddr}.addr: \e[33m ${lovelacesToSend} lovelaces \e[90m"
 
 echo
 
