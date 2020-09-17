@@ -93,7 +93,7 @@ So if you hold a file ```<poolname>.additional-metadata.json``` with additional 
 
 ## :bulb: How to do a voting for SPOCRA in a simple process
 
-We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Deans website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
+We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
 After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
 Thats it. :-)
 
@@ -123,6 +123,7 @@ Thats it. :-)
 * **01_sendVoteMeta.sh:** modified sendLoveLaces script to simply send a voting json metadata file
 <br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName>```
 <br>```./01_sendLovelaces.sh addr1 myvote``` to just send the myvote.json votingfile from funds on addr1.addr
+<br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process)
 
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
 <br>```./02_genPaymentAddrOnly.sh <name>```
