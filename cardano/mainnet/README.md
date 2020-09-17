@@ -91,6 +91,12 @@ You can find an example of the Adapools format [here](https://a.adapools.org/ext
 So if you hold a file ```<poolname>.additional-metadata.json``` with additional data in the same folder, script 05a will also integrate this information into the ```<poolname>.extended-metadata.json``` :-)<br>
 :bulb: This is only a test and not an official usage of the extended-metadata data for now.
 
+## :bulb: How to do a voting for SPOCRA in a simple process
+
+We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Deans website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
+After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
+Thats it. :-)
+
 ## Scriptfiles Syntax
 
 * **00_common.sh:** set your variables in there for your config, will be used by the scripts.<br>
