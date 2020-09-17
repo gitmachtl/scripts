@@ -114,11 +114,9 @@ So if you hold a file ```<poolname>.additional-metadata.json``` with additional 
 <br>```./01_claimRewards.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
 <br>```./01_claimRewards.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
 
-* **01_sendVoteMeta.sh:** modified sendLoveLaces script to include a voting json metadata file
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> <VoteFileName>```
-<br>```./01_sendLovelaces.sh addr1 addr1 ALL myvote``` to just send the myvote.json votingfile from funds on addr1.addr. funds will be all returned to addr1.addr
-<br>```./01_sendLovelaces.sh addr1 addr2 1000000 myvote``` to send 1000000 lovelaces from addr1.addr to addr2.addr and include the myvote.json file
-<br>```./01_sendLovelaces.sh addr1 addr2 ALL myvote``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1 and include the myvote.json file
+* **01_sendVoteMeta.sh:** modified sendLoveLaces script to simply send a voting json metadata file
+<br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName>```
+<br>```./01_sendLovelaces.sh addr1 myvote``` to just send the myvote.json votingfile from funds on addr1.addr
 
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
 <br>```./02_genPaymentAddrOnly.sh <name>```
