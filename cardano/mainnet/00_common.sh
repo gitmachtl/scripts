@@ -35,7 +35,7 @@ remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute v
 export CARDANO_NODE_SOCKET_PATH=${socket}
 
 #MainNet
-nodeVersionNeeded="1.19"
+nodeVersionNeeded="1.19|1.20"
 
 #-------------------------------------------------------------
 #Do a cli and node version check
