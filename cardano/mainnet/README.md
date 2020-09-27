@@ -105,6 +105,7 @@ Thats it. :-)
 ## Scriptfiles Syntax
 
 * **00_common.sh:** set your variables in there for your config, will be used by the scripts.<br>
+  You can also place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want an keep your specific settings even when the 00_common.sh updates. <br>
   :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
 * **01_queryAddress.sh:** checks the amount of lovelaces on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
