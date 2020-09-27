@@ -70,7 +70,7 @@ chmod 400 poolname.pool.json
 
 ### Overwrite the setting-variables in the 00_common.sh dynamically
 
-You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. 
+You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory like ```~/.common.inc```. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. 
 
 
 ## :bulb: ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
