@@ -33,7 +33,7 @@ cat ${addrName}.skey
 echo
 
 #Building a Payment Address
-${cardanocli} shelley address build --payment-verification-key-file ${addrName}.vkey --mainnet > ${addrName}.addr
+${cardanocli} shelley address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
 checkError "$?"
 file_lock ${addrName}.addr
 

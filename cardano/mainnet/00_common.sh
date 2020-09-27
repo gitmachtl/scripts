@@ -1,20 +1,21 @@
 #!/bin/bash
 
+#Please set the following variables to your needs, you can overwrite them dynamically
+#by placing a file with name "common.inc" in the calling directory. It will be sourced
+#into this file automatically if present
+
 socket="db-mainnet/node.socket"
 
-genesisfile="configuration-mainnet/mainnet-shelley-genesis.json"           #Shelley
-genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byron
+genesisfile="configuration-mainnet/mainnet-shelley-genesis.json"           #Shelley-Genesis path
+genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byron-Genesis path
 
-cardanocli="./cardano-cli"
-cardanonode="./cardano-node"
+cardanocli="./cardano-cli"	#Path to your cardano-cli you wanna use
+cardanonode="./cardano-node"	#Path to your cardano-node you wanna use
 
-byronToShelleyEpochs=208
-
-magicparam="--mainnet"
+magicparam="--mainnet"	#choose "--mainnet" for mainnet or for example "--testnet-magic 42" for a testnet
+addrformat="--mainnet"  #choose "--mainnet" for mainnet address format or like "--testnet-magic 42" for testnet address format
 
 itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
-
-
 
 
 #--------- only for kes/opcert update and upload via scp -----
@@ -32,10 +33,13 @@ remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute v
 #
 ##############################################################################################################################
 
-export CARDANO_NODE_SOCKET_PATH=${socket}
-
 #MainNet
 nodeVersionNeeded="1.19|1.20"
+
+#Overwrite variables via env file if present
+if [[ -f common.inc ]]; then source "common.inc"; fi
+
+export CARDANO_NODE_SOCKET_PATH=${socket}
 
 #-------------------------------------------------------------
 #Do a cli and node version check

@@ -49,7 +49,7 @@ cat ${addrName}.staking.skey
 echo
 
 #Building a Payment Address
-${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey --mainnet > ${addrName}.payment.addr
+${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.payment.addr
 checkError "$?"
 file_lock ${addrName}.payment.addr
 
@@ -58,7 +58,7 @@ cat ${addrName}.payment.addr
 echo
 
 #Building a Staking Address
-${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey --mainnet > ${addrName}.staking.addr
+${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.staking.addr
 checkError "$?"
 file_lock ${addrName}.staking.addr
 
