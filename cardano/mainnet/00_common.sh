@@ -37,7 +37,8 @@ remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute v
 nodeVersionNeeded="1.19|1.20"
 
 #Overwrite variables via env file if present
-if [[ -f common.inc ]]; then source "common.inc"; fi
+if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
+if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 export CARDANO_NODE_SOCKET_PATH=${socket}
 
