@@ -18,8 +18,10 @@ addrformat="--mainnet"  #choose "--mainnet" for mainnet address format or like "
 itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
 
 
-#--------- only for kes/opcert update and upload via scp -----
+#--------- leave this next value until you have to change it for a testnet
+byronToShelleyEpochs=208 #208 for the mainnet
 
+#--------- only for kes/opcert update and upload via scp -----
 remoteServerAddr="remoteserver address or ip"                       #RemoteServer ip or dns name
 remoteServerUser="remoteuser"                             #RemoteServer userlogin via ssh keys
 remoteServerSSHport="22"                                #RemoteServer SSH port number
@@ -35,8 +37,6 @@ remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute v
 
 #MainNet
 nodeVersionNeeded="1.19|1.20"
-
-byronToShelleyEpochs=208
 
 #Overwrite variables via env file if present
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
