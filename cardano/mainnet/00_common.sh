@@ -36,7 +36,7 @@ remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute v
 ##############################################################################################################################
 
 #MainNet
-nodeVersionNeeded="1.19|1.20"
+nodeVersionNeeded="1.19|1.20|1.21|1.22|1.23"
 
 #Overwrite variables via env file if present
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
