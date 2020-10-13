@@ -174,5 +174,7 @@ echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
 
+echo -e "\e[33mDon't de-register/delete your rewards staking account/address yet! You will receive the pool deposit fees on it!\n"
+
 echo -e "\e[0m\n"
 
