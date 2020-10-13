@@ -228,6 +228,7 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 * **07b_deregStakepoolCert.sh:** de-register (retire) your pool with the **poolname.pool.dereg-cert certificate** with funds from name.payment.addr from the blockchain. it also updates the de-registration date in the poolname.pool.json
 <br>```./07b_deregStakepoolCert.sh <PoolNodeName> <PaymentAddrForDeRegistration>```
 <br>```./07b_deregStakepoolCert.sh mypool mywallet``` this will retire your pool mypool with the cert generated with script 07a from the blockchain. The transactions fees will be paid from the mywallet.addr account.<br>
+  :bulb: Don't de-register your rewards/staking account yet, you will receive the pool deposit fee on it!<br>
 
 * **08a_genStakingAddrRetireCert.sh:** generates the de-registration certificate name.staking.dereg-cert to retire a stake-address form the blockchain
   <br>```./08a_genStakingAddrRetireCert.sh <name>```
