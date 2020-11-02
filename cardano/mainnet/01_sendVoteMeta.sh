@@ -30,7 +30,8 @@ fi
 
 function readMetaParam() {
   required="${3:-0}"
-  param=$(jq -r ".\"1\" .$1" $2 2> /dev/null)
+  key=$(jq 'keys[0]' $2)
+  param=$(jq -r ".$key .$1" $2 2> /dev/null)
   if [[ $? -ne 0 ]]; then echo "ERROR - ${2} is not a valid JSON file" >&2; exit 1;
   elif [[ "${param}" == null && required -eq 1 ]]; then echo "ERROR - Parameter \"$1\" in ${2} does not exist" >&2; exit 1;
   elif [[ "${param}" == "" && !required -eq 1 ]]; then echo "ERROR - Parameter \"$1\" in ${2} is empty" >&2; exit 1;
