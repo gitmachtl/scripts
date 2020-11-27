@@ -251,10 +251,10 @@ cat ${txFile} | head -n 6   #only show first 6 lines
 echo
 
 #Read out the POOL-ID
-poolIDhex=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey --output-format hex)	#New method since 1.19.0
+poolIDhex=$(${cardanocli} shelley stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)	#New parameters since 1.23.0
 checkError "$?"
 
-poolIDbech=$(${cardanocli} shelley stake-pool id --verification-key-file ${poolName}.node.vkey)      #New method since 1.19.0
+poolIDbech=$(${cardanocli} shelley stake-pool id --cold-verification-key-file ${poolName}.node.vkey)      #New method since 1.23.0
 checkError "$?"
 
 echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"

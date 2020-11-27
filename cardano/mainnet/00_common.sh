@@ -12,14 +12,14 @@ genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byro
 cardanocli="./cardano-cli"	#Path to your cardano-cli you wanna use
 cardanonode="./cardano-node"	#Path to your cardano-node you wanna use
 
-magicparam="--mainnet"	#choose "--mainnet" for mainnet or for example "--testnet-magic 42" for a testnet
-addrformat="--mainnet"  #choose "--mainnet" for mainnet address format or like "--testnet-magic 42" for testnet address format
+magicparam="--mainnet"	#choose "--mainnet" for mainnet or for example "--testnet-magic 1097911063" for a testnet
+addrformat="--mainnet"  #choose "--mainnet" for mainnet address format or like "--testnet-magic 1097911063" for testnet address format
 
 itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
 
 
 #--------- leave this next value until you have to change it for a testnet
-byronToShelleyEpochs=208 #208 for the mainnet
+byronToShelleyEpochs=208 #208 for the mainnet, 74 for the testnet
 
 #--------- only for kes/opcert update and upload via scp -----
 remoteServerAddr="remoteserver address or ip"                       #RemoteServer ip or dns name
@@ -36,7 +36,7 @@ remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute v
 ##############################################################################################################################
 
 #MainNet
-nodeVersionNeeded="1.19|1.20|1.21"
+nodeVersionNeeded="1.23"
 
 #Overwrite variables via env file if present
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
@@ -44,12 +44,21 @@ if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 export CARDANO_NODE_SOCKET_PATH=${socket}
 
+#-------------------------------------------------------
+#DisplayMajorErrorMessage
+majorError() {
+echo -e "\e[97m\n"
+echo -e "         _ ._  _ , _ ._\n        (_ ' ( \`  )_  .__)\n      ( (  (    )   \`)  ) _)\n     (__ (_   (_ . _) _) ,__)\n         \`~~\`\\ ' . /\`~~\`\n              ;   ;\n              /   \\ \n_____________/_ __ \\___________________________________________\n"
+echo -e "\e[35m${1}\e[0m\n"; exit 1;
+}
+#-------------------------------------------------------
+
 #-------------------------------------------------------------
 #Do a cli and node version check
 versionCheck=$(${cardanocli} --version | egrep "${nodeVersionNeeded}" | wc -l)
-if [[ ${versionCheck} -eq 0 ]]; then echo -e "\e[35mERROR - Please use Node and CLI Version ${nodeVersionNeeded} ! \e[0m"; exit 1; fi
+if [[ ${versionCheck} -eq 0 ]]; then majorError "Version ERROR - Please use CLI Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
 versionCheck=$(${cardanonode} --version | egrep "${nodeVersionNeeded}" | wc -l)
-if [[ ${versionCheck} -eq 0 ]]; then echo -e "\e[35mERROR - Please use Node and CLI Version ${nodeVersionNeeded} ! \e[0m"; exit 1; fi
+if [[ ${versionCheck} -eq 0 ]]; then majorError "Version ERROR - Please use CLI Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
 
 exists()
 {
