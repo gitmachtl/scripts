@@ -10,7 +10,7 @@ convertsecs() {
 }
 
 # Byron to Shelley Epoch Transition Length
-byronToShelleyEpochs=208
+# byronToShelleyEpochs=208
 
 currentEpoch=$(get_currentEpoch)
 timeUntilNextEpoch=$(convertsecs $(get_timeUntilNextEpoch))
