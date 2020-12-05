@@ -1,4 +1,4 @@
-# Description - Useful setup scripts 
+# Description - Useful setup scripts - Mainnet Shelley Era
 
 ## First of all, you don't need them all! [Examples](#examples) are at the bottom of this page :-)
 
