@@ -4,7 +4,7 @@
 
 ## [Examples](#examples) on how to use the scripts can be found at the bottom of this page :-)
 
-:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.24.1 !  (git checkout tags/1.24.1)**
+:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: 1.24.1 (master at the date of publish) !  (git checkout master)**
 
 :bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> allegra**
 
