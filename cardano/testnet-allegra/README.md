@@ -1,10 +1,12 @@
-# Description - Useful setup scripts - Mainnet Shelley Era
+# Description - Useful setup scripts - Allegra Testnet
 
-## First of all, you don't need them all! [Examples](#examples) are at the bottom of this page :-)
+## Here you can find the files for the Testnet environments, new stuff, alpha/beta ...
 
-:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.23.0 !  (git checkout tags/1.23.0)**
+## [Examples](#examples) on how to use the scripts can be found at the bottom of this page :-)
 
-:bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> mainnet**
+:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.24.1 !  (git checkout tags/1.24.1)**
+
+:bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> allegra**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. Some scripts are using **jq** so make sure you have it installed ```(sudo apt install jq)```
 
