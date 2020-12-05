@@ -43,7 +43,7 @@ currentTip=$(get_currentTip)
 ttl=$(get_currentTTL)
 currentEPOCH=$(get_currentEpoch)
 
-echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
+echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[UPPER-BOUND] to ${ttl})"
 
 sendFromAddr=$(cat ${fromAddr}.addr)
 sendToAddr=$(cat ${toAddr}.addr)
@@ -106,10 +106,10 @@ checkError "$?"
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then
-                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+0 --upper-bound ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			checkError "$?"
                         else
-                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendFromAddr}+0 --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendFromAddr}+0 --tx-out ${sendToAddr}+0 --upper-bound ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			checkError "$?"
 fi
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
@@ -149,9 +149,9 @@ echo
 #Building unsigned transaction body
 
 if [[ ${rxcnt} == 1 ]]; then
-			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToReturn} --ttl ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToReturn} --upper-bound ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			else
-                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendFromAddr}+${lovelacesToReturn} --tx-out ${sendToAddr}+${rewardsAmount} --ttl ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendFromAddr}+${lovelacesToReturn} --tx-out ${sendToAddr}+${rewardsAmount} --upper-bound ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 fi
 
 

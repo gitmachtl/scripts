@@ -41,7 +41,7 @@ currentTip=$(get_currentTip)
 ttl=$(get_currentTTL)
 currentEPOCH=$(get_currentEpoch)
 
-echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL to ${ttl})"
+echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[UPPER-BOUND] to ${ttl})"
 echo
 
 sendFromAddr=$(cat ${fromAddr}.addr)
@@ -92,10 +92,10 @@ ${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicpara
 	txBodyFile="${tempDir}/dummy.txbody"
 	rm ${txBodyFile} 2> /dev/null
 	if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${dummyShelleyAddr}+0 --ttl ${ttl} --fee 0 --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${dummyShelleyAddr}+0 --upper-bound ${ttl} --fee 0 --out-file ${txBodyFile}
 			checkError "$?"
                         else  #Sending chosen amount (rxcnt=2)
-                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${dummyShelleyAddr}+0 --tx-out ${dummyShelleyAddr}+0 --ttl ${ttl} --fee 0 --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${dummyShelleyAddr}+0 --tx-out ${dummyShelleyAddr}+0 --upper-bound ${ttl} --fee 0 --out-file ${txBodyFile}
 			checkError "$?"
 	fi
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
@@ -127,10 +127,10 @@ echo
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --ttl ${ttl} --fee ${fee} --out-file ${txBodyFile}
+			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --upper-bound ${ttl} --fee ${fee} --out-file ${txBodyFile}
 			checkError "$?"
 			else  #Sending chosen amount (rxcnt=2)
-			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out ${sendFromAddr}+${lovelacesToReturn} --ttl ${ttl} --fee ${fee} --out-file ${txBodyFile}
+			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out ${sendFromAddr}+${lovelacesToReturn} --upper-bound ${ttl} --fee ${fee} --out-file ${txBodyFile}
 			checkError "$?"
 fi
 
@@ -141,7 +141,7 @@ fi
 #     --tx-out addr2+20 \
 #     --tx-out addr3+30 \
 #     --tx-out addr4+40 \
-#     --ttl 100000 \
+#     --upper-bound 100000 \
 #     --fee some_fee_here \
 #     --tx-body-file tx.raw
 #     (--certificate cert.file)
