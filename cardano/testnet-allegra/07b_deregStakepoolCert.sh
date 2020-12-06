@@ -64,36 +64,26 @@ echo
 echo -e "Pay fees from Address\e[32m ${deregPayName}.addr\e[0m: ${sendFromAddr}"
 echo
 
-
-#Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?";
-utx0linecnt=$(echo "${utx0}" | wc -l)
-txcnt=$((${utx0linecnt}-2))
-
-if [[ ${txcnt} -lt 1 ]]; then echo -e "\e[35mNo funds on the payment Addr!\e[0m"; exit; else echo "${txcnt} UTXOs found on the payment Addr!"; fi
-
-echo
+#Get UTX0 Data for the address
+utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx)
+if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
 #Calculating the total amount of lovelaces in all utxos on this address
+totalLovelaces=$(jq '[.[].amount] | add' <<< ${utxoJSON})
 
-totalLovelaces=0
+#List all found UTXOs and generate the txInString for the transaction
 txInString=""
-
-while IFS= read -r utx0entry
+for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
 do
-fromHASH=$(echo ${utx0entry} | awk '{print $1}')
-fromHASH=${fromHASH//\"/}
-fromINDEX=$(echo ${utx0entry} | awk '{print $2}')
-sourceLovelaces=$(echo ${utx0entry} | awk '{print $3}')
-echo -e "HASH: ${fromHASH}\t INDEX: ${fromINDEX}\t LOVELACES: ${sourceLovelaces}"
-
-totalLovelaces=$((${totalLovelaces}+${sourceLovelaces}))
-txInString=$(echo -e "${txInString} --tx-in ${fromHASH}#${fromINDEX}")
-
-done < <(printf "${utx0}\n" | tail -n ${txcnt})
-
-
-echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[90m"
+  utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
+  txInString="${txInString} --tx-in ${utxoHashIndex}"
+  utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount" <<< ${utxoJSON})
+  echo -e "Hash#Idx: ${utxoHashIndex}\tAmount: ${utxoAmount}"
+done
+echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
+totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
+echo -e "Total balance on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m"
 echo
 
 #Getting protocol parameters from the blockchain, calculating fees
@@ -165,7 +155,7 @@ if ask "\e[33mDoes this look good for you? Continue ?" N; then
         file_lock ${poolFile}.pool.json
 	echo -e "\e[32mDONE\n"
 	else
-	echo -e "\e[35mERROR\n"
+	echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;
 	fi
 fi
 

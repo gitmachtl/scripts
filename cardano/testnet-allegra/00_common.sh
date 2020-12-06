@@ -58,9 +58,9 @@ echo -e "\e[35m${1}\e[0m\n"; exit 1;
 #-------------------------------------------------------------
 #Do a cli and node version check
 versionCheck=$(${cardanocli} --version 2> /dev/null | egrep "${nodeVersionNeeded}" | wc -l)
-if [[ ${versionCheck} -eq 0 || $? -gt 0 ]]; then majorError "Version ERROR - Please use cardano-node/cli Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+if [[ ${versionCheck} -eq 0 || $? -ne 0 ]]; then majorError "Version ERROR - Please use cardano-node/cli Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
 versionCheck=$(${cardanonode} --version 2> /dev/null | egrep "${nodeVersionNeeded}" | wc -l)
-if [[ ${versionCheck} -eq 0 || $? -gt 0 ]]; then majorError "Version ERROR - Please use cardano-node/cli Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+if [[ ${versionCheck} -eq 0 || $? -ne 0 ]]; then majorError "Version ERROR - Please use cardano-node/cli Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
 
 exists()
 {
