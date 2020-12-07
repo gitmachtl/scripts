@@ -146,7 +146,7 @@ echo -e "\e[0m      Chain minCost:\e[32m ${minPoolCost} \e[90mlovelaces"
 echo -e "\e[0m             Margin:\e[32m ${poolMargin} \e[0m"
 echo
 echo -e "\e[0m      Current EPOCH:\e[32m ${currentEPOCH}\e[0m"
-echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[UPPER-BOUND] to ${ttl})"
+echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
@@ -185,7 +185,7 @@ echo
 #Generate Dummy-TxBody file for fee calculation
         txBodyFile="${tempDir}/dummy.txbody"
 	rm ${txBodyFile} 2> /dev/null
-        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+0 --upper-bound ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
+        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
 	checkError "$?"
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"
@@ -225,7 +225,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --upper-bound ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"
 cat ${txBodyFile} | head -n 6   #only show first 6 lines
 echo

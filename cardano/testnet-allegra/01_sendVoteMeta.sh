@@ -81,7 +81,7 @@ currentTip=$(get_currentTip)
 ttl=$(get_currentTTL)
 currentEPOCH=$(get_currentEpoch)
 
-echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[UPPER-BOUND] to ${ttl})"
+echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[invalid_hereafter] to ${ttl})"
 echo
 echo -e "\e[0mSource/Destination Address ${fromAddr}.addr:\e[32m ${sendFromAddr} \e[90m"
 echo -e "\e[0mAttached Metafile:\e[32m ${metafile} \e[90m"
@@ -119,10 +119,10 @@ minUTXO=$(jq -r .minUTxOValue protocol-parameters.json 2> /dev/null)
 	txBodyFile="${tempDir}/dummy.txbody"
 	rm ${txBodyFile} 2> /dev/null
 	if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${dummyShelleyAddr}+0 --upper-bound ${ttl} --fee 0 --metadata-json-file ${metafile} --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${dummyShelleyAddr}+0 --invalid-hereafter ${ttl} --fee 0 --metadata-json-file ${metafile} --out-file ${txBodyFile}
 			checkError "$?"
                         else  #Sending chosen amount (rxcnt=2)
-                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${dummyShelleyAddr}+0 --tx-out ${dummyShelleyAddr}+0 --metadata-json-file ${metafile} --upper-bound ${ttl} --fee 0 --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${dummyShelleyAddr}+0 --tx-out ${dummyShelleyAddr}+0 --metadata-json-file ${metafile} --invalid-hereafter ${ttl} --fee 0 --out-file ${txBodyFile}
 			checkError "$?"
 	fi
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
@@ -156,10 +156,10 @@ echo
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --upper-bound ${ttl} --fee ${fee} --metadata-json-file ${metafile} --out-file ${txBodyFile}
+			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --invalid-hereafter ${ttl} --fee ${fee} --metadata-json-file ${metafile} --out-file ${txBodyFile}
 			checkError "$?"
 			else  #Sending chosen amount (rxcnt=2)
-			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out ${sendFromAddr}+${lovelacesToReturn} --metadata-json-file ${metafile} --upper-bound ${ttl} --fee ${fee} --out-file ${txBodyFile}
+			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out ${sendFromAddr}+${lovelacesToReturn} --metadata-json-file ${metafile} --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}
 			checkError "$?"
 fi
 
@@ -170,7 +170,7 @@ fi
 #     --tx-out addr2+20 \
 #     --tx-out addr3+30 \
 #     --tx-out addr4+40 \
-#     --upper-bound 100000 \
+#     --invalid-hereafter 100000 \
 #     --fee some_fee_here \
 #     --tx-body-file tx.raw
 #     (--certificate cert.file)
