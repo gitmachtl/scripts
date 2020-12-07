@@ -35,7 +35,7 @@ remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute v
 ##############################################################################################################################
 
 #MainNet
-nodeVersionNeeded="1.24"
+nodeVersionNeeded="1.24.1"
 
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
@@ -57,10 +57,24 @@ echo -e "\e[35m${1}\e[0m\n"; exit 1;
 
 #-------------------------------------------------------------
 #Do a cli and node version check
-versionCheck=$(${cardanocli} --version 2> /dev/null | egrep "${nodeVersionNeeded}" | wc -l)
-if [[ ${versionCheck} -eq 0 || $? -ne 0 ]]; then majorError "Version ERROR - Please use cardano-node/cli Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
-versionCheck=$(${cardanonode} --version 2> /dev/null | egrep "${nodeVersionNeeded}" | wc -l)
-if [[ ${versionCheck} -eq 0 || $? -ne 0 ]]; then majorError "Version ERROR - Please use cardano-node/cli Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+versionCheck() { printf '%s\n%s' "$1" "$2" | sort -C -V; } #$1=minimal_needed_version, $2=current_node_version
+
+#Check cardano-cli
+if [[ ! -f "${cardanocli}" ]]; then majorError "Path ERROR - Path to cardano-cli is not correct or cardano-cli binaryfile is missing!"; exit 1; fi
+versionCheck "${nodeVersionNeeded}" "$(${cardanocli} version 2> /dev/null |& head -n 1 |& awk {'print $2'})"
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use cardano-node/cli Version ${nodeVersionNeeded} or higher!\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+
+#Check cardano-node
+if [[ ! -f "${cardanonode}" ]]; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!"; exit 1; fi
+versionCheck "${nodeVersionNeeded}" "$(${cardanonode} version 2> /dev/null |& head -n 1 |& awk {'print $2'})"
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use cardano-node/cli Version ${nodeVersionNeeded} or higher!\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+
+#Check path to genesis files
+if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file is wrong or the file is missing!"; exit 1; fi
+if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file is wrong or the file is missing!"; exit 1; fi
+
+#-------------------------------------------------------------
+
 
 exists()
 {
