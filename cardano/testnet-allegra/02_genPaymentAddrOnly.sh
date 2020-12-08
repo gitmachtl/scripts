@@ -24,7 +24,6 @@ checkError "$?"
 file_lock ${addrName}.vkey
 file_lock ${addrName}.skey
 
-
 echo -e "\e[0mPaymentOnly(Enterprise)-Verification-Key: \e[32m ${addrName}.vkey \e[90m"
 cat ${addrName}.vkey
 echo

@@ -28,7 +28,6 @@ if [ ! -f "${delegName}.staking.skey" ]; then echo -e "\n\e[35mERROR - \"${deleg
 if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
 if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
 
-echo
 echo -e "\e[0mRegister Delegation Certificate\e[32m ${delegName}.deleg.cert\e[0m with funds from Address\e[32m ${regPayName}.addr\e[0m:"
 echo
 

@@ -23,7 +23,6 @@ typeOfAddr=$(get_addressType "${checkAddr}")
 #What type of Address is it? Base&Enterprise or Stake
 if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO adresses
 
-	echo
 	echo -e "\e[0mChecking UTXOs of Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
 	echo
 
@@ -54,7 +53,6 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
 elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
-	echo
 	echo -e "\e[0mChecking Rewards on Stake-Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
 	echo
 

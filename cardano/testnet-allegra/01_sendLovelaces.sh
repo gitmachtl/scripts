@@ -32,7 +32,6 @@ if [[ ${lovelacesToSend^^} == "ALL" ]]; then
 						rxcnt="2"  #transmit to two addresses. 1. destination address, 2. change back to the source address
 fi
 
-echo
 echo -e "\e[0mSending lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
 echo
 

@@ -12,7 +12,6 @@
 
 if [[ $# -eq 1 && ! $1 == "" ]]; then nodeName=$1; else echo "ERROR - Usage: $0 <NodePoolName>"; exit 2; fi
 
-echo
 echo -e "\e[0mCreating KES operational Keypairs"
 echo
 
@@ -26,7 +25,6 @@ checkError "$?"
 file_lock ${nodeName}.kes-${nextKESnumber}.vkey
 file_lock ${nodeName}.kes-${nextKESnumber}.skey
 
-echo
 echo -e "\e[0mNode operational KES-Verification-Key:\e[32m ${nodeName}.kes-${nextKESnumber}.vkey \e[90m"
 cat ${nodeName}.kes-${nextKESnumber}.vkey
 echo

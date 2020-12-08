@@ -93,7 +93,6 @@ currentTip=$(get_currentTip)
 ttl=$(get_currentTTL)
 currentEPOCH=$(get_currentEpoch)
 
-echo
 echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m with funds from Address\e[32m ${regPayName}.addr\e[0m:"
 echo
 

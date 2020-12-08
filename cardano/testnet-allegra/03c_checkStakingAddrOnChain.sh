@@ -23,7 +23,6 @@ typeOfAddr=$(get_addressType "${checkAddr}")
 #What type of Address is it? Stake?
 if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
-	echo
 	echo -e "\e[0mChecking ChainStatus of Stake-Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
 	echo
 

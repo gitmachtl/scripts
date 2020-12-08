@@ -47,9 +47,8 @@ echo "${param}"
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 2; fi
 
 #Check needed inputfiles
-if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.node.vkey is missing !\e[0m"; exit 2; fi
+if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[35mERROR - ${poolName}.node.vkey is missing !\e[0m"; exit 2; fi
 
-echo
 echo -e "\e[0mCreate a Stakepool de-Registration (retire) certificate for PoolNode with \e[32m ${poolName}.node.vkey\e[0m:"
 echo
 

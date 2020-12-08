@@ -40,7 +40,6 @@ checkError "$?"
 file_lock ${addrName}.staking.vkey
 file_lock ${addrName}.staking.skey
 
-echo
 echo -e "\e[0mVerification(Rewards)-Staking-Key: \e[32m ${addrName}.staking.vkey \e[90m"
 cat ${addrName}.staking.vkey
 echo

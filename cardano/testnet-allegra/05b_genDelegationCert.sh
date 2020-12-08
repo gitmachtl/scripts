@@ -22,8 +22,8 @@ EOF
 if [ ! -f "${delegateStakeAddr}.staking.vkey" ]; then echo -e "\n\e[35mERROR - \"${delegateStakeAddr}.staking.vkey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
 if [ ! -f "${toPoolNodeName}.node.vkey" ]; then echo -e "\n\e[35mERROR - \"${toPoolNodeName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
 
-echo
 echo -e "\e[0mCreate a delegation registration certificate for Delegator\e[32m ${delegateStakeAddr}.staking.vkey\e[0m to the PoolNode\e[32m ${toPoolNodeName}.node.vkey\e[90m:"
+echo
 
 file_unlock ${delegateStakeAddr}.deleg.cert
 
@@ -32,7 +32,6 @@ checkError "$?"
 
 file_lock ${delegateStakeAddr}.deleg.cert
 
-echo
 echo -e "\e[0mDelegation registration certificate:\e[32m ${delegateStakeAddr}.deleg.cert \e[90m"
 cat ${delegateStakeAddr}.deleg.cert 
 echo

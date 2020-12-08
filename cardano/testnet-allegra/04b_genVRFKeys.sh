@@ -15,9 +15,6 @@ if [[ $# -eq 1 && ! $1 == "" ]]; then nodeName=$1; else echo "ERROR - Usage: $0 
 if [ -f "${nodeName}.vrf.vkey" ]; then echo -e "\e[35mWARNING - ${nodeName}.vrf.vkey already present, delete it or use another name !\e[0m"; exit 2; fi
 if [ -f "${nodeName}.vrf.skey" ]; then echo -e "\e[35mWARNING - ${nodeName}.vrf.skey already present, delete it or use another name !\e[0m"; exit 2; fi
 
-
-
-echo
 echo -e "\e[0mCreating VRF operational Keypairs"
 echo
 
@@ -26,7 +23,6 @@ checkError "$?"
 file_lock ${nodeName}.vrf.vkey
 file_lock ${nodeName}.vrf.skey
 
-echo
 echo -e "\e[0mNode operational VRF-Verification-Key:\e[32m ${nodeName}.vrf.vkey \e[90m"
 cat ${nodeName}.vrf.vkey
 echo

@@ -19,7 +19,11 @@ Example: $(basename $0) atada.staking atada.payment
 EOF
   exit 1;; esac
 
-echo
+#Checks for needed files
+if [ ! -f "${stakeAddr}.dereg-cert" ]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.dereg-cert\" De-Registration Certificate does not exist! Please create it first with script 08a.\e[0m"; exit 2; fi
+if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 02 or 03a.\e[0m"; exit 1; fi
+if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 02 or 03a.\e[0m"; exit 1; fi
+
 echo -e "\e[0mDe-Register (retire) the Staking Address\e[32m ${stakeAddr}.addr\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
 echo
 

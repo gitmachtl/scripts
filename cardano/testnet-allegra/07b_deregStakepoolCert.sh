@@ -44,7 +44,6 @@ if [ ! -f "${deregPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${deregPayNa
 
 #-------------------------------------------------------------------------
 
-echo
 echo -e "\e[0mDe-Register (retire) StakePool Certificate\e[32m ${deregCertFile}\e[0m with funds from Address\e[32m ${deregPayName}.addr\e[0m:"
 echo
 
