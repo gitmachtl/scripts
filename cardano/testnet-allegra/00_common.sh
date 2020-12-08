@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #Please set the following variables to your needs, you can overwrite them dynamically
-#by placing a file with name "common.inc" in the calling directory. It will be sourced
-#into this file automatically if present
+#by placing a file with name "common.inc" in the calling directory or in "$HOME/.common.inc".
+#It will be sourced into this file automatically if present and can overwrite the values below dynamically :-)
 
 socket="db-allegra/node.socket"
 
@@ -35,7 +35,7 @@ remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute v
 ##############################################################################################################################
 
 #MainNet
-nodeVersionNeeded="1.24.1"
+nodeVersionNeeded="1.24.2"
 
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
