@@ -1,4 +1,4 @@
-# Description - Useful setup scripts - Allegra Testnet
+# Description - Useful setup scripts - Testnet Allegra/Launchpad
 
 ## Here you can find the files for the Testnet environments, new stuff, alpha/beta ...
 
