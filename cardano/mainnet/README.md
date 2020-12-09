@@ -1,4 +1,4 @@
-# Description - Useful setup scripts - Mainnet Shelley Era
+# Description - Useful setup scripts - Mainnet Allegra Era
 
 ## First of all, you don't need them all! [Examples](#examples) are at the bottom of this page :-)
 
