@@ -26,7 +26,6 @@ latestKESnumber=$(cat ${nodeName}.kes.counter)
 
 if [[ ! "${nextKESnumber}" == "${latestKESnumber}" ]]; then echo -e "\e[0mERROR - Please generate new KES Keys first ...\e[0m"; exit 2; fi
 
-echo
 echo -e "\e[0mIssue a new Node operational certificate using KES-vKey \e[32m${nodeName}.kes-${latestKESnumber}.vkey\e[0m and Cold-sKey \e[32m${nodeName}.node.skey\e[0m:"
 echo
 
@@ -69,7 +68,6 @@ expireTimeSec=$(( ${currentTimeSec} + (${slotLength}*${maxKESEvolutions}*${slots
 expireDate=$(date --date=@${expireTimeSec})
 
 
-
 file_unlock ${nodeName}.kes-expire.json
 echo -e "{\n\t\"latestKESfileindex\": \"${latestKESnumber}\",\n\t\"currentKESperiod\": \"${currentKESperiod}\",\n\t\"expireKESperiod\": \"${expiresKESperiod}\",\n\t\"expireKESdate\": \"${expireDate}\"\n}" > ${nodeName}.kes-expire.json
 file_lock ${nodeName}.kes-expire.json
@@ -77,18 +75,15 @@ file_lock ${nodeName}.kes-expire.json
 echo -e "\e[0mCurrent KES period:\e[32m ${currentKESperiod}\e[90m"
 echo
 
-
 file_unlock ${nodeName}.node-${latestKESnumber}.opcert
 file_unlock ${nodeName}.node.counter
 
-${cardanocli} shelley node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
+${cardanocli} ${subCommand} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
 checkError "$?"
 
 file_lock ${nodeName}.node-${latestKESnumber}.opcert
 file_lock ${nodeName}.node.counter
 
-
-echo
 echo -e "\e[0mNode operational certificate:\e[32m ${nodeName}.node-${latestKESnumber}.opcert \e[90m"
 cat ${nodeName}.node-${latestKESnumber}.opcert
 echo

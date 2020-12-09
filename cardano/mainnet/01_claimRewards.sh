@@ -33,7 +33,6 @@ if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey
 if [ ! -f "${toAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${toAddr}.addr\" does not exist!\e[0m"; exit 1; fi
 
 
-echo
 echo -e "\e[0mClaim Staking Rewards from Address\e[32m ${stakeAddr}.addr\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
 echo
 echo
@@ -43,13 +42,14 @@ currentTip=$(get_currentTip)
 ttl=$(get_currentTTL)
 currentEPOCH=$(get_currentEpoch)
 
-echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL to ${ttl})"
+echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
 
 sendFromAddr=$(cat ${fromAddr}.addr)
 sendToAddr=$(cat ${toAddr}.addr)
 stakingAddr=$(cat ${stakeAddr}.addr)
 
-rewardsAmount=$(${cardanocli} shelley query stake-address-info --cardano-mode --address ${stakingAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
+rewardsAmount=$(${cardanocli} ${subCommand} query stake-address-info --cardano-mode --address ${stakingAddr} ${magicparam} ${nodeEraParam} | jq -r "flatten | .[0].rewardAccountBalance")
+checkError "$?"
 
 echo
 echo -e "Claim all rewards from Address ${stakeAddr}.addr: \e[33m${rewardsAmount} lovelaces\e[0m"
@@ -61,43 +61,33 @@ echo
 #Checking about rewards on the stake address
 if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards on the stake Addr!\e[0m\n"; exit; fi
 
-
-#Get UTX0 Data for the sendFromAddr
-utx0=$(${cardanocli} shelley query utxo --address ${sendFromAddr} ${magicparam})
-utx0linecnt=$(echo "${utx0}" | wc -l)
-txcnt=$((${utx0linecnt}-2))
-
-if [[ ${txcnt} -lt 1 ]]; then echo -e "\e[35mNo funds on the payment Addr!\e[0m"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the payment Addr!"; fi
-
-echo
+#Get UTX0 Data for the address
+utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx)
+if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
 #Calculating the total amount of lovelaces in all utxos on this address
+totalLovelaces=$(jq '[.[].amount] | add' <<< ${utxoJSON})
 
-totalLovelaces=0
+#List all found UTXOs and generate the txInString for the transaction
 txInString=""
-
-while IFS= read -r utx0entry
+for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
 do
-fromHASH=$(echo ${utx0entry} | awk '{print $1}')
-fromHASH=${fromHASH//\"/}
-fromINDEX=$(echo ${utx0entry} | awk '{print $2}')
-sourceLovelaces=$(echo ${utx0entry} | awk '{print $3}')
-echo -e "HASH: ${fromHASH}\t INDEX: ${fromINDEX}\t LOVELACES: ${sourceLovelaces}"
-
-totalLovelaces=$((${totalLovelaces}+${sourceLovelaces}))
-txInString=$(echo -e "${txInString} --tx-in ${fromHASH}#${fromINDEX}")
-
-done < <(printf "${utx0}\n" | tail -n ${txcnt})
-
-
-echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[90m"
+  utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
+  txInString="${txInString} --tx-in ${utxoHashIndex}"
+  utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount" <<< ${utxoJSON})
+  echo -e "Hash#Idx: ${utxoHashIndex}\tAmount: ${utxoAmount}"
+done
+echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
+totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
+echo -e "Total balance on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m"
 echo
 
 #withdrawal string
 withdrawal="${stakingAddr}+${rewardsAmount}"
 
 #Getting protocol parameters from the blockchain, calculating fees
-${cardanocli} shelley query protocol-parameters ${magicparam} > protocol-parameters.json
+${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam} > protocol-parameters.json
 checkError "$?"
 
 
@@ -105,13 +95,13 @@ checkError "$?"
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then
-                        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			checkError "$?"
                         else
-                        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendFromAddr}+0 --tx-out ${sendToAddr}+0 --ttl ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendFromAddr}+0 --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			checkError "$?"
 fi
-fee=$(${cardanocli} shelley transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & Withdrawal: \e[32m ${fee} lovelaces \e[90m"
 
@@ -148,9 +138,9 @@ echo
 #Building unsigned transaction body
 
 if [[ ${rxcnt} == 1 ]]; then
-			${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToReturn} --ttl ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToReturn} --invalid-hereafter ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			else
-                        ${cardanocli} shelley transaction build-raw ${txInString} --tx-out ${sendFromAddr}+${lovelacesToReturn} --tx-out ${sendToAddr}+${rewardsAmount} --ttl ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendFromAddr}+${lovelacesToReturn} --tx-out ${sendToAddr}+${rewardsAmount} --invalid-hereafter ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 fi
 
 
@@ -161,7 +151,7 @@ echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} shelley transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey  ${magicparam} --out-file ${txFile}
+${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey  ${magicparam} --out-file ${txFile}
 cat ${txFile}
 echo
 
@@ -169,7 +159,8 @@ echo
 if ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} shelley transaction submit --cardano-mode --tx-file ${txFile} ${magicparam}
+        ${cardanocli} ${subCommand} transaction submit --cardano-mode --tx-file ${txFile} ${magicparam}
+	checkError "$?"
         echo -e "\e[32mDONE\n"
 fi
 

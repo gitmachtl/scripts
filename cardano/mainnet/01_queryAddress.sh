@@ -23,53 +23,78 @@ typeOfAddr=$(get_addressType "${checkAddr}")
 #What type of Address is it? Base&Enterprise or Stake
 if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO adresses
 
+	echo -e "\e[0mChecking UTXOs of Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
 	echo
-	echo -e "\e[0mChecking UTXO of Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
+
+	echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"
 	echo
 
 	#Get UTX0 Data for the address
-	utx0=$(${cardanocli} shelley query utxo --address ${checkAddr} --cardano-mode ${magicparam})
-	utx0linecnt=$(echo "${utx0}" | wc -l)
-	txcnt=$((${utx0linecnt}-2))
-
-	if [[ ${txcnt} -lt 1 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Address!"; fi
+	utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+	utxoEntryCnt=$(jq length <<< ${utxoJSON})
+	if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
 	echo
 
 	#Calculating the total amount of lovelaces in all utxos on this address
-	totalLovelaces=0
+	totalLovelaces=$(jq '[.[].amount] | add' <<< ${utxoJSON})
 
-	while IFS= read -r utx0entry
+	for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
 	do
-	fromHASH=$(echo ${utx0entry} | awk '{print $1}')
-	fromHASH=${fromHASH//\"/}
-	fromINDEX=$(echo ${utx0entry} | awk '{print $2}')
-	sourceLovelaces=$(echo ${utx0entry} | awk '{print $3}')
-	echo -e "HASH: ${fromHASH}\tIdx: ${fromINDEX}\tAmount: ${sourceLovelaces}"
-	totalLovelaces=$((${totalLovelaces}+${sourceLovelaces}))
-	done < <(printf "${utx0}\n" | tail -n ${txcnt})
-
+	utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
+	#utxoAmount=$(jq -r "[.[].amount] | .[${tmpCnt}]" <<< ${utxoJSON}) #Alternative
+	#utxoAmount=$(jq -r "[.[]][${tmpCnt}].amount" <<< ${utxoJSON}) #Alternative
+	utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount" <<< ${utxoJSON})
+	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
+	done
 	echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
-	echo -e "Total lovelaces in UTX0:\e[32m  ${totalLovelaces} lovelaces \e[0m"
+	totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
+	echo -e "Total balance on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m"
 	echo
 
 elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
-	echo
 	echo -e "\e[0mChecking Rewards on Stake-Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
 	echo
 
-	#rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} ${magicparam} | jq -r .\"${checkAddr}\".rewardAccountBalance)
-        rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
-	delegationPoolID=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].delegation")
+        echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"
+        echo
 
-	#Checking about rewards on the stake address
-	if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards found on the stake Addr !\e[0m\n";
-        elif [[ ${rewardsAmount} == null ]]; then echo -e "\e[35mStaking Address is not on the chain, register it first !\e[0m\n";
-	else echo -e "Current Rewards: \e[33m${rewardsAmount} lovelaces\e[0m\n"
-	fi
+        rewardsJSON=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -rc .)
+        checkError "$?"
+
+        rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
+
+        if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "\e[35mStaking Address is not on the chain, register it first !\e[0m\n"; exit 1;
+        else echo -e "\e[0mFound:\e[32m ${rewardsEntryCnt}\e[0m entries\n";
+        fi
+
+        rewardsSum=0
+
+        for (( tmpCnt=0; tmpCnt<${rewardsEntryCnt}; tmpCnt++ ))
+        do
+        rewardsAmount=$(jq -r ".[${tmpCnt}].rewardAccountBalance" <<< ${rewardsJSON})
+	rewardsAmountInADA=$(bc <<< "scale=6; ${rewardsAmount} / 1000000")
+
+        delegationPoolID=$(jq -r ".[${tmpCnt}].delegation" <<< ${rewardsJSON})
+
+        rewardsSum=$((${rewardsSum}+${rewardsAmount}))
+	rewardsSumInADA=$(bc <<< "scale=6; ${rewardsSum} / 1000000") 
+
+        echo -ne "[$((${tmpCnt}+1))]\t"
+
+        #Checking about rewards on the stake address
+        if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards found on the stake Addr !\e[0m";
+        else echo -e "Entry Rewards: \e[33m${rewardsAmountInADA} ADA / ${rewardsAmount} lovelaces\e[0m"
+        fi
 
         #If delegated to a pool, show the current pool ID
-        if [[ ! ${delegationPoolID} == null ]]; then echo -e "Account is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m\n"; fi
+        if [[ ! ${delegationPoolID} == null ]]; then echo -e "   \tAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m"; fi
+
+        echo
+
+        done
+
+        if [[ ${rewardsEntryCnt} -gt 1 ]]; then echo -e "   \t-----------------------------------------\n"; echo -e "   \tTotal Rewards: \e[33m${rewardsSumInADA} ADA / ${rewardsSum} lovelaces\e[0m\n"; fi
 
 else #unsupported address type
 

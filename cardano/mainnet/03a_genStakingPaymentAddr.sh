@@ -23,7 +23,7 @@ if [ -f "${addrName}.staking.cert" ]; then echo -e "\e[35mWARNING - ${addrName}.
 
 
 #We need a normal payment(base) keypair with vkey and skey, so let's create that one
-${cardanocli} shelley address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
+${cardanocli} ${subCommand} address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
 checkError "$?"
 file_lock ${addrName}.payment.vkey
 file_lock ${addrName}.payment.skey
@@ -35,12 +35,11 @@ echo -e "\e[0mPayment(Base)-Signing-Key: \e[32m ${addrName}.payment.skey \e[90m"
 cat ${addrName}.payment.skey
 echo
 
-${cardanocli} shelley stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
+${cardanocli} ${subCommand} stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
 checkError "$?"
 file_lock ${addrName}.staking.vkey
 file_lock ${addrName}.staking.skey
 
-echo
 echo -e "\e[0mVerification(Rewards)-Staking-Key: \e[32m ${addrName}.staking.vkey \e[90m"
 cat ${addrName}.staking.vkey
 echo
@@ -49,7 +48,7 @@ cat ${addrName}.staking.skey
 echo
 
 #Building a Payment Address
-${cardanocli} shelley address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.payment.addr
+${cardanocli} ${subCommand} address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.payment.addr
 checkError "$?"
 file_lock ${addrName}.payment.addr
 
@@ -58,7 +57,7 @@ cat ${addrName}.payment.addr
 echo
 
 #Building a Staking Address
-${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.staking.addr
+${cardanocli} ${subCommand} stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.staking.addr
 checkError "$?"
 file_lock ${addrName}.staking.addr
 
@@ -67,7 +66,7 @@ cat ${addrName}.staking.addr
 echo
 
 #create an address registration certificate
-${cardanocli} shelley stake-address registration-certificate --staking-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.cert
+${cardanocli} ${subCommand} stake-address registration-certificate --staking-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.cert
 checkError "$?"
 file_lock ${addrName}.staking.cert
 

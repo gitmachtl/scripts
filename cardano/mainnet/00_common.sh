@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #Please set the following variables to your needs, you can overwrite them dynamically
-#by placing a file with name "common.inc" in the calling directory. It will be sourced
-#into this file automatically if present
+#by placing a file with name "common.inc" in the calling directory or in "$HOME/.common.inc".
+#It will be sourced into this file automatically if present and can overwrite the values below dynamically :-)
 
 socket="db-mainnet/node.socket"
 
@@ -12,14 +12,13 @@ genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byro
 cardanocli="./cardano-cli"	#Path to your cardano-cli you wanna use
 cardanonode="./cardano-node"	#Path to your cardano-node you wanna use
 
-magicparam="--mainnet"	#choose "--mainnet" for mainnet or for example "--testnet-magic 1097911063" for a testnet
-addrformat="--mainnet"  #choose "--mainnet" for mainnet address format or like "--testnet-magic 1097911063" for testnet address format
+magicparam="--mainnet"	#choose "--mainnet" for mainnet or for example "--testnet-magic 1097911063" for a testnet, 12 for allegra
+addrformat="--mainnet" #choose "--mainnet" for mainnet address format or like "--testnet-magic 1097911063" for testnet address format, 12 for allegra
 
 itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
 
-
 #--------- leave this next value until you have to change it for a testnet
-byronToShelleyEpochs=208 #208 for the mainnet, 74 for the testnet
+byronToShelleyEpochs=208 #208 for the mainnet, 74 for the testnet, 1 for allegra-testnet
 
 #--------- only for kes/opcert update and upload via scp -----
 remoteServerAddr="remoteserver address or ip"                       #RemoteServer ip or dns name
@@ -35,8 +34,11 @@ remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute v
 #
 ##############################################################################################################################
 
-#MainNet
-nodeVersionNeeded="1.23"
+minNodeVersion="1.24.2"  #minimum allowed node version for this script-collection version
+maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
+
+#Placeholder for a fixed subCommand
+subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
 
 #Overwrite variables via env file if present
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
@@ -55,31 +57,59 @@ echo -e "\e[35m${1}\e[0m\n"; exit 1;
 
 #-------------------------------------------------------------
 #Do a cli and node version check
-versionCheck=$(${cardanocli} --version | egrep "${nodeVersionNeeded}" | wc -l)
-if [[ ${versionCheck} -eq 0 ]]; then majorError "Version ERROR - Please use CLI Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
-versionCheck=$(${cardanonode} --version | egrep "${nodeVersionNeeded}" | wc -l)
-if [[ ${versionCheck} -eq 0 ]]; then majorError "Version ERROR - Please use CLI Version ${nodeVersionNeeded} !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+versionCheck() { printf '%s\n%s' "${1}" "${2}" | sort -C -V; } #$1=minimal_needed_version, $2=current_node_version
+
+#Check cardano-cli
+if [[ ! -f "${cardanocli}" ]]; then majorError "Path ERROR - Path to cardano-cli is not correct or cardano-cli binaryfile is missing!"; exit 1; fi
+versionToCheck=$(${cardanocli} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
+versionCheck "${minNodeVersion}" "${versionToCheck}"
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+versionCheck "${versionToCheck}" "${maxNodeVersion}"
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version between ${minNodeVersion} and ${maxNodeVersion} !\nOther versions are not supported for compatibility issues, please check if newer scripts are available - thx."; exit 1; fi
+echo -ne "\n\e[0mVersion-Check: \e[32mcli ${versionToCheck}\e[0m / "
+
+#Check cardano-node
+if [[ ! -f "${cardanonode}" ]]; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!"; exit 1; fi
+versionToCheck=$(${cardanonode} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
+versionCheck "${minNodeVersion}" "${versionToCheck}"
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+versionCheck "${versionToCheck}" "${maxNodeVersion}"
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version between ${minNodeVersion} and ${maxNodeVersion} !\nOther versions are not supported for compatibility issues, please check if newer scripts are available - thx."; exit 1; fi
+echo -e "\e[32mnode ${versionToCheck}\e[0m\n"
+
+#Check path to genesis files
+if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file is wrong or the file is missing!"; exit 1; fi
+if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file is wrong or the file is missing!"; exit 1; fi
+
+#-------------------------------------------------------------
+
 
 exists()
 {
   command -v "$1" >/dev/null 2>&1
 }
 
-#Check if curl and jq is installed
+#Check if curl, jq and bc is installed
 if ! exists curl; then
-          echo -e "\nYou need the tool 'curl' !\n"
+          echo -e "\nYou need the little tool 'curl' !\n"
           echo -e "Install it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install curl\e[0m\n"
           echo -e "Thx! :-)\n"
           exit 2
 fi
 
 if ! exists jq; then
-          echo -e "\nYou need the tool 'jq' !\n"
+          echo -e "\nYou need the little tool 'jq' !\n"
           echo -e "Install it On Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install jq\e[0m\n"
           echo -e "Thx! :-)\n"
           exit 2
 fi
 
+if ! exists bc; then
+          echo -e "\nYou need the little tool 'bc' !\n"
+          echo -e "Install it On Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install bc\e[0m\n"
+          echo -e "Thx! :-)\n"
+          exit 2
+fi
 
 
 #-------------------------------------------------------------
@@ -90,19 +120,21 @@ tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 #Dummy Shelley Payment_Addr
 dummyShelleyAddr="addr1vyde3cg6cccdzxf4szzpswgz53p8m3r4hu76j3zw0tagyvgdy3s4p"
 
-#AddressType check
 
+
+#-------------------------------------------------------
+#AddressType check
 check_address() {
-tmp=$(${cardanocli} shelley address info --address $1 2> /dev/null)
+tmp=$(${cardanocli} ${subCommand} address info --address $1 2> /dev/null)
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Unknown address format for address: $1 !\e[0m"; exit 1; fi
 }
 
 get_addressType() {
-${cardanocli} shelley address info --address $1 | jq -r .type
+${cardanocli} ${subCommand} address info --address $1 2> /dev/null | jq -r .type
 }
 
 get_addressEra() {
-${cardanocli} shelley address info --address $1 | jq -r .era
+${cardanocli} ${subCommand} address info --address $1 2> /dev/null | jq -r .era
 }
 
 addrTypePayment="payment"
@@ -193,7 +225,7 @@ echo ${timeUntilNextEpoch}
 #Subroutines to calculate current slotHeight(tip)
 get_currentTip()
 {
-local currentTip=$(${cardanocli} shelley query tip ${magicparam} | jq -r .slotNo)
+local currentTip=$(${cardanocli} ${subCommand} query tip ${magicparam} | jq -r .slotNo)
 echo ${currentTip}
 }
 #-------------------------------------------------------
@@ -211,7 +243,7 @@ echo $(( $(get_currentTip) + 10000 ))
 #Displays an Errormessage if parameter is not 0
 checkError()
 {
-if [[ $1 -ne 0 ]]; then echo -e "\n\n\e[35mERROR (Code $1) !\e[0m"; exit 1; fi
+if [[ $1 -ne 0 ]]; then echo -e "\n\n\e[35mERROR (Code $1) !\e[0m\n"; exit 1; fi
 }
 #-------------------------------------------------------
 
@@ -222,3 +254,25 @@ function trimString
     echo "$1" | sed -n '1h;1!H;${;g;s/^[ \t]*//g;s/[ \t]*$//g;p;}'
 }
 #-------------------------------------------------------
+
+#-------------------------------------------------------
+#Return the era the online node is in
+get_NodeEra() {
+#CheckEra
+tmp=$(${cardanocli} query protocol-parameters --allegra-era ${magicparam} 2> /dev/null)
+if [[ "$?" == 0 ]]; then echo "allegra"; return 0; fi
+tmp=$(${cardanocli} query protocol-parameters --mary-era ${magicparam} 2> /dev/null)
+if [[ "$?" == 0 ]]; then echo "mary"; return 0; fi
+tmp=$(${cardanocli} query protocol-parameters --shelley-era ${magicparam} 2> /dev/null)
+if [[ "$?" == 0 ]]; then echo "shelley"; return 0; fi
+tmp=$(${cardanocli} query protocol-parameters --byron-era ${magicparam} 2> /dev/null)
+if [[ "$?" == 0 ]]; then echo "byron"; return 0; fi
+#None of the above
+return 1
+}
+#Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
+tmpEra=$(get_NodeEra)
+if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
+#-------------------------------------------------------
+
+

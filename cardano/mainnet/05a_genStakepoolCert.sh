@@ -41,7 +41,7 @@ echo "
   \"poolMetaHomepage\": \"https://set_your_webserver_url_here\",
   \"poolMetaUrl\": \"https://set_your_webserver_url_here/$(basename ${poolFile}).metadata.json\",
   \"poolExtendedMetaUrl\": \"\",
-  \"---\": \"--- DO NOT EDIT BELOW THIS LINE ---\"
+  \"---\": \"--- DO NOT EDIT OR DELETE BELOW THIS LINE ---\"
 }
 " > ${poolFile}.pool.json
 echo
@@ -72,7 +72,7 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 
 #Check poolCost Setting
-${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
+${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam} > protocol-parameters.json
 checkError "$?"
 minPoolCost=$(cat protocol-parameters.json | jq -r .minPoolCost)
 #minPoolCost=340000000
@@ -99,7 +99,7 @@ for (( tmpCnt=0; tmpCnt<${poolRelayCnt}; tmpCnt++ ))
 do
   poolRelayEntryContent=$(jq -r .poolRelays[${tmpCnt}].relayEntry ${poolFile}.pool.json 2> /dev/null);
   if [[ "${poolRelayEntryContent}" == null || "${poolRelayEntryContent}" == "" ]]; then echo "ERROR - Parameter \"relayEntry\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1;
-  elif [[ "${#poolRelayEntryContent}" -gt 64 ]]; then echo -e "\e[0mERROR - The relayEntry parameter with content \"${poolRelayEntryContent}\" in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m"; exit 1; fi
+  elif [[ ${#poolRelayEntryContent} -gt 64 ]]; then echo -e "\e[0mERROR - The relayEntry parameter with content \"${poolRelayEntryContent}\" in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m"; exit 1; fi
 
   #Load relay port data, verify later depending on the need (multihost does not need a port)
   poolRelayEntryPort=$(jq -r .poolRelays[${tmpCnt}].relayPort ${poolFile}.pool.json 2> /dev/null);
@@ -133,12 +133,12 @@ done
 
 #Check PoolMetadata Entries
 poolMetaName=$(readJSONparam "poolMetaName"); if [[ ! $? == 0 ]]; then exit 1; fi
-	if [[ "${#poolMetaName}" -gt 50 ]]; then echo -e "\e[35mERROR - The poolMetaName is too long. Max. 50chars allowed !\e[0m"; exit 1; fi
+if [[ ${#poolMetaName} -gt 50 ]]; then echo -e "\e[35mERROR - The poolMetaName is too long. Max. 50chars allowed !\e[0m"; exit 1; fi
 
 poolMetaTickerOrig=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
 	poolMetaTicker=${poolMetaTickerOrig//[^[:alnum:]]/_}   #Filter out forbidden chars and replace with _
 	poolMetaTicker=${poolMetaTicker^^} #convert to uppercase
-	if [[ "${#poolMetaTicker}" -lt 3 || "${#poolMetaTicker}" -gt 5 ]]; then echo -e "\e[35mERROR - The poolMetaTicker Entry must be between 3-5 chars long !\e[0m"; exit 1; fi
+	if [[ ${#poolMetaTicker} -lt 3 || ${#poolMetaTicker} -gt 5 ]]; then echo -e "\e[35mERROR - The poolMetaTicker Entry must be between 3-5 chars long !\e[0m"; exit 1; fi
 	if [[ ! "${poolMetaTicker}" == "${poolMetaTickerOrig}" ]]; then #If corrected ticker is different than to the one in the pool.json file, ask if it is ok to use the new one
 		echo
 		if ask "\e[33mYour poolMetaTicker was corrected from '${poolMetaTickerOrig}' to '${poolMetaTicker}' to fit the rules! Are you ok with this ?\e[0m" N; then
@@ -154,16 +154,17 @@ poolMetaTickerOrig=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then e
         fi
 
 poolMetaHomepage=$(readJSONparam "poolMetaHomepage"); if [[ ! $? == 0 ]]; then exit 1; fi
-if [[ ! "${poolMetaHomepage}" =~ https?://.* || ${#poolMetaHomepage} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaHomepage entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaHomepage entry in your ${poolFile}.pool.json, thx."; exit 1; fi; checkResult=$(curl -s "https://my-ip.at/checkticker?ticker=${poolMetaTicker}&key=${regKeyHash}"); if [[ ! "${checkResult}" == "OK" ]]; then echo -e "\n\e[35mERROR - There was a problem with Errorcode ${checkResult} while generating the registration certificate. Please ask in the \"Cardano Shelley & StakePool Best Practice Workgroup\" Telegram Group for help about this ErrorCode, Thx !\e[0m\nhttps://t.me/CardanoStakePoolWorkgroup\n\n"; exit 1; fi;
+if [[ ! "${poolMetaHomepage}" =~ https?://.* || ${#poolMetaHomepage} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaHomepage entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaHomepage entry in your ${poolFile}.pool.json, thx."; exit 1; fi; checkResult=$(curl -s "https://my-ip.at/checkticker?ticker=${poolMetaTicker}&key=${regKeyHash}"); if [[ ! "${checkResult}" == "OK" ]]; then echo -e "\n\e[35mERROR - This Stakepool-Ticker '${poolMetaTicker}' is protected, your need the right registration-protection-key to interact with this Ticker!\nIf you wanna protect your Ticker too, please reach out to @atada_stakepool on Telegram for help, Thx !\e[0m\n\n"; exit 1; fi;
 
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
 if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaUrl entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
 
 poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; then exit 1; fi
+if [[ ${#poolMetaDescription} -gt 250 ]]; then echo -e "\e[35mERROR - The poolMetaDescription entry in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaDescription entry in your ${poolFile}.pool.json, thx!\e[0m"; exit 1; fi
 
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
-poolID=$(${cardanocli} shelley stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)     #New method since 1.23.0
+poolID=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)     #New method since 1.23.0
 checkError "$?"
 file_unlock ${poolFile}.pool.json
 newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
@@ -175,7 +176,7 @@ file_unlock ${poolFile}.pool.id
 echo "${poolID}" > ${poolFile}.pool.id
 file_lock ${poolFile}.pool.id
 
-poolIDbech=$(${cardanocli} shelley stake-pool id --cold-verification-key-file ${poolName}.node.vkey)     #New method since 1.23.0
+poolIDbech=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)     #New method since 1.23.0
 checkError "$?"
 #Save out the POOL-ID also in the xxx.id-bech file
 file_unlock ${poolFile}.pool.id-bech
@@ -268,7 +269,6 @@ fi
 
 #Generate new <poolFile>.metadata.json File with the Entries and also read out the Hash of it
 file_unlock ${poolFile}.metadata.json
-#Generate Dummy JSON File
 echo -e "{
   \"name\": \"${poolMetaName}\",
   \"description\": \"${poolMetaDescription}\",
@@ -277,8 +277,13 @@ echo -e "{
 }" > ${poolFile}.metadata.json
 chmod 444 ${poolFile}.metadata.json #Set it to 444, because it is public anyway so it can be copied over to a websever via scp too
 
+#Check the Metadata file about the maximum size of 512 bytes
+metaFileSize=$(du -b "${poolFile}.metadata.json" | cut -f1)
+if [[ ${metaFileSize} -gt 512 ]]; then echo -e "\e[35mERROR - The total filesize of your ${poolFile}.metadata.json file is ${metaFileSize} bytes. Maximum allowed filesize is 512 bytes!\nPlease reduce the length of some entries (name, description, ticker, homepage, extended-meta-url).\e[0m"; exit 1; fi
+
+
 #Generate HASH for the <poolFile>.metadata.json
-poolMetaHash=$(${cardanocli} shelley stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
+poolMetaHash=$(${cardanocli} ${subCommand} stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
 checkError "$?"
 
 #Add the HASH to the <poolFile>.pool.json info file
@@ -358,7 +363,7 @@ echo
 
 
 file_unlock ${poolName}.pool.cert
-${cardanocli} shelley stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
+${cardanocli} ${subCommand} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
 checkError "$?"
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
@@ -381,7 +386,8 @@ echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
 
-echo -e "\e[0mStakepool Metadata JSON:\e[32m ${poolFile}.metadata.json \e[90m"
+echo -e "\e[0mStakepool Metadata JSON:\e[32m ${poolFile}.metadata.json"
+echo -e "\e[0mFilesize:\e[32m ${metaFileSize} bytes \e[90m"
 cat ${poolFile}.metadata.json
 echo
 echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.metadata.json\e[35m file now to your webserver (${poolMetaUrl}) !"

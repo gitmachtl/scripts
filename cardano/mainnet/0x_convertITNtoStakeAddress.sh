@@ -31,13 +31,13 @@ itnSkey=$(cat ${itnSKEYfile})
 itnVkey=$(cat ${itnVKEYfile})
 
 if [[ "${itnSkey:0:8}" == "ed25519e" ]]; then #extended key
-						${cardanocli} shelley key convert-itn-extended-key --itn-signing-key-file ${itnSKEYfile} --out-file ${addrName}.staking.skey
+						${cardanocli} ${subCommand} key convert-itn-extended-key --itn-signing-key-file ${itnSKEYfile} --out-file ${addrName}.staking.skey
 elif [[ "${itnSkey:0:7}" == "ed25519" ]]; then #normal key
-                                                ${cardanocli} shelley key convert-itn-key --itn-signing-key-file ${itnSKEYfile} --out-file ${addrName}.staking.skey
+                                                ${cardanocli} ${subCommand} key convert-itn-key --itn-signing-key-file ${itnSKEYfile} --out-file ${addrName}.staking.skey
 else echo -e "\e[35mWARNING - ${itnSkey} is an unknown key format. Only ed25519 and ed25519e keys are supported !\e[0m"; exit 2;
 fi
 
-${cardanocli} shelley key convert-itn-key --itn-verification-key-file ${itnVKEYfile} --out-file ${addrName}.staking.vkey
+${cardanocli} ${subCommand} key convert-itn-key --itn-verification-key-file ${itnVKEYfile} --out-file ${addrName}.staking.vkey
 
 file_lock ${addrName}.staking.vkey
 file_lock ${addrName}.staking.skey
@@ -51,7 +51,7 @@ cat ${addrName}.staking.skey
 echo
 
 #Building a Staking Address
-${cardanocli} shelley stake-address build --staking-verification-key-file ${addrName}.staking.vkey --mainnet > ${addrName}.staking.addr
+${cardanocli} ${subCommand} stake-address build --staking-verification-key-file ${addrName}.staking.vkey --mainnet > ${addrName}.staking.addr
 file_lock ${addrName}.staking.addr
 
 echo -e "\e[0mStaking(Rewards)-Address built: \e[32m ${addrName}.staking.addr \e[90m"

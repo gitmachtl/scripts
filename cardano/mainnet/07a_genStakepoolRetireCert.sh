@@ -47,14 +47,13 @@ echo "${param}"
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 2; fi
 
 #Check needed inputfiles
-if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.node.vkey is missing !\e[0m"; exit 2; fi
+if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[35mERROR - ${poolName}.node.vkey is missing !\e[0m"; exit 2; fi
 
-echo
 echo -e "\e[0mCreate a Stakepool de-Registration (retire) certificate for PoolNode with \e[32m ${poolName}.node.vkey\e[0m:"
 echo
 
 #Getting protocol parameters from the blockchain, checking epochMax (eMax)
-${cardanocli} shelley query protocol-parameters --cardano-mode ${magicparam} > protocol-parameters.json
+${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam} > protocol-parameters.json
 eMax=$(cat protocol-parameters.json | jq -r .eMax)
 
 currentEPOCH=$(get_currentEpoch)
@@ -79,7 +78,7 @@ echo -e "Retire EPOCH set to:\e[32m ${retireEPOCH}\e[0m"
 
 file_unlock ${poolName}.pool.dereg-cert
 
-${cardanocli} shelley stake-pool deregistration-certificate --cold-verification-key-file ${poolName}.node.vkey --epoch ${retireEPOCH} --out-file ${poolName}.pool.dereg-cert
+${cardanocli} ${subCommand} stake-pool deregistration-certificate --cold-verification-key-file ${poolName}.node.vkey --epoch ${retireEPOCH} --out-file ${poolName}.pool.dereg-cert
 checkError "$?"
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created

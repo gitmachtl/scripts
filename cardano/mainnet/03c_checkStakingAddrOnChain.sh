@@ -23,12 +23,11 @@ typeOfAddr=$(get_addressType "${checkAddr}")
 #What type of Address is it? Stake?
 if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
-	echo
 	echo -e "\e[0mChecking ChainStatus of Stake-Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
 	echo
 
-        rewardsAmount=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
-	delegationPoolID=$(${cardanocli} shelley query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} | jq -r "flatten | .[0].delegation")
+        rewardsAmount=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -r "flatten | .[0].rewardAccountBalance")
+	delegationPoolID=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -r "flatten | .[0].delegation")
 
 
 	#Checking about the content
