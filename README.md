@@ -1,4 +1,4 @@
-# scripts
+# Stakepool Operator Scripts
 Useful scripts from ATADA_StakePool_Austria
 
 Contacts:<br>
