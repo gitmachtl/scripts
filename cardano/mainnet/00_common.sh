@@ -51,7 +51,7 @@ export CARDANO_NODE_SOCKET_PATH=${socket}
 majorError() {
 echo -e "\e[97m\n"
 echo -e "         _ ._  _ , _ ._\n        (_ ' ( \`  )_  .__)\n      ( (  (    )   \`)  ) _)\n     (__ (_   (_ . _) _) ,__)\n         \`~~\`\\ ' . /\`~~\`\n              ;   ;\n              /   \\ \n_____________/_ __ \\___________________________________________\n"
-echo -e "\e[35m${1}\e[0m\n"; exit 1;
+echo -e "\e[35m${1}\nIf you think all is right at your side, please check the GitHub repo if there\nis a newer version/bugfix available, thx: https://github.com/gitmachtl/scripts\e[0m\n"; exit 1;
 }
 #-------------------------------------------------------
 
