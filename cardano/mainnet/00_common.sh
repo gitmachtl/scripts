@@ -59,8 +59,12 @@ echo -e "\e[35m${1}\e[0m\n"; exit 1;
 #Do a cli and node version check
 versionCheck() { printf '%s\n%s' "${1}" "${2}" | sort -C -V; } #$1=minimal_needed_version, $2=current_node_version
 
+exists() {
+ command -v "$1" >/dev/null 2>&1
+}
+
 #Check cardano-cli
-if [[ ! -f "${cardanocli}" ]]; then majorError "Path ERROR - Path to cardano-cli is not correct or cardano-cli binaryfile is missing!"; exit 1; fi
+if ! exists "${cardanocli}"; then majorError "Path ERROR - Path to cardano-cli is not correct or cardano-cli binaryfile is missing!"; exit 1; fi
 versionToCheck=$(${cardanocli} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
 versionCheck "${minNodeVersion}" "${versionToCheck}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
@@ -69,7 +73,7 @@ if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cl
 echo -ne "\n\e[0mVersion-Check: \e[32mcli ${versionToCheck}\e[0m / "
 
 #Check cardano-node
-if [[ ! -f "${cardanonode}" ]]; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!"; exit 1; fi
+if ! exists "${cardanonode}"; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!"; exit 1; fi
 versionToCheck=$(${cardanonode} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
 versionCheck "${minNodeVersion}" "${versionToCheck}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
@@ -83,11 +87,6 @@ if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the 
 
 #-------------------------------------------------------------
 
-
-exists()
-{
-  command -v "$1" >/dev/null 2>&1
-}
 
 #Check if curl, jq and bc is installed
 if ! exists curl; then
