@@ -125,7 +125,7 @@ Pledge Voting experience...
 
 ## Generate the QR code for the Catalyst Voting App:
 
-There is a handy little tool called **vit-kedqr** available for that, you can find the compiled binary for your system here:
+There is a handy little tool called **vit-kedqr** available for that, you can find the compiled binary for your system here:<br>
 [https://github.com/input-output-hk/vit-kedqr/releases/latest](https://github.com/input-output-hk/vit-kedqr/releases/latest)
 
 Extract the downloaded archive for your operating system and copy out the binary to your prefered folder. We use again ~/cardano/ in our example:
