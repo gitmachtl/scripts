@@ -63,7 +63,7 @@ Make sure your environment variable **CARDANO_NODE_SOCKET_PATH** is pointing to 
 cardano node (just a simple passive one is ok), for example:
 
 ``` console
-CARDANO_NODE_SOCKET_PATH=db-mainnet/node.socket
+export CARDANO_NODE_SOCKET_PATH=db-mainnet/node.socket
 ```
 
 The registration tool needs some parameters to call:
