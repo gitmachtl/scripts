@@ -33,7 +33,7 @@ Now lets generate the two keyfiles:
 ./jcli key to-public < catalyst-vote.sk > catalyst-vote.pkey
 ```
 
-You have generated the secret- and the public-voting key, we use them now in the next step.
+You have generated the secret- and the public-voting key, we use them now in the next steps.
 
 ## Generate the signed voting registration
 
