@@ -1,6 +1,6 @@
 # How to register your operator pledge staking key for Catalyst Voting
 
-I put this together, should work for you it did for me... :-)
+I put this together, should work for you it did for me. But of course, use the instructiona at your own risk ... :-)
 
 Best regards, Martin (ATADA/ATAD2 Stakepool Austria)
 
