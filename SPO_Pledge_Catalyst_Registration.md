@@ -84,7 +84,7 @@ also we need the somepayment address as text, or in the example below we read it
 file directly. Than you need of course your pledge.staking.skey you wanna register for Catalyst Voting.
 Then we need the public voting key we generated in the steps above with jcli. You have to choose the network,
 in this case we are on mainnet. The Time-To-Live parameter is not needed, but make sure to submit the signed 
-transaction file as soon as possible after the creating. The last thing we need is the
+transaction file as soon as possible after the creation. The last thing we need is the
 path to the signed transaction output file, lets call it **vote-catalyst.tx**. So a complete call would be:
 
 ```console
