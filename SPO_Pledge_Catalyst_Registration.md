@@ -30,7 +30,7 @@ Now lets generate the two keyfiles:
 
 ```console
 ./jcli key generate --type ed25519extended > catalyst-vote.skey
-./jcli key to-public < catalyst-vote.sk > catalyst-vote.pkey
+./jcli key to-public < catalyst-vote.skey > catalyst-vote.pkey
 ```
 
 You have generated the secret- and the public-voting key, we use them now in the next steps.
