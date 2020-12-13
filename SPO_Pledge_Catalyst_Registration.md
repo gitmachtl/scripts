@@ -6,7 +6,7 @@ Best regards, Martin (ATADA/ATAD2 Stakepool Austria)
 
 ## First - Lets talk about security
 
-First, make sure you don't have any rewards sitting on your pledge staking key,
+Make sure you don't have any rewards sitting on your pledge staking key,
 withdrawl them first to your pledge payment account or whereever you like.
 The tool IOHK provides should not harm it in any way, its just a safety thing.
 You need a running and fully synced node on the machine, also you will have
