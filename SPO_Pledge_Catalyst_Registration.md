@@ -114,7 +114,7 @@ and also the **vote-registration.tx** file with a content similar to this:
 
 ## Submit the registration on the chain
 
-We have generated the signed registration transaction file **catalyst.tx**, now lets submit it on the chain.
+We have generated the signed registration transaction file **vote-registration.tx**, now lets submit it on the chain.
 You can do this on the same machine, or on another machine by just running:
 
 ``` console
