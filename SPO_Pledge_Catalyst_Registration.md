@@ -16,12 +16,13 @@ not at risk here, because you don't need your pledge payment skey for the regist
 
 ## Generate your voting secret and public key
 
-You need a **jcli** binary for that, you should already have this around, if not,
+You need a **jcli** binary for that, you should already have this laying around, if not,
 you can find the latest compiled release here:<br>
 [https://github.com/input-output-hk/jormungandr/releases/latest](https://github.com/input-output-hk/jormungandr/releases/latest)
 
 You can extract the file for your operating system like:
 ``` console
+wget https://github.com/input-output-hk/jormungandr/releases/download/v0.9.3/jormungandr-0.9.3-x86_64-unknown-linux-gnu-generic.tar.gz
 tar -xf jormungandr-0.9.3-x86_64-unknown-linux-gnu-generic.tar.gz
 ```
 
