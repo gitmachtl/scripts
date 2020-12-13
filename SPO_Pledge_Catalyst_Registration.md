@@ -155,7 +155,7 @@ pincode *1234*. You can choose that and you will have to input it when using the
 
 This will show you the QR code on screen and you can use it with the Catalyst Voting App. :-)
 
-If you wann save the QR code for later, you can save it as a PNG image too using the -output parameter like:
+If you wanna save the QR code for later, you can save it as a PNG image too using the -output parameter like:
 ```console
 ./vit-kedqr -pin 1234 -input catalyst-vote.skey -ouput catalyst-qrcode.png
 ```
