@@ -79,7 +79,7 @@ The registration tool needs some parameters to call:
 ```                      
 
 So in our case we need a payment address, this should **NOT BE YOUR PLEDGE ADDRESS**! Just a simple
-payment address to pay for the transaction, we call it **somepayment*. So we need the somepayment.skey,
+payment address to pay for the transaction, we call it **somepayment**. So we need the somepayment.skey,
 also we need the somepayment address as text, or in the example below we read it out from the somepayment.addr 
 file directly. Than you need of course your pledge.staking.skey you wanna register for Catalyst Voting.
 Then we need the public voting key we generated in the steps above with jcli. You have to choose the network,
