@@ -261,11 +261,15 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   <br>```./10_genPolicy.sh <PolicyName>```
   <br>```./10_genPolicy.sh mypolicy``` this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
 
-* **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyID generated before. The Token gets a status file **policyname.tokenname.asset** for later usage when sending Tokens.
-  <br>```./11a_mintAsset.sh <AssetName> <AssetAmount> <PolicyName> <nameOfPaymentAddr>```
+* **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyID generated before. This updates the Token Status File **policyname.tokenname.asset** for later usage when sending/burning Tokens.
+  <br>```./11a_mintAsset.sh <AssetName> <AssetAmount to mint> <PolicyName> <nameOfPaymentAddr>```
   <br>```./11a_mintAsset.sh SUPERTOKEN 1000 mypolicy mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
   <br>```./11a_mintAsset.sh MEGATOKEN 30 mypolicy owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
 
+* **11b_burnAsset.sh:** burnes Assets(Token) on a given payment address with a policyID you own the keys for. This updates the Token Status File **policyname.tokenname.asset** for later usage when sending/burning Tokens.
+  <br>```./11b_burnAsset.sh <AssetName> <AssetAmount to mint> <PolicyName> <nameOfPaymentAddr>```
+  <br>```./11b_burnAsset.sh SUPERTOKEN 22 mypolicy mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
+  <br>```./11b_burnAsset.sh MEGATOKEN 10 mypolicy owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
 
 
 
