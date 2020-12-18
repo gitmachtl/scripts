@@ -138,7 +138,7 @@ Thats it. :-)
 <br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset> <AmountOfAssets|ALL> [Optional Amount of lovelaces to attach]```
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
-<br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr
+<br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. Using the PolicyID.TokenNameHASH allowes you to send out Tokens you've got from others. You own generated Tokens can be referenced by the policyName.tokenName schema.
 
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
 <br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
@@ -257,9 +257,15 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   <br>```./08b_deregStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
   <br>```./08b_deregStakingAddrCert.sh owner.staking owner.payment``` this will retire your owner staking address with the cert generated with script 08a from the blockchain.
 
-* **10_genPolicy.sh:** generate policy keys, signing script and id as files **name.policy.skey/vkey/script/id**.
+* **10_genPolicy.sh:** generate policy keys, signing script and id as files **name.policy.skey/vkey/script/id**. You need a policy for Token minting.
   <br>```./10_genPolicy.sh <PolicyName>```
   <br>```./10_genPolicy.sh mypolicy``` this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
+
+* **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyID generated before. The Token gets a status file **policyname.tokenname.asset** for later usage when sending Tokens.
+  <br>```./11a_mintAsset.sh <AssetName> <AssetAmount> <PolicyName> <nameOfPaymentAddr>```
+  <br>```./11a_mintAsset.sh SUPERTOKEN 1000 mypolicy mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
+  <br>```./11a_mintAsset.sh MEGATOKEN 30 mypolicy owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
+
 
 
 
