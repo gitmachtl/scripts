@@ -22,9 +22,11 @@ EOF
 
 if [[ $# -eq 5 ]]; then lovelacesToSend="$5"; else lovelacesToSend=0; fi
 
+if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+
 #Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "$2.addr" ]; then echo "$2" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
-
 
 #Check if the assetToSend is a file xxx.asset then read out the data from the file instead
 if [ -f "${3}.asset" ]; then assetToSend="$(jq -r .policyID < ${3}.asset).$(jq -r .name < ${3}.asset)"; fi
@@ -61,6 +63,8 @@ echo
         totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
 
         totalAssetsJSON="{}"; 	#Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
+        totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
+
 	assetsReturnString="";	#This will hold the String to append on the --tx-out if assets present or it will be empty
 
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
@@ -80,6 +84,7 @@ echo
                         do
                         assetHash=$(jq -r ".[${tmpCnt2}][0]" <<< ${assetsJSON})  #assetHash = policyID
                         assetsNameCnt=$(jq ".[${tmpCnt2}][1] | length" <<< ${assetsJSON})
+                        totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
 
                                 #LEVEL 3 - different names under the same policyID
                                 for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
@@ -99,6 +104,7 @@ echo
         totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
         echo -e "Total ADA on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m\n"
 
+	totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
 
 	#Calculating the amount of the asset to send out, using the given amount of using all of the assets amount
 	echo -e "\e[0mAsset-Type to send to ${toAddr}.addr:\e[33m ${assetToSend} \e[0m"
@@ -117,7 +123,7 @@ echo
 	#If keyword ALL was used, set the amountToSend to the available amount on the source address
 	if [[ "${amountToSend^^}" == "ALL" ]]; then amountToSend=${assetAmount}; fi
 
-        echo -e "\e[0mAsset-Amount to send to:\e[33m ${amountToSend} ${assetName} \e[0m"
+        echo -e "\e[0mAsset-Amount to send to ${toAddr}.addr:\e[33m ${amountToSend} ${assetName} \e[0m"
 
         if [[ ${amountToSend} -lt 1 ]]; then  echo -e "\n\e[35mError - Please input a positive sending amount (integer)!\e[0m\n"; exit 2; fi
 
@@ -136,7 +142,7 @@ echo
 
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
-                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s)\e[0m - Remaining assets on the source address\n"
+                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} Policy-IDs \e[0m - Remaining assets on the source address\n"
                         printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
                          for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
@@ -158,18 +164,23 @@ echo
 
 rxcnt=2
 
-#Getting protocol parameters from the blockchain, calculating fees
-${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam} > protocol-parameters.json
+#Getting protocol parameters from the blockchain
+protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam})
 checkError "$?"
+minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "1" "1")  #one asset will be sent out, so total assetcount=1 and policyidcount=1
+if [[ ${amountToReturn} -gt 0 ]]; then
+ 					minReturnUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}") #restamount of the sending asset still on the source so full number of assets to return
+                                        else
+					minReturnUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "$(( ${totalAssetsCnt} - 1 ))" "${totalPolicyIDsCnt}") #the choosen asset is transfered completly, so total number - 1
+fi
 
-minUTXOvalue=$(cat protocol-parameters.json | jq -r .minUTxOValue)      #This value is the minimum value you have to send out in each --tx-out
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsSendString}" --tx-out "${dummyShelleyAddr}+0${assetsReturnString}" --invalid-hereafter ${ttl} --fee 0 --out-file ${txBodyFile}
 checkError "$?"
-fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file protocol-parameters.json --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"
 
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m ${fee} lovelaces \e[90m"
@@ -178,15 +189,14 @@ echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[3
 # Set the right amount of lovelacesToSend, lovelacesToReturn and also check about sendinglimits like minUTxOValue for returning assets if available
 #
 
-sendMinUTXO=$(( ${minUTXOvalue} * 2 ))	#Needs to be updated !!!
-echo -e "\e[0mMinimum UTXO value for sending the asset: \e[32m ${sendMinUTXO} lovelaces \e[90m"
+echo -e "\e[0mMinimum UTXO value for sending the asset: \e[32m ${minOutUTXO} lovelaces \e[90m"
 echo
-if [[ ${lovelacesToSend} -lt ${sendMinUTXO} ]]; then lovelacesToSend=${sendMinUTXO}; fi
+if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then lovelacesToSend=${minOutUTXO}; fi
 echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m ${lovelacesToSend} lovelaces \e[90m"
 
 lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
 echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m ${lovelacesToReturn} lovelaces \e[90m"
-#if [[ ${lovelacesToReturn} -lt ${minUTXOvalue} ]]; then echo -e "\e[35mError - Not enough funds on the source Addr! Minimum UTXO value is ${minUTXOvalue} lovelaces.\e[0m"; exit; fi
+if [[ ${lovelacesToReturn} -lt ${minReturnUTXO} ]]; then echo -e "\e[35mError - Not enough funds on the source Addr! Minimum UTXO value to return is ${minReturnUTXO} lovelaces.\e[0m"; exit; fi
 
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
 txFile="${tempDir}/$(basename ${fromAddr}).tx"

@@ -274,4 +274,34 @@ tmpEra=$(get_NodeEra)
 if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 #-------------------------------------------------------
 
+#-------------------------------------------------------
+#Converts a Shelley/Allegra style UTXO JSON into a Mary style JSON
+convert_UTXO()
+{
+local inJSON=${1}
+local outJSON=${inJSON}
+local utxoEntryCnt=$(jq length <<< ${inJSON})
+local tmpCnt=0
+for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
+do
+local utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${inJSON})
+local utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount" <<< ${inJSON})
+local outJSON=$( jq ".\"${utxoHashIndex}\".amount = [ ${utxoAmount}, [] ]" <<< ${outJSON})
+done
+echo "${outJSON}"
+}
+#-------------------------------------------------------
 
+
+#-------------------------------------------------------
+#Calculate the minimum UTXO level that has to be sent depending on the assets and the minUTXO protocol-parameters
+get_minOutUTXO() {
+	#${1} = protocol-parameters.json content
+	#${2} = total number of different assets
+	#${3} = total number of different policyIDs
+
+local minUTXOvalue=$(jq -r .minUTxOValue <<< ${1})
+
+echo $(( ${minUTXOvalue} + (${2}*${minUTXOvalue}) ))	#poor calculation currently
+}
+#-------------------------------------------------------
