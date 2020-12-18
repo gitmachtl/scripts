@@ -6,7 +6,7 @@
 
 :bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: 1.24.2 !  (git checkout tags/1.24.2)**
 
-:bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> allegra or launchpad**
+:bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> **launchpad**
 
 Theses scripts here should help you to start, i made them for myself, not for a bullet proof public use. Just to make things easier for myself while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently.<br>Some scripts are using **jq, curl & bc** so make sure you have it installed ```(sudo apt update && sudo apt install -y jq curl bc)```
 
@@ -39,7 +39,7 @@ poolname.itn.skey/vkey
 New in Mary-Era:<br>
 ```
 Policy files:
-name.policy.skey/vkey, name.policy.script, name.policy.id
+policyname.policy.skey/vkey, policyname.policy.script, policyname.policy.id
 
 (Multi)Assets:
 policyname.tokenname.asset
@@ -127,10 +127,11 @@ Thats it. :-)
 <br>```./01_queryAddress.sh addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m``` shows the lovelaces on this given Bech32 address
 <br>```./01_queryAddress.sh stake1u9w60cpjg0xnp6uje8v3plcsmmrlv3vndcz0t2lgjma0segm2x9gk``` shows the rewards on this given Bech32 address
 
-* **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces from one address to another, uses always all UTXOs of the source address
+* **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address
 <br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` **NEW** you can now send to an HASH address too
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
-<br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
+<br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send ALL lovelaces from addr1.addr to addr2.addr, if tokens are present, they will stay on addr1.addr
+<br>```./01_sendLovelaces.sh addr1 addr2 ALLFUNDS``` to send ALL funds from addr1.addr to addr2.addr **including** tokens if present
 <br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL funds from addr1.addr to the given Bech32 address
 
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
