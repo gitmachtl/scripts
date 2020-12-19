@@ -9,7 +9,7 @@ $ sudo apt-get install fail2ban
 
 ## Just two simple files are needed for the config
 
-/etc/fail2ban/jail.d/cardano.conf
+**/etc/fail2ban/jail.d/cardano.conf**
 ``` console
 # service name
 [cardano]
@@ -31,13 +31,13 @@ bantime = 86400
 
 Adjust the path/port so it is in line with your Relay Node setup.
 
-/etc/fail2ban/filter.d/cardano.conf
+**/etc/fail2ban/filter.d/cardano.conf**
 ``` console
 [Definition]
 failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
 ```
 
-The logfile for the Relay Node must be in JSON mode for this regex expression to work!
+The logfile for the Relay Node must be in **JSON mode** for this regex expression to work!
 
 So make sure your config file for the Relay has something like this in:
 ``` console
