@@ -85,7 +85,7 @@ Status for the jail: cardano
 |- Filter
 |  |- Currently failed: 0
 |  |- Total failed:     2
-|  `- File list:        /home/administrator/cardano/logs/relay.json
+|  `- File list:        /home/username/cardano/logs/relay.json
 `- Actions
    |- Currently banned: 9
    |- Total banned:     9
