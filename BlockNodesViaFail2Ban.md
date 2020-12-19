@@ -34,7 +34,13 @@ Adjust the **port** and **logpath** so it is in line with your Relay Node setup.
 **/etc/fail2ban/filter.d/cardano.conf**
 ``` console
 [Definition]
+
+#Theses regex expressions capture nodes that are not on the latest fork and also
+#nodes from other networks (testnets)
+
 failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
+            ^.*version data mismatch.*"address":"<HOST>:.*$
+
 ```
 
 The logfile for the Relay Node must be in **JSON mode** for this regex expression to work!
