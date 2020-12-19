@@ -29,7 +29,7 @@ findtime = 180
 bantime = 86400
 ```
 
-Adjust the path/port so it is in line with your Relay Node setup.
+Adjust the **port** and **logpath** so it is in line with your Relay Node setup.
 
 **/etc/fail2ban/filter.d/cardano.conf**
 ``` console
