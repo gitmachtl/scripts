@@ -39,6 +39,37 @@ failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
 
 The logfile for the Relay Node must be in JSON mode for this regex expression to work!
 
+So make sure your config file for the Relay has something like this in:
+``` console
+.
+.
+.
+"defaultScribes": [
+    [
+      "StdoutSK",
+      "stdout"
+    ],
+    [
+            "FileSK",
+            "/home/username/cardano/logs/relay.json"
+    ]
+  ],
+.
+.
+.
+"setupScribes": [
+    {
+      "scFormat": "ScJson",
+      "scKind": "FileSK",
+      "scName": "/home/username/cardano/logs/relay.json",
+      "scRotation": null
+    }
+  ]
+.
+.
+.
+```
+
 ## Restart fail2ban
 
 Now you only have to restart your fail2ban service like:
