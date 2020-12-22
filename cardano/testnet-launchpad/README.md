@@ -17,6 +17,9 @@ If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley
 
 ### Filenames used
 
+<details>
+   <summary> Checkout all naming schemes... </summary>
+   
 I use the following naming scheme for the files:<br>
 ``` 
 Simple "enterprise" address to only receive/send funds (no staking possible with these type of addresses):
@@ -49,6 +52,8 @@ policyname.tokenname.asset
 The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
 If you have an address and you wanna use it just do a simple:
 ```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
+
+</details>
 
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
 **If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
