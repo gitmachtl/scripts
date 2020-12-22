@@ -30,7 +30,7 @@ Thats simple, you just change a single entry in the 00_common.sh, common.inc or 
 # Scriptfiles Syntax
 
 <details>
-   <summary>Show the full Syntax details for each scripts...</summary>
+   <summary>Show the full Syntax details for each script...</summary>
 
 
 * **00_common.sh:** main config file (!) set your variables in there for your config, will be used by the scripts.<br>
@@ -334,11 +334,8 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 # Examples in Online-Mode
 
-The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use the single scripts, a detailed Syntax about each script can be found [here](#scriptfiles-syntax).<br>
+The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax).<br>
 Working in Offline-Mode introduces another step before and ofter each example, so you should understand the Online-Mode first.
-
-<details>
-   <summary>Show ONLINE-MODE Examples...</summary>
 
 ## Generating a normal address, register a stake address, register a stake pool
 
@@ -638,7 +635,5 @@ So if you hold a file ```<poolname>.additional-metadata.json``` with additional 
 We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
 After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
 Thats it. :-)
-
-</details>
 
 </details>
