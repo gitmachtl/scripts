@@ -25,15 +25,25 @@ Why not always Offline-Mode? You have to do transactions online, you have to che
 <details>
    <summary>How do you switch between Online- and Offline-Mode?</summary>
    
-Thats simple, you just change a single entry in the 00_common.sh, common.inc or $HOME/.common.inc config-file:
+<br>Thats simple, you just change a single entry in the 00_common.sh, common.inc or $HOME/.common.inc config-file:
 <br>```offlineMode="no"``` Scripts are working in Online-Mode
 <br>```offlineMode="yes"``` Scripts are working in Offline-Mode
+
+So on the Online-Machine you set the ```offlineMode="no"``` and on the Offline-Machine you set the ```offlineMode="yes"```.
+
 </details>
 
 <details>
    <summary>What do you need on the Online- and the Offline-Machine?</summary>
    
-On the Online-Machine you need a running cardano-node, the cardano-cli and also your ```*.addr``` files so you can query the current balance of them for the Offline-Machine. **You should not have any ```*.skey or *.vkey``` files laying around.** Metadata-Files are fine, you need them anyway to transfer them to your Stakepool-Webserver, also they are public available, no security issue.
+<br>On the Online-Machine you need a running and fully synced cardano-node, the cardano-cli and also your ```*.addr``` files to query the current balance of them for the Offline-Machine. **You should not have any secure keys ```*.skey``` files laying around!** Metadata-Files are fine, you need them anyway to transfer them to your Stakepool-Webserver, also they are public available, no security issue.
+
+On the Offline-Machine you have your secret keys, thats the ```*.skey``` files, also you have your kes-keys, vrf-keys, opcerts, etc. on this Machine.
+Also you need the cardano-cli on the Offline-Machine, same version as on the Online-Machine. You don't need the cardano-node, because you will never be online with that Machine!
+
+You should keep your directory structure the same on both Machines.
+
+:bulb: **Best practice Advise for Stakepool Operators:** Even that the Offline-Machine is pretty secure, it can be compromised by a physical attack on in. So, after you   have registered your Pool, move away our pledge payment signing keys like the ```owner.payment.skey``` from the machine and store it in a secure place. You don't need it to update your Stakepool. To do some updates, generate yourself a few small payment wallets with the script 02. To do more than one transaction in a single "Online->Offline->Online" process i would recommend to have at least three small wallets with a few ADA on it. You can do all Pool-Updates, Re-Registrations, Reward-Claims, etc. with theses.<br>**There is no need to have the pledge owner payment signing keys on that machine at all!**
 
 </details>
 
