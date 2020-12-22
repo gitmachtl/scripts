@@ -824,7 +824,15 @@ Done.
 
 </details>
 
-As you can see, its always the same procedure working on Offline-Mode. First get the information about your payment/rewards addresses online -> transfer the offlineTransfer.json -> do your normal operations on the Offline-Machine (only one payment from an individual payment address) -> transfer the offlineTransfer.json -> execute the operation online on the chain.
+# Conclusion
+
+As you can see, its always the same procedure working in Offline-Mode:
+
+1. Get the information about your payment/rewards addresses online using ./01_workOffline.sh
+1. Transfer the offlineTransfer.json to the Offline-Machine
+1. Do your normal operations on the Offline-Machine (only one payment from an individual payment address)
+1. Transfer the offlineTransfer.json to the Online-Machine
+1. Execute the operation online on the chain, and/or extract some included files too.
 
 If you have questions, feel free to contact me via telegram: @atada_stakepool
 
