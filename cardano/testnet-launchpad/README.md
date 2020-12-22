@@ -270,6 +270,9 @@ poolname.vrf.skey/vkey, poolname.pool.id, poolname.pool.id-bech
 poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
 poolname.kes.counter, poolname.kes-expire.json
 
+ONLINE<->OFFLINE transfer files:
+offlineTransfer.json
+
 ITN witness files:
 poolname.itn.skey/vkey
 ```
@@ -284,7 +287,7 @@ policyname.tokenname.asset
 ```
 
 The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
-If you have an address and you wanna use it just do a simple:
+If you have an address and you wanna use it for later just do a simple:<br>
 ```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
 
 #### File autolock
@@ -321,7 +324,7 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 </details>
 
-# Examples
+# Examples in Online-Mode
 
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
 **If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
@@ -330,6 +333,9 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 Lets say we wanna make ourself a normal address to send/receive ada, we want this to be nicknamed mywallet.
 Than we want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files and source it (```source ./00_common.sh```)
 1. Generate a simple address to receive some ADA ```./02_genPaymentAddrOnly.sh mywallet```
@@ -387,10 +393,14 @@ If you wanna send over all funds from your mywallet call the script like
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner.payment```    
 
 Done.
+</details>
 
 ## Generating & register a stake address, just delegating to a stakepool
 
 Lets say we wanna create a payment(base)/stake address combo with the nickname delegator and we wanna delegate the funds in the payment(base) address of that to the pool yourpool. (You'll need the yourpool.node.vkey for that.)
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
 1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator```
@@ -401,10 +411,14 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
 1. Register the delegation certificate now on the blockchain with funds from delegator.payment.addr<br>```./06_regDelegationCert.sh delegator delegator.payment```
 
 Done.
+</details>
 
 ## Update stakepool parameters on the blockchain
 
 If you wanna update you pledge, costs, owners or metadata on a registered stakepool just do the following
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. [Unlock](#file-autolock) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
@@ -413,10 +427,14 @@ If you wanna update you pledge, costs, owners or metadata on a registered stakep
 1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool owner.payment```<br>No delegation update needed.
 
 Done.  
+</details>
 
 ## Claiming rewards on the Shelley blockchain
 
 I'am sure you wanna claim some of your rewards that you earned running your stakepool. So lets say you have rewards in your owner.staking address and you wanna claim it to the owner.payment address.
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. You can always check that you have rewards in your stakeaccount by running ```./01_queryAddress.sh owner.staking```
 1. Now you can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment```
@@ -437,12 +455,14 @@ If you ran a stakepool on the ITN and you only have your owner SK ed25519(e) and
 1. You can claim your rewards by running ```./01_claimRewards.sh myitnrewards.staking destinationaccount``` like a normal rewards claim procedure, example above!
 
 Done.  
-
-
+</details>
 
 ## Register a multiowner stake pool
 
 It's similar to a single owner stake pool registration (example above). All owners must have a registered stake address on the blockchain first! Here is a 2 owner example ...
+
+<details>
+   <summary>Show Example...</summary>
 
 1. Generate the stakepool certificate
    1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it for multiowner usage and set your owners and also the rewards account. The rewards account is also a stake address (but not delegated to the pool!):
@@ -470,12 +490,18 @@ It's similar to a single owner stake pool registration (example above). All owne
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool paymentaddress```    
 
 Done.
+</details>
 
 ## Using multiple relays in your poolname.pool.json
 
+You can mix'n'match multiple relay entries in your poolname.pool.json file, below are a few common examples.
+
+<details>
+   <summary>Show Example...<br></summary>
+
 ### Using two dns named relay entries
 
-Your poolRelays array section in the json file should like similar to:
+Your poolRelays array section in the json file should look similar to:
 
 ```console
   "poolRelays": [
@@ -534,22 +560,29 @@ Your poolRelays array section in the json file should like similar to:
          }
   ],
 ```
-
+</details>
 
 
 ## Retire a stakepool from the blockchain
 
 If you wanna retire your registered stakepool mypool, you have to do just a few things
 
+<details>
+   <summary>Show Example...<br></summary>
+
 1. Generate the retirement certificate for the stakepool mypool from data in mypool.pool.json<br>
    ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
 1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool owner.payment```
  
 Done.
+</details>
 
 ## Retire a stakeaddress from the blockchain
 
 If you wanna retire the staking address owner, you have to do just a few things
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. Generate the retirement certificate for the stake-address ```./08a_genStakingAddrRetireCert.sh owner```<br>this will generate the owner.staking.dereg-cert file
 1. De-Register your stake-address from the blockchain with ```./08b_deregStakingAddrCert.sh owner.staking owner.payment```<br>you don't need to have funds on the owner.payment base address. you'll get the keyDepositFee back onto it!
@@ -557,6 +590,7 @@ If you wanna retire the staking address owner, you have to do just a few things
    ```./03c_checkStakingAddrOnChain.sh owner```<br>If it doesn't go away directly, wait a little and retry this script.
  
 Done.
+</details>
 
 ## ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
 
