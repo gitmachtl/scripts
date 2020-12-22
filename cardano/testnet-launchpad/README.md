@@ -832,7 +832,7 @@ As you can see, its always the same procedure working in Offline-Mode:
 1. Transfer the offlineTransfer.json to the Offline-Machine
 1. Do your normal operations on the Offline-Machine (only one payment from an individual payment address)
 1. Transfer the offlineTransfer.json to the Online-Machine
-1. Execute the operation online on the chain, and/or extract some included files too.
+1. Execute the operation online on the chain, and/or extract some included files too using ./01_workOffline.sh
 
 If you have questions, feel free to contact me via telegram: @atada_stakepool
 
