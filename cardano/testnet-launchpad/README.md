@@ -329,10 +329,16 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 </details>
 
-# Examples in Online-Mode
-
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
 **If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
+
+# Examples in Online-Mode
+
+The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use the single scripts, a detailed Syntax about each script can be found [here](#scriptfiles-syntax).<br>
+Working in Offline-Mode introduces another step before and ofter each example, so you should understand the Online-Mode first.
+
+<details>
+   <summary>Show ONLINE-MODE Examples...</summary>
 
 ## Generating a normal address, register a stake address, register a stake pool
 
@@ -635,4 +641,4 @@ Thats it. :-)
 
 </details>
 
-
+</details>
