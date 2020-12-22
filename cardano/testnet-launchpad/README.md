@@ -2,7 +2,7 @@
 
 ## Here you can find the files for the Testnet environments, new stuff, alpha/beta ...
 
-## [Examples](#examples) on how to use the scripts can be found at the bottom of this page :-)
+## Examples on how to use the scripts online and offline can be found on this page :smiley:
 
 :bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: 1.24.2 !  (git checkout tags/1.24.2)**
 
@@ -356,7 +356,7 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 # Examples in Online-Mode
 
 The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax).<br>
-Working in Offline-Mode introduces another step before and ofter each example, so you should understand the Online-Mode first.
+Working in [Offline-Mode](#examples-in-offline-mode) introduces another step before and ofter each example, so you should understand the Online-Mode first.
 
 ## Generating a normal address, register a stake address, register a stake pool
 
