@@ -49,7 +49,16 @@ echo
 #
 # Checking UTXO Data of the source address and gathering data about total lovelaces and total assets
 #
-	utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+
+        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
+        if ${onlineMode}; then
+                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+                          else
+				readOfflineFile;	#Reads the offlinefile into the offlineJSON variable
+                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
+        fi
+
 	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
@@ -115,7 +124,12 @@ echo
 
 echo
 
-protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam})
+#Read ProtocolParameters
+if ${onlineMode}; then
+			protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
+		  else
+			protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
+		  fi
 checkError "$?"
 minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
 
@@ -234,7 +248,7 @@ echo
 
 #Sign the unsigned transaction body with the SecureKey
 rm ${txFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile} 
+${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}
 checkError "$?"
 
 cat ${txFile}
@@ -242,10 +256,36 @@ echo
 
 if ask "\e[33mDoes this look good for you, continue ?" N; then
 	echo
-	echo -ne "\e[0mSubmitting the transaction via the node..."
-	${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
-	checkError "$?"
-	echo -e "\e[32mDONE\n"
+	if ${onlineMode}; then	#onlinesubmit
+				echo -ne "\e[0mSubmitting the transaction via the node..."
+				${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
+				checkError "$?"
+				echo -e "\e[32mDONE\n"
+			  else	#offlinestore
+				txFileJSON=$(cat ${txFile} | jq .)
+				offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
+									type: \"Transaction\",
+									era: \"$(jq -r .protocol.era <<< ${offlineJSON})\",
+									fromAddr: \"${fromAddr}\",
+									sendFromAddr: \"${sendFromAddr}\",
+									toAddr: \"${toAddr}\",
+									sendToAddr: \"${sendToAddr}\",
+									txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
+				#Write the new offileFile content
+				offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed utxo-transaction from '${fromAddr}' to '${toAddr}'\" } ]" <<< ${offlineJSON})
+		                offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
+				echo "${offlineJSON}" > ${offlineFile}
+				#Readback the tx content and compare it to the current one
+				readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
+				if [[ "${txFileJSON}" == "${readback}" ]]; then
+                                                        showOfflineFileInfo;
+                                                        echo -e "\e[33mTransaction txJSON has been stored in the '$(basename ${offlineFile})'.\nYou can now transfer it to your online machine for execution.\e[0m\n";
+                                                 else
+                                                        echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
+        			fi
+
+	fi
+
 fi
 
 echo -e "\e[0m\n"

@@ -35,6 +35,7 @@ echo "${param}"
 #Read the pool JSON file and extract the parameters -> report an error is something is missing or wrong/empty and exit
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 1; fi
 deregCertFile=$(readJSONparam "deregCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Checks for needed files
 if [ ! -f "${deregCertFile}" ]; then echo -e "\n\e[34mERROR - \"${deregCertFile}\" does not exist! Please create it first with script 05d.\e[0m"; exit 2; fi
@@ -68,8 +69,15 @@ echo
 #
 # Checking UTXO Data of the source address and gathering data about total lovelaces and total assets
 #
-	utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
-	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
+        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
+        if ${onlineMode}; then
+                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+                          else
+                                readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
+        fi
+ 	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
         #Convert UTXO into mary style if UTXO is shelley/allegra style
@@ -133,8 +141,13 @@ echo
         fi
 echo
 
-#Getting protocol parameters from the chain
-protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam})
+#Read ProtocolParameters
+if ${onlineMode}; then
+                        protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
+                  else
+                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
+                  fi
+checkError "$?"
 checkError "$?"
 minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
 
@@ -194,28 +207,59 @@ echo
 
 if ask "\e[33mDoes this look good for you? Continue ?" N; then
         echo
-        echo -ne "\e[0mSubmitting the transaction via the node..."
-        ${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
-	checkError "$?"
+        if ${onlineMode}; then  #onlinesubmit
+                                echo -ne "\e[0mSubmitting the transaction via the node..."
+                                ${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
+                                #No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
+                                if [[ $? -eq 0 ]]; then
+                                file_unlock ${poolFile}.pool.json
+                                newJSON=$(cat ${poolFile}.pool.json | jq ". += {regSubmitted: \"$(date -R)\"}")
+                                echo "${newJSON}" > ${poolFile}.pool.json
+                                file_lock ${poolFile}.pool.json
+                                echo -e "\e[32mDONE\n"
+                                else
+                                echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;
+                                fi
+                                echo
+                                echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
+                                cat ${poolFile}.pool.json
+                                echo
+				echo -e "\e[33mDon't de-register/delete your rewards staking account/address yet! You will receive the pool deposit fees on it!\n"
+				echo -e "\e[0m\n"
 
-	#No error, so lets update the pool JSON file with the date and file the deregistration
-	if [[ $? -eq 0 ]]; then
-        file_unlock ${poolFile}.pool.json
-        newJSON=$(cat ${poolFile}.pool.json | jq ". += {deregSubmitted: \"$(date)\"}")
-	echo "${newJSON}" > ${poolFile}.pool.json
-        file_lock ${poolFile}.pool.json
-	echo -e "\e[32mDONE\n"
-	else
-	echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;
-	fi
+                          else  #offlinestore
+                                txFileJSON=$(cat ${txFile} | jq .)
+                                offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
+                                                                        type: \"PoolRetirement\",
+                                                                        era: \"$(jq -r .protocol.era <<< ${offlineJSON})\",
+                                                                        fromAddr: \"${deregPayName}\",
+                                                                        sendFromAddr: \"${sendFromAddr}\",
+                                                                        toAddr: \"${deregPayName}\",
+                                                                        sendToAddr: \"${sendToAddr}\",
+                                                                        poolMetaTicker: \"${poolMetaTicker}\",
+                                                                        txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
+                                #Write the new offileFile content
+                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed pool retirement transaction for '${poolMetaTicker}', payment via '${deregPayName}'\" } ]" <<< ${offlineJSON})
+                                offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
+                                echo "${offlineJSON}" > ${offlineFile}
+                                #Readback the tx content and compare it to the current one
+                                readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
+                                if [[ "${txFileJSON}" == "${readback}" ]]; then
+                                                        file_unlock ${poolFile}.pool.json
+                                                        newJSON=$(cat ${poolFile}.pool.json | jq ". += {deregSubmitted: \"$(date -R) (only offline, no proof)\"}")
+                                                        echo "${newJSON}" > ${poolFile}.pool.json
+                                                        file_lock ${poolFile}.pool.json
+                                                        echo
+                                                        echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
+                                                        cat ${poolFile}.pool.json
+                                                        echo
+                                                        showOfflineFileInfo;
+                                                        echo -e "\e[33mTransaction txJSON has been stored in the '$(basename ${offlineFile})'.\nYou can now transfer it to your online machine for execution.\e[0m\n";
+                                                 else
+                                                        echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
+                                fi
+
+        fi
+
 fi
-
-echo
-echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
-cat ${poolFile}.pool.json
-echo
-
-echo -e "\e[33mDon't de-register/delete your rewards staking account/address yet! You will receive the pool deposit fees on it!\n"
-
-echo -e "\e[0m\n"
 

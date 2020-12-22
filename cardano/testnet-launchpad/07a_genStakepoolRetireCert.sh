@@ -52,10 +52,13 @@ if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[35mERROR - ${poolName}.nod
 echo -e "\e[0mCreate a Stakepool de-Registration (retire) certificate for PoolNode with \e[32m ${poolName}.node.vkey\e[0m:"
 echo
 
-
-
-#Getting protocol parameters from the blockchain, checking epochMax (eMax)
-protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam})
+#Read ProtocolParameters
+if ${onlineMode}; then
+                        protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
+                  else
+			readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
+                  fi
 checkError "$?"
 eMax=$(jq -r .eMax <<< ${protocolParametersJSON})
 
@@ -96,7 +99,7 @@ file_lock ${poolName}.pool.dereg-cert
 
 echo
 echo -e "\e[0mStakepool de-registration certificate:\e[32m ${poolName}.pool.dereg-cert \e[90m"
-cat ${poolName}.pool.dereg-cert 
+cat ${poolName}.pool.dereg-cert
 echo
 
 echo

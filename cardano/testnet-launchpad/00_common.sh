@@ -12,20 +12,39 @@ genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byro
 cardanocli="./cardano-cli"	#Path to your cardano-cli you wanna use
 cardanonode="./cardano-node"	#Path to your cardano-node you wanna use
 
-magicparam="--mainnet"	#choose "--mainnet" for mainnet or for example "--testnet-magic 1097911063" for a testnet, 12 for allegra
-addrformat="--mainnet" #choose "--mainnet" for mainnet address format or like "--testnet-magic 1097911063" for testnet address format, 12 for allegra
+magicparam="--mainnet"		#choose "--mainnet" for mainnet or for example "--testnet-magic 1097911063" for a testnet, 12 for allegra
+addrformat="--mainnet" 		#choose "--mainnet" for mainnet address format or like "--testnet-magic 1097911063" for testnet address format, 12 for allegra
 
-itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
+itn_jcli="./jcli" 		#only needed if you wanna include your itn witness for your pool-ticker
+
+
+#--------- NEW --- you can work in offline mode now too, please read the instructions on the github repo README :-)
+offlineMode="no" 		#change this to "yes" if you run theses scripts on a cold machine, it need a counterpart with set to "no" on a hot machine
+offlineFile="./offlineTransfer.json" #path to the filename (JSON) that will be used to transfer the data between a hot and a cold machine
+
 
 #--------- leave this next value until you have to change it for a testnet
 byronToShelleyEpochs=208 #208 for the mainnet, 74 for the testnet, 1 for allegra-testnet
 
+
 #--------- only for kes/opcert update and upload via scp -----
-remoteServerAddr="remoteserver address or ip"                       #RemoteServer ip or dns name
-remoteServerUser="remoteuser"                             #RemoteServer userlogin via ssh keys
-remoteServerSSHport="22"                                #RemoteServer SSH port number
-remoteServerDestDir="~/remoteuser/core-###NODENAME###/."           #Destination directory were to copy the files to
-remoteServerPostCommand="~/remoteuser/restartCore.sh"      #Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
+remoteServerAddr="remoteserver address or ip"                   #RemoteServer ip or dns name
+remoteServerUser="remoteuser"                             	#RemoteServer userlogin via ssh keys
+remoteServerSSHport="22"                                	#RemoteServer SSH port number
+remoteServerDestDir="~/remoteuser/core-###NODENAME###/."        #Destination directory were to copy the files to
+remoteServerPostCommand="~/remoteuser/restartCore.sh"      	#Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
+
+
+#--------- some other stuff -----
+showVersionInfo="yes"	#yes/no to show the version info and script mode on every script call
+
+
+
+
+
+
+
+
 
 
 ##############################################################################################################################
@@ -46,6 +65,11 @@ if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 export CARDANO_NODE_SOCKET_PATH=${socket}
 
+#Setting online/offline variables and offlineFile default value, versionInfo
+if [[ "${offlineMode^^}" == "YES" ]]; then offlineMode=true; onlineMode=false; else offlineMode=false; onlineMode=true; fi
+if [[ "${offlineFile}" == "" ]]; then offlineFile="./offlineTransfer.json"; fi
+if [[ "${showVersionInfo^^}" == "NO" ]]; then showVersionInfo=false; else showVersionInfo=true; fi
+
 #-------------------------------------------------------
 #DisplayMajorErrorMessage
 majorError() {
@@ -65,21 +89,28 @@ exists() {
 
 #Check cardano-cli
 if ! exists "${cardanocli}"; then majorError "Path ERROR - Path to cardano-cli is not correct or cardano-cli binaryfile is missing!"; exit 1; fi
-versionToCheck=$(${cardanocli} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
-versionCheck "${minNodeVersion}" "${versionToCheck}"
+versionCLI=$(${cardanocli} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
+versionCheck "${minNodeVersion}" "${versionCLI}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
-versionCheck "${versionToCheck}" "${maxNodeVersion}"
+versionCheck "${versionCLI}" "${maxNodeVersion}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version between ${minNodeVersion} and ${maxNodeVersion} !\nOther versions are not supported for compatibility issues, please check if newer scripts are available - thx."; exit 1; fi
-echo -ne "\n\e[0mVersion-Info: \e[32mcli ${versionToCheck}\e[0m / "
+if ${showVersionInfo}; then echo -ne "\n\e[0mVersion-Info: \e[32mcli ${versionCLI}\e[0m"; fi
 
-#Check cardano-node
-if ! exists "${cardanonode}"; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!"; exit 1; fi
-versionToCheck=$(${cardanonode} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
-versionCheck "${minNodeVersion}" "${versionToCheck}"
-if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
-versionCheck "${versionToCheck}" "${maxNodeVersion}"
-if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version between ${minNodeVersion} and ${maxNodeVersion} !\nOther versions are not supported for compatibility issues, please check if newer scripts are available - thx."; exit 1; fi
-echo -e "\e[32mnode ${versionToCheck}\e[0m\n"
+#Check cardano-node only in online mode
+if ${onlineMode}; then
+	if ! exists "${cardanonode}"; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!"; exit 1; fi
+	versionNODE=$(${cardanonode} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
+	versionCheck "${minNodeVersion}" "${versionNODE}"
+	if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+	versionCheck "${versionNODE}" "${maxNodeVersion}"
+	if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version between ${minNodeVersion} and ${maxNodeVersion} !\nOther versions are not supported for compatibility issues, please check if newer scripts are available - thx."; exit 1; fi
+	if ${showVersionInfo}; then echo -ne " / \e[32mnode ${versionNODE}\e[0m"; fi
+fi
+
+#Display current Mode (online or offline)
+if ${showVersionInfo}; then
+				if ${offlineMode}; then echo -e "\t\tScripts-Mode: \e[32moffline\e[0m\n"; else echo -e "\t\tScripts-Mode: \e[36monline\e[0m\n"; fi
+fi
 
 #Check path to genesis files
 if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file is wrong or the file is missing!"; exit 1; fi
@@ -118,8 +149,6 @@ tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 
 #Dummy Shelley Payment_Addr
 dummyShelleyAddr="addr1vyde3cg6cccdzxf4szzpswgz53p8m3r4hu76j3zw0tagyvgdy3s4p"
-
-
 
 #-------------------------------------------------------
 #AddressType check
@@ -221,10 +250,35 @@ echo ${timeUntilNextEpoch}
 
 
 #-------------------------------------------------------
-#Subroutines to calculate current slotHeight(tip)
+#Subroutines to calculate current slotHeight(tip) depending on online/offline mode
 get_currentTip()
 {
-local currentTip=$(${cardanocli} ${subCommand} query tip ${magicparam} | jq -r .slotNo)
+if ${onlineMode}; then
+			local currentTip=$(${cardanocli} ${subCommand} query tip ${magicparam} | jq -r .slotNo);
+		  else
+			#Static
+			local slotLength=$(cat ${genesisfile} | jq -r .slotLength)                    #In Secs
+			local epochLength=$(cat ${genesisfile} | jq -r .epochLength)                  #In Secs
+			local slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)      #Number
+			local startTimeByron=$(cat ${genesisfile_byron} | jq -r .startTime)           #In Secs(abs)
+			local startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)             #In Text
+			local startTimeSec=$(date --date=${startTimeGenesis} +%s)                     #In Secs(abs)
+			local transTimeEnd=$(( ${startTimeSec}+(${byronToShelleyEpochs}*${epochLength}) ))                    #In Secs(abs) End of the TransitionPhase
+			local byronSlots=$(( (${startTimeSec}-${startTimeByron}) / 20 ))              #NumSlots between ByronChainStart and ShelleyGenesisStart(TransitionStart)
+			local transSlots=$(( (${byronToShelleyEpochs}*${epochLength}) / 20 ))         #NumSlots in the TransitionPhase
+
+			#Dynamic
+			local currentTimeSec=$(date -u +%s)
+
+			#Calculate current slot
+			if [[ "${currentTimeSec}" -lt "${transTimeEnd}" ]];
+			        then #In Transistion Phase between ShelleyGenesisStart and TransitionEnd
+			        local currentTip=$(( ${byronSlots} + (${currentTimeSec}-${startTimeSec}) / 20 ))
+			        else #After Transition Phase
+			        local currentTip=$(( ${byronSlots} + ${transSlots} + ((${currentTimeSec}-${transTimeEnd}) / ${slotLength}) ))
+			fi
+
+		fi
 echo ${currentTip}
 }
 #-------------------------------------------------------
@@ -270,7 +324,7 @@ if [[ "$?" == 0 ]]; then echo "byron"; return 0; fi
 return 1
 }
 #Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
-tmpEra=$(get_NodeEra)
+if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
 if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 #-------------------------------------------------------
 
@@ -296,12 +350,136 @@ echo "${outJSON}"
 #-------------------------------------------------------
 #Calculate the minimum UTXO level that has to be sent depending on the assets and the minUTXO protocol-parameters
 get_minOutUTXO() {
-	#${1} = protocol-parameters.json content
+	#${1} = protocol-parameters(json format) content
 	#${2} = total number of different assets
 	#${3} = total number of different policyIDs
 
 local minUTXOvalue=$(jq -r .minUTxOValue <<< ${1})
 
 echo $(( ${minUTXOvalue} + (${2}*${minUTXOvalue}) ))	#poor calculation currently
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Show Informations about the content in the offlineJSON
+showOfflineFileInfo() {
+#Displays infos about the content in the offlineJSON
+echo -e "\e[0mChecking Content of the offlineFile: \e[32m$(basename ${offlineFile})\e[0m"
+echo
+
+if [[ $(jq ".protocol.parameters | length" <<< ${offlineJSON}) -gt 0 ]]; then echo -ne "\e[0mProtocol-Parameters:\e[32m present\e[0m\t"; else echo -ne "\e[0mProtocol-Parameters:\e[35m missing\e[0m\t"; fi
+
+if [[ ! "$(jq -r ".protocol.era" <<< ${offlineJSON})" == null ]]; then echo -e "\e[0m       Protocol-Era:\e[32m $(jq -r ".protocol.era" <<< ${offlineJSON})\e[0m"; else echo -e "\e[0m       Protocol-Era:\e[35m missing\e[0m"; fi
+
+local historyCnt=$(jq -r ".history | length" <<< ${offlineJSON})
+echo -e "\e[0m    History-Entries:\e[32m ${historyCnt}\e[0m";
+if [[ ${historyCnt} -gt 0 ]]; then echo -e "\e[0m        Last-Action:\e[32m $(jq -r ".history[-1].action" <<< ${offlineJSON}) \e[90m($(jq -r ".history[-1].date" <<< ${offlineJSON}))\e[0m"; fi
+
+if ${offlineMode}; then
+			echo -ne "\e[0m    Online Versions:"
+			local versionTmp=$(jq -r ".general.onlineCLI" <<< ${offlineJSON}); if [[ "${versionTmp}" == null ]]; then versionTmp="-.--.-"; fi; echo -ne "\e[32m cli ${versionTmp}\e[0m"
+			local versionTmp=$(jq -r ".general.onlineNODE" <<< ${offlineJSON}); if [[ "${versionTmp}" == null ]]; then versionTmp="-.--.-"; fi; echo -e " /\e[32m node ${versionTmp}\e[0m"
+		   else
+			echo -ne "\e[0m   Offline Versions:"
+			local versionTmp=$(jq -r ".general.offlineCLI" <<< ${offlineJSON}); if [[ "${versionTmp}" == null ]]; then versionTmp="-.--.-"; fi; echo -e "\e[32m cli ${versionTmp}\e[0m"
+fi
+echo
+local addressCnt=$(jq -r ".address | length" <<< ${offlineJSON})
+echo -e "\e[0m    Address-Entries:\e[32m ${addressCnt}\e[0m";
+for (( tmpCnt=0; tmpCnt<${addressCnt}; tmpCnt++ ))
+do
+  local addressKey=$(jq -r ".address | keys[${tmpCnt}]" <<< ${offlineJSON})
+  local addressName=$(jq -r ".address.\"${addressKey}\".name" <<< ${offlineJSON})
+  local addressAmount=$(jq -r ".address.\"${addressKey}\".totalamount" <<< ${offlineJSON})
+  local addressDate=$(jq -r ".address.\"${addressKey}\".date" <<< ${offlineJSON})
+  local addressUsedAsPayment=$(jq -r ".address.\"${addressKey}\".used" <<< ${offlineJSON})
+  local addressType=$(jq -r ".address.\"${addressKey}\".type" <<< ${offlineJSON})
+  if [[ ${addressUsedAsPayment} == "yes" ]]; then
+						addressUsed="used"; if [[ ${addressType} == ${addrTypePayment} ]]; then addressUsed="${addressUsed}, but can receive"; fi;
+					     else
+						addressUsed="";
+					     fi
+  echo -e "\n\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${addressName} \e[90m(${addressAmount} lovelaces, ${addressDate}) \e[35m${addressUsed}\e[0m\n\t   \t\e[90m${addressKey}\e[0m"
+done
+local filesCnt=$(jq -r ".files | length" <<< ${offlineJSON});
+echo
+echo -e "\e[0m     Files-Attached:\e[32m ${filesCnt}\e[0m"; if [[ ${filesCnt} -gt 0 ]]; then echo; fi
+for (( tmpCnt=0; tmpCnt<${filesCnt}; tmpCnt++ ))
+do
+  local filePath=$(jq -r ".files | keys[${tmpCnt}]" <<< ${offlineJSON})
+  local fileDate=$(jq -r ".files.\"${filePath}\".date" <<< ${offlineJSON})
+  local fileSize=$(jq -r ".files.\"${filePath}\".size" <<< ${offlineJSON})
+  echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${filePath} \e[90m(${fileSize} bytes, ${fileDate})\e[0m"
+done
+echo
+local transactionsCnt=$(jq -r ".transactions | length" <<< ${offlineJSON})
+echo -e "\e[0mTransactions in Cue:\e[32m ${transactionsCnt}\e[0m\n";
+for (( tmpCnt=0; tmpCnt<${transactionsCnt}; tmpCnt++ ))
+do
+  local transactionType=$(jq -r ".transactions[${tmpCnt}].type" <<< ${offlineJSON})
+  local transactionEra=$(jq -r ".transactions[${tmpCnt}].era" <<< ${offlineJSON})
+  local transactionDate=$(jq -r ".transactions[${tmpCnt}].date" <<< ${offlineJSON})
+  local transactionFromName=$(jq -r ".transactions[${tmpCnt}].fromAddr" <<< ${offlineJSON})
+  local transactionFromAddr=$(jq -r ".transactions[${tmpCnt}].sendFromAddr" <<< ${offlineJSON})
+  local transactionToName=$(jq -r ".transactions[${tmpCnt}].toAddr" <<< ${offlineJSON})
+  local transactionToAddr=$(jq -r ".transactions[${tmpCnt}].sendToAddr" <<< ${offlineJSON})
+
+  case ${transactionType} in
+	Transaction )
+			#Normal UTXO Transaction (lovelaces and/or tokens)
+			echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0mUTXO-Transaction[${transactionEra}] from '${transactionFromName}' to '${transactionToName}' \e[90m(${transactionDate})"
+			echo -e "\t   \t\e[90mfrom ${transactionFromAddr}\n\t   \t\e[90mto ${transactionToAddr}\e[0m"
+			;;
+
+        Withdrawal )
+                        #Rewards Withdrawal Transaction
+			local transactionStakeName=$(jq -r ".transactions[${tmpCnt}].stakeAddr" <<< ${offlineJSON})
+			local transactionStakeAddr=$(jq -r ".transactions[${tmpCnt}].stakingAddr" <<< ${offlineJSON})
+                        echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0mRewards-Withdrawal[${transactionEra}] from '${transactionStakeName}' to '${transactionToName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
+                        echo -e "\t   \t\e[90mfrom ${transactionStakeAddr}\n\t   \t\e[90mto ${transactionToAddr}\n\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
+                        ;;
+
+        StakeKeyRegistration|StakeKeyDeRegistration )
+                        #StakeKeyRegistration or Deregistration
+                        local transactionStakeName=$(jq -r ".transactions[${tmpCnt}].stakeAddr" <<< ${offlineJSON})
+                        echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${transactionType}[${transactionEra}] for '${transactionStakeName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
+                        echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
+                        ;;
+
+        DelegationCertRegistration )
+                        #Delegation Certificate Registration
+                        local transactionDelegName=$(jq -r ".transactions[${tmpCnt}].delegName" <<< ${offlineJSON})
+                        echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${transactionType}[${transactionEra}] for '${transactionDelegName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
+                        echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
+                        ;;
+
+        PoolRegistration|PoolReRegistration|PoolRetirement )
+                        #Delegation Certificate Registration
+                        local poolMetaTicker=$(jq -r ".transactions[${tmpCnt}].poolMetaTicker" <<< ${offlineJSON})
+                        echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${transactionType}[${transactionEra}] for Pool '${poolMetaTicker}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
+                        echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
+                        ;;
+
+
+	* )		#Unknown Transaction Type !?
+			echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[35mUnknown transaction type\e[0m" 
+			;;
+  esac
+
+echo
+done
+
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Read the current offlineFile into the offlineJSON variable
+readOfflineFile() {
+if [ -f "${offlineFile}" ]; then
+                                offlineJSON=$(jq . ${offlineFile} 2> /dev/null)
+                                if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - '$(basename ${offlineFile})' is not a valid JSON file, please generate a valid offlineJSON first in onlinemode.\e[0m\n"; exit 1; fi
+                                if [[ $(trimString "${offlineJSON}") == "" ]]; then echo -e "\e[35mERROR - '$(basename ${offlineFile})' is not a valid JSON file, please generate a valid offlineJSON first in onlinemode.\e[0m\n"; exit 1; fi #nothing in the file
+				if [[ ! $(jq ".protocol.parameters | length" <<< ${offlineJSON}) -gt 0 ]]; then echo -e "\e[35mERROR - '$(basename ${offlineFile})' contains no protocol parameters. Please generate a valid offlineJSON first in onlinemode.\e[0m\n"; exit 1; fi
+                            fi
 }
 #-------------------------------------------------------

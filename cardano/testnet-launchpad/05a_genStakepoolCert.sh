@@ -71,12 +71,18 @@ poolCost=$(readJSONparam "poolCost"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 
-#Check poolCost Setting
-#Getting protocol parameters from the chain
-protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam})
+#Read ProtocolParameters
+if ${onlineMode}; then
+                        protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
+                  else
+			readOfflineFile;
+                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
+                  fi
 checkError "$?"
+
+#Check poolCost Setting
 minPoolCost=$(jq -r .minPoolCost <<< ${protocolParametersJSON})
-#minPoolCost=340000000
+
 if [[ ${poolCost} -lt ${minPoolCost} ]]; then #If poolCost is set to low, than ask for an automatic change
                 echo
                 if ask "\e[33mYour poolCost (${poolCost} lovelaces) is lower than the minPoolCost (${minPoolCost} lovelaces). Do you wanna change it to that ?\e[0m" N; then
@@ -155,7 +161,7 @@ poolMetaTickerOrig=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then e
         fi
 
 poolMetaHomepage=$(readJSONparam "poolMetaHomepage"); if [[ ! $? == 0 ]]; then exit 1; fi
-if [[ ! "${poolMetaHomepage}" =~ https?://.* || ${#poolMetaHomepage} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaHomepage entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaHomepage entry in your ${poolFile}.pool.json, thx."; exit 1; fi; checkResult=$(curl -s "https://my-ip.at/checkticker?ticker=${poolMetaTicker}&key=${regKeyHash}"); if [[ ! "${checkResult}" == "OK" ]]; then echo -e "\n\e[35mERROR - This Stakepool-Ticker '${poolMetaTicker}' is protected, your need the right registration-protection-key to interact with this Ticker!\nIf you wanna protect your Ticker too, please reach out to @atada_stakepool on Telegram for help, Thx !\e[0m\n\n"; exit 1; fi;
+if [[ ! "${poolMetaHomepage}" =~ https?://.* || ${#poolMetaHomepage} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaHomepage entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaHomepage entry in your ${poolFile}.pool.json, thx."; exit 1; fi;
 
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
 if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaUrl entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
@@ -339,29 +345,7 @@ echo -e "\e[0m            Cost:\e[32m ${poolCost} \e[90mlovelaces"
 echo -e "\e[0m          Margin:\e[32m ${poolMargin} \e[0m"
 echo
 
-#Usage: cardano-cli shelley stake-pool registration-certificate --cold-verification-key-file FILE
-#                                                              --vrf-verification-key-file FILE
-#                                                               --pool-pledge LOVELACE
-#                                                               --pool-cost LOVELACE
-#                                                               --pool-margin DOUBLE
-#                                                               --pool-reward-account-verification-key-file FILE
-#                                                               --pool-owner-stake-verification-key-file FILE
-#                                                               [--pool-relay-port INT
-#                                                                 [--pool-relay-ipv4 STRING]
-#                                                                 [--pool-relay-ipv6 STRING] |
-#
-#                                                                 [--pool-relay-port INT]
-#                                                                 --single-host-pool-relay STRING |
-#
-#                                                                 --multi-host-pool-relay STRING]
-#                                                               [--metadata-url URL
-#                                                                 --metadata-hash HASH]
-#                                                               (--mainnet |
-#                                                                 --testnet-magic NATURAL)
-#                                                               --out-file FILE
 #  Create a stake pool registration certificate
-
-
 
 file_unlock ${poolName}.pool.cert
 ${cardanocli} ${subCommand} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
@@ -376,6 +360,14 @@ if [[ $? -eq 0 ]]; then
 fi
 
 file_lock ${poolName}.pool.cert
+
+#If there was a regKeyHash (regProtectionKey) present, update it in the pool json so it can be used in 05c and also offline
+if [[ ! "${regKeyHash}" == "" ]]; then
+	file_unlock ${poolFile}.pool.json
+	newJSON=$(cat ${poolFile}.pool.json | jq ". += {regProtectionKey: \"${regKeyHash}\"}" )
+        echo "${newJSON}" > ${poolFile}.pool.json
+        file_lock ${poolFile}.pool.json
+fi
 
 echo
 echo -e "\e[0mStakepool registration certificate:\e[32m ${poolName}.pool.cert \e[90m"
