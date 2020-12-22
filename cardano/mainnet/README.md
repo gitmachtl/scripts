@@ -687,7 +687,7 @@ The examples in here are for using the scripts in Offine-Mode. Please get yourse
 
 * **Step 3 : On the Online-Machine**
   **Execute the offline signed transactions** and/or extract files from the offlineTransfer.json like your updated pool.metadata.json file for example with **./01_workOffline.sh**<br>
-  Your done, if you wanna continue to do some work: Gather again the latest balance informations from the address you wanna work with and send the offlineTransfer.json back to your Offline-Machine. And so on...<br>
+  You're done, if you wanna continue to do some work: Gather again the latest balance informations from the address you wanna work with and send the offlineTransfer.json back to your Offline-Machine. And so on...<br>
   The offlineTransfer.json is your little carry bag for your balance/rewards information, transactions and files. :-)
 
 **Config-Settings on the Online- / Offline-Machine:**
