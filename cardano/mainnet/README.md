@@ -357,6 +357,8 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax).<br>
 Working in [Offline-Mode](#examples-in-offline-mode) introduces another step before and ofter each example, so you should understand the Online-Mode first.
 
+:bulb: Make sure you're 00_common.sh is having the correct setup for your system!
+
 ## Generating a normal address, register a stake address, register a stake pool
 
 Lets say we wanna make ourself a normal address to send/receive ada, we want this to be nicknamed mywallet.
@@ -672,6 +674,8 @@ Thats it. :-)
 
 The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax). Working offline is like working online. :smiley:<br>
 
+:bulb: Make sure you're 00_common.sh is having the correct setup for your system!
+
 **Understand the workflow in Offline-Mode:**
 
 * **Step 1 : On the Online-Machine**
@@ -726,6 +730,82 @@ Ok, now fund those three small wallets via daedalus for example. Of course you c
 You can of course use your already made and funded wallets for the following examples, we just need a starting point here.
 
 </details>
+
+## Generate a pool owner address, register a stake pool
+
+We want to make a pool owner stake address the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker! We use the smallwallet1&2 to pay for the different fees in this process. Make sure you have enough funds on smallwallet1 & smallwallet2 for this registration.
+
+<details>
+   <Summary>Show Example...<br></summary>
+
+<br>**Online-Machine:**
+
+1. Add/Update the current UTXO balance for smallwallet1 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet1``` (smallwallet1 will pay for the stake-address registration, 2 ADA + fees)
+1. Add/Update the current UTXO balance for smallwallet2 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet2``` (smallwallet2 will pay for the pool registration, 500 ADA + fees)
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner```
+1. Attach the newly created payment and staking address into your offlineTransfer.json for later usage on the Online-Machine<br>```./01_workOffline.sh attach owner.payment.addr```<br>```./01_workOffline.sh attach owner.staking.addr```
+1. Generate the the owner stakeaddress registration transaction and pay the fees with smallwallet1<br>```./03b_regStakingAddrCert.sh owner.staking smallwallet1```
+1. Generate the keys for your coreNode
+   1. ```./04a_genNodeKeys.sh mypool```
+   1. ```./04b_genVRFKeys.sh mypool```
+   1. ```./04c_genKESKeys.sh mypool```
+   1. ```./04d_genNodeOpCert.sh mypool```
+1. Now you have all the key files to start your coreNode with them
+1. Generate your stakepool certificate
+   1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it
+   1. We want 200k ADA pledge, 10k ADA costs per epoch and 4% pool margin so let us set these and the Metadata values in the json file like
+   ```console
+   {
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "owner"
+         }
+      ],
+      "poolRewards": "owner",
+      "poolPledge": "200000000000",
+      "poolCost": "10000000000",
+      "poolMargin": "0.04"
+      "poolRelays": [
+         {
+         "relayType": "dns",
+         "relayEntry": "relay.mypool.com",
+         "relayPort": "3001"
+         }
+      ],
+      "poolMetaName": "This is my Pool",
+      "poolMetaDescription": "This is the description of my Pool!",
+      "poolMetaTicker": "POOL",
+      "poolMetaHomepage": "https://mypool.com",
+      "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+      "poolExtendedMetaUrl": "",
+      "---": "--- DO NOT EDIT BELOW THIS LINE ---"
+   }
+   ```
+   
+1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file.<br>:bulb: If you wanna protect your TICKER a little more against others, contact me and you will get a unique TickerProtectionKey for your Ticker! If you already have one, run ```./05a_genStakepoolCert.sh <PoolNodeName> <your registration protection key>```<br>
+1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
+1. Generate the stakepool registration transaction and pay the fees with smallwallet2<br>```./05c_regStakepoolCert.sh mypool smallwallet2```<br>Let the script also autoinclude your new mypool.metadata.json file into the transferOffline.json    
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Extract all the attached files (mypool.metadata.json, owner.payment.addr, owner.staking.addr) from the transferOffline.json<br>```./01_workOffline.sh extract```
+1. Now would be the time to upload the mypool.metadata.json file to your webserver.
+1. We submit the first cued transaction (stakekey registration) to the blockchain by running<br>```./01_workOffline.sh execute```
+1. And now we submit the second cued transaction (stakepool registration) to the blockchain by running<br>```./01_workOffline.sh execute``` again
+
+You can check the balance of your owner.payment and the rewards of owner.staking with the ```./01_queryAddress.sh``` script. Make sure to transfer enough ADA to your owner.payment account so you respect the registered pledge amount.
+
+Done.
+</details>
+
 
 ## Update stakepool parameters on the blockchain
 
