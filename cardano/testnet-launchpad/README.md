@@ -23,8 +23,23 @@ If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley
 
 
 * **00_common.sh:** main config file (!) set your variables in there for your config, will be used by the scripts.<br>
-  You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
+  
+  **Overwritting the default settings:** You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
   :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
+
+* **01_workOffline.sh:** this is the script you're doing your online<->offline work with
+<br>```./01_workOffline.sh <command> [additional data]``` 
+<br>```./01_workOffline.sh add mywallet``` Adds the UTXO info of mywallet.addr to the offlineTransfer.json (OnlineMode only)
+<br>```./01_workOffline.sh add owner.staking``` Adds the Rewards info of owner.staking to the offlineTransfer.json (OnlineMode only)<br>
+<br>```./01_workOffline.sh execute``` Executes the first cued transaction in the offlineTransfer.json (OnlineMode only)
+<br>```./01_workOffline.sh execute 3``` Executes the third cued transaction in the offlineTransfer.json (OnlineMode only)<br>
+<br>```./01_workOffline.sh attach <filename>``` This will attach a small file (filename) into the offlineTransfer.json
+<br>```./01_workOffline.sh extract``` Extract the attached files in the offlineTransfer.json<br>
+<br>```./01_workOffline.sh cleartx``` Removes the cued transactions in the offlineTransfer.json
+<br>```./01_workOffline.sh clearhistory``` Removes the history in the offlineTransfer.json
+<br>```./01_workOffline.sh clearfiles``` Removes the attached files in the offlineTransfer.json<br>
+<br>```./01_workOffline.sh new``` Resets the offlineTransfer.json with only the current protocol-parameters in it (OnlineMode only)
+<br>```./01_workOffline.sh info``` Displayes the Address and TX info in the offlineTransfer.json
 
 * **01_queryAddress.sh:** checks the amount of lovelaces and tokens on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
 <br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
@@ -55,20 +70,6 @@ If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley
 <br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName>```
 <br>```./01_sendLovelaces.sh addr1 myvote``` to just send the myvote.json votingfile from funds on addr1.addr
 <br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process)
-
-* **01_workOffline.sh:** this is the script you're doing your online<->offline work with
-<br>```./01_workOffline.sh add mywallet``` Adds the UTXO info of mywallet.addr to the offlineTransfer.json (OnlineMode only)
-<br>```./01_workOffline.sh add owner.staking``` Adds the Rewards info of owner.staking to the offlineTransfer.json (OnlineMode only)<br>
-<br>```./01_workOffline.sh execute``` Executes the first cued transaction in the offlineTransfer.json (OnlineMode only)
-<br>```./01_workOffline.sh execute 3``` Executes the third cued transaction in the offlineTransfer.json (OnlineMode only)<br>
-<br>```./01_workOffline.sh attach <filename>``` This will attach a small file (filename) into the offlineTransfer.json
-<br>```./01_workOffline.sh extract``` Extract the attached files in the offlineTransfer.json<br>
-<br>```./01_workOffline.sh cleartx``` Removes the cued transactions in the offlineTransfer.json
-<br>```./01_workOffline.sh clearhistory``` Removes the history in the offlineTransfer.json
-<br>```./01_workOffline.sh clearfiles``` Removes the attached files in the offlineTransfer.json<br>
-<br>```./01_workOffline.sh new``` Resets the offlineTransfer.json with only the current protocol-parameters in it (OnlineMode only)
-<br>```./01_workOffline.sh info``` Displayes the Address and TX info in the offlineTransfer.json
-
 
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
 <br>```./02_genPaymentAddrOnly.sh <name>```
@@ -314,50 +315,6 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 </details>
 
-### Overwrite the setting-variables in the 00_common.sh dynamically
-
-You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory like ```~/.common.inc```. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. 
-
-
-## ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
-
-<details>
-   <summary>Explore how to use your ITN Ticker as Proof and also how to use extended-metadata.json</summary>
-   
-There is now an implementation of the extended-metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
-<br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
-<br>```<poolname>.itn.vkey``` this textfile should hold your ITN public/verification key
-<br>also you would need to add an additional URL **poolExtendedMetaUrl** for the next extended metadata json file on your webserver to your ```<poolname>.pool.json``` file like:
-```console
-   .
-   .
-   .
-   "poolMetaHomepage": "https://mypool.com",
-   "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
-   "poolExtendedMetaUrl": "https://mypool.com/mypool.extended-metadata.json",
-   "---": "--- DO NOT EDIT BELOW THIS LINE ---"
-  }
-``` 
-When you now generate your pool certificate, not only your ```<poolname>.metadata.json``` will be created as always, but also the ```<poolname>.extended-metadata.json``` that is holding your ITN witness to proof your Ticker ownership from the ITN. Upload BOTH to your webserver! :-)
-
-Additional Feature: If you wanna also include the extended-metadata format Adapools is currently using you can do so by providing additional metadata information in the file ```<poolname>.additional-metadata.json``` !<br>
-You can find an example of the Adapools format [here](https://a.adapools.org/extended-example).<br>
-So if you hold a file ```<poolname>.additional-metadata.json``` with additional data in the same folder, script 05a will also integrate this information into the ```<poolname>.extended-metadata.json``` :-)<br>
-:bulb: This is only a test and not an official usage of the extended-metadata data for now.
-
-</details>
-
-## How to do a voting for SPOCRA in a simple process
-
-<details>
-   <summary>Explore how to vote for SPOCRA</summary>
-   
-We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
-After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
-Thats it. :-)
-
-</details>
-
 # Examples
 
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
@@ -594,5 +551,43 @@ If you wanna retire the staking address owner, you have to do just a few things
    ```./03c_checkStakingAddrOnChain.sh owner```<br>If it doesn't go away directly, wait a little and retry this script.
  
 Done.
+
+## ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
+
+<details>
+   <summary>Explore how to use your ITN Ticker as Proof and also how to use extended-metadata.json</summary>
+   
+There is now an implementation of the extended-metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
+<br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
+<br>```<poolname>.itn.vkey``` this textfile should hold your ITN public/verification key
+<br>also you would need to add an additional URL **poolExtendedMetaUrl** for the next extended metadata json file on your webserver to your ```<poolname>.pool.json``` file like:
+```console
+   .
+   .
+   .
+   "poolMetaHomepage": "https://mypool.com",
+   "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+   "poolExtendedMetaUrl": "https://mypool.com/mypool.extended-metadata.json",
+   "---": "--- DO NOT EDIT BELOW THIS LINE ---"
+  }
+``` 
+When you now generate your pool certificate, not only your ```<poolname>.metadata.json``` will be created as always, but also the ```<poolname>.extended-metadata.json``` that is holding your ITN witness to proof your Ticker ownership from the ITN. Upload BOTH to your webserver! :-)
+
+Additional Feature: If you wanna also include the extended-metadata format Adapools is currently using you can do so by providing additional metadata information in the file ```<poolname>.additional-metadata.json``` !<br>
+You can find an example of the Adapools format [here](https://a.adapools.org/extended-example).<br>
+So if you hold a file ```<poolname>.additional-metadata.json``` with additional data in the same folder, script 05a will also integrate this information into the ```<poolname>.extended-metadata.json``` :-)<br>
+
+</details>
+
+## How to do a voting for SPOCRA in a simple process
+
+<details>
+   <summary>Explore how to vote for SPOCRA</summary>
+   
+We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
+After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
+Thats it. :-)
+
+</details>
 
 
