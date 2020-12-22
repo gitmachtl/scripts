@@ -13,6 +13,9 @@
 #Check the commandline parameter
 if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <AdressName or HASH>"; exit 2; fi
 
+#Check can only be done in online mode
+if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; fi
+
 #Check if Address file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "$1.staking.addr" ]; then echo "$1" > ${tempDir}/tempAddr.staking.addr; addrName="${tempDir}/tempAddr"; fi
 

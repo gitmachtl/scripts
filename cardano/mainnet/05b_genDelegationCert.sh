@@ -33,7 +33,7 @@ checkError "$?"
 file_lock ${delegateStakeAddr}.deleg.cert
 
 echo -e "\e[0mDelegation registration certificate:\e[32m ${delegateStakeAddr}.deleg.cert \e[90m"
-cat ${delegateStakeAddr}.deleg.cert 
+cat ${delegateStakeAddr}.deleg.cert
 echo
 echo -e "\e[0mCreated a delegation certificate which delegates funds from all stake addresses\nassociated with key \e[32m${delegateStakeAddr}.staking.vkey\e[0m to the pool associated with \e[32m${toPoolNodeName}.node.vkey\e[0m"
 echo

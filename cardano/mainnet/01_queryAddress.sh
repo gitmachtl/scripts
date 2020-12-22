@@ -29,27 +29,78 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"
 	echo
 
-	#Get UTX0 Data for the address
-	utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+	#Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
+	if ${onlineMode}; then
+				utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+			  else
+                                readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+                                utxoJSON=$(jq -r ".address.\"${checkAddr}\".utxoJSON" <<< ${offlineJSON})
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
+	fi
 	utxoEntryCnt=$(jq length <<< ${utxoJSON})
 	if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
 	echo
 
-	#Calculating the total amount of lovelaces in all utxos on this address
-	totalLovelaces=$(jq '[.[].amount] | add' <<< ${utxoJSON})
+	#Convert UTXO into mary style if UTXO is shelley/allegra style
+	if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
 
+	#Calculating the total amount of lovelaces in all utxos on this address
+	totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
+
+	totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
+	totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
+
+	#For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
+	#LEVEL 1 - different UTXOs
 	for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
 	do
 	utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
-	#utxoAmount=$(jq -r "[.[].amount] | .[${tmpCnt}]" <<< ${utxoJSON}) #Alternative
-	#utxoAmount=$(jq -r "[.[]][${tmpCnt}].amount" <<< ${utxoJSON}) #Alternative
-	utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount" <<< ${utxoJSON})
+	utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
 	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
+	assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
+	assetsEntryCnt=$(jq length <<< ${assetsJSON})
+	if [[ ${assetsEntryCnt} -gt 0 ]]; then
+			#LEVEL 2 - different policyIDs
+			for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
+		        do
+		        assetHash=$(jq -r ".[${tmpCnt2}][0]" <<< ${assetsJSON})  #assetHash = policyID
+			assetsNameCnt=$(jq ".[${tmpCnt2}][1] | length" <<< ${assetsJSON})
+			totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
+
+				#LEVEL 3 - different names under the same policyID
+				for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
+	                        do
+                        	assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
+                        	assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
+				oldValue=$(jq -r ".\"${assetHash}.${assetName}\".amount" <<< ${totalAssetsJSON})
+				newValue=$((${oldValue}+${assetAmount}))
+				totalAssetsJSON=$( jq ". += {\"${assetHash}.${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+        	                echo -e "\e[90m               PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
+				done
+			done
+
+	fi
 	done
 	echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
 	totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
-	echo -e "Total balance on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m"
+	echo -e "Total ADA on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m\n"
+
+	totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
+
+	totalAssetsCnt=$(jq length <<< ${totalAssetsJSON});
+	if [[ ${totalAssetsCnt} -gt 0 ]]; then
+			echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
+			printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
+                        for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
+                        do
+			assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
+                        assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
+			assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
+			printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
+			done
+        fi
 	echo
+
 
 elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
@@ -59,7 +110,13 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
         echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"
         echo
 
-        rewardsJSON=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -rc .)
+        #Get rewards state data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
+        if ${onlineMode}; then
+				rewardsJSON=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -rc .)
+                          else
+                                rewardsJSON=$(cat ${offlineFile} | jq -r ".address.\"${checkAddr}\".rewardsJSON" 2> /dev/null)
+                                if [[ "${rewardsJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
+        fi
         checkError "$?"
 
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
