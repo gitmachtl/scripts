@@ -15,120 +15,6 @@ Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter -
 If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley Ada Address, thx! :-)
 ```addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql```
 
-### Filenames used and autolock for security
-
-<details>
-   <summary>Checkout all naming schemes... </summary>
-   
-I use the following naming scheme for the files:<br>
-``` 
-Simple "enterprise" address to only receive/send funds (no staking possible with these type of addresses):
-name.addr, name.vkey, name.skey
-
-Payment(Base)/Staking address combo:
-name.payment.addr, name.payment.skey/vkey, name.deleg.cert
-name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
-
-Node/Pool files:
-poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json, poolname.metadata.json
-poolname.vrf.skey/vkey, poolname.pool.id, poolname.pool.id-bech
-poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
-poolname.kes.counter, poolname.kes-expire.json
-
-ITN witness files:
-poolname.itn.skey/vkey
-```
-
-New in Mary-Era:<br>
-```
-Policy files:
-policyname.policy.skey/vkey, policyname.policy.script, policyname.policy.id
-
-(Multi)Assets:
-policyname.tokenname.asset
-```
-
-The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
-If you have an address and you wanna use it just do a simple:
-```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
-
-#### File autolock
-
-For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
-```
-chmod 600 poolname.pool.json
-nano poolname.pool.json
-chmod 400 poolname.pool.json
-```
-
-
-</details>
-
-### Directory Structure
-
-<details>
-   <summary>Checkout how to use the scripts with directories... </summary>
-
-There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax) below.<p>However, if you wanna use directories there is a way: 
-* **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
-1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
-1. Make a directory whereever you like
-1. Call the scripts from within this directory, all files will be generated/used in this directory<p>
-* **Method-2:** Using subdirectories from a base directory:
-1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
-1. Make a directory that is your BASE directory like /home/user/cardano
-1. Go into this directory ```cd /home/user/cardano``` and make other subdirectories like ```mkdir mywallets``` and ```mkdir mypools```
-1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
-   <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
-   <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
-   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them.<br>
-   :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
-
-</details>
-
-### Overwrite the setting-variables in the 00_common.sh dynamically
-
-You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory like ```~/.common.inc```. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. 
-
-
-## ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
-
-<details>
-   <summary>Explore how to use your ITN Ticker as Proof and also how to use extended-metadata.json</summary>
-   
-There is now an implementation of the extended-metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
-<br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
-<br>```<poolname>.itn.vkey``` this textfile should hold your ITN public/verification key
-<br>also you would need to add an additional URL **poolExtendedMetaUrl** for the next extended metadata json file on your webserver to your ```<poolname>.pool.json``` file like:
-```console
-   .
-   .
-   .
-   "poolMetaHomepage": "https://mypool.com",
-   "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
-   "poolExtendedMetaUrl": "https://mypool.com/mypool.extended-metadata.json",
-   "---": "--- DO NOT EDIT BELOW THIS LINE ---"
-  }
-``` 
-When you now generate your pool certificate, not only your ```<poolname>.metadata.json``` will be created as always, but also the ```<poolname>.extended-metadata.json``` that is holding your ITN witness to proof your Ticker ownership from the ITN. Upload BOTH to your webserver! :-)
-
-Additional Feature: If you wanna also include the extended-metadata format Adapools is currently using you can do so by providing additional metadata information in the file ```<poolname>.additional-metadata.json``` !<br>
-You can find an example of the Adapools format [here](https://a.adapools.org/extended-example).<br>
-So if you hold a file ```<poolname>.additional-metadata.json``` with additional data in the same folder, script 05a will also integrate this information into the ```<poolname>.extended-metadata.json``` :-)<br>
-:bulb: This is only a test and not an official usage of the extended-metadata data for now.
-
-</details>
-
-## How to do a voting for SPOCRA in a simple process
-
-<details>
-   <summary>Explore how to vote for SPOCRA</summary>
-   
-We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
-After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
-Thats it. :-)
-
-</details>
 
 ## Scriptfiles Syntax
 
@@ -140,7 +26,7 @@ Thats it. :-)
   You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
   :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
-* **01_queryAddress.sh:** checks the amount of lovelaces on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
+* **01_queryAddress.sh:** checks the amount of lovelaces and tokens on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
 <br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
 <br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
@@ -354,6 +240,122 @@ The json file could end up like this one after the pool was registered and also 
   "deregSubmitted": "Di Jun  2 17:14:38 CEST 2020"
 }
 ```
+</details>
+
+
+### Filenames used and autolock for security
+
+<details>
+   <summary>Checkout all naming schemes... </summary>
+   
+I use the following naming scheme for the files:<br>
+``` 
+Simple "enterprise" address to only receive/send funds (no staking possible with these type of addresses):
+name.addr, name.vkey, name.skey
+
+Payment(Base)/Staking address combo:
+name.payment.addr, name.payment.skey/vkey, name.deleg.cert
+name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
+
+Node/Pool files:
+poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json, poolname.metadata.json
+poolname.vrf.skey/vkey, poolname.pool.id, poolname.pool.id-bech
+poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
+poolname.kes.counter, poolname.kes-expire.json
+
+ITN witness files:
+poolname.itn.skey/vkey
+```
+
+New in Mary-Era:<br>
+```
+Policy files:
+policyname.policy.skey/vkey, policyname.policy.script, policyname.policy.id
+
+(Multi)Assets:
+policyname.tokenname.asset
+```
+
+The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
+If you have an address and you wanna use it just do a simple:
+```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
+
+#### File autolock
+
+For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
+```
+chmod 600 poolname.pool.json
+nano poolname.pool.json
+chmod 400 poolname.pool.json
+```
+
+
+</details>
+
+### Directory Structure
+
+<details>
+   <summary>Checkout how to use the scripts with directories... </summary>
+
+There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax) below.<p>However, if you wanna use directories there is a way: 
+* **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
+1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
+1. Make a directory whereever you like
+1. Call the scripts from within this directory, all files will be generated/used in this directory<p>
+* **Method-2:** Using subdirectories from a base directory:
+1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
+1. Make a directory that is your BASE directory like /home/user/cardano
+1. Go into this directory ```cd /home/user/cardano``` and make other subdirectories like ```mkdir mywallets``` and ```mkdir mypools```
+1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
+   <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
+   <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
+   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them.<br>
+   :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
+
+</details>
+
+### Overwrite the setting-variables in the 00_common.sh dynamically
+
+You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory like ```~/.common.inc```. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. 
+
+
+## ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
+
+<details>
+   <summary>Explore how to use your ITN Ticker as Proof and also how to use extended-metadata.json</summary>
+   
+There is now an implementation of the extended-metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
+<br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
+<br>```<poolname>.itn.vkey``` this textfile should hold your ITN public/verification key
+<br>also you would need to add an additional URL **poolExtendedMetaUrl** for the next extended metadata json file on your webserver to your ```<poolname>.pool.json``` file like:
+```console
+   .
+   .
+   .
+   "poolMetaHomepage": "https://mypool.com",
+   "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+   "poolExtendedMetaUrl": "https://mypool.com/mypool.extended-metadata.json",
+   "---": "--- DO NOT EDIT BELOW THIS LINE ---"
+  }
+``` 
+When you now generate your pool certificate, not only your ```<poolname>.metadata.json``` will be created as always, but also the ```<poolname>.extended-metadata.json``` that is holding your ITN witness to proof your Ticker ownership from the ITN. Upload BOTH to your webserver! :-)
+
+Additional Feature: If you wanna also include the extended-metadata format Adapools is currently using you can do so by providing additional metadata information in the file ```<poolname>.additional-metadata.json``` !<br>
+You can find an example of the Adapools format [here](https://a.adapools.org/extended-example).<br>
+So if you hold a file ```<poolname>.additional-metadata.json``` with additional data in the same folder, script 05a will also integrate this information into the ```<poolname>.extended-metadata.json``` :-)<br>
+:bulb: This is only a test and not an official usage of the extended-metadata data for now.
+
+</details>
+
+## How to do a voting for SPOCRA in a simple process
+
+<details>
+   <summary>Explore how to vote for SPOCRA</summary>
+   
+We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
+After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
+Thats it. :-)
+
 </details>
 
 # Examples
