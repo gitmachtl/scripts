@@ -18,9 +18,14 @@ If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley
 
 # Online-Mode vs. Offline-Mode
 
-The scripts are capable to be used in Online- and Offline-Mode. It depends on your setup, your needs and just how you wanna work. Doing transactions with pledge accounts in Online-Mode can be a security risk, also doing Stakepool-Registrations in pure Online-Mode can be risky. To enhance Security the scripts can be used on a Online-Machine and an Offline-Machine. You only have to **transfer one single file (offlineTransfer.json)** between the Machines. If you wanna use the Offline-Mode, your **Gateway-Script** to get Data In/Out of the offlineTransfer.json is the **01_workOffline.sh** Script.<br>
-Why not always Offline-Mode? You have to do transactions online, you have to check balances online. Also, there are plenty of usecases using small wallets without the need of the additional steps to do all offline everytime. Also if you're testing some things on Testnets, it would be a pain to always transfer files between the Hot- and the Cold-Machine. You choose how you wanna work... :-)
+The scripts are capable to be used in Online- and Offline-Mode. It depends on your setup, your needs and just how you wanna work. Doing transactions with pledge accounts in Online-Mode can be a security risk, also doing Stakepool-Registrations in pure Online-Mode can be risky. To enhance Security the scripts can be used on a Online-Machine and an Offline-Machine. You only have to **transfer one single file (offlineTransfer.json)** between the Machines. If you wanna use the Offline-Mode, your **Gateway-Script** to get Data In/Out of the offlineTransfer.json is the **01_workOffline.sh** Script. The **offlineTransfer.json** is your carry bag between the Machines.<br>
 
+Why not always Offline-Mode? You have to do transactions online, you have to check balances online. Also, there are plenty of usecases using small wallets without the need of the additional steps to do all offline everytime. Also if you're testing some things on Testnets, it would be a pain to always transfer files between the Hot- and the Cold-Machine. You choose how you wanna work... :-)<br>
+
+**How do you switch between Online- and Offline-Mode?**<br>
+Thats simple, you just change a single entry in the 00_common.sh, common.inc or $HOME/.common.inc config-file:
+<br>```offlineMode="no"``` Scripts are working in Online-Mode
+<br>```offlineMode="yes"``` Scripts are working in Offline-Mode
 
 # Scriptfiles Syntax
 
