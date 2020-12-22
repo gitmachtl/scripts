@@ -58,7 +58,7 @@ You should keep your directory structure the same on both Machines.
   **Overwritting the default settings:** You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
   :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
-* **01_workOffline.sh:** this is the script you're doing your online<->offline work with
+* **01_workOffline.sh:** this is the script you're doing your **Online**->**Offline**->**Online**->**Offline** work with
 <br>```./01_workOffline.sh <command> [additional data]``` 
 <br>```./01_workOffline.sh add mywallet``` Adds the UTXO info of mywallet.addr to the offlineTransfer.json (OnlineMode only)
 <br>```./01_workOffline.sh add owner.staking``` Adds the Rewards info of owner.staking to the offlineTransfer.json (OnlineMode only)<br>
@@ -71,6 +71,8 @@ You should keep your directory structure the same on both Machines.
 <br>```./01_workOffline.sh clearfiles``` Removes the attached files in the offlineTransfer.json<br>
 <br>```./01_workOffline.sh new``` Resets the offlineTransfer.json with only the current protocol-parameters in it (OnlineMode only)
 <br>```./01_workOffline.sh info``` Displayes the Address and TX info in the offlineTransfer.json
+
+The scripts uses per default (configurable) the file **offlineTransfer.json** to store the data in between the Machines.
 
 * **01_queryAddress.sh:** checks the amount of lovelaces and tokens on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
 <br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
