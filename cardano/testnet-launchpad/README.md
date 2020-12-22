@@ -36,7 +36,7 @@ So on the Online-Machine you set the ```offlineMode="no"``` and on the Offline-M
 <details>
    <summary>What do you need on the Online- and the Offline-Machine?</summary>
    
-<br>On the Online-Machine you need a running and fully synced cardano-node, the cardano-cli and also your ```*.addr``` files to query the current balance of them for the Offline-Machine. **You should not have any secure keys ```*.skey``` files laying around!** Metadata-Files are fine, you need them anyway to transfer them to your Stakepool-Webserver, also they are public available, no security issue.
+<br>On the Online-Machine you need a running and fully synced cardano-node, the cardano-cli and also your ```*.addr``` files to query the current balance of them for the Offline-Machine. **You should not have any secure keys ```*.skey``` files of big wallets laying around!** Metadata-Files are fine, you need them anyway to transfer them to your Stakepool-Webserver, also they are public available, no security issue.
 
 On the Offline-Machine you have your secret keys, thats the ```*.skey``` files, also you have your kes-keys, vrf-keys, opcerts, etc. on this Machine.
 Also you need the cardano-cli on the Offline-Machine, same version as on the Online-Machine. You don't need the cardano-node, because you will never be online with that Machine!
