@@ -35,6 +35,8 @@ Thats simple, you just change a single entry in the 00_common.sh, common.inc or 
    
 On the Online-Machine you need a running cardano-node, the cardano-cli and also your ```*.addr``` files so you can query the current balance of them for the Offline-Machine. **You should not have any ```*.skey or *.vkey``` files laying around.** Metadata-Files are fine, you need them anyway to transfer them to your Stakepool-Webserver, also they are public available, no security issue.
 
+</details>
+
 # Scriptfiles Syntax
 
 <details>
