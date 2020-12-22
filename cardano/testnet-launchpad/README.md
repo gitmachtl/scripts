@@ -136,7 +136,7 @@ Thats it. :-)
    <summary>Show the full Syntax details for each scripts...</summary>
 
 
-* **00_common.sh:** set your variables in there for your config, will be used by the scripts.<br>
+* **00_common.sh:** main config file (!) set your variables in there for your config, will be used by the scripts.<br>
   You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
   :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
@@ -169,6 +169,20 @@ Thats it. :-)
 <br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName>```
 <br>```./01_sendLovelaces.sh addr1 myvote``` to just send the myvote.json votingfile from funds on addr1.addr
 <br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process)
+
+* **01_workOffline.sh:** this is the script you're doing your online<->offline work with
+<br>```./01_workOffline.sh add mywallet``` Adds the UTXO info of mywallet.addr to the offlineTransfer.json (OnlineMode only)
+<br>```./01_workOffline.sh add owner.staking``` Adds the Rewards info of owner.staking to the offlineTransfer.json (OnlineMode only)<br>
+<br>```./01_workOffline.sh execute``` Executes the first cued transaction in the offlineTransfer.json (OnlineMode only)
+<br>```./01_workOffline.sh execute 3``` Executes the third cued transaction in the offlineTransfer.json (OnlineMode only)<br>
+<br>```./01_workOffline.sh attach <filename>``` This will attach a small file (filename) into the offlineTransfer.json
+<br>```./01_workOffline.sh extract``` Extract the attached files in the offlineTransfer.json<br>
+<br>```./01_workOffline.sh cleartx``` Removes the cued transactions in the offlineTransfer.json
+<br>```./01_workOffline.sh clearhistory``` Removes the history in the offlineTransfer.json
+<br>```./01_workOffline.sh clearfiles``` Removes the attached files in the offlineTransfer.json<br>
+<br>```./01_workOffline.sh new``` Resets the offlineTransfer.json with only the current protocol-parameters in it (OnlineMode only)
+<br>```./01_workOffline.sh info``` Displayes the Address and TX info in the offlineTransfer.json
+
 
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
 <br>```./02_genPaymentAddrOnly.sh <name>```
@@ -291,8 +305,6 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   <br>```./11b_burnAsset.sh SUPERTOKEN 22 mypolicy mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
   <br>```./11b_burnAsset.sh MEGATOKEN 10 mypolicy owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
 
-</details>
-
 ### poolname.pool.json
 
 The json file could end up like this one after the pool was registered and also later de-registered.
@@ -342,6 +354,7 @@ The json file could end up like this one after the pool was registered and also 
   "deregSubmitted": "Di Jun  2 17:14:38 CEST 2020"
 }
 ```
+</details>
 
 # Examples
 
@@ -566,8 +579,6 @@ If you wanna retire your registered stakepool mypool, you have to do just a few 
 1. Generate the retirement certificate for the stakepool mypool from data in mypool.pool.json<br>
    ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
 1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool owner.payment```
-1. You can check the current status of your onchain registration via the script 05d like<br>
-   ```./05d_checkPoolOnChain.sh mypool```
  
 Done.
 
