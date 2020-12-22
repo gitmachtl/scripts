@@ -59,6 +59,8 @@ You should keep your directory structure the same on both Machines.
 
 * **01_workOffline.sh:** this is the script you're doing your **Online**->**Offline**->**Online**->**Offline** work with
 <br>```./01_workOffline.sh <command> [additional data]``` 
+<br>```./01_workOffline.sh new``` Resets the offlineTransfer.json with only the current protocol-parameters in it (OnlineMode only)
+<br>```./01_workOffline.sh info``` Displayes the Address and TX info in the offlineTransfer.json<br>
 <br>```./01_workOffline.sh add mywallet``` Adds the UTXO info of mywallet.addr to the offlineTransfer.json (OnlineMode only)
 <br>```./01_workOffline.sh add owner.staking``` Adds the Rewards info of owner.staking to the offlineTransfer.json (OnlineMode only)<br>
 <br>```./01_workOffline.sh execute``` Executes the first cued transaction in the offlineTransfer.json (OnlineMode only)
@@ -67,9 +69,7 @@ You should keep your directory structure the same on both Machines.
 <br>```./01_workOffline.sh extract``` Extract the attached files in the offlineTransfer.json<br>
 <br>```./01_workOffline.sh cleartx``` Removes the cued transactions in the offlineTransfer.json
 <br>```./01_workOffline.sh clearhistory``` Removes the history in the offlineTransfer.json
-<br>```./01_workOffline.sh clearfiles``` Removes the attached files in the offlineTransfer.json<br>
-<br>```./01_workOffline.sh new``` Resets the offlineTransfer.json with only the current protocol-parameters in it (OnlineMode only)
-<br>```./01_workOffline.sh info``` Displayes the Address and TX info in the offlineTransfer.json
+<br>```./01_workOffline.sh clearfiles``` Removes the attached files in the offlineTransfer.json
 
 The scripts uses per default (configurable) the file **offlineTransfer.json** to store the data in between the Machines.
 
