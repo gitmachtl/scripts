@@ -15,10 +15,7 @@ Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter -
 If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley Ada Address, thx! :-)
 ```addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql```
 
-> :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
-**If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
-
-### Filenames used
+### Filenames used and autolock for security
 
 <details>
    <summary>Checkout all naming schemes... </summary>
@@ -51,10 +48,19 @@ policyname.policy.skey/vkey, policyname.policy.script, policyname.policy.id
 policyname.tokenname.asset
 ```
 
-
 The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
 If you have an address and you wanna use it just do a simple:
 ```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
+
+#### File autolock
+
+For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
+```
+chmod 600 poolname.pool.json
+nano poolname.pool.json
+chmod 400 poolname.pool.json
+```
+
 
 </details>
 
@@ -79,15 +85,6 @@ There is no directory structure, the current design is FLAT. So all Examples bel
    :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
 
 </details>
-
-### File autolock
-
-For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
-```
-chmod 600 poolname.pool.json
-nano poolname.pool.json
-chmod 400 poolname.pool.json
-```
 
 ### Overwrite the setting-variables in the 00_common.sh dynamically
 
@@ -134,6 +131,10 @@ Thats it. :-)
 </details>
 
 ## Scriptfiles Syntax
+
+<details>
+   <summary>Show the full Syntax details for each scripts...</summary>
+
 
 * **00_common.sh:** set your variables in there for your config, will be used by the scripts.<br>
   You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
@@ -290,7 +291,7 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   <br>```./11b_burnAsset.sh SUPERTOKEN 22 mypolicy mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
   <br>```./11b_burnAsset.sh MEGATOKEN 10 mypolicy owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
 
-
+</details>
 
 ### poolname.pool.json
 
@@ -343,6 +344,9 @@ The json file could end up like this one after the pool was registered and also 
 ```
 
 # Examples
+
+> :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
+**If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
 
 ## Generating a normal address, register a stake address, register a stake pool
 
