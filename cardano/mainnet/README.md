@@ -357,7 +357,7 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax).<br>
 Working in [Offline-Mode](#examples-in-offline-mode) introduces another step before and ofter each example, so you should understand the Online-Mode first.
 
-:bulb: Make sure you're 00_common.sh is having the correct setup for your system!
+:bulb: Make sure your 00_common.sh is having the correct setup for your system!
 
 ## Generating a normal address, register a stake address, register a stake pool
 
@@ -672,9 +672,9 @@ Thats it. :-)
 
 # Examples in Offline-Mode
 
-The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax). Working offline is like working online. :smiley:<br>
+The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax). Working offline is like working online, all is working in Offline-Mode, theses are just a few examples. :smiley:<br>
 
-:bulb: Make sure you're 00_common.sh is having the correct setup for your system!
+:bulb: Make sure your 00_common.sh is having the correct setup for your system!
 
 **Understand the workflow in Offline-Mode:**
 
