@@ -317,7 +317,9 @@ The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftd
 If you have an address and you wanna use it for later just do a simple:<br>
 ```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
 
-#### File autolock
+</details>
+
+### File autolock
 
 For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
 ```
@@ -325,9 +327,6 @@ chmod 600 poolname.pool.json
 nano poolname.pool.json
 chmod 400 poolname.pool.json
 ```
-
-
-</details>
 
 ### Directory Structure
 
@@ -659,3 +658,169 @@ After you have generated your voting.json file you simply transmit it in a trans
 Thats it. :-)
 
 </details>
+
+
+
+
+
+
+
+
+
+
+
+# Examples in Offline-Mode
+
+The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax). Working offline is like working online. :smiley:<br>
+
+**Understand the workflow in Offline-Mode:**
+
+* **Step 1 : On the Online-Machine**
+  Query up2date information about your address balances, rewards, blockchain-parameters...<br>
+  If you wanna pay offline from your mywallet1.addr, just add the information for that.
+  If you wanna claim rewards from your mywallet.staking address and you wanna pay with your smallwallet1.addr for that, just add these two addresses to the information. You need to add the information of your addresses you wanna pay with or you wanna claim rewards from, nothing more.<br>
+  Update the **offlineTransfer.json file with ./01_workOffline.sh** and send(:floppy_disk:) it over to the Offline-Machine.
+
+* **Step 2 : On the Offline-Machine**
+  Do your normal work with the scripts like sending lovelaces or tokens from address to address, updating your stakepool parameters, claiming your rewards, etc...<br>
+  Sign the transactions on the Offline-Machine, they will be automatically stored in the offlineTransfer.json. If you wanna do multiple transactions at the same time, use a few small payment wallets for this, because you can't only pay from one individual wallet in an offline transaction at the same time. So if you wanna claim your rewards and also update your pool parameters, use two small payment wallets for that.<br>All offline transactions and also updated files like your pool.metadata.json or pool.extended-metadata.json will be stored in the offlineTransfer.json if you say so.<br>
+  When you're finished, send(:floppy_disk:) the offlineTransfer.json back to your Online-Machine.
+
+* **Step 3 : On the Online-Machine**
+  **Execute the offline signed transactions** and/or extract files from the offlineTransfer.json like your updated pool.metadata.json file for example with **./01_workOffline.sh**<br>
+  Your done, if you wanna continue to do some work: Gather again the latest balance informations from the address you wanna work with and send the offlineTransfer.json back to your Offline-Machine. And so on...<br>
+  The offlineTransfer.json is your little carry bag for your balance/rewards information, transactions and files. :-)
+
+**Config-Settings on the Online- / Offline-Machine:**
+
+* Online-Machine: Set the ```offlineMode="no"``` parameter in the 00_common.sh, common.inc or ~/.common.inc config file.<br>Make sure you have a running and fully synced cardano-node on this Machine. Also cardano-cli.
+
+* Offline-Machine: Set the ```offlineMode="yes"``` parameter in the 00_common.sh, common.inc or ~/.common.inc config file.<br>You only need the cardano-cli on this Machine, no cardano-node binaries.
+
+
+## Generate some wallets for the daily operator work
+
+So first you should create yourself a few small wallets for the daily Operator work, there is no need to use your big-owner-pledge-wallet for this every time. Lets say we wanna create three small wallets with the name smallwallet1, smallwallet2 and smallwallet3. And we wanna fund them via daedalus for example.
+
+<details>
+   <summary>Show Example...</summary>
+
+<br>**Online-Machine:**
+
+1. Make a fresh version of the offlineTransfer.json by running ```./01_workOffline.sh new```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:**
+
+1. Create three new payment-only wallets by running<br>```./02_genPaymentAddrOnly.sh smallwallet1```<br>```./02_genPaymentAddrOnly.sh smallwallet2```<br>```./02_genPaymentAddrOnly.sh smallwallet3```
+1. Add the three new smallwallet1/2/3.addr files to your offlineTransfer.json<br>```./01_workOffline.sh attach smallwallet1.addr```<br>```./01_workOffline.sh attach smallwallet2.addr```<br>```./01_workOffline.sh attach smallwallet3.addr```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Extract the three included address files to the Online-Machine<br>```./01_workOffline.sh extract```
+
+You have now successfully brought over the three files smallwallet1.addr, smallwallet2.addr and smallwallet3.addr to your Online-Machine. You can check the current balance on them like you did before running ```./01_queryAddress.sh smallwallet1```<br>
+Ok, now fund those three small wallets via daedalus for example. Of course you can also do this from your big-owner-pledge-wallet offline via multiple steps, but we're just learning the steps together, so not overcomplicate the things. :-)<br>
+You can of course use your already made and funded wallets for the following examples, we just need a starting point here.
+
+</details>
+
+## Update stakepool parameters on the blockchain
+
+Lets pretend you already have registered your stakepool 'mypool' in the past using theses scripts, now lets update some pool parameters like pledge, fees or the description for the stakepool(metadata). We use the smallwallet1 to pay for this update.
+
+<details>
+   <summary>Show Example...</summary>
+
+<br>**Online-Machine:**
+
+1. Add/Update the current UTXO balance for smallwallet1 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet1```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. [Unlock](#file-autolock) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
+1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert, mypool.metadata.json file from it
+1. (Optional create delegation certificates if you have added an owner or an extra rewards account with script 05b)
+1. Generate the offline Re-Registration of your stakepool with ```./05c_regStakepoolCert.sh mypool smallwallet1```<br>Your transaction with your updated pool-certificate is now stored in the offlineTransfer.json. As you have noticed, the 05c script also asked you if it should include the (maybe new) metadata files also in the offlineTransfer.json. So you need only one file for the transfer, we can extract them on the Online-Machine.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+1. If your metadata/extended-metadata.json has changed and is in the transferOffline.json, extract it via<br>```./01_workOffline.sh extract```
+1. Now would be the time to upload the new metadata/extended-metadata.json files to your webserver. If they have not changed at all, skip this step of course.
+1. Finally we submit the created offline transaction now to the blockchain by running<br>```./01_workOffline.sh execute```
+
+Done.  
+</details>
+
+## Claiming rewards on the Shelley blockchain
+
+I'am sure you wanna claim some of your rewards that you earned running your stakepool. So lets say you have rewards in your owner.staking address and you wanna claim it to the owner.payment address by paying with funds from smallwallet2.
+
+<details>
+   <Summary>Show Example...<br></summary>
+
+<br>**Online-Machine:**
+
+Make sure you have your owner.staking.addr and smallwallet2.addr file on your Online-Machine, if not, copy it over from your Offline-Machine like a normal filecopy or use the attach->extract method we used in the example [here](#generate-some-wallets-for-the-daily-operator-work)
+
+1. Add/Update the current UTXO balance for smallwallet2 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet2```
+1. Add/Update the current rewards state for owner.staking in the offlineTransfer.json by running<br>```./01_workOffline.sh add owner.staking```
+
+Now we have the up2date information about the payment address smallwallet2 and also the current rewards state of owner.staking in the offlineTransfer.json.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. You can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment smallwallet2```
+   This will claim the rewards from the owner.staking account and sends it to the owner.payment address, smallwallet2 will pay for the transaction fees.<br>
+   :bulb: ATTENTION, claiming rewards costs transaction fees! So you have two choices for that: The destination address pays for the transaction fees, or you specify an additional account that pays for the transaction fees like we did now. You can find examples for that above at the script 01_claimRewards.sh description.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+1. Execute the created offline rewards claim now on the blockchain by running<br>```./01_workOffline.sh execute```
+
+Done.  
+
+</details>
+
+## Sending some funds from one address to another address
+
+Lets say you wanna transfer 1000 Ada from your big-owner-payment-wallet owner.payment to a different address like smallwallet3 in this example.
+Also you wanna transfer 20 ADA from smallwallet1 to smallwallet3 at the same time, only transfering the offlineTransfer.json once. 
+
+<details>
+   <Summary>Show Example...<br></summary>
+
+<br>**Online-Machine:**
+
+Make sure you have your owner.payment.addr and smallwallet1.addr file on your Online-Machine, if not, copy it over from your Offline-Machine like a normal filecopy or use the attach->extract method we used in the example [here](#generate-some-wallets-for-the-daily-operator-work)
+
+1. Add/Update the current UTXO balance for owner.payment in the offlineTransfer.json by running<br>```./01_workOffline.sh add owner.payment```
+1. Add/Update the current UTXO balance for smallwallet1 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet1```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. Generate the transaction to transfer 1000000000 lovelaces from owner.payment to smallwallet3<br>```./01_sendLovelaces.sh owner.payment smallwallet3 1000000000```
+1. Generate the transaction to transfer 20000000 lovelaces from smallwallet1 also smallwallet3<br>```./01_sendLovelaces.sh smallwallet1 smallwallet3 20000000```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Execute the first created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
+1. Execute the second created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute``` again
+
+Done.  
+
+</details>
+
