@@ -15,10 +15,13 @@ Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter -
 If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley Ada Address, thx! :-)
 ```addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql```
 
+> :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
+**If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
+
 ### Filenames used
 
 <details>
-   <summary> Checkout all naming schemes... </summary>
+   <summary>Checkout all naming schemes... </summary>
    
 I use the following naming scheme for the files:<br>
 ``` 
@@ -55,11 +58,10 @@ If you have an address and you wanna use it just do a simple:
 
 </details>
 
-> :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
-**If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
-
-
 ### Directory Structure
+
+<details>
+   <summary>Checkout how to use the scripts with directories... </summary>
 
 There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax) below.<p>However, if you wanna use directories there is a way: 
 * **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
@@ -75,6 +77,8 @@ There is no directory structure, the current design is FLAT. So all Examples bel
    <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
    So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them.<br>
    :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
+
+</details>
 
 ### File autolock
 
@@ -92,6 +96,9 @@ You can now place a file with name ```common.inc``` in the calling directory and
 
 ## :bulb: ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
 
+<details>
+   <summary>Explore how to use your ITN Ticker as Proof and also how to use extended-metadata.json</summary>
+   
 There is now an implementation of the extended-metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
 <br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
 <br>```<poolname>.itn.vkey``` this textfile should hold your ITN public/verification key
@@ -113,11 +120,18 @@ You can find an example of the Adapools format [here](https://a.adapools.org/ext
 So if you hold a file ```<poolname>.additional-metadata.json``` with additional data in the same folder, script 05a will also integrate this information into the ```<poolname>.extended-metadata.json``` :-)<br>
 :bulb: This is only a test and not an official usage of the extended-metadata data for now.
 
+</details>
+
 ## :bulb: How to do a voting for SPOCRA in a simple process
 
+<details>
+   <summary>Explore how to vote for SPOCRA</summary>
+   
 We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
 After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
 Thats it. :-)
+
+</details>
 
 ## Scriptfiles Syntax
 
