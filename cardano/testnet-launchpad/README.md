@@ -22,10 +22,18 @@ The scripts are capable to be used in Online- and Offline-Mode. It depends on yo
 
 Why not always Offline-Mode? You have to do transactions online, you have to check balances online. Also, there are plenty of usecases using small wallets without the need of the additional steps to do all offline everytime. Also if you're testing some things on Testnets, it would be a pain to always transfer files between the Hot- and the Cold-Machine. You choose how you wanna work... :-)<br>
 
-**How do you switch between Online- and Offline-Mode?**<br>
+<details>
+   <summary>How do you switch between Online- and Offline-Mode?</summary>
+   
 Thats simple, you just change a single entry in the 00_common.sh, common.inc or $HOME/.common.inc config-file:
 <br>```offlineMode="no"``` Scripts are working in Online-Mode
 <br>```offlineMode="yes"``` Scripts are working in Offline-Mode
+</details>
+
+<details>
+   <summary>What do you need on the Online- and the Offline-Machine?</summary>
+   
+On the Online-Machine you need a running cardano-node, the cardano-cli and also your ```*.addr``` files so you can query the current balance of them for the Offline-Machine. **You should not have any ```*.skey or *.vkey``` files laying around.** Metadata-Files are fine, you need them anyway to transfer them to your Stakepool-Webserver, also they are public available, no security issue.
 
 # Scriptfiles Syntax
 
