@@ -1,6 +1,6 @@
 # Description - StakepoolOperator Scripts - Mainnet Allegra Era
 
-## First of all, you don't need them all! [Examples](#examples) are at the bottom of this page :-)
+## First of all, you don't need them all! Examples are on this page :smiley:
 
 :bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.24.2 !  (git checkout tags/1.24.2)**
 
@@ -14,113 +14,84 @@ Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter -
 If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley Ada Address, thx! :-)
 ```addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql```
 
-### Filenames used
 
-I use the following naming scheme for the files:<br>
-``` 
-Simple "enterprise" address to only receive/send funds (no staking possible with these type of addresses):
-name.addr, name.vkey, name.skey
+# Online-Mode vs. Offline-Mode
 
-Payment(Base)/Staking address combo:
-name.payment.addr, name.payment.skey/vkey, name.deleg.cert
-name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
+The scripts are capable to be used in Online- and Offline-Mode. It depends on your setup, your needs and just how you wanna work. Doing transactions with pledge accounts in Online-Mode can be a security risk, also doing Stakepool-Registrations in pure Online-Mode can be risky. To enhance Security the scripts can be used on a Online-Machine and an Offline-Machine. You only have to **transfer one single file (offlineTransfer.json)** between the Machines. If you wanna use the Offline-Mode, your **Gateway-Script** to get Data In/Out of the offlineTransfer.json is the **01_workOffline.sh** Script. The **offlineTransfer.json** is your carry bag between the Machines.<br>
 
-Node/Pool files:
-poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json, poolname.metadata.json
-poolname.vrf.skey/vkey, poolname.pool.id, poolname.pool.id-bech
-poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
-poolname.kes.counter, poolname.kes-expire.json
+Why not always using Offline-Mode? You have to do transactions online, you have to check balances online. Also, there are plenty of usecases using small wallets without the need of the additional steps to do all offline everytime. Also if you're testing some things on Testnets, it would be a pain to always transfer files between the Hot- and the Cold-Machine. You choose how you wanna work... :-)<br>
 
-ITN witness files:
-poolname.itn.skey/vkey
-```
+<details>
+   <summary>How do you switch between Online- and Offline-Mode?</summary>
+   
+<br>Thats simple, you just change a single entry in the 00_common.sh, common.inc or $HOME/.common.inc config-file:
+<br>```offlineMode="no"``` Scripts are working in Online-Mode
+<br>```offlineMode="yes"``` Scripts are working in Offline-Mode
 
-The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
-If you have an address and you wanna use it just do a simple:
-```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
+So on the Online-Machine you set the ```offlineMode="no"``` and on the Offline-Machine you set the ```offlineMode="yes"```.
 
-> :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
-**If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
+</details>
 
+<details>
+   <summary>What do you need on the Online- and the Offline-Machine?</summary>
+   
+<br>On the Online-Machine you need a running and fully synced cardano-node, the cardano-cli and also your ```*.addr``` files to query the current balance of them for the Offline-Machine. **You should not have any secure keys ```*.skey``` files of big wallets laying around!** Metadata-Files are fine, you need them anyway to transfer them to your Stakepool-Webserver, also they are public available, no security issue.
 
-### Directory Structure
+On the Offline-Machine you have your secret keys, thats the ```*.skey``` files, also you have your kes-keys, vrf-keys, opcerts, etc. on this Machine.
+Also you need the cardano-cli on the Offline-Machine, same version as on the Online-Machine. You don't need the cardano-node, because you will never be online with that Machine!
 
-There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax) below.<p>However, if you wanna use directories there is a way: 
-* **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
-1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
-1. Make a directory whereever you like
-1. Call the scripts from within this directory, all files will be generated/used in this directory<p>
-* **Method-2:** Using subdirectories from a base directory:
-1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
-1. Make a directory that is your BASE directory like /home/user/cardano
-1. Go into this directory ```cd /home/user/cardano``` and make other subdirectories like ```mkdir mywallets``` and ```mkdir mypools```
-1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
-   <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
-   <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
-   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them.<br>
-   :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
+You should keep your directory structure the same on both Machines.
 
-### File autolock
+:bulb: **Best practice Advise for Stakepool Operators:** Even that the Offline-Machine is pretty secure, it can be compromised by a physical attack on in. So, after you   have registered your Pool, move away our pledge payment signing keys like the ```owner.payment.skey``` from the machine and store it in a secure place. You don't need it to update your Stakepool. To do some updates, generate yourself a few small payment wallets with the script 02. To do more than one transaction in a single "Online->Offline->Online" process i would recommend to have at least three small wallets with a few ADA on it. You can do all Pool-Updates, Re-Registrations, Reward-Claims, etc. with theses.<br>**There is no need to have the pledge owner payment signing keys on that machine at all!**
 
-For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
-```
-chmod 600 poolname.pool.json
-nano poolname.pool.json
-chmod 400 poolname.pool.json
-```
+</details>
 
-### Overwrite the setting-variables in the 00_common.sh dynamically
+# Scriptfiles Syntax
 
-You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory like ```~/.common.inc```. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. 
+<details>
+   <summary>Show the full Syntax details for each script...</summary>
 
 
-## :bulb: ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
-
-There is now an implementation of the extended-metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
-<br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
-<br>```<poolname>.itn.vkey``` this textfile should hold your ITN public/verification key
-<br>also you would need to add an additional URL **poolExtendedMetaUrl** for the next extended metadata json file on your webserver to your ```<poolname>.pool.json``` file like:
-```console
-   .
-   .
-   .
-   "poolMetaHomepage": "https://mypool.com",
-   "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
-   "poolExtendedMetaUrl": "https://mypool.com/mypool.extended-metadata.json",
-   "---": "--- DO NOT EDIT BELOW THIS LINE ---"
-  }
-``` 
-When you now generate your pool certificate, not only your ```<poolname>.metadata.json``` will be created as always, but also the ```<poolname>.extended-metadata.json``` that is holding your ITN witness to proof your Ticker ownership from the ITN. Upload BOTH to your webserver! :-)
-
-Additional Feature: If you wanna also include the extended-metadata format Adapools is currently using you can do so by providing additional metadata information in the file ```<poolname>.additional-metadata.json``` !<br>
-You can find an example of the Adapools format [here](https://a.adapools.org/extended-example).<br>
-So if you hold a file ```<poolname>.additional-metadata.json``` with additional data in the same folder, script 05a will also integrate this information into the ```<poolname>.extended-metadata.json``` :-)<br>
-:bulb: This is only a test and not an official usage of the extended-metadata data for now.
-
-## :bulb: How to do a voting for SPOCRA in a simple process
-
-We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
-After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
-Thats it. :-)
-
-## Scriptfiles Syntax
-
-* **00_common.sh:** set your variables in there for your config, will be used by the scripts.<br>
-  You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
+* **00_common.sh:** main config file (!) set your variables in there for your config, will be used by the scripts.<br>
+  
+  **Overwritting the default settings:** You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
   :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
-* **01_queryAddress.sh:** checks the amount of lovelaces on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
+* **01_workOffline.sh:** this is the script you're doing your **Online**->**Offline**->**Online**->**Offline** work with
+<br>```./01_workOffline.sh <command> [additional data]``` 
+<br>```./01_workOffline.sh add mywallet``` Adds the UTXO info of mywallet.addr to the offlineTransfer.json (OnlineMode only)
+<br>```./01_workOffline.sh add owner.staking``` Adds the Rewards info of owner.staking to the offlineTransfer.json (OnlineMode only)<br>
+<br>```./01_workOffline.sh execute``` Executes the first cued transaction in the offlineTransfer.json (OnlineMode only)
+<br>```./01_workOffline.sh execute 3``` Executes the third cued transaction in the offlineTransfer.json (OnlineMode only)<br>
+<br>```./01_workOffline.sh attach <filename>``` This will attach a small file (filename) into the offlineTransfer.json
+<br>```./01_workOffline.sh extract``` Extract the attached files in the offlineTransfer.json<br>
+<br>```./01_workOffline.sh cleartx``` Removes the cued transactions in the offlineTransfer.json
+<br>```./01_workOffline.sh clearhistory``` Removes the history in the offlineTransfer.json
+<br>```./01_workOffline.sh clearfiles``` Removes the attached files in the offlineTransfer.json<br>
+<br>```./01_workOffline.sh new``` Resets the offlineTransfer.json with only the current protocol-parameters in it (OnlineMode only)
+<br>```./01_workOffline.sh info``` Displayes the Address and TX info in the offlineTransfer.json
+
+The scripts uses per default (configurable) the file **offlineTransfer.json** to store the data in between the Machines.
+
+* **01_queryAddress.sh:** checks the amount of lovelaces and tokens on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
 <br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
 <br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
 <br>```./01_queryAddress.sh addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m``` shows the lovelaces on this given Bech32 address
 <br>```./01_queryAddress.sh stake1u9w60cpjg0xnp6uje8v3plcsmmrlv3vndcz0t2lgjma0segm2x9gk``` shows the rewards on this given Bech32 address
 
-* **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces from one address to another, uses always all UTXOs of the source address
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` **NEW** you can now send to an HASH address too
+* **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` (you can send to an HASH address too)
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
-<br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send ALL funds from addr1.addr to addr2.addr, nothing left in addr1
-<br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL funds from addr1.addr to the given Bech32 address
+<br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send **ALL lovelaces** from addr1.addr to addr2.addr, Tokens on addr1.addr are preserved
+<br>```./01_sendLovelaces.sh addr1 addr2 ALLFUNDS``` to send **ALL funds** from addr1.addr to addr2.addr **including Tokens** if present
+<br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL lovelaces from addr1.addr to the given Bech32 address
+
+* **01_sendAssets.sh:** sends Assets(Tokens) and optional a given amount of lovelaces from one address to another
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset> <AmountOfAssets|ALL> [Optional Amount of lovelaces to attach]```
+<br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
+<br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
+<br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. Using the PolicyID.TokenNameHASH allowes you to send out Tokens you've got from others. You own generated Tokens can be referenced by the policyName.tokenName schema.
 
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
 <br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
@@ -239,6 +210,19 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   <br>```./08b_deregStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
   <br>```./08b_deregStakingAddrCert.sh owner.staking owner.payment``` this will retire your owner staking address with the cert generated with script 08a from the blockchain.
 
+* **10_genPolicy.sh:** generate policy keys, signing script and id as files **name.policy.skey/vkey/script/id**. You need a policy for Token minting.
+  <br>```./10_genPolicy.sh <PolicyName>```
+  <br>```./10_genPolicy.sh mypolicy``` this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
+
+* **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyID generated before. This updates the Token Status File **policyname.tokenname.asset** for later usage when sending/burning Tokens.
+  <br>```./11a_mintAsset.sh <AssetName> <AssetAmount to mint> <PolicyName> <nameOfPaymentAddr>```
+  <br>```./11a_mintAsset.sh SUPERTOKEN 1000 mypolicy mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
+  <br>```./11a_mintAsset.sh MEGATOKEN 30 mypolicy owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
+
+* **11b_burnAsset.sh:** burnes Assets(Token) on a given payment address with a policyID you own the keys for. This updates the Token Status File **policyname.tokenname.asset** for later usage when sending/burning Tokens.
+  <br>```./11b_burnAsset.sh <AssetName> <AssetAmount to mint> <PolicyName> <nameOfPaymentAddr>```
+  <br>```./11b_burnAsset.sh SUPERTOKEN 22 mypolicy mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
+  <br>```./11b_burnAsset.sh MEGATOKEN 10 mypolicy owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
 
 ### poolname.pool.json
 
@@ -289,13 +273,97 @@ The json file could end up like this one after the pool was registered and also 
   "deregSubmitted": "Di Jun  2 17:14:38 CEST 2020"
 }
 ```
+</details>
 
-# Examples
+
+### Filenames used and autolock for security
+
+<details>
+   <summary>Checkout all naming schemes... </summary>
+   
+I use the following naming scheme for the files:<br>
+``` 
+Simple "enterprise" address to only receive/send funds (no staking possible with these type of addresses):
+name.addr, name.vkey, name.skey
+
+Payment(Base)/Staking address combo:
+name.payment.addr, name.payment.skey/vkey, name.deleg.cert
+name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
+
+Node/Pool files:
+poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json, poolname.metadata.json
+poolname.vrf.skey/vkey, poolname.pool.id, poolname.pool.id-bech
+poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
+poolname.kes.counter, poolname.kes-expire.json
+
+ONLINE<->OFFLINE transfer files:
+offlineTransfer.json
+
+ITN witness files:
+poolname.itn.skey/vkey
+```
+
+New in Mary-Era:<br>
+```
+Policy files:
+policyname.policy.skey/vkey, policyname.policy.script, policyname.policy.id
+
+(Multi)Assets:
+policyname.tokenname.asset
+```
+
+The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
+If you have an address and you wanna use it for later just do a simple:<br>
+```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
+
+</details>
+
+### File autolock
+
+For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
+```
+chmod 600 poolname.pool.json
+nano poolname.pool.json
+chmod 400 poolname.pool.json
+```
+
+### Directory Structure
+
+<details>
+   <summary>Checkout how to use the scripts with directories... </summary>
+
+There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax) below.<p>However, if you wanna use directories there is a way: 
+* **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
+1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
+1. Make a directory whereever you like
+1. Call the scripts from within this directory, all files will be generated/used in this directory<p>
+* **Method-2:** Using subdirectories from a base directory:
+1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
+1. Make a directory that is your BASE directory like /home/user/cardano
+1. Go into this directory ```cd /home/user/cardano``` and make other subdirectories like ```mkdir mywallets``` and ```mkdir mypools```
+1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
+   <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
+   <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
+   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them.<br>
+   :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
+
+</details>
+
+> :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
+**If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
+
+# Examples in Online-Mode
+
+The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax).<br>
+Working in [Offline-Mode](#examples-in-offline-mode) introduces another step before and ofter each example, so you should understand the Online-Mode first.
 
 ## Generating a normal address, register a stake address, register a stake pool
 
 Lets say we wanna make ourself a normal address to send/receive ada, we want this to be nicknamed mywallet.
 Than we want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files and source it (```source ./00_common.sh```)
 1. Generate a simple address to receive some ADA ```./02_genPaymentAddrOnly.sh mywallet```
@@ -353,10 +421,14 @@ If you wanna send over all funds from your mywallet call the script like
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner.payment```    
 
 Done.
+</details>
 
 ## Generating & register a stake address, just delegating to a stakepool
 
 Lets say we wanna create a payment(base)/stake address combo with the nickname delegator and we wanna delegate the funds in the payment(base) address of that to the pool yourpool. (You'll need the yourpool.node.vkey for that.)
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
 1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator```
@@ -367,10 +439,14 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
 1. Register the delegation certificate now on the blockchain with funds from delegator.payment.addr<br>```./06_regDelegationCert.sh delegator delegator.payment```
 
 Done.
+</details>
 
 ## Update stakepool parameters on the blockchain
 
 If you wanna update you pledge, costs, owners or metadata on a registered stakepool just do the following
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. [Unlock](#file-autolock) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
@@ -379,10 +455,14 @@ If you wanna update you pledge, costs, owners or metadata on a registered stakep
 1. Re-Register your stakepool on the blockchain with ```./05c_regStakepoolCert.sh mypool owner.payment```<br>No delegation update needed.
 
 Done.  
+</details>
 
 ## Claiming rewards on the Shelley blockchain
 
 I'am sure you wanna claim some of your rewards that you earned running your stakepool. So lets say you have rewards in your owner.staking address and you wanna claim it to the owner.payment address.
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. You can always check that you have rewards in your stakeaccount by running ```./01_queryAddress.sh owner.staking```
 1. Now you can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment```
@@ -403,12 +483,14 @@ If you ran a stakepool on the ITN and you only have your owner SK ed25519(e) and
 1. You can claim your rewards by running ```./01_claimRewards.sh myitnrewards.staking destinationaccount``` like a normal rewards claim procedure, example above!
 
 Done.  
-
-
+</details>
 
 ## Register a multiowner stake pool
 
 It's similar to a single owner stake pool registration (example above). All owners must have a registered stake address on the blockchain first! Here is a 2 owner example ...
+
+<details>
+   <summary>Show Example...</summary>
 
 1. Generate the stakepool certificate
    1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it for multiowner usage and set your owners and also the rewards account. The rewards account is also a stake address (but not delegated to the pool!):
@@ -436,12 +518,18 @@ It's similar to a single owner stake pool registration (example above). All owne
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool paymentaddress```    
 
 Done.
+</details>
 
 ## Using multiple relays in your poolname.pool.json
 
+You can mix'n'match multiple relay entries in your poolname.pool.json file, below are a few common examples.
+
+<details>
+   <summary>Show Example...<br></summary>
+
 ### Using two dns named relay entries
 
-Your poolRelays array section in the json file should like similar to:
+Your poolRelays array section in the json file should look similar to:
 
 ```console
   "poolRelays": [
@@ -500,24 +588,29 @@ Your poolRelays array section in the json file should like similar to:
          }
   ],
 ```
-
+</details>
 
 
 ## Retire a stakepool from the blockchain
 
 If you wanna retire your registered stakepool mypool, you have to do just a few things
 
+<details>
+   <summary>Show Example...<br></summary>
+
 1. Generate the retirement certificate for the stakepool mypool from data in mypool.pool.json<br>
    ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
 1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool owner.payment```
-1. You can check the current status of your onchain registration via the script 05d like<br>
-   ```./05d_checkPoolOnChain.sh mypool```
  
 Done.
+</details>
 
 ## Retire a stakeaddress from the blockchain
 
 If you wanna retire the staking address owner, you have to do just a few things
+
+<details>
+   <Summary>Show Example...<br></summary>
 
 1. Generate the retirement certificate for the stake-address ```./08a_genStakingAddrRetireCert.sh owner```<br>this will generate the owner.staking.dereg-cert file
 1. De-Register your stake-address from the blockchain with ```./08b_deregStakingAddrCert.sh owner.staking owner.payment```<br>you don't need to have funds on the owner.payment base address. you'll get the keyDepositFee back onto it!
@@ -525,5 +618,222 @@ If you wanna retire the staking address owner, you have to do just a few things
    ```./03c_checkStakingAddrOnChain.sh owner```<br>If it doesn't go away directly, wait a little and retry this script.
  
 Done.
+</details>
+
+## ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
+
+<details>
+   <summary>Explore how to use your ITN Ticker as Proof and also how to use extended-metadata.json</summary>
+   
+There is now an implementation of the extended-metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
+<br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
+<br>```<poolname>.itn.vkey``` this textfile should hold your ITN public/verification key
+<br>also you would need to add an additional URL **poolExtendedMetaUrl** for the next extended metadata json file on your webserver to your ```<poolname>.pool.json``` file like:
+```console
+   .
+   .
+   .
+   "poolMetaHomepage": "https://mypool.com",
+   "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+   "poolExtendedMetaUrl": "https://mypool.com/mypool.extended-metadata.json",
+   "---": "--- DO NOT EDIT BELOW THIS LINE ---"
+  }
+``` 
+When you now generate your pool certificate, not only your ```<poolname>.metadata.json``` will be created as always, but also the ```<poolname>.extended-metadata.json``` that is holding your ITN witness to proof your Ticker ownership from the ITN. Upload BOTH to your webserver! :-)
+
+Additional Feature: If you wanna also include the extended-metadata format Adapools is currently using you can do so by providing additional metadata information in the file ```<poolname>.additional-metadata.json``` !<br>
+You can find an example of the Adapools format [here](https://a.adapools.org/extended-example).<br>
+So if you hold a file ```<poolname>.additional-metadata.json``` with additional data in the same folder, script 05a will also integrate this information into the ```<poolname>.extended-metadata.json``` :-)<br>
+
+</details>
+
+## How to do a voting for SPOCRA in a simple process
+
+<details>
+   <summary>Explore how to vote for SPOCRA</summary>
+   
+We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
+After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
+Thats it. :-)
+
+</details>
 
 
+
+
+
+
+
+
+
+
+
+# Examples in Offline-Mode
+
+The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax). Working offline is like working online. :smiley:<br>
+
+**Understand the workflow in Offline-Mode:**
+
+* **Step 1 : On the Online-Machine**
+  Query up2date information about your address balances, rewards, blockchain-parameters...<br>
+  If you wanna pay offline from your mywallet1.addr, just add the information for that.
+  If you wanna claim rewards from your mywallet.staking address and you wanna pay with your smallwallet1.addr for that, just add these two addresses to the information. You need to add the information of your addresses you wanna pay with or you wanna claim rewards from, nothing more.<br>
+  Update the **offlineTransfer.json file with ./01_workOffline.sh** and send(:floppy_disk:) it over to the Offline-Machine.
+
+* **Step 2 : On the Offline-Machine**
+  Do your normal work with the scripts like sending lovelaces or tokens from address to address, updating your stakepool parameters, claiming your rewards, etc...<br>
+  Sign the transactions on the Offline-Machine, they will be automatically stored in the offlineTransfer.json. If you wanna do multiple transactions at the same time, use a few small payment wallets for this, because you can't only pay from one individual wallet in an offline transaction at the same time. So if you wanna claim your rewards and also update your pool parameters, use two small payment wallets for that.<br>All offline transactions and also updated files like your pool.metadata.json or pool.extended-metadata.json will be stored in the offlineTransfer.json if you say so.<br>
+  When you're finished, send(:floppy_disk:) the offlineTransfer.json back to your Online-Machine.
+
+* **Step 3 : On the Online-Machine**
+  **Execute the offline signed transactions** and/or extract files from the offlineTransfer.json like your updated pool.metadata.json file for example with **./01_workOffline.sh**<br>
+  Your done, if you wanna continue to do some work: Gather again the latest balance informations from the address you wanna work with and send the offlineTransfer.json back to your Offline-Machine. And so on...<br>
+  The offlineTransfer.json is your little carry bag for your balance/rewards information, transactions and files. :-)
+
+**Config-Settings on the Online- / Offline-Machine:**
+
+* Online-Machine: Set the ```offlineMode="no"``` parameter in the 00_common.sh, common.inc or ~/.common.inc config file.<br>Make sure you have a running and fully synced cardano-node on this Machine. Also cardano-cli.
+
+* Offline-Machine: Set the ```offlineMode="yes"``` parameter in the 00_common.sh, common.inc or ~/.common.inc config file.<br>You only need the cardano-cli on this Machine, no cardano-node binaries.
+
+
+## Generate some wallets for the daily operator work
+
+So first you should create yourself a few small wallets for the daily Operator work, there is no need to use your big-owner-pledge-wallet for this every time. Lets say we wanna create three small wallets with the name smallwallet1, smallwallet2 and smallwallet3. And we wanna fund them via daedalus for example.
+
+<details>
+   <summary>Show Example...</summary>
+
+<br>**Online-Machine:**
+
+1. Make a fresh version of the offlineTransfer.json by running ```./01_workOffline.sh new```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:**
+
+1. Create three new payment-only wallets by running<br>```./02_genPaymentAddrOnly.sh smallwallet1```<br>```./02_genPaymentAddrOnly.sh smallwallet2```<br>```./02_genPaymentAddrOnly.sh smallwallet3```
+1. Add the three new smallwallet1/2/3.addr files to your offlineTransfer.json<br>```./01_workOffline.sh attach smallwallet1.addr```<br>```./01_workOffline.sh attach smallwallet2.addr```<br>```./01_workOffline.sh attach smallwallet3.addr```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Extract the three included address files to the Online-Machine<br>```./01_workOffline.sh extract```
+
+You have now successfully brought over the three files smallwallet1.addr, smallwallet2.addr and smallwallet3.addr to your Online-Machine. You can check the current balance on them like you did before running ```./01_queryAddress.sh smallwallet1```<br>
+Ok, now fund those three small wallets via daedalus for example. Of course you can also do this from your big-owner-pledge-wallet offline via multiple steps, but we're just learning the steps together, so not overcomplicate the things. :-)<br>
+You can of course use your already made and funded wallets for the following examples, we just need a starting point here.
+
+</details>
+
+## Update stakepool parameters on the blockchain
+
+Lets pretend you already have registered your stakepool 'mypool' in the past using theses scripts, now lets update some pool parameters like pledge, fees or the description for the stakepool(metadata). We use the smallwallet1 to pay for this update.
+
+<details>
+   <summary>Show Example...</summary>
+
+<br>**Online-Machine:**
+
+1. Add/Update the current UTXO balance for smallwallet1 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet1```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. [Unlock](#file-autolock) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
+1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert, mypool.metadata.json file from it
+1. (Optional create delegation certificates if you have added an owner or an extra rewards account with script 05b)
+1. Generate the offline Re-Registration of your stakepool with ```./05c_regStakepoolCert.sh mypool smallwallet1```<br>Your transaction with your updated pool-certificate is now stored in the offlineTransfer.json. As you have noticed, the 05c script also asked you if it should include the (maybe new) metadata files also in the offlineTransfer.json. So you need only one file for the transfer, we can extract them on the Online-Machine.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+1. If your metadata/extended-metadata.json has changed and is in the transferOffline.json, extract it via<br>```./01_workOffline.sh extract```
+1. Now would be the time to upload the new metadata/extended-metadata.json files to your webserver. If they have not changed at all, skip this step of course.
+1. Finally we submit the created offline transaction now to the blockchain by running<br>```./01_workOffline.sh execute```
+
+Done.  
+</details>
+
+## Claiming rewards on the Shelley blockchain
+
+I'am sure you wanna claim some of your rewards that you earned running your stakepool. So lets say you have rewards in your owner.staking address and you wanna claim it to the owner.payment address by paying with funds from smallwallet2.
+
+<details>
+   <Summary>Show Example...<br></summary>
+
+<br>**Online-Machine:**
+
+Make sure you have your owner.staking.addr and smallwallet2.addr file on your Online-Machine, if not, copy it over from your Offline-Machine like a normal filecopy or use the attach->extract method we used in the example [here](#generate-some-wallets-for-the-daily-operator-work)
+
+1. Add/Update the current UTXO balance for smallwallet2 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet2```
+1. Add/Update the current rewards state for owner.staking in the offlineTransfer.json by running<br>```./01_workOffline.sh add owner.staking```
+
+Now we have the up2date information about the payment address smallwallet2 and also the current rewards state of owner.staking in the offlineTransfer.json.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. You can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment smallwallet2```
+   This will claim the rewards from the owner.staking account and sends it to the owner.payment address, smallwallet2 will pay for the transaction fees.<br>
+   :bulb: ATTENTION, claiming rewards costs transaction fees! So you have two choices for that: The destination address pays for the transaction fees, or you specify an additional account that pays for the transaction fees like we did now. You can find examples for that above at the script 01_claimRewards.sh description.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+1. Execute the created offline rewards claim now on the blockchain by running<br>```./01_workOffline.sh execute```
+
+Done.  
+
+</details>
+
+## Sending some funds from one address to another address
+
+Lets say you wanna transfer 1000 Ada from your big-owner-payment-wallet owner.payment to a different address like smallwallet3 in this example.
+Also you wanna transfer 20 ADA from smallwallet1 to smallwallet3 at the same time, only transfering the offlineTransfer.json once. 
+
+<details>
+   <Summary>Show Example...<br></summary>
+
+<br>**Online-Machine:**
+
+Make sure you have your owner.payment.addr and smallwallet1.addr file on your Online-Machine, if not, copy it over from your Offline-Machine like a normal filecopy or use the attach->extract method we used in the example [here](#generate-some-wallets-for-the-daily-operator-work)
+
+1. Add/Update the current UTXO balance for owner.payment in the offlineTransfer.json by running<br>```./01_workOffline.sh add owner.payment```
+1. Add/Update the current UTXO balance for smallwallet1 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet1```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. Generate the transaction to transfer 1000000000 lovelaces from owner.payment to smallwallet3<br>```./01_sendLovelaces.sh owner.payment smallwallet3 1000000000```
+1. Generate the transaction to transfer 20000000 lovelaces from smallwallet1 also smallwallet3<br>```./01_sendLovelaces.sh smallwallet1 smallwallet3 20000000```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Execute the first created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
+1. Execute the second created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute``` again
+
+Done.  
+
+</details>
+
+# Conclusion
+
+As you can see, its always the same procedure working in Offline-Mode:
+
+1. Get the information about your payment/rewards addresses online using ./01_workOffline.sh
+1. Transfer the offlineTransfer.json to the Offline-Machine
+1. Do your normal operations on the Offline-Machine (only one payment from an individual payment address)
+1. Transfer the offlineTransfer.json to the Online-Machine
+1. Execute the operation online on the chain, and/or extract some included files too using ./01_workOffline.sh
+
+If you have questions, feel free to contact me via telegram: @atada_stakepool
+
+Best regards,
+ Martin
