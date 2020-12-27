@@ -136,7 +136,7 @@ if ${onlineMode}; then
 	        echo -e "---  END  ---\n\n"
 	        echo -e "Your remote file at \e[32m${poolMetaUrl}\e[0m with HASH \e[32m${onlineMetaHash}\e[0m:\n"
 	        echo -e "--- BEGIN ---\e[35m"
-	        cat ${tmpMetadataJSON}
+	        echo "${tmpMetadataJSON}"
 	        echo -e "\e[0m---  END  ---"
 		echo -e "\e[0m\n"
 		exit 1;
