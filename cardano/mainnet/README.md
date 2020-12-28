@@ -310,6 +310,9 @@ name.hwsfile (its like the .skey)
 
 Hardware-SigningFile for Payment(Base)/Staking address combo:
 name.payment.hwsfile, name.staking.hwsfile (its like the .skey)
+
+Witness-Files for PoolRegistration or PoolReRegistration:
+poolname_name_id.witness
 ```
 
 New in Mary-Era:<br>
