@@ -303,6 +303,15 @@ ITN witness files:
 poolname.itn.skey/vkey
 ```
 
+New for Hardware-Wallet (Ledger/Trezor) support:<br>
+```
+Hardware-SigningFile for simple "enterprise" address:
+name.hwsfile (its like the .skey)
+
+Hardware-SigningFile for Payment(Base)/Staking address combo:
+name.payment.hwsfile, name.staking.hwsfile (its like the .skey)
+```
+
 New in Mary-Era:<br>
 ```
 Policy files:
