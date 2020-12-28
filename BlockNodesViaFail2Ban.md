@@ -31,6 +31,8 @@ bantime = 86400
 
 Adjust the **port** and **logpath** so it is in line with your Relay Node setup.
 
+For normal logfiles use this configuration:
+
 **/etc/fail2ban/filter.d/cardano.conf**
 ``` console
 [Definition]
@@ -41,6 +43,21 @@ Adjust the **port** and **logpath** so it is in line with your Relay Node setup.
 failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
             ^.*version data mismatch.*"address":"<HOST>:.*$
 
+```
+
+If you use the systemd internal log-output, use this configuration and specify your servicename too:
+
+**/etc/fail2ban/filter.d/cardano.conf**
+``` console
+[Definition]
+
+#Theses regex expressions capture nodes that are not on the latest fork and also
+#nodes from other networks (testnets)
+
+failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
+            ^.*version data mismatch.*"address":"<HOST>:.*$
+
+journalmatch = _SYSTEMD_UNIT=<your systemd service name, i.e. cardano-node.service>
 ```
 
 The logfile for the Relay Node must be in **JSON mode** for this regex expression to work!
