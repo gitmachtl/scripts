@@ -145,7 +145,8 @@ The scripts uses per default (configurable) the file **offlineTransfer.json** to
       "poolName": "mypool",
       "poolOwner": [
          {
-         "ownerName": "owner"
+         "ownerName": "owner",
+         "ownerWitness": "local"
          }
       ],
       "poolRewards": "owner",
@@ -232,10 +233,12 @@ The json file could end up like this one after the pool was registered and also 
   "poolName": "mypool",
   "poolOwner": [
          {
-         "ownerName": "owner"
+         "ownerName": "owner",
+         "ownerWitness": "local"
          }
          {
-         "ownerName": "otherowner2"
+         "ownerName": "otherowner2",
+         "ownerWitness": "external"
          }
    ],
   "poolRewards": "owner",
@@ -406,7 +409,8 @@ If you wanna send over all funds from your mywallet call the script like
       "poolName": "mypool",
       "poolOwner": [
          {
-         "ownerName": "owner"
+         "ownerName": "owner",
+         "ownerWitness": "local"
          }
       ],
       "poolRewards": "owner",
@@ -513,10 +517,12 @@ It's similar to a single owner stake pool registration (example above). All owne
       "poolName": "mypool",
       "poolOwner": [
          {
-         "ownerName": "owner-1"
+         "ownerName": "owner-1",
+         "ownerWitness": "local"
          },
          {
-         "ownerName": "owner-2"
+         "ownerName": "owner-2",
+         "ownerWitness": "local"
          }
       ],
       "poolRewards": "rewards-account",
@@ -761,7 +767,7 @@ We want to make a pool owner stake address the nickname owner, also we want to r
 
 1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner```
 1. Attach the newly created payment and staking address into your offlineTransfer.json for later usage on the Online-Machine<br>```./01_workOffline.sh attach owner.payment.addr```<br>```./01_workOffline.sh attach owner.staking.addr```
-1. Generate the the owner stakeaddress registration transaction and pay the fees with smallwallet1<br>```./03b_regStakingAddrCert.sh owner.staking smallwallet1```
+1. Generate the owner stakeaddress registration transaction and pay the fees with smallwallet1<br>```./03b_regStakingAddrCert.sh owner.staking smallwallet1```
 1. Generate the keys for your coreNode
    1. ```./04a_genNodeKeys.sh mypool```
    1. ```./04b_genVRFKeys.sh mypool```
@@ -776,7 +782,8 @@ We want to make a pool owner stake address the nickname owner, also we want to r
       "poolName": "mypool",
       "poolOwner": [
          {
-         "ownerName": "owner"
+         "ownerName": "owner",
+         "ownerWitness": "local"
          }
       ],
       "poolRewards": "owner",
@@ -799,6 +806,8 @@ We want to make a pool owner stake address the nickname owner, also we want to r
       "---": "--- DO NOT EDIT BELOW THIS LINE ---"
    }
    ```
+   
+   :bulb: You can find more details on the scripty-syntax [here](#scriptfiles-syntax)
    
 1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file.<br>:bulb: If you wanna protect your TICKER a little more against others, contact me and you will get a unique TickerProtectionKey for your Ticker! If you already have one, run ```./05a_genStakepoolCert.sh <PoolNodeName> <your registration protection key>```<br>
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
