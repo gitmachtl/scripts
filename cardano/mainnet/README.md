@@ -279,7 +279,7 @@ The json file could end up like this one after the pool was registered and also 
 ### Filenames used and autolock for security
 
 <details>
-   <summary>Checkout all naming schemes... </summary>
+   <summary>Show all used naming schemes like *.addr, *.skey, *.pool.json, ... </summary>
    
 I use the following naming scheme for the files:<br>
 ``` 
