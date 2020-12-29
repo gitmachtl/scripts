@@ -414,7 +414,7 @@ We don't want to run the scripts as a superuser (sudo), so you should add some u
 
 You can find a pretty good summary of how to add the udev rules to you system on this website: https://support.ledger.com/hc/en-us/articles/360019301813-Fix-USB-issues
 
-But to make this here a one-stop i will include the udev rules also here. You have to set the username correct in this rulez, they are included in the lines with ```OWNER=<username>```, replace it with your actual username! So, please add the following file to your Debian/Ubuntu based Linux-System, Arch need other rulez:
+But to make this here a one-stop i will include the udev rules also here. You have to set the username correct in this rulez, they are included in the lines with ```OWNER=<username>```, **replace it with your actual username!** So, please add the following file to your Debian/Ubuntu based Linux-System, Arch need other rulez:
    
    **/etc/udev/rules.d/20-hw1.rules**
    ``` console
@@ -445,7 +445,7 @@ You should now be able to use your Ledger Nano S or Nano X device as the usernam
 
 You can find the support page for the udev rules of the Trezor devices here: https://wiki.trezor.io/Udev_rules
 
-But to make this here a one-stop i will include the udev rules also here. You have to set the username correct in this rulez, they are included in the lines with ```OWNER=<username>```, replace it with your actual username! So, please add the following file to your Debian/Ubuntu based Linux-System, Arch need other rulez:
+But to make this here a one-stop i will include the udev rules also here. You have to set the username correct in this rulez, they are included in the lines with ```OWNER=<username>```, **replace it with your actual username!** So, please add the following file to your Debian/Ubuntu based Linux-System, Arch need other rulez:
 
    **/etc/udev/rules.d/51-trezor.rules**
    ```console
