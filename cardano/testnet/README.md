@@ -385,7 +385,7 @@ Please take a few minutes and take a look at the Sections here to find out how t
 | Send, Mint or Burn Assets from the HW payment address | :x: | :x:<br>mary assets not supported yet |
 | Claim Rewards from a CLI stake address | :heavy_check_mark: | :x: |
 | Claim Rewards from then HW stake address, Paying with the HW payment address | :x: | :heavy_check_mark: |
-| Claim Rewards from then HW stake address, Paying with a CLI payment address | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode) | :x: |
+| Claim Rewards from then HW stake address, Paying with a CLI payment address | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode*) | :x: |
 | Register HW staking keys on the chain | :x: | :heavy_check_mark: |
 | Register CLI staking keys on the chain | :heavy_check_mark: | :x: |
 | Delegate HW staking keys to a stakepool | :x: | :heavy_check_mark: |
@@ -394,12 +394,14 @@ Please take a few minutes and take a look at the Sections here to find out how t
 | Register a stakepool with HW staking keys as an rewards-account | :heavy_check_mark: | :x: |
 | Register a stakepool together with all the delegation certificates if only CLI owner keys are used | :heavy_check_mark: | :x: |
 | Register a stakepool together with all the delegation certificates if a HW staking key is used as an rewards-account | :heavy_check_mark: | :x: |
-| Register a stakepool together with all the delegation certificates if at least one owner is a HW staking key | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode) | :x: |
+| Register a stakepool together with all the delegation certificates if at least one owner is a HW staking key | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode*) | :x: |
 | Retire HW staking keys from the chain | :x: | :heavy_check_mark: |
 | Retire CLI staking keys from the chain | :heavy_check_mark: | :x: |
 | Retire a a stakepool from the chain | :heavy_check_mark: | :x: |
 
-Basically, you have to do all HW-Wallet related things directly with the hardware wallet. You can overcome some of the issues by using a Hybrid-StakeAddress with the Hardware-Wallet. In that case you can work with the HW stake keys like with normal CLI keys, only the payment keys are protected via the HW Wallet (MultiOwner-ComfortMode). Creating such a Hybrid-StakingAddressCombo for a HW-Wallet is supported by the script ```./03a_genStakingPaymentAddr.sh <name> hwpayonly``` command.
+Basically, you have to do all HW-Wallet related things directly with the hardware wallet.
+
+*) You can overcome some of the issues by using a Hybrid-StakeAddress with the Hardware-Wallet. In that case you can work with the HW stake keys like with normal CLI keys, only the payment keys are protected via the HW Wallet (MultiOwner-ComfortMode). Creating such a Hybrid-StakingAddressCombo for a HW-Wallet is supported by the script ```./03a_genStakingPaymentAddr.sh <name> hwpayonly``` command.
 
 </details>
 
