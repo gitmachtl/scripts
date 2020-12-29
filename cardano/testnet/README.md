@@ -24,7 +24,7 @@ The scripts are capable to be used in Online- and Offline-Mode. It depends on yo
 Why not always using Offline-Mode? You have to do transactions online, you have to check balances online. Also, there are plenty of usecases using small wallets without the need of the additional steps to do all offline everytime. Also if you're testing some things on Testnets, it would be a pain to always transfer files between the Hot- and the Cold-Machine. You choose how you wanna work... :-)<br>
 
 <details>
-   <summary>How do you switch between Online- and Offline-Mode?</summary>
+   <summary><b>How do you switch between Online- and Offline-Mode? </b>:bookmark_tabs:</summary>
    
 <br>Thats simple, you just change a single entry in the 00_common.sh, common.inc or $HOME/.common.inc config-file:
 <br>```offlineMode="no"``` Scripts are working in Online-Mode
@@ -35,7 +35,7 @@ So on the Online-Machine you set the ```offlineMode="no"``` and on the Offline-M
 </details>
 
 <details>
-   <summary>What do you need on the Online- and the Offline-Machine?</summary>
+   <summary><b>What do you need on the Online- and the Offline-Machine? </b>:bookmark_tabs:</summary>
    
 <br>On the Online-Machine you need a running and fully synced cardano-node, the cardano-cli and also your ```*.addr``` files to query the current balance of them for the Offline-Machine. **You should not have any signing keys ```*.skey``` files of big wallets laying around!** Metadata-Files are fine, you need them anyway to transfer them to your Stakepool-Webserver, also they are public available, no security issue.
 
@@ -51,7 +51,7 @@ You should keep your directory structure the same on both Machines.
 # Scriptfiles Syntax
 
 <details>
-   <summary>Show the full Syntax details for each script...</summary>
+   <summary><b>Show the full Syntax details for each script ... </b>:bookmark_tabs:</summary>
 
 
 * **00_common.sh:** main config file (!) set your variables in there for your config, will be used by the scripts.<br>
@@ -284,7 +284,7 @@ The json file could end up like this one after the pool was registered and also 
 ### Filenames used and autolock for security
 
 <details>
-   <summary>Show all used naming schemes like *.addr, *.skey, *.pool.json, ... </summary>
+   <summary><b>Show all used naming schemes like *.addr, *.skey, *.pool.json, ... </b>:bookmark_tabs:<br></summary>
    
 I use the following naming scheme for the files:<br>
 ``` 
@@ -347,7 +347,7 @@ chmod 400 poolname.pool.json
 ### Directory Structure
 
 <details>
-   <summary>Checkout how to use the scripts with directories... </summary>
+   <summary><b>Checkout how to use the scripts with directories ... </b>:bookmark_tabs:<br></summary>
 
 There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax) below.<p>However, if you wanna use directories there is a way: 
 * **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
@@ -373,9 +373,9 @@ Please take a few minutes and take a look at the Sections here to find out how t
 ## Limitations to the PoolOperation
 
 <details>
-   <summary>About Limitations, what can you do, what can't you do ... </summary>
+   <summary><b>About Limitations, what can you do, what can't you do ...</b>:bookmark_tabs:<br></summary>
    
-<br>So, there are many things you can do with your Hardware-Wallet as an SPO, but there are also many limitations because of security restrictions. I have tried to make this list below so you can see whats possible and whats not. If its not in this list, its not possible with a Hardware-Wallet for now:
+So, there are many things you can do with your Hardware-Wallet as an SPO, but there are also many limitations because of security restrictions. I have tried to make this list below so you can see whats possible and whats not. If its not in this list, its not possible with a Hardware-Wallet for now:
 
 | Action | Payment via CLI-Keys:key: | Payment via HW-Keys:key: (Ledger/Trezor) |
 | :---         |     :---:      |     :---:     |
@@ -410,7 +410,7 @@ Basically, you have to do all HW-Wallet related things directly with the hardwar
 We don't want to run the scripts as a superuser (sudo), so you should add some udev informations.
 
 <details>
-   <summary>Prepare your system so you can use the Hardware-Wallet as a Non-SuperUser ...</summary>
+   <summary><b>Prepare your system so you can use the Hardware-Wallet as a Non-SuperUser ...</b>:bookmark_tabs:<br></summary>
    
 ### Ledger Nano S & Nano X
 
@@ -493,7 +493,7 @@ Lets say we wanna make ourself a normal address to send/receive ada, we want thi
 Than we want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
 
 <details>
-   <Summary>Show Example...<br></summary>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files and source it (```source ./00_common.sh```)
 1. Generate a simple address to receive some ADA ```./02_genPaymentAddrOnly.sh mywallet```
@@ -559,7 +559,7 @@ Done.
 Lets say we wanna create a payment(base)/stake address combo with the nickname delegator and we wanna delegate the funds in the payment(base) address of that to the pool yourpool. (You'll need the yourpool.node.vkey for that.)
 
 <details>
-   <Summary>Show Example...<br></summary>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
 1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator cli```
@@ -577,7 +577,7 @@ Done.
 If you wanna update you pledge, costs, owners or metadata on a registered stakepool just do the following
 
 <details>
-   <Summary>Show Example...<br></summary>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 1. [Unlock](#file-autolock) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
@@ -593,7 +593,7 @@ Done.
 I'am sure you wanna claim some of your rewards that you earned running your stakepool. So lets say you have rewards in your owner.staking address and you wanna claim it to the owner.payment address.
 
 <details>
-   <Summary>Show Example...<br></summary>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 1. You can always check that you have rewards in your stakeaccount by running ```./01_queryAddress.sh owner.staking```
 1. Now you can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment```
@@ -621,7 +621,7 @@ Done.
 It's similar to a single owner stake pool registration (example above). All owners must have a registered stake address on the blockchain first! Here is a 2 owner example ...
 
 <details>
-   <summary>Show Example...</summary>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 1. Generate the stakepool certificate
    1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it for multiowner usage and set your owners and also the rewards account. The rewards account is also a stake address (but not delegated to the pool!):
@@ -658,7 +658,7 @@ Done.
 You can mix'n'match multiple relay entries in your poolname.pool.json file, below are a few common examples.
 
 <details>
-   <summary>Show Example...<br></summary>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 ### Using two dns named relay entries
 
@@ -729,7 +729,7 @@ Your poolRelays array section in the json file should like similar to:
 If you wanna retire your registered stakepool mypool, you have to do just a few things
 
 <details>
-   <summary>Show Example...<br></summary>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 1. Generate the retirement certificate for the stakepool mypool from data in mypool.pool.json<br>
    ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
@@ -743,7 +743,7 @@ Done.
 If you wanna retire the staking address owner, you have to do just a few things
 
 <details>
-   <Summary>Show Example...<br></summary>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 1. Generate the retirement certificate for the stake-address ```./08a_genStakingAddrRetireCert.sh owner```<br>this will generate the owner.staking.dereg-cert file
 1. De-Register your stake-address from the blockchain with ```./08b_deregStakingAddrCert.sh owner.staking owner.payment```<br>you don't need to have funds on the owner.payment base address. you'll get the keyDepositFee back onto it!
@@ -756,7 +756,7 @@ Done.
 ## ITN-Witness Ticker check for wallets and Extended-Metadata.json Infos
 
 <details>
-   <summary>Explore how to use your ITN Ticker as Proof and also how to use extended-metadata.json</summary>
+   <summary><b> Explore how to use your ITN Ticker as Proof and also how to use extended-metadata.json </b>:bookmark_tabs:<br></summary>
    
 There is now an implementation of the extended-metadata.json for the pooldata. This can hold any kind of additional data for the registered pool. We see some Ticker spoofing getting more and more, so new people are trying to take over the Ticker from the people that ran a stakepool in the ITN and built up there reputation. There is no real way to forbid a double ticker registration, however, the "spoofing" stakepoolticker can be shown in the Daedalus/Yoroi/Pegasus wallet as a "spoof", so people can see this is not the real pool. I support this in my scripts. To anticipate in this (it is not fixed yet) you will need a "**jcli**" binary on your machine with the right path set in ```00_common.sh```. Prepare two files in the pool directory:
 <br>```<poolname>.itn.skey``` this textfile should hold your ITN secret/private key
@@ -783,17 +783,13 @@ So if you hold a file ```<poolname>.additional-metadata.json``` with additional 
 ## How to do a voting for SPOCRA in a simple process
 
 <details>
-   <summary>Explore how to vote for SPOCRA</summary>
+   <summary><b>Explore how to vote for SPOCRA </b>:bookmark_tabs:<br></summary>
    
 We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
 After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
 Thats it. :-)
 
 </details>
-
-
-
-
 
 
 
@@ -837,7 +833,7 @@ The examples in here are for using the scripts in Offine-Mode. Please get yourse
 So first you should create yourself a few small wallets for the daily Operator work, there is no need to use your big-owner-pledge-wallet for this every time. Lets say we wanna create three small wallets with the name smallwallet1, smallwallet2 and smallwallet3. And we wanna fund them via daedalus for example.
 
 <details>
-   <summary>Show Example...</summary>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 <br>**Online-Machine:**
 
@@ -867,7 +863,7 @@ You can of course use your already made and funded wallets for the following exa
 We want to make a pool owner stake address the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker! We use the smallwallet1&2 to pay for the different fees in this process. Make sure you have enough funds on smallwallet1 & smallwallet2 for this registration.
 
 <details>
-   <Summary>Show Example...<br></summary>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 <br>**Online-Machine:**
 
@@ -946,7 +942,7 @@ Done.
 Lets pretend you already have registered your stakepool 'mypool' in the past using theses scripts, now lets update some pool parameters like pledge, fees or the description for the stakepool(metadata). We use the smallwallet1 to pay for this update.
 
 <details>
-   <summary>Show Example...</summary>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 <br>**Online-Machine:**
 
@@ -976,7 +972,7 @@ Done.
 I'am sure you wanna claim some of your rewards that you earned running your stakepool. So lets say you have rewards in your owner.staking address and you wanna claim it to the owner.payment address by paying with funds from smallwallet2.
 
 <details>
-   <Summary>Show Example...<br></summary>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 <br>**Online-Machine:**
 
@@ -1010,7 +1006,7 @@ Lets say you wanna transfer 1000 Ada from your big-owner-payment-wallet owner.pa
 Also you wanna transfer 20 ADA from smallwallet1 to smallwallet3 at the same time, only transfering the offlineTransfer.json once. 
 
 <details>
-   <Summary>Show Example...<br></summary>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 <br>**Online-Machine:**
 
