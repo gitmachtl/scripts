@@ -7,7 +7,7 @@ $ sudo apt-get update
 $ sudo apt-get install fail2ban
 ``` 
 
-## Just two simple files are needed for the config
+## Just two simple files are needed for the config in the jail.d and filter.d directory
 
 **/etc/fail2ban/jail.d/cardano.conf**
 ``` console
