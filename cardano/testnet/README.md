@@ -368,7 +368,7 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 # Working with a Hardware-Wallet
 
-Please take a few minutes and take a look at the Sections here to find out how to prepare your system, what are the limitations etc when working with a Hardware-Wallet Ledger Nano S, Nano X or Trezor Model-T.
+Please take a few minutes and take a look at the Sections here to find out how to prepare your system, what are the limitations when working with a Hardware-Wallet Ledger Nano S, Nano X or Trezor Model-T.
 
 <details>
    <summary>About Limitations, what can you do, what can't you do ... </summary>
@@ -401,7 +401,7 @@ Basically, you have to do all HW-Wallets related things directly with the hardwa
 
 </details>
 
-**The Hardware-Wallet Section is in progress, please visit again later to see if there any updates**
+**The Hardware-Wallet Section is in progress, please visit again later to see if there are any updates**
 
 
 # Examples in Online-Mode
