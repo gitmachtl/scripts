@@ -20,7 +20,7 @@ echo -e "\e[0mCreating Node Offline Keys\e[32m ${nodeName}.node.vkey/skey\e[0m a
 echo
 
 ${cardanocli} ${subCommand} node key-gen --verification-key-file ${nodeName}.node.vkey --signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${nodeName}.node.vkey
 file_lock ${nodeName}.node.skey
 file_lock ${nodeName}.node.counter

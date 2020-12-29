@@ -11,8 +11,8 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  2 ) delegateStakeAddr="$2";
-      toPoolNodeName="$1";;
+  2 ) delegateStakeAddr="$(dirname $2)/$(basename $2 .staking)"; delegateStakeAddr=${delegateStakeAddr/#.\//};
+      toPoolNodeName="$(dirname $1)/$(basename $(basename $1 .json) .pool)"; toPoolNodeName=${toPoolNodeName/#.\//};;
   * ) cat >&2 <<EOF
 Usage:  $(basename $0) <PoolNodeName> <DelegatorStakeAddressName>
 EOF
@@ -28,7 +28,7 @@ echo
 file_unlock ${delegateStakeAddr}.deleg.cert
 
 ${cardanocli} ${subCommand} stake-address delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --cold-verification-key-file ${toPoolNodeName}.node.vkey --out-file ${delegateStakeAddr}.deleg.cert
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 file_lock ${delegateStakeAddr}.deleg.cert
 

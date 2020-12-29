@@ -11,79 +11,88 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  2 ) stakeAddr="$1";
-      fromAddr="$2";;
+  4 ) fromAddr="$(dirname $4)/$(basename $4 .addr)"; fromAddr=${fromAddr/#.\//};
+      toAddr=${fromAddr};
+      policyName="$3";
+      assetMintAmount="$2";
+      assetMintName="$1";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <StakeAddressName> <Base/PaymentAddressName (paying for the registration fees)>
-Example: $(basename $0) atada.staking atada.payment
+Usage:  $(basename $0) <AssetName> <AssetAmount> <PolicyName> <PaymentAddressName>
 EOF
   exit 1;; esac
 
-#Check about required files: Registration Certificate, Signing Key and Address of the payment Account
-if [ ! -f "${stakeAddr}.cert" ]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.cert\" Registration Certificate does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
+
+#Check assetMintName for alphanummeric only, 32 chars max
+if [[ ! "${assetMintName}" == "${assetMintName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName should only contain alphanummeric chars!\e[0m"; exit; fi
+if [[ ${#assetMintName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit; fi
+if [[ ${assetMintAmount} -lt 1 ]]; then echo -e "\e[35mError - The Amount of Assets to mint must be a positive number!\e[0m"; exit; fi
+
+# Check for needed input files - missing - work to do :-)
+if [ ! -f "${policyName}.policy.id" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.id\" id-file does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
+if [ ! -f "${policyName}.policy.script" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.script\" scriptfile does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
+if [ ! -f "${policyName}.policy.skey" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.skey\" signing key does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
+
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 
-echo
-echo -e "\e[0mRegister Staking Address\e[32m ${stakeAddr}.addr\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
+policyID=$(cat ${policyName}.policy.id)
+
+#Sending ALL lovelaces, so only 1 receiver addresses
+rxcnt="1"
+
+echo -e "\e[0mMinting Asset \e[32m${assetMintAmount} '${assetMintName}'\e[0m with Policy \e[32m'${policyName}'\e[0m:"
 echo
 
-#get values to register the staking address on the blockchain
 #get live values
 currentTip=$(get_currentTip)
 ttl=$(get_currentTTL)
 currentEPOCH=$(get_currentEpoch)
 
-echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
-
-#adaToSend + fees will be taken out of the sendFromUTXO and sent back to the same Address
-
-rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
-
-sendFromAddr=$(cat ${fromAddr}.addr); check_address "${sendFromAddr}";
-sendToAddr=$(cat ${fromAddr}.addr); check_address "${sendToAddr}";
-
-echo
-echo -e "Pay fees from Address\e[32m ${fromAddr}.addr\e[0m: ${sendFromAddr}"
+echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[invalid_hereafter] to ${ttl})"
 echo
 
-#------------------------------------------------
+sendFromAddr=$(cat ${fromAddr}.addr)
+sendToAddr=${sendFromAddr}
+
+check_address "${sendFromAddr}"
+
+echo -e "\e[0mPayment Address and Asset-Destination-Address ${fromAddr}.addr:\e[32m ${sendFromAddr} \e[90m"
+echo
+
 #
 # Checking UTXO Data of the source address and gathering data about total lovelaces and total assets
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
                                 if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
         fi
-	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
-	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
-        #Convert UTXO into mary style if UTXO is shelley/allegra style
-        if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
+        txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
+        if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
-	#Calculating the total amount of lovelaces in all utxos on this address
+        #Calculating the total amount of lovelaces in all utxos on this address
         totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
 
-        totalAssetsJSON="{}"; 	#Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
+        #totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
+	#Preload the new Asset to mint in the totalAssetsJSON
+	totalAssetsJSON=$( jq ". += {\"${policyID}.${assetMintName}\":{amount: ${assetMintAmount}, name: \"${assetMintName}\"}}" <<< "{}")
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 
-	assetsOutString="";	#This will hold the String to append on the --tx-out if assets present or it will be empty
-
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
-        #LEVEL 1 - different UTXOs
+	#LEVEL 1 - different UTXOs
         for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
         do
-        utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
+        utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
         utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
         assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
-                        #LEVEL 2 - different policyID/assetHASH
+			#LEVEL 2 - different policyID/assetHASH
                         for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
                         do
                         assetHash=$(jq -r ".[${tmpCnt2}][0]" <<< ${assetsJSON})  #assetHash = policyID
@@ -102,15 +111,14 @@ echo
                                 done
                          done
         fi
-        txInString="${txInString} --tx-in ${utxoHashIndex}"
+	txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
         echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
-        totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
-        echo -e "Total ADA on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m\n"
+        echo -e "Total ADA on the Address:\e[32m  $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
         totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
-                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
+                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} Policy-IDs \e[0m - PREVIEW after minting\n"
                         printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
@@ -118,7 +126,7 @@ echo
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
                         printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
-                        if [[ ${assetAmount} -gt 0 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
+			if [[ ${assetAmount} -gt 0 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
 
@@ -130,99 +138,123 @@ if ${onlineMode}; then
                   else
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
-
-#----------------------------------------------------
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-#echo -e "${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 100 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}"
-${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 100 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
-checkError "$?"
-
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --mint "${assetMintAmount} ${policyID}.${assetMintName}" --invalid-hereafter ${ttl} --fee 0 --out-file ${txBodyFile}
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
-echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m ${fee} lovelaces \e[90m"
-keyDepositFee=$(jq -r .keyDeposit <<< ${protocolParametersJSON})
-echo -e "\e[0mKey Deposit Fee: \e[32m ${keyDepositFee} lovelaces \e[90m"
-minRegistrationFund=$(( ${keyDepositFee}+${fee} ))
+lovelacesToSend=$(( ${totalLovelaces} - ${fee} ))
 
-echo
-echo -e "\e[0mMimimum funds required for registration (Sum of fees): \e[32m ${minRegistrationFund} lovelaces \e[90m"
-echo
-
-#calculate new balance for destination address
-lovelacesToSend=$(( ${totalLovelaces}-${minRegistrationFund} ))
-
-echo -e "\e[0mLovelaces that will be return to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
-echo
+echo -e "\e[0mLovelaces to return to source ${toAddr}.addr: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
 
 #Checking about minimum funds in the UTX0
 if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
 
+
+echo
+
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
 txFile="${tempDir}/$(basename ${fromAddr}).tx"
 
-echo -e "\e[0mBuilding the unsigned transaction body with the\e[32m ${stakeAddr}.cert\e[0m certificate: \e[32m ${txBodyFile} \e[90m"
+echo
+echo -e "\e[0mBuilding the unsigned transaction body: \e[32m ${txBodyFile} \e[90m"
 echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
-checkError "$?"
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "${assetMintAmount} ${policyID}.${assetMintName}" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+#echo "${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out \"${sendToAddr}+${lovelacesToSend}${assetsOutString}\" --mint \"${assetMintAmount} ${policyID}.${assetMintName}\" --invalid-hereafter ${ttl}  --out-file ${txBodyFile}"
 
 cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m and \e[32m${policyName}.policy.skey\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
 rm ${txFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey ${magicparam} --out-file ${txFile}
-checkError "$?"
+${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${policyName}.policy.skey --script-file ${policyName}.policy.script ${magicparam} --out-file ${txFile}
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+#echo "${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${policyName}.policy.skey --script-file ${policyName}.policy.script ${magicparam} --out-file ${txFile}"
 
 cat ${txFile}
 echo
-
 
 if ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         if ${onlineMode}; then  #onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node..."
                                 ${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
-                                checkError "$?"
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\e[32mDONE\n"
+
+			        #Updating the ${policyName}.${assetMintName}.token json
+			        assetFileName="${policyName}.${assetMintName}.asset"
+			        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
+			        oldValue=$(jq -r ".minted" ${assetFileName})
+			        newValue=$(( ${oldValue} + ${assetMintAmount} ))
+			        assetFileJSON=$( jq ". += {minted: ${newValue}, name: \"${assetMintName}\", policyID: \"${policyID}\", lastUpdate: \"$(date)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
+
+			        file_unlock ${assetFileName}
+			        echo -e "${assetFileJSON}" > ${assetFileName}
+			        file_lock ${assetFileName}
+
+			        echo -e "\e[0mAsset-File: \e[32m ${assetFileName} \e[90m\n"
+			        cat ${assetFileName}
+			        echo
+
                           else  #offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)
                                 offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
-                                                                        type: \"StakeKeyRegistration\",
+                                                                        type: \"Asset-Minting\",
                                                                         era: \"$(jq -r .protocol.era <<< ${offlineJSON})\",
-                                                                        stakeAddr: \"${stakeAddr}\",
                                                                         fromAddr: \"${fromAddr}\",
                                                                         sendFromAddr: \"${sendFromAddr}\",
-                                                                        toAddr: \"${fromAddr}\",
+                                                                        toAddr: \"${toAddr}\",
                                                                         sendToAddr: \"${sendToAddr}\",
                                                                         txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
                                 #Write the new offileFile content
-                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed staking key registration transaction for '${stakeAddr}', payment via '${fromAddr}'\" } ]" <<< ${offlineJSON})
+                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"minted ${assetMintAmount} '${assetMintName}' on '${fromAddr}'\" } ]" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".general += {offlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
                                 echo "${offlineJSON}" > ${offlineFile}
                                 #Readback the tx content and compare it to the current one
                                 readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
                                 if [[ "${txFileJSON}" == "${readback}" ]]; then
+			                                #Updating the ${policyName}.${assetMintName}.token json
+			                                assetFileName="${policyName}.${assetMintName}.asset"
+			                                if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
+			                                oldValue=$(jq -r ".minted" ${assetFileName})
+			                                newValue=$(( ${oldValue} + ${assetMintAmount} ))
+			                                assetFileJSON=$( jq ". += {minted: ${newValue}, name: \"${assetMintName}\", policyID: \"${policyID}\", lastUpdate: \"$(date)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
+
+			                                file_unlock ${assetFileName}
+			                                echo -e "${assetFileJSON}" > ${assetFileName}
+			                                file_lock ${assetFileName}
+
+			                                echo -e "\e[0mAsset-File: \e[32m ${assetFileName} \e[90m\n"
+			                                cat ${assetFileName}
+			                                echo
+
                                                         showOfflineFileInfo;
                                                         echo -e "\e[33mTransaction txJSON has been stored in the '$(basename ${offlineFile})'.\nYou can now transfer it to your online machine for execution.\e[0m\n";
+
                                                  else
                                                         echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
                                 fi
 
         fi
-
 fi
 
 echo -e "\e[0m\n"
+
+
+

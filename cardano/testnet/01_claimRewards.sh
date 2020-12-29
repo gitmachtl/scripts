@@ -10,8 +10,8 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  2|3 ) stakeAddr="$1";
-      toAddr="$2";;
+  2|3 ) stakeAddr="$(dirname $1)/$(basename $1 .staking).staking"; stakeAddr=${stakeAddr/#.\//}
+	toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//};;
   * ) cat >&2 <<EOF
 Usage:  $(basename $0) <StakeAddressName> <To AddressName> [optional <FeePaymentAddressName>]
 Ex.: $(basename $0) atada.staking atada.payment        (claims the rewards from atada.staking.addr and sends them to atada.payment.addr, atada.payment.addr pays the fees)
@@ -19,17 +19,21 @@ Ex.: $(basename $0) atada.staking atada.payment funds  (claims the rewards from 
 EOF
   exit 1;; esac
 
+#Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
+if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
+
 #Check if an optional fee payment address is given and different to the receiver address
 fromAddr=${toAddr}
-if [[ $# -eq 3 ]]; then fromAddr=$3; fi
+if [[ $# -eq 3 ]]; then fromAddr="$(dirname $3)/$(basename $3 .addr)"; fi
 if [[ "${fromAddr}" == "${toAddr}" ]]; then rxcnt="1"; else rxcnt="2"; fi
-
 
 #Checks for needed files
 if [ ! -f "${stakeAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.addr\" does not exist!\e[0m"; exit 1; fi
-if [ ! -f "${stakeAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.skey\" does not exist!\e[0m"; exit 1; fi
+if ! [[ -f "${stakeAddr}.skey" || -f "${stakeAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.skey/hwsfile\" Staking Signing Key or HardwareFile does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
+
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist!\e[0m"; exit 1; fi
-if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist!\e[0m"; exit 1; fi
+if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+
 if [ ! -f "${toAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${toAddr}.addr\" does not exist!\e[0m"; exit 1; fi
 
 
@@ -62,7 +66,7 @@ echo
                                 rewardsJSON=$(cat ${offlineFile} | jq -r ".address.\"${stakingAddr}\".rewardsJSON" 2> /dev/null)
                                 if [[ "${rewardsJSON}" == null ]]; then echo -e "\e[35mStake-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
         fi
-        checkError "$?"
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
         if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "\e[35mStaking Address is not on the chain, register it first !\e[0m\n"; exit 1;
@@ -74,18 +78,16 @@ echo
         for (( tmpCnt=0; tmpCnt<${rewardsEntryCnt}; tmpCnt++ ))
         do
         rewardsAmount=$(jq -r ".[${tmpCnt}].rewardAccountBalance" <<< ${rewardsJSON})
-        rewardsAmountInADA=$(bc <<< "scale=6; ${rewardsAmount} / 1000000")
 
         delegationPoolID=$(jq -r ".[${tmpCnt}].delegation" <<< ${rewardsJSON})
 
         rewardsSum=$((${rewardsSum}+${rewardsAmount}))
-        rewardsSumInADA=$(bc <<< "scale=6; ${rewardsSum} / 1000000")
 
         echo -ne "[$((${tmpCnt}+1))]\t"
 
         #Checking about rewards on the stake address
         if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards found on the stake Addr !\e[0m";
-        else echo -e "Entry Rewards: \e[33m${rewardsAmountInADA} ADA / ${rewardsAmount} lovelaces\e[0m"
+        else echo -e "Entry Rewards: \e[33m$(convertToADA ${rewardsAmount}) ADA / ${rewardsAmount} lovelaces\e[0m"
         fi
 
         #If delegated to a pool, show the current pool ID
@@ -97,7 +99,7 @@ echo
 
 	if [[ ${rewardsSum} -eq 0 ]]; then exit 1; fi;
 
-        if [[ ${rewardsEntryCnt} -gt 1 ]]; then echo -e "   \t-----------------------------------------\n"; echo -e "   \tTotal Rewards: \e[33m${rewardsSumInADA} ADA / ${rewardsSum} lovelaces\e[0m\n"; fi
+        if [[ ${rewardsEntryCnt} -gt 1 ]]; then echo -e "   \t-----------------------------------------\n"; echo -e "   \tTotal Rewards: \e[33m$(convertToADA ${rewardsSum}) ADA / ${rewardsSum} lovelaces\e[0m\n"; fi
 
 
 #-------------------------------------
@@ -107,7 +109,7 @@ echo
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -159,8 +161,8 @@ echo
         txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
         echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
-        totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
-        echo -e "Total ADA on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m\n"
+        echo -e "Total ADA on the Address:\e[32m $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
+
         totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
@@ -183,7 +185,7 @@ if ${onlineMode}; then
                   else
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
 
 #-------------------------------------
@@ -196,14 +198,14 @@ txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then
                         ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
-			checkError "$?"
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else
                         ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendFromAddr}+0${assetsOutString}" --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
-			checkError "$?"
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 
-echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & Withdrawal: \e[32m ${fee} lovelaces \e[90m"
+echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & Withdrawal: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
 #If only one address (paying for the fees and also receiving the rewards)
 #If two different addresse (fromAddr is paying for the fees, toAddr is getting the rewards)
@@ -212,7 +214,7 @@ if [[ ${rxcnt} == 1 ]]; then
 			#calculate the lovelaces to return to the payment address
 			lovelacesToReturn=$(( ${totalLovelaces}-${fee}+${rewardsSum} ))
 			#Checking about minimum funds in the UTX0
-                        echo -e "\e[0mLovelaces that will be returned to destination Address (UTXO-Sum - fees + rewards): \e[33m ${lovelacesToReturn} lovelaces \e[90m"
+                        echo -e "\e[0mLovelaces that will be returned to destination Address (UTXO-Sum - fees + rewards): \e[33m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m"
 			if [[ ${lovelacesToReturn} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
 
 			echo
@@ -222,8 +224,8 @@ if [[ ${rxcnt} == 1 ]]; then
                         #calculate the lovelaces to return to the fee payment address
                         lovelacesToReturn=$(( ${totalLovelaces}-${fee} ))
                         #Checking about minimum funds in the UTX0
-                        echo -e "\e[0mLovelaces that will be sent to the destination Address (rewards): \e[33m ${rewardsSum} lovelaces \e[90m"
-                        echo -e "\e[0mLovelaces that will be returned to the fee payment Address (UTXO-Sum - fees): \e[32m ${lovelacesToReturn} lovelaces \e[90m"
+                        echo -e "\e[0mLovelaces that will be sent to the destination Address (rewards): \e[33m $(convertToADA ${rewardsSum}) ADA / ${rewardsSum} lovelaces \e[90m"
+                        echo -e "\e[0mLovelaces that will be returned to the fee payment Address (UTXO-Sum - fees): \e[32m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m"
                         if [[ ${lovelacesToReturn} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
                         echo
 
@@ -231,7 +233,6 @@ fi
 
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
 txFile="${tempDir}/$(basename ${fromAddr}).tx"
-
 echo
 echo -e "\e[0mBuilding the unsigned transaction body: \e[32m ${txBodyFile} \e[90m"
 echo
@@ -247,13 +248,32 @@ fi
 cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m & \e[32m${stakeAddr}.skey\e[0m: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey/hwsfile\e[0m & \e[32m${stakeAddr}.skey/hwsfile\e[0m: \e[32m ${txFile} \e[90m"
+echo
+
+#If stakeaddress and payment address are from the same hardware files
+paymentName=$(basename ${fromAddr} .payment) #contains the name before the .payment.addr extension
+stakingName=$(basename ${stakeAddr} .staking) #contains the name before the .staking.addr extension
+if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" == "${stakingName}" ]]; then
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        tmp=$(${cardanohwcli} shelley transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txFile} 2> /dev/stdout)
+        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+elif [[ -f "${stakeAddr}.skey" && -f "${fromAddr}.skey" ]]; then #with the normal cli skey
+        ${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey ${magicparam} --out-file ${txFile}
+else
+echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet can only be used to claim its own staking rewards on the chain.\e[0m\n"; exit 1;
+fi
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+echo -ne "\e[90m"
+cat ${txFile}
 echo
 
 #Sign the unsigned transaction body with the SecureKey
-${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey  ${magicparam} --out-file ${txFile}
-cat ${txFile}
-echo
+#${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${stakeAddr}.skey  ${magicparam} --out-file ${txFile}
+#cat ${txFile}
+#echo
 
 
 if ask "\e[33mDoes this look good for you, continue ?" N; then
@@ -261,7 +281,7 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
         if ${onlineMode}; then  #onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node..."
                                 ${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
-                                checkError "$?"
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\e[32mDONE\n"
                           else  #offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)

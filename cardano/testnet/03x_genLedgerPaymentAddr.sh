@@ -23,7 +23,8 @@ if [ -f "${addrName}.staking.cert" ]; then echo -e "\e[35mWARNING - ${addrName}.
 
 
 #We need a normal payment(base) keypair with vkey and skey, so let's create that one
-${cardanocli} ${subCommand} address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
+#${cardanocli} ${subCommand} address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
+./cardano-hw-cli shelley address key-gen --path 1852H/1815H/0H/0/0 --verification-key-file ${addrName}.payment.vkey --hw-signing-file ${addrName}.payment.skey
 checkError "$?"
 file_lock ${addrName}.payment.vkey
 file_lock ${addrName}.payment.skey
@@ -35,7 +36,17 @@ echo -e "\e[0mPayment(Base)-Signing-Key: \e[32m ${addrName}.payment.skey \e[90m"
 cat ${addrName}.payment.skey
 echo
 
-${cardanocli} ${subCommand} stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
+#Building a Payment Address
+${cardanocli} ${subCommand} address build --payment-verification-key-file ${addrName}.payment.vkey ${addrformat} > ${addrName}.addr
+checkError "$?"
+file_lock ${addrName}.addr
+
+echo -e "\e[0mPaymentOnly(Enterprise)-Address built: \e[32m ${addrName}.addr \e[90m"
+cat ${addrName}.addr
+echo
+
+./cardano-hw-cli shelley address key-gen --path 1852H/1815H/0H/2/0 --verification-key-file ${addrName}.staking.vkey --hw-signing-file ${addrName}.staking.skey
+#${cardanocli} ${subCommand} stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
 checkError "$?"
 file_lock ${addrName}.staking.vkey
 file_lock ${addrName}.staking.skey
