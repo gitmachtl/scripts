@@ -472,9 +472,9 @@ You should now be able to use your Trezor Model-T device as the username you hav
 
 ## Changes to the Operator-Workflow when Hardware-Wallets are involved - MultiWitnesses
 
-Many step in the workflow using also Hardware-Wallet are pretty much the same as before. But there were changes needed to some steps and scripts calls.
+Many steps in the workflow are pretty much the same with or without a Hardware-Wallet involved. But there were changes needed to some steps and scripts calls.
 
-**The Hardware-Wallet Section is in progress, please visit again later to see if there are any updates**
+:construction: **The Hardware-Wallet Section is in progress, please visit again later to see if there are any updates**
 
 
 # Examples in Online-Mode
