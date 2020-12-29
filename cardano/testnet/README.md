@@ -377,7 +377,7 @@ Please take a few minutes and take a look at the Sections here to find out how t
    
 <br>So, there are many things you can do with your Hardware-Wallet as an SPO, but there are also many limitations because of security restrictions. I have tried to make this list below so you can see whats possible and whats not. If its not in this list, its not possible with a Hardware-Wallet for now:
 
-| Action | Payment via CLI-Keys | Payment via HW-Keys (Ledger/Trezor) |
+| Action | Payment via CLI-Keys:key: | Payment via HW-Keys:key: (Ledger/Trezor) |
 | :---         |     :---:      |     :---:     |
 | Create a enterprise(payment only, no staking) address | :heavy_check_mark: | :heavy_check_mark: |
 | Create a stakingaddress combo (base-payment & stake address) | :heavy_check_mark: | :heavy_check_mark: |
