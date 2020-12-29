@@ -106,11 +106,11 @@ The scripts uses per default (configurable) the file **offlineTransfer.json** to
 <br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process)
 
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
-<br>```./02_genPaymentAddrOnly.sh <name> cli```
+<br>```./02_genPaymentAddrOnly.sh <name> <keymode>```
 <br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the files addr1.addr, addr1.skey, addr1.vkey<br>
 
 * **03a_genStakingPaymentAddr.sh:** generates the base/payment address & staking address combo with the given name and also the stake address registration certificate
-<br>```./03a_genStakingPaymentAddr.sh <name> cli```
+<br>```./03a_genStakingPaymentAddr.sh <name> <keymode>```
 <br>```./03a_genStakingPaymentAddr.sh owner cli``` will generate the files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert<br>
 
 * **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
