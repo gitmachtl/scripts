@@ -411,8 +411,15 @@ We don't want to run the scripts as a superuser (sudo), so you should add some u
 
 <details>
    <summary><b>Prepare your system so you can use the Hardware-Wallet as a Non-SuperUser ...</b>:bookmark_tabs:<br></summary>
-   
-### Ledger Nano S & Nano X
+
+### Installing the cardano-hw-cli from Vacuumlabs
+
+In addition to the normal cardano-cli and cardano-node from IOHK/IOG, we need the cardano-hw-cli binary.
+You can find the GitHub-Repository here: https://github.com/vacuumlabs/cardano-hw-cli
+
+Please follow the installation instructions on the website, its really simple to get the binary onto your system. You can install it via a .deb Package, from a .tar.gz or you can compile it yourself.
+
+### Rules for Ledger Nano S & Nano X
 
 You can find a pretty good summary of how to add the udev rules to you system on this website: https://support.ledger.com/hc/en-us/articles/360019301813-Fix-USB-issues
 
@@ -443,7 +450,7 @@ $ sudo udevadm control --reload-rules
 ```
 You should now be able to use your Ledger Nano S or Nano X device as the username you have set in the rules table without using sudo. :smiley:
 
-### Trezor Model-T
+### Rules for Trezor Model-T
 
 You can find the support page for the udev rules of the Trezor devices here: https://wiki.trezor.io/Udev_rules
 
