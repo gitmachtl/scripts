@@ -370,6 +370,8 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 Please take a few minutes and take a look at the Sections here to find out how to prepare your system, what are the limitations when working with a Hardware-Wallet Ledger Nano S, Nano X or Trezor Model-T.
 
+## Limitations
+
 <details>
    <summary>About Limitations, what can you do, what can't you do ... </summary>
    
@@ -398,6 +400,71 @@ Please take a few minutes and take a look at the Sections here to find out how t
 | Retire a a stakepool from the chain | :heavy_check_mark: | :x: |
 
 Basically, you have to do all HW-Wallet related things directly with the hardware wallet. You can overcome some of the issues by using a Hybrid-StakeAddress with the Hardware-Wallet. In that case you can work with the HW stake keys like with normal CLI keys, only the payment keys are protected via the HW Wallet (MultiOwner-ComfortMode). Creating such a Hybrid-StakingAddressCombo for a HW-Wallet is supported by the script ```./03a_genStakingPaymentAddr.sh <name> hwpayonly``` command.
+
+</details>
+
+## Prepare your system before using a Hardware-Wallet
+
+We don't want to run the scripts as a superuser (sudo), so you should add some udev informations.
+
+<details>
+   <summary>Prepare your system so you can use the Hardware-Wallet as a Non-SuperUser ...</summary>
+   
+### Ledger Nano S & Nano X
+
+You can find a pretty good summary of how to add the udev rules to you system on this website: https://support.ledger.com/hc/en-us/articles/360019301813-Fix-USB-issues
+
+But to make this here a one-stop i will include the udev rules also here. You have to set the username correct in this rulez, they are included in the lines with ```OWNER=<username>```, replace it with your actual username! So, please add the following file to your Debian/Ubuntu based Linux-System, Arch need other rulez:
+   
+   **/etc/udev/rules.d/20-hw1.rules**
+   ``` console
+   # HW.1 / Nano
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2581", ATTRS{idProduct}=="1b7c|2b7c|3b7c|4b7c", TAG+="uaccess", TAG+="udev-acl", OWNER=<username>
+# Blue
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0000|0000|0001|0002|0003|0004|0005|0006|0007|0008|0009|000a|000b|000c|000d|000e|000f|0010|0011|0012|0013|0014|0015|0016|0017|0018|0019|001a|001b|001c|001d|001e|001f", TAG+="uaccess", TAG+="udev-acl", OWNER=<username>
+# Nano S
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0001|1000|1001|1002|1003|1004|1005|1006|1007|1008|1009|100a|100b|100c|100d|100e|100f|1010|1011|1012|1013|1014|1015|1016|1017|1018|1019|101a|101b|101c|101d|101e|101f", TAG+="uaccess", TAG+="udev-acl", OWNER=<username>
+# Aramis
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0002|2000|2001|2002|2003|2004|2005|2006|2007|2008|2009|200a|200b|200c|200d|200e|200f|2010|2011|2012|2013|2014|2015|2016|2017|2018|2019|201a|201b|201c|201d|201e|201f", TAG+="uaccess", TAG+="udev-acl", OWNER=<username>
+# HW2
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0003|3000|3001|3002|3003|3004|3005|3006|3007|3008|3009|300a|300b|300c|300d|300e|300f|3010|3011|3012|3013|3014|3015|3016|3017|3018|3019|301a|301b|301c|301d|301e|301f", TAG+="uaccess", TAG+="udev-acl", OWNER=<username>
+# Nano X
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0004|4000|4001|4002|4003|4004|4005|4006|4007|4008|4009|400a|400b|400c|400d|400e|400f|4010|4011|4012|4013|4014|4015|4016|4017|4018|4019|401a|401b|401c|401d|401e|401f", TAG+="uaccess", TAG+="udev-acl", OWNER=<username>
+
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="plugdev", ATTRS{idVendor}=="2c97"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="plugdev", ATTRS{idVendor}=="2581"
+   ```
+After you have created this file in the /etc/udev/rules.d folder, please run the following commands to inform the system about it:
+``` console
+$ sudo udevadm trigger
+$ sudo udevadm control --reload-rules
+```
+You should now be able to use your Ledger Nano S or Nano X device as the username you have set in the rules table without using sudo. :smiley:
+
+## Trezor Model-T
+
+You can find the support page for the udev rules of the Trezor devices here: https://wiki.trezor.io/Udev_rules
+
+But to make this here a one-stop i will include the udev rules also here. You have to set the username correct in this rulez, they are included in the lines with ```OWNER=<username>```, replace it with your actual username! So, please add the following file to your Debian/Ubuntu based Linux-System, Arch need other rulez:
+
+   **/etc/udev/rules.d/51-trezor.rules**
+   ```console
+   # Trezor
+SUBSYSTEM=="usb", ATTR{idVendor}=="534c", ATTR{idProduct}=="0001", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="trezor%n", OWNER=<username>
+KERNEL=="hidraw*", ATTRS{idVendor}=="534c", ATTRS{idProduct}=="0001", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl"
+
+# Trezor v2
+SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="53c0", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="trezor%n", OWNER=<username>
+SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="53c1", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="trezor%n", OWNER=<username>
+KERNEL=="hidraw*", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="53c1", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl"
+
+   ```
+After you have created this file in the /etc/udev/rules.d folder, please run the following commands to inform the system about it:
+``` console
+$ sudo udevadm trigger
+$ sudo udevadm control --reload-rules
+```
+You should now be able to use your Trezor Model-T device as the username you have set in the rules table without using sudo. :smiley:
 
 </details>
 
