@@ -366,10 +366,48 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 </details>
 
-> :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
-**If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
+# Working with a Hardware-Wallet
+
+Please take a few minutes and take a look at the Sections here to find out how to prepare your system, what are the limitations etc when working with a Hardware-Wallet Ledger Nano S, Nano X or Trezor Model-T.
+
+<details>
+   <summary>About Limitations, what can you do, what can't you do ... </summary>
+   
+<br>So, there are many things you can do with your Hardware-Wallet as an SPO, but there are also many limitations because of security restrictions. I have tried to make this list below so you can see whats possible and whats not. If its not in this list, its not possible with a Hardware-Wallet for now:
+
+| Action | Payment via CLI-Keys | Payment via HW-Keys (Ledger/Trezor) |
+| :---         |     :---:      |     :---:     |
+| Create a enterprise(payment only, no staking) address | :heavy_check_mark: | :heavy_check_mark: |
+| Create a stakingaddress combo (base-payment & stake address) | :heavy_check_mark: | :heavy_check_mark: |
+| Send ADA from the HW payment address | :x: | :heavy_check_mark: |
+| Send, Mint or Burn Assets from the HW payment address | :x: | :x:<br>mary assets not supported yet |
+| Claim Rewards from a CLI stake address | :heavy_check_mark: | :x: |
+| Claim Rewards from then HW stake address, Paying with the HW payment address | :x: | :heavy_check_mark: |
+| Claim Rewards from then HW stake address, Paying with a CLI payment address | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode) | :x: |
+| Register HW staking keys on the chain | :x: | :heavy_check_mark: |
+| Register CLI staking keys on the chain | :heavy_check_mark: | :x: |
+| Delegate HW staking keys to a stakepool | :x: | :heavy_check_mark: |
+| Delegate CLI staking keys to a stakepool | :heavy_check_mark: | :x: |
+| Register a stakepool with HW staking keys as an owner | :heavy_check_mark: | :x: |
+| Register a stakepool with HW staking keys as an rewards-account | :heavy_check_mark: | :x: |
+| Register a stakepool together with all the delegation certificates if only CLI owner keys are used | :heavy_check_mark: | :x: |
+| Register a stakepool together with all the delegation certificates if a HW staking key is used as an rewards-account | :heavy_check_mark: | :x: |
+| Register a stakepool together with all the delegation certificates if at least one owner is a HW staking key | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode) | :x: |
+| Retire HW staking keys from the chain | :x: | :heavy_check_mark: |
+| Retire CLI staking keys to a stakepool | :heavy_check_mark: | :heavy_check_mark: |
+| Retire a a stakepool from the chain | :heavy_check_mark: | :x: |
+
+Basically, you have to do all HW-Wallets related things directly with the hardware wallet. You can overcome some of the issues by using a Hybrid-StakeAddress with the Hardware-Wallet. In that case you can work with the HW stake keys like with normal CLI keys, only the payment keys are protected via the HW Wallet (MultiOwner-ComfortMode).
+
+</details>
+
+**The Hardware-Wallet Section is in progress, please visit again later to see if there any updates**
+
 
 # Examples in Online-Mode
+
+> :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
+**If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
 
 The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax).<br>
 Working in [Offline-Mode](#examples-in-offline-mode) introduces another step before and ofter each example, so you should understand the Online-Mode first.
