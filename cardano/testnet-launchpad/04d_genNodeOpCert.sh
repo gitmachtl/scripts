@@ -79,7 +79,7 @@ file_unlock ${nodeName}.node-${latestKESnumber}.opcert
 file_unlock ${nodeName}.node.counter
 
 ${cardanocli} ${subCommand} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+checkError "$?"
 
 file_lock ${nodeName}.node-${latestKESnumber}.opcert
 file_lock ${nodeName}.node.counter

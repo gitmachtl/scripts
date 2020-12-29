@@ -10,7 +10,7 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile="$(dirname $1)/$(basename $(basename $1 .json) .pool)"; poolFile=${poolFile/#.\//}; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> (pointing to the PoolNodeName.pool.json file) [optional registration-protection-key]"; exit 1; fi
+if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> (pointing to the PoolNodeName.pool.json file) [optional registration-protection-key]"; exit 1; fi
 if [[ $# -eq 2 ]]; then regKeyHash=$2; fi
 
 #Check if json file exists
@@ -21,8 +21,7 @@ echo "
   \"poolName\": \"${poolFile}\",
   \"poolOwner\": [
     {
-    \"ownerName\": \"set_your_owner_name_here\",
-    \"ownerWitness\": \"local\"
+    \"ownerName\": \"set_your_owner_name_here\"
     }
   ],
   \"poolRewards\": \"set_your_rewards_name_here_can_be_same_as_owner\",
@@ -79,7 +78,7 @@ if ${onlineMode}; then
 			readOfflineFile;
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+checkError "$?"
 
 #Check poolCost Setting
 minPoolCost=$(jq -r .minPoolCost <<< ${protocolParametersJSON})
@@ -173,7 +172,7 @@ if [[ ${#poolMetaDescription} -gt 250 ]]; then echo -e "\e[35mERROR - The poolMe
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
 poolID=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)     #New method since 1.23.0
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+checkError "$?"
 file_unlock ${poolFile}.pool.json
 newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
 echo "${newJSON}" > ${poolFile}.pool.json
@@ -185,7 +184,7 @@ echo "${poolID}" > ${poolFile}.pool.id
 file_lock ${poolFile}.pool.id
 
 poolIDbech=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)     #New method since 1.23.0
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+checkError "$?"
 #Save out the POOL-ID also in the xxx.id-bech file
 file_unlock ${poolFile}.pool.id-bech
 echo "${poolIDbech}" > ${poolFile}.pool.id-bech
@@ -261,7 +260,7 @@ echo "
 		jcliCheck=$(${itn_jcli} --version)
 		if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your 'jcli' binary is not present with the right path (00_common.sh) !\e[0m\n\n"; exit 1; fi
 
-		itnWitnessSign=$(${itn_jcli} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+		itnWitnessSign=$(${itn_jcli} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id); checkError "$?";
 		itnWitnessOwner=$(cat ${poolFile}.itn.vkey)
                 itnJSON=$(echo "{}" | jq ".itn += {owner: \"${itnWitnessOwner}\"}|.itn += {witness: \"${itnWitnessSign}\"}")
 		extendedMetaEntry=",\n  \"extended\": \"${poolExtendedMetaUrl}\""
@@ -292,7 +291,7 @@ if [[ ${metaFileSize} -gt 512 ]]; then echo -e "\e[35mERROR - The total filesize
 
 #Generate HASH for the <poolFile>.metadata.json
 poolMetaHash=$(${cardanocli} ${subCommand} stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+checkError "$?"
 
 #Add the HASH to the <poolFile>.pool.json info file
 file_unlock ${poolFile}.pool.json
@@ -306,8 +305,7 @@ ownerType=$(jq -r '.poolOwner | type' ${poolFile}.pool.json)
 if [[ "${ownerType}" == "string" ]]; then
         file_unlock ${poolFile}.pool.json
 	newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolOwner: [{\"ownerName\": \"${poolOwner}\"}]}")
-	echo "${newJSON}" > ${poolFile}.pool.json
-	file_lock ${poolFile}.pool.json
+	echo "${newJSON}" > ${poolFile}.pool.json	file_lock ${poolFile}.pool.json
 	ownerCnt=1  #of course it is 1, we just converted a singleowner json into an arrayowner json
 else #already an array, so check the number of owners in there
 	ownerCnt=$(jq -r '.poolOwner | length' ${poolFile}.pool.json)
@@ -320,36 +318,18 @@ ownerKeys="" #building string for the certificate
 if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.node.vkey is missing, please generate it with script 04a !\e[0m"; exit 1; fi
 if [ ! -f "${poolName}.vrf.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.vrf.vkey is missing, please generate it with script 04b !\e[0m"; exit 1; fi
 if [ ! -f "${rewardsName}.staking.vkey" ]; then echo -e "\e[0mERROR - ${rewardsName}.staking.vkey is missing! Check poolRewards field in ${poolFile}.pool.json, or generate one with script 03a !\e[0m"; exit 1; fi
-
-rewardsAccountIncluded="no"
-
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
 do
   ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName ${poolFile}.pool.json)
-
-  #add the ownerWitness="local" field into the json file if missing - needed to set if a witness is local or external
-  if [[ "$(jq -r .poolOwner[${tmpCnt}].ownerWitness ${poolFile}.pool.json)" == null ]]; then #if the ownerWitness entry in each owner entry is missing, add it
-	file_unlock ${poolFile}.pool.json
-        newJSON=$(cat ${poolFile}.pool.json | jq ".poolOwner[${tmpCnt}].ownerWitness = \"local\"")
-        echo "${newJSON}" > ${poolFile}.pool.json
-        file_lock ${poolFile}.pool.json
-  fi
-
   if [ ! -f "${ownerName}.staking.vkey" ]; then echo -e "\e[0mERROR - ${ownerName}.staking.vkey is missing! Check poolOwner/ownerName field in ${poolFile}.pool.json, or generate one with script 03a !\e[0m"; exit 1; fi
   #When we are in the loop, just build up also all the needed ownerkeys for the certificate
   ownerKeys="${ownerKeys} --pool-owner-stake-verification-key-file ${ownerName}.staking.vkey"
-  if [[ "${ownerName}" == "${rewardsName}" ]]; then rewardsAccountIncluded="yes"; fi
 done
 #OK, all needed files are present, continue
 
 
 
-######################################
-#
-# Show the summary
-#
-######################################
-
+#Now, show the summary
 echo
 echo -e "\e[0mCreate a Stakepool registration certificate for PoolNode with \e[32m ${poolName}.node.vkey, ${poolName}.vrf.vkey\e[0m:"
 echo
@@ -357,11 +337,9 @@ echo -e "\e[0mOwner Stake Keys:\e[32m ${ownerCnt}\e[0m owner(s) with the key(s)"
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
 do
   ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName ${poolFile}.pool.json)
-  echo -ne "\e[0m                 \e[32m ${ownerName}.staking.vkey \e[0m"
-  if [[ "$(jq -r .description < ${ownerName}.staking.vkey)" == *"Hardware"* ]]; then echo -e "(Hardware-Key)"; else echo; fi
+  echo -e "\e[0m                 \e[32m ${ownerName}.staking.vkey \e[0m"
 done
-echo -ne "\e[0m   Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
-  if [[ "$(jq -r .description < ${rewardsName}.staking.vkey)" == *"Hardware"* ]]; then echo -e "(Hardware-Key)"; else echo; fi
+echo -e "\e[0m   Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
 echo -e "\e[0m          Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
 echo -e "\e[0m            Cost:\e[32m ${poolCost} \e[90mlovelaces"
 echo -e "\e[0m          Margin:\e[32m ${poolMargin} \e[0m"
@@ -371,7 +349,7 @@ echo
 
 file_unlock ${poolName}.pool.cert
 ${cardanocli} ${subCommand} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+checkError "$?"
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
@@ -405,14 +383,14 @@ echo -e "\e[0mStakepool Metadata JSON:\e[32m ${poolFile}.metadata.json"
 echo -e "\e[0mFilesize:\e[32m ${metaFileSize} bytes \e[90m"
 cat ${poolFile}.metadata.json
 echo
-echo -e "\e[33mDon't forget to upload your \e[32m${poolFile}.metadata.json\e[33m file now to your webserver (${poolMetaUrl}) before running 05b & 05c !"
+echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.metadata.json\e[35m file now to your webserver (${poolMetaUrl}) !"
 
 if [[ ! "${extendedMetaEntry}" == "" ]]; then
 echo
 echo -e "\e[0mStakepool Extended-Metadata JSON:\e[32m ${poolFile}.extended-metadata.json \e[90m"
 cat ${poolFile}.extended-metadata.json
 echo
-echo -e "\e[33mDon't forget to upload your \e[32m${poolFile}.extended-metadata.json\e[33m file now to your webserver (${poolExtendedMetaUrl}) before running 05b & 05c !"
+echo -e "\e[35mDon't forget to upload your \e[32m${poolFile}.extended-metadata.json\e[35m file now to your webserver (${poolExtendedMetaUrl}) !"
 fi
 
 

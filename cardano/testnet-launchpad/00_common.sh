@@ -18,10 +18,6 @@ addrformat="--mainnet" 		#choose "--mainnet" for mainnet address format or like 
 itn_jcli="./jcli" 		#only needed if you wanna include your itn witness for your pool-ticker
 
 
-#--------- NEW --- you can now use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
-cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli you wanna use
-
-
 #--------- NEW --- you can work in offline mode now too, please read the instructions on the github repo README :-)
 offlineMode="no" 		#change this to "yes" if you run theses scripts on a cold machine, it need a counterpart with set to "no" on a hot machine
 offlineFile="./offlineTransfer.json" #path to the filename (JSON) that will be used to transfer the data between a hot and a cold machine
@@ -59,7 +55,6 @@ showVersionInfo="yes"	#yes/no to show the version info and script mode on every 
 
 minNodeVersion="1.24.2"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minCardanoAppVersion="2.1.0"  #minimum version for the cardano-app on the ledger/trezor hardwarewallet
 
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
@@ -80,7 +75,7 @@ if [[ "${showVersionInfo^^}" == "NO" ]]; then showVersionInfo=false; else showVe
 majorError() {
 echo -e "\e[97m\n"
 echo -e "         _ ._  _ , _ ._\n        (_ ' ( \`  )_  .__)\n      ( (  (    )   \`)  ) _)\n     (__ (_   (_ . _) _) ,__)\n         \`~~\`\\ ' . /\`~~\`\n              ;   ;\n              /   \\ \n_____________/_ __ \\___________________________________________\n"
-echo -e "\e[35m${1}\n\nIf you think all is right at your side, please check the GitHub repo if there\nis a newer version/bugfix available, thx: https://github.com/gitmachtl/scripts\e[0m\n"; exit 1;
+echo -e "\e[35m${1}\nIf you think all is right at your side, please check the GitHub repo if there\nis a newer version/bugfix available, thx: https://github.com/gitmachtl/scripts\e[0m\n"; exit 1;
 }
 #-------------------------------------------------------
 
@@ -292,7 +287,7 @@ echo ${currentTip}
 #Subroutines to calculate current TTL
 get_currentTTL()
 {
-echo $(( $(get_currentTip) + 100000 )) #changed from 10000 to 100000 so a little over a day to have time to collect witnesses if needed
+echo $(( $(get_currentTip) + 10000 ))
 }
 #-------------------------------------------------------
 
@@ -395,10 +390,7 @@ for (( tmpCnt=0; tmpCnt<${addressCnt}; tmpCnt++ ))
 do
   local addressKey=$(jq -r ".address | keys[${tmpCnt}]" <<< ${offlineJSON})
   local addressName=$(jq -r ".address.\"${addressKey}\".name" <<< ${offlineJSON})
-  local addressAmount=$(jq -r ".address.\"${addressKey}\".totalamount" <<< ${offlineJSON}) lovelaces
-  addressAmount="$(convertToADA ${addressAmount}) ADA";
-  local addressAssetsCnt=$(jq -r ".address.\"${addressKey}\".totalassetscnt" <<< ${offlineJSON})
-  if [[ ${addressAssetsCnt} -gt 0 ]]; then addressAmount="${addressAmount} + ${addressAssetsCnt} Asset-Types"; fi
+  local addressAmount=$(jq -r ".address.\"${addressKey}\".totalamount" <<< ${offlineJSON})
   local addressDate=$(jq -r ".address.\"${addressKey}\".date" <<< ${offlineJSON})
   local addressUsedAsPayment=$(jq -r ".address.\"${addressKey}\".used" <<< ${offlineJSON})
   local addressType=$(jq -r ".address.\"${addressKey}\".type" <<< ${offlineJSON})
@@ -407,7 +399,7 @@ do
 					     else
 						addressUsed="";
 					     fi
-  echo -e "\n\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${addressName} \e[90m(${addressAmount}, ${addressDate}) \e[35m${addressUsed}\e[0m\n\t   \t\e[90m${addressKey}\e[0m"
+  echo -e "\n\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${addressName} \e[90m(${addressAmount} lovelaces, ${addressDate}) \e[35m${addressUsed}\e[0m\n\t   \t\e[90m${addressKey}\e[0m"
 done
 local filesCnt=$(jq -r ".files | length" <<< ${offlineJSON});
 echo
@@ -433,9 +425,9 @@ do
   local transactionToAddr=$(jq -r ".transactions[${tmpCnt}].sendToAddr" <<< ${offlineJSON})
 
   case ${transactionType} in
-	Transaction|Asset-Minting|Asset-Burning )
+	Transaction )
 			#Normal UTXO Transaction (lovelaces and/or tokens)
-			echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${transactionType}[${transactionEra}] from '${transactionFromName}' to '${transactionToName}' \e[90m(${transactionDate})"
+			echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0mUTXO-Transaction[${transactionEra}] from '${transactionFromName}' to '${transactionToName}' \e[90m(${transactionDate})"
 			echo -e "\t   \t\e[90mfrom ${transactionFromAddr}\n\t   \t\e[90mto ${transactionToAddr}\e[0m"
 			;;
 
@@ -491,34 +483,3 @@ if [ -f "${offlineFile}" ]; then
                             fi
 }
 #-------------------------------------------------------
-
-#-------------------------------------------------------
-#Get the hardware-wallet ready, check the cardano-app version
-start_HwWallet() {
-
-if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
-echo -ne "\e[33mPlease open the Cardano App on your Hardware-Wallet (abort with CTRL+C)\e[0m\n\n\033[2A\n"
-tmp=$(${cardanohwcli} device version 2> /dev/stdout)
-local pointStr="....."
-until [[ "${tmp}" == *"app version"* && ! "${tmp}" == *"undefined"* ]]; do
-	local tmpCnt=6
-	while [[ ${tmpCnt} > 0 ]]; do
-	tmpCnt=$(( ${tmpCnt} - 1 ))
-	echo -ne "\r\e[35m${tmp}\e[0m - retry in ${tmpCnt} secs ${pointStr:${tmpCnt}}\033[K"
-	sleep 1
-	done
-tmp=$(${cardanohwcli} device version 2> /dev/stdout)
-done
-versionApp=$(echo "${tmp}" |& head -n 1 |& awk {'print $4'})
-versionCheck "${minCardanoAppVersion}" "${versionApp}"
-if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a Cardano App version ${minCardanoAppVersion} or higher on your Hardware Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
-echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m found!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
-}
-
-#-------------------------------------------------------
-
-#-------------------------------------------------------
-#Convert the given lovelaces $1 into ada (divide by 1M)
-convertToADA() {
-echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and add a leading zero if below 1 ada
-}

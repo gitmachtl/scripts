@@ -10,7 +10,7 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-if [[ $# -eq 1 && ! $1 == "" ]]; then addrName="$(dirname $1)/$(basename $(basename $1 .addr) .staking)"; addrName=${addrName/#.\//}; else echo "ERROR - Usage: $0 <AddressName>"; exit 2; fi
+if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <AddressName>"; exit 2; fi
 
 #Checks for needed files
 if [ ! -f "${addrName}.staking.vkey" ]; then echo -e "\n\e[35mERROR - \"${addrName}.staking.vkey\" does not exist! Maybe a typo?\n\e[0m"; exit 1; fi
@@ -18,7 +18,7 @@ if [ ! -f "${addrName}.staking.vkey" ]; then echo -e "\n\e[35mERROR - \"${addrNa
 #create a stake-address de-registration certificate
 file_unlock ${addrName}.staking.dereg-cert
 ${cardanocli} ${subCommand} stake-address deregistration-certificate --stake-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.dereg-cert
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+checkError "$?"
 file_lock ${addrName}.staking.dereg-cert
 
 echo -e "\e[0mStaking-Address-DeRegistration-Certificate built: \e[32m ${addrName}.staking.dereg-cert \e[90m"

@@ -20,7 +20,7 @@ if [ -f "${policyName}.policy.id" ]; then echo -e "\e[35mWARNING - ${policyName}
 
 
 ${cardanocli} address key-gen --verification-key-file ${policyName}.policy.vkey --signing-key-file ${policyName}.policy.skey
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+checkError "$?"
 file_lock ${policyName}.policy.vkey
 file_lock ${policyName}.policy.skey
 

@@ -11,10 +11,10 @@
 . "$(dirname "$0")"/00_common.sh
 
 #Check the commandline parameter
-if [[ $# -eq 1 && ! $1 == "" ]]; then addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//}; else echo "ERROR - Usage: $0 <AdressName or HASH>"; exit 2; fi
+if [[ $# -eq 1 && ! $1 == "" ]]; then addrName=$1; else echo "ERROR - Usage: $0 <AdressName or HASH>"; exit 2; fi
 
 #Check if Address file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
-if [ ! -f "${addrName}.addr" ]; then echo "${addrName}" > ${tempDir}/tempAddr.addr; addrName="${tempDir}/tempAddr"; fi
+if [ ! -f "$1.addr" ]; then echo "$1" > ${tempDir}/tempAddr.addr; addrName="${tempDir}/tempAddr"; fi
 
 checkAddr=$(cat ${addrName}.addr)
 
@@ -31,7 +31,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
 	#Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
 	if ${onlineMode}; then
-				utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+				utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
 			  else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${checkAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -54,7 +54,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	#LEVEL 1 - different UTXOs
 	for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
 	do
-	utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
+	utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
 	utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
 	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
 	assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
@@ -82,7 +82,8 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	fi
 	done
 	echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
-	echo -e "Total ADA on the Address:\e[32m $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
+	totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
+	echo -e "Total ADA on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m\n"
 
 	totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
 
@@ -116,7 +117,7 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
                                 rewardsJSON=$(cat ${offlineFile} | jq -r ".address.\"${checkAddr}\".rewardsJSON" 2> /dev/null)
                                 if [[ "${rewardsJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
         fi
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        checkError "$?"
 
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 

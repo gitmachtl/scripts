@@ -20,7 +20,8 @@ nextKESnumber=$(cat ${nodeName}.node.counter | awk 'match($0,/Next certificate i
 nextKESnumber=$(printf "%03d" ${nextKESnumber})  #to get a nice 3 digit output
 
 ${cardanocli} ${subCommand} node key-gen-KES --verification-key-file ${nodeName}.kes-${nextKESnumber}.vkey --signing-key-file ${nodeName}.kes-${nextKESnumber}.skey
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+checkError "$?"
+
 file_lock ${nodeName}.kes-${nextKESnumber}.vkey
 file_lock ${nodeName}.kes-${nextKESnumber}.skey
 
