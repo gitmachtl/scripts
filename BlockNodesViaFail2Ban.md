@@ -45,7 +45,10 @@ failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
 
 ```
 
-If you use the systemd internal log-output, use this configuration and specify your servicename too:
+The logfile for the Relay Node must be in **JSON mode** for this regex expression to work!
+
+<details>
+   <summary>If you use the systemd internal log-output, open up this pull-down ...</summary>
 
 **/etc/fail2ban/filter.d/cardano.conf**
 ``` console
@@ -59,8 +62,8 @@ failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
 
 journalmatch = _SYSTEMD_UNIT=<your systemd service name, i.e. cardano-node.service>
 ```
+</details>
 
-The logfile for the Relay Node must be in **JSON mode** for this regex expression to work!
 
 So make sure your config file for the Relay has something like this in:
 ``` console
