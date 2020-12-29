@@ -394,7 +394,7 @@ Please take a few minutes and take a look at the Sections here to find out how t
 | Register a stakepool together with all the delegation certificates if a HW staking key is used as an rewards-account | :heavy_check_mark: | :x: |
 | Register a stakepool together with all the delegation certificates if at least one owner is a HW staking key | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode) | :x: |
 | Retire HW staking keys from the chain | :x: | :heavy_check_mark: |
-| Retire CLI staking keys to a stakepool | :heavy_check_mark: | :heavy_check_mark: |
+| Retire CLI staking keys from the chain | :heavy_check_mark: | :x: |
 | Retire a a stakepool from the chain | :heavy_check_mark: | :x: |
 
 Basically, you have to do all HW-Wallets related things directly with the hardware wallet. You can overcome some of the issues by using a Hybrid-StakeAddress with the Hardware-Wallet. In that case you can work with the HW stake keys like with normal CLI keys, only the payment keys are protected via the HW Wallet (MultiOwner-ComfortMode).
