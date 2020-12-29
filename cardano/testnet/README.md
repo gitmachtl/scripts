@@ -1,4 +1,4 @@
-# Description - Useful setup scripts - Testnet Allergra/Mary/Launchpad
+# Stakepool Operator Scripts - Testnet Allergra/Mary/Launchpad
 
 ## Here you can find the files for the Testnet environments, new stuff, alpha/beta ...
 
