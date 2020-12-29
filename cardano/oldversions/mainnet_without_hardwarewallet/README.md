@@ -1,12 +1,10 @@
-# Description - Useful setup scripts - Testnet Allergra/Mary/Launchpad
+# Description - StakepoolOperator Scripts - Mainnet Allegra Era
 
-## Here you can find the files for the Testnet environments, new stuff, alpha/beta ...
+## First of all, you don't need them all! Examples are on this page :smiley:
 
-## Examples on how to use the scripts online and offline can be found on this page :smiley:
+:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: tags/1.24.2 !  (git checkout tags/1.24.2)**
 
-:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: 1.24.2 !  (git checkout tags/1.24.2)**
-
-**PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> launchpad**
+:bulb: **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> mainnet**
 
 Theses scripts here should help you to manage your StakePool via the CLI. As always use them at your own risk, but they should be errorfree. Scripts were made to make things easier while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently.<br>
 Some scripts are using **jq, curl & bc** so make sure you have it installed ```(sudo apt update && sudo apt install -y jq curl bc)```
