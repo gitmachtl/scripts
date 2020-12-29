@@ -397,7 +397,7 @@ Please take a few minutes and take a look at the Sections here to find out how t
 | Retire CLI staking keys from the chain | :heavy_check_mark: | :x: |
 | Retire a a stakepool from the chain | :heavy_check_mark: | :x: |
 
-Basically, you have to do all HW-Wallets related things directly with the hardware wallet. You can overcome some of the issues by using a Hybrid-StakeAddress with the Hardware-Wallet. In that case you can work with the HW stake keys like with normal CLI keys, only the payment keys are protected via the HW Wallet (MultiOwner-ComfortMode).
+Basically, you have to do all HW-Wallet related things directly with the hardware wallet. You can overcome some of the issues by using a Hybrid-StakeAddress with the Hardware-Wallet. In that case you can work with the HW stake keys like with normal CLI keys, only the payment keys are protected via the HW Wallet (MultiOwner-ComfortMode). Creating such a Hybrid-StakingAddressCombo for a HW-Wallet is supported by the script ```./03a_genStakingPaymentAddr.sh <name> hwpayonly``` command.
 
 </details>
 
