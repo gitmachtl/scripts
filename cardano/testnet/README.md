@@ -106,12 +106,12 @@ The scripts uses per default (configurable) the file **offlineTransfer.json** to
 <br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process)
 
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
-<br>```./02_genPaymentAddrOnly.sh <name>```
-<br>```./02_genPaymentAddrOnly.sh addr1``` will generate the files addr1.addr, addr1.skey, addr1.vkey<br>
+<br>```./02_genPaymentAddrOnly.sh <name> cli```
+<br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the files addr1.addr, addr1.skey, addr1.vkey<br>
 
 * **03a_genStakingPaymentAddr.sh:** generates the base/payment address & staking address combo with the given name and also the stake address registration certificate
-<br>```./03a_genStakingPaymentAddr.sh <name>```
-<br>```./03a_genStakingPaymentAddr.sh owner``` will generate the files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert<br>
+<br>```./03a_genStakingPaymentAddr.sh <name> cli```
+<br>```./03a_genStakingPaymentAddr.sh owner cli``` will generate the files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert<br>
 
 * **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
 <br>```./03b_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
@@ -359,7 +359,7 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 1. Make a directory that is your BASE directory like /home/user/cardano
 1. Go into this directory ```cd /home/user/cardano``` and make other subdirectories like ```mkdir mywallets``` and ```mkdir mypools```
 1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
-   <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
+   <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada cli``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
    <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
    So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them.<br>
    :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
@@ -499,7 +499,7 @@ Than we want to make ourself a pool owner stake address with the nickname owner,
 1. Generate a simple address to receive some ADA ```./02_genPaymentAddrOnly.sh mywallet```
 1. Transfer some ADA to that new address mywallet.addr
 1. Check that you received it using ```./01_queryAddress.sh mywallet```
-1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner```
+1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner cli```
 1. Send yourself over some funds to that new address owner.payment.addr to pay for the registration fees
 <br>```./01_sendLovelaces.sh mywallet owner.payment 10000000```<br>
 If you wanna send over all funds from your mywallet call the script like
@@ -562,7 +562,7 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
    <Summary>Show Example...<br></summary>
 
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
-1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator```
+1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator cli```
 1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
 1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```<br>Other example: ```./03b_regStakingAddrCert.sh delegator.staking mywallet``` Here you would use the funds in mywallet to pay for the fees.
 1. (Optional: you can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command)
@@ -878,7 +878,7 @@ We want to make a pool owner stake address the nickname owner, also we want to r
 
 **Offline-Machine:** (same steps like working online)
 
-1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner```
+1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner cli```
 1. Attach the newly created payment and staking address into your offlineTransfer.json for later usage on the Online-Machine<br>```./01_workOffline.sh attach owner.payment.addr```<br>```./01_workOffline.sh attach owner.staking.addr```
 1. Generate the owner stakeaddress registration transaction and pay the fees with smallwallet1<br>```./03b_regStakingAddrCert.sh owner.staking smallwallet1```
 1. Generate the keys for your coreNode
