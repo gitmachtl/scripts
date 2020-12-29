@@ -366,11 +366,11 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 </details>
 
-# Working with a Hardware-Wallet
+# Working with Hardware-Wallets as an SPO
 
 Please take a few minutes and take a look at the Sections here to find out how to prepare your system, what are the limitations when working with a Hardware-Wallet Ledger Nano S, Nano X or Trezor Model-T.
 
-## Limitations
+## Limitations to the PoolOperation
 
 <details>
    <summary>About Limitations, what can you do, what can't you do ... </summary>
@@ -405,7 +405,7 @@ Basically, you have to do all HW-Wallet related things directly with the hardwar
 
 </details>
 
-## Prepare your system before using a Hardware-Wallet
+## How to prepare your system before using a Hardware-Wallet
 
 We don't want to run the scripts as a superuser (sudo), so you should add some udev informations.
 
@@ -443,7 +443,7 @@ $ sudo udevadm control --reload-rules
 ```
 You should now be able to use your Ledger Nano S or Nano X device as the username you have set in the rules table without using sudo. :smiley:
 
-## Trezor Model-T
+### Trezor Model-T
 
 You can find the support page for the udev rules of the Trezor devices here: https://wiki.trezor.io/Udev_rules
 
@@ -469,6 +469,10 @@ $ sudo udevadm control --reload-rules
 You should now be able to use your Trezor Model-T device as the username you have set in the rules table without using sudo. :smiley:
 
 </details>
+
+## Changes to the Operator-Workflow when Hardware-Wallets are involved - MultiWitnesses
+
+Many step in the workflow using also Hardware-Wallet are pretty much the same as before. But there were changes needed to some steps and scripts calls.
 
 **The Hardware-Wallet Section is in progress, please visit again later to see if there are any updates**
 
