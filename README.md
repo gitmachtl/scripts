@@ -1,5 +1,5 @@
-# Stakepool Operator Scripts
-Useful scripts from ATADA_StakePool_Austria
+# StakePool Operator Scripts (SPOS)
+Useful scripts from ATADA_StakePool_Austria for any SPO out there
 
 Contacts:<br>
 Telegram - @atada_stakepool<br>
