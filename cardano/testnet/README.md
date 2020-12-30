@@ -18,7 +18,7 @@ Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter -
 If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley Ada Address, thx! :-)
 ```addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql```
 
-&nbsp;<br>
+&nbsp;<br>&nbsp;<br>
 # Online-Mode vs. Offline-Mode
 
 The scripts are capable to be used in [**Online**](#examples-in-online-mode)- and [**Offline**](#examples-in-offline-mode)-Mode (examples below). It depends on your setup, your needs and just how you wanna work. Doing transactions with pledge accounts in Online-Mode can be a security risk, also doing Stakepool-Registrations in pure Online-Mode can be risky. To enhance Security the scripts can be used on a Online-Machine and an Offline-Machine. You only have to **transfer one single file (offlineTransfer.json)** between the Machines. If you wanna use the Offline-Mode, your **Gateway-Script** to get Data In/Out of the offlineTransfer.json is the **01_workOffline.sh** Script. The **offlineTransfer.json** is your carry bag between the Machines.<br>
@@ -50,7 +50,7 @@ You should keep your directory structure the same on both Machines.
 
 </details>
 
-&nbsp;<br>
+&nbsp;<br>&nbsp;<br>
 # Scriptfiles Syntax & Filenames
 
 Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
@@ -393,7 +393,7 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 </details>
 
-&nbsp;<br>
+&nbsp;<br>&nbsp;<br>
 # Working with Hardware-Wallets as an SPO
 
 Please take a few minutes and take a look at the Sections here to find out how to prepare your system, what are the limitations when working with a Hardware-Wallet Ledger Nano S, Nano X or Trezor Model-T. If you need Multi-Witnesses and how to work with them if so ...
@@ -616,7 +616,7 @@ Yep, it was that simple.
 
 :construction: **The Hardware-Wallet Section is in progress, please visit again later to see if there are any updates**
 
-&nbsp;<br>
+&nbsp;<br>&nbsp;<br>
 # Examples in Online-Mode
 
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
@@ -954,7 +954,7 @@ Thats it. :-)
 
 </details>
 
-&nbsp;<br>
+&nbsp;<br>&nbsp;<br>
 # Examples in Offline-Mode
 
 The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax--filenames). Working offline is like working online, all is working in Offline-Mode, theses are just a few examples. :smiley:<br>
