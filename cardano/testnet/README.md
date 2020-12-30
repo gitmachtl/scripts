@@ -651,7 +651,7 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
-1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
+<br><b>Steps:</b>
 1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator cli```
 1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
 1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```<br>Other example: ```./03b_regStakingAddrCert.sh delegator.staking smallwallet1``` Here you would use the funds in *smallwallet1* to pay for the fees.
@@ -670,6 +670,7 @@ If you wanna update you pledge, costs, owners or metadata on a registered stakep
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
+<br><b>Steps:</b>
 1. [Unlock](#file-autolock-for-enhanced-security) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
 1. :bulb: **Upload** the new ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
@@ -686,7 +687,8 @@ I'am sure you wanna claim some of your rewards that you earned running your stak
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
-1. You can always check that you have rewards in your stakeaccount by running ```./01_queryAddress.sh owner.staking```
+<br><b>Steps:</b>
+1. Check that you have rewards in your stakeaccount by running ```./01_queryAddress.sh owner.staking```
 1. Now you can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment```
    This will claim the rewards from the owner.staking account and sends it to the owner.payment address, also owner.payment will pay for the transaction fees. It is only possible to claim all rewards, not only a part of it.<br>
    :bulb: ATTENTION, claiming rewards costs transaction fees! So you have two choices for that: The destination address pays for the transaction fees, or you specify an additional account that pays for the transaction fees. You can find examples for that above at the script 01_claimRewards.sh description.
@@ -695,8 +697,9 @@ Done.
 
 ### Claiming rewards from the ITN Testnet with only SK/PK keys
 
-If you ran a stakepool on the ITN and you only have your owner SK ed25519(e) and VK keys you can claim your rewards now<br>
+If you ran a stakepool on the ITN and you only have your owner SK ed25519(e) and VK keys you can claim your rewards now
 
+<br><b>Steps:</b>
 1. Convert your ITN keys into a Shelley Staking Address by running: 
    <br>```./0x_convertITNtoStakeAddress.sh <StakeAddressName> <Private_ITN_Key_File>  <Public_ITN_Key_File>```
    <br>```./0x_convertITNtoStakeAddress.sh myitnrewards mypool.itn.skey mypool.itn.vkey```
@@ -714,6 +717,7 @@ It's similar to a single owner stake pool registration (example above). All owne
 <details>
    <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
+<br><b>Steps:</b>
 1. Generate the stakepool certificate
    1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it for multiowner usage and set your owners and also the rewards account. The rewards account is also a stake address (but not delegated to the pool!):
     ```console
@@ -823,9 +827,10 @@ If you wanna retire your registered stakepool mypool, you have to do just a few 
 <details>
    <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
+<br><b>Steps:</b>
 1. Generate the retirement certificate for the stakepool mypool from data in mypool.pool.json<br>
    ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
-1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool owner.payment```
+1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool smallwallet1```
  
 Done.
 </details>
@@ -837,10 +842,14 @@ If you wanna retire the staking address owner, you have to do just a few things
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
+<br><b>Steps:</b>
 1. Generate the retirement certificate for the stake-address ```./08a_genStakingAddrRetireCert.sh owner```<br>this will generate the owner.staking.dereg-cert file
 1. De-Register your stake-address from the blockchain with ```./08b_deregStakingAddrCert.sh owner.staking owner.payment```<br>you don't need to have funds on the owner.payment base address. you'll get the keyDepositFee back onto it!
 1. You can check the current status of your onchain registration via the script 03c like<br>
    ```./03c_checkStakingAddrOnChain.sh owner```<br>If it doesn't go away directly, wait a little and retry this script.
+
+:warning: Do't retire a stakeaddress if you were delegated to a blockproducing StakePool before, you will receive rewards for the next 2 epochs on that account. Retire it only afterwards!
+   
  
 Done.
 </details>
