@@ -209,6 +209,20 @@ If the pool was registered before (when there is a **regSubmitted** value in the
   > :bulb: If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword REG on the commandline like ```./05c_regStakepoolCert.sh mypool mywallet REG```<br>
 Also you can force the script to do a re-registration by adding the keyword REREG on the command line like ```./05c_regStakepoolCert.sh mypool mywallet REREG```
 
+* **05d_poolWitness.sh:** gives you Status Information, also Signing, Adding and Clearing Witnesses for a PoolRegistration
+  <br>```./05d_poolWitness.sh <command> [additional data]``` 
+  <br>```05d_poolWitness.sh sign <witnessfile> <signingkey>``` signs the witnessFile with the given signingKey
+  <br>```05d_poolWitness.sh sign mypool_ledger_128463691.witness ledger``` signs the witnessFile with the ledger.staking key
+
+  ```05d_poolWitness.sh add <witnessfile> <poolFileName>``` adds a signed witnessFile to the waiting collection of the poolFileName
+  <br>```05d_poolWitness.sh add mypool_ledger_128463691.witness mypool``` adds the signed witnessFile to the mypool.pool.json witness collection
+
+  ```05d_poolWitness.sh clear <poolFileName>``` clears any witness collections in the poolFileName.pool.json
+  <br>```05d_poolWitness.sh clear mypool``` clears all witnesses in mypool.pool.json for a fresh start
+
+  ```05d_poolWitness.sh info <poolFileName>``` shows the current witness state in the poolFileName.pool.json
+  <br>```05d_poolWitness.sh info mypool``` shows the current witness state in the mypool.pool.json to see if some are still missing
+
 * **06_regDelegationCert.sh:** register a simple delegation (from 05b) name.deleg.cert 
 <br>```./06_regDelegationCert.sh <delegatorName> <nameOfPaymentAddr>```
 <br>```./06_regDelegationCert.sh someone someone.payment``` this will register the delegation certificate someone.deleg.cert for the stake-address someone.staking.addr on the blockchain. The transaction fees will be paid from someone.payment.addr.
