@@ -11,10 +11,8 @@
 . "$(dirname "$0")"/00_common.sh
 
 #Check command line parameter
-case $# in
-  2) 	addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
-	keyType=$2;;
-  * ) cat >&2 <<EOF
+if [ $# -ne 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|HYBRID)$ ]]; then
+cat >&2 <<EOF
 ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | hw | hybrid>
 
 Examples:
@@ -23,14 +21,21 @@ $(basename $0) owner hw		... generates Payment & Staking keys using Ledger/Trezo
 $(basename $0) owner hybrid	... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli (comfort mode for multiowner pools)
 
 EOF
-  exit 1;; esac
+exit 1;
+else
+addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
+keyType=$2;
+fi
+
+
+
 
 #warnings
 if [ -f "${addrName}.payment.vkey" ]; then echo -e "\e[35mWARNING - ${addrName}.payment.vkey already present, delete it or use another name !\e[0m"; exit 2; fi
 if [[ -f "${addrName}.payment.skey" ||  -f "${addrName}.payment.hwsfile" ]]; then echo -e "\e[35mWARNING - ${addrName}.payment.skey/hwsfile already present, delete it or use another name. Only one instance allowed !\e[0m"; exit 2; fi
 if [ -f "${addrName}.payment.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.payment.addr already present, delete it or use another name !\e[0m"; exit 2; fi
 if [ -f "${addrName}.staking.vkey" ]; then echo -e "\e[35mWARNING - ${addrName}.staking.vkey already present, delete it or use another name !\e[0m"; exit 2; fi
-if [[ -f "${addrName}.payment.skey" ||  -f "${addrName}.payment.hwsfile" ]]; then echo -e "\e[35mWARNING - ${addrName}.staking.skey/hwsfile already present, delete it or use another name. Only one instance allowed !\e[0m"; exit 2; fi
+if [[ -f "${addrName}.staking.skey" ||  -f "${addrName}.staking.hwsfile" ]]; then echo -e "\e[35mWARNING - ${addrName}.staking.skey/hwsfile already present, delete it or use another name. Only one instance allowed !\e[0m"; exit 2; fi
 if [ -f "${addrName}.staking.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.staking.addr already present, delete it or use another name !\e[0m"; exit 2; fi
 if [ -f "${addrName}.staking.cert" ]; then echo -e "\e[35mWARNING - ${addrName}.staking.cert already present, delete it or use another name !\e[0m"; exit 2; fi
 

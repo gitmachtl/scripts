@@ -11,18 +11,21 @@
 . "$(dirname "$0")"/00_common.sh
 
 #Check command line parameter
-case $# in
-  2)    addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
-        keyType=$2;;
-  * ) cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | hw >
+#Check command line parameter
+if [ $# -ne 2 ] || [[ ! ${2^^} =~ ^(CLI|HW)$ ]]; then
+cat >&2 <<EOF
+ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | hw>
 
 Examples:
-$(basename $0) owner cli ... generates a PaymentOnly Address via cli (was default method before)
-$(basename $0) owner hw  ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet
+$(basename $0) owner cli                ... generates a PaymentOnly Address via cli (was default method before)
+$(basename $0) owner hw         ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet
 
 EOF
-  exit 1;; esac
+exit 1;
+else
+addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
+keyType=$2;
+fi
 
 #warnings
 if [ -f "${addrName}.vkey" ]; then echo -e "\e[35mWARNING - ${addrName}.vkey already present, delete it or use another name !\e[0m"; exit 2; fi
