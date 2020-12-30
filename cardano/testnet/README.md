@@ -61,14 +61,14 @@ Please make yourself familiar on how to call each script with the required param
     
   | Important Parameters | Description | Example |
   | :---         |     :---      | :--- |
-  | socket | Path to your running passive node<br>in Online-Mode | ```db-mainnet/node.socket``` |
-  | genesisfile | Path to your *SHELLEY* genesis file | ```config-mainnet/mainnet-shelley-genesis.json``` |
-  | genesisfile_byron | Path to your *BYRON* genesis file | ```config-mainnet/mainnet-byron-genesis.json``` |
-  | cardanocli | Path to your *cardano-cli* binary | ```./cardano-cli``` (Default)<br>```cardano-cli``` if in the global PATH |
-  | cardanonode | Path to your *cardano-node* binary | ```./cardano-node``` (Default)<br>```cardano-node``` if in the global PATH |
-  | cardanohwcli | Path to your *cardano-hw-cli* binary<br>(only for HW-Wallet support) | ```cardano-hw-cli``` if in the global PATH (Default)|
   | offlineMode | Switch for the scripts to work<br>in *Online*- or *Offline*-Mode | ```yes``` for Offline-Mode<br>```no``` for Online-Mode (Default) |
   | offlineFile | Path to the File used for the transfer<br>between the Online- and Offline-Machine | ```./offlineTransfer.json``` (Default) |
+  | cardanocli | Path to your *cardano-cli* binary | ```./cardano-cli``` (Default)<br>```cardano-cli``` if in the global PATH |
+  | cardanonode | Path to your *cardano-node* binary<br>(only for Online-Mode) | ```./cardano-node``` (Default)<br>```cardano-node``` if in the global PATH |
+  | socket | Path to your running passive node<br>(only for Online-Mode) | ```db-mainnet/node.socket``` |
+  | cardanohwcli | Path to your *cardano-hw-cli* binary<br>(only for HW-Wallet support) | ```cardano-hw-cli``` if in the global PATH (Default)|
+  | genesisfile | Path to your *SHELLEY* genesis file | ```config-mainnet/mainnet-shelley-genesis.json``` |
+  | genesisfile_byron | Path to your *BYRON* genesis file | ```config-mainnet/mainnet-byron-genesis.json``` |
     | magicparam<br>addrformat | Type of the Chain your using<br>and the Address-Format | ```--mainnet``` for mainnet<br>```--testnet-magic 1097911063``` for the testnet<br>```--testnet-magic 3``` for launchpad |
   | byronToShelleyEpochs | Number of Epochs between Byron<br>to Shelley Fork | ```208``` for mainnet (Default)<br>```74``` for the testnet<br>```2``` for launchpad |
   | itn_jcli | Path to your *jcli* binary<br>(only for ITN ticker proof) | ```./jcli``` (Default) |
