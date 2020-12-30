@@ -11,7 +11,7 @@
 ### About
 
 Theses scripts here should help you to manage your StakePool via the CLI. As always use them at your own risk, but they should be errorfree. Scripts were made to make things easier while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently.<br>
-Some scripts are using **jq, curl & bc** so make sure you have it installed ```(sudo apt update && sudo apt install -y jq curl bc)```
+Some scripts are using **jq, curl & bc** so make sure you have it installed ```$ sudo apt update && sudo apt install -y jq curl bc```
 
 Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter - [@ATADA_Stakepool](https://twitter.com/ATADA_Stakepool), Homepage - https://stakepool.at 
 
