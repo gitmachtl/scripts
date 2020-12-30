@@ -2,7 +2,7 @@
 
 ***Examples on how to use the scripts ONLINE and/or OFFLINE, with or without a Hardware-Wallet can be found on this page :smiley:***
 
-|:bulb: Minimum Versions required | cardano-cli | cardano-node | cardano-hw-cli |
+| *Minimum Versions required* | cardano-cli | cardano-node | cardano-hw-cli |
 | :---  |   :---:     |    :---:     |     :---:      |
 || <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.1.1</b><br>*if you use hw-wallets* |
 
