@@ -4,7 +4,10 @@
 
 ## Examples on how to use the scripts online and offline can be found on this page :smiley:
 
-:bulb: **FOR USE WITH CARDANO-NODE & CARDANO-CLI: 1.24.2 !  (git checkout tags/1.24.2)**
+
+|:bulb: | cardano-cli | cardano-node | cardano-hw-cli |
+| :---  |   :---:     |    :---:     |     :---:      |
+| Minimum Versions required | <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.1.1</b><br>*if you use hw-wallets* |
 
 **PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> launchpad**
 
