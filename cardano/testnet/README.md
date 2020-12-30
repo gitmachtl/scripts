@@ -50,7 +50,7 @@ You should keep your directory structure the same on both Machines.
 
 </details>
 
-# Scriptfiles Syntax
+# Scriptfiles Syntax & Filenames
 
 <details>
    <summary><b>Show the full Syntax details for each script ... </b>:bookmark_tabs:</summary>
