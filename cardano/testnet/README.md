@@ -1,4 +1,4 @@
-# StakePool Operator Scripts (SPOS) - Testnet Allergra/Mary/Launchpad
+# StakePool Operator Scripts (SPOS) for Testnets
 
 ## Here you can find the files for the Testnet environments, new stuff, alpha/beta ...
 
