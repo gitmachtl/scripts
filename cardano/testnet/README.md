@@ -503,9 +503,54 @@ You should now be able to use your Trezor Model-T device as the username you hav
 
 </details>
 
-## Changes to the Operator-Workflow when Hardware-Wallets are involved - MultiWitnesses
+## Changes to the Operator-Workflow when Hardware-Wallets are involved
 
-Many steps in the workflow are pretty much the same with or without a Hardware-Wallet involved. But there were changes needed to some steps and scripts calls.
+Many steps in the workflow are pretty much the same with or without a Hardware-Wallet involved. But there were changes needed to some steps and scripts calls. There are several Limitations what you can do with a HW-Wallet, you can find the list [here](#limitations-to-the-pooloperation).
+
+<details>
+   <Summary><b>Register a StakePool with Hardware-Wallet owners involved ... </b>:bookmark_tabs:<br></summary>
+
+<br>One of the major changes comes when you have at least one owner in the StakePool with the stake key from a Hardware-Wallet. Before - when we had only one or more CLI-based stake keys as owners - the StakePool Registration was made with the script ```./05c_regStakepoolCert.sh``` alone, and that Registration included the StakePool Certificate itself and also ALL of the owner delegations to the pool. Thats not possible anymore with a Hardware-Wallet involved as an owner! Only the PoolRegistrationCertificate itself can be included in the Registration. You have to register each owner delegation after the pool Registration individually. (Still possible to do it in one step if a Hardware-Wallet is only used as the destination rewards address for a StakePool!)
+
+So, how do we work now? The answer here is "Multi-Witnesses". Each signing key for the PoolRegistration must be a unique signed Witness now that we assemble together to form the PoolRegistration. These are the signed Witness of the NodeColdKeys, the signed Witness of the Registration payment address and of course all signed Witnesses of each owner.<br>
+
+You can choose how you wanna handle the owner Witnesses via a **new entry** in the ```"poolOwner"``` list (*poolname.pool.json* config file) named **```"ownerWitness"```**, take a look here:
+
+**mypool.pool.json:**
+```console
+   {
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "owner-1",
+         "ownerWitness": "local"
+         },
+         {
+         "ownerName": "ledgerowner",
+         "ownerWitness": "local"
+         },
+         {
+         "ownerName": "owner-2",
+         "ownerWitness": "external"
+         }
+      ],
+      "poolRewards": "rewards-account",
+      "poolPledge": "200000000000",
+      "poolCost": "10000000000",
+      "poolMargin": "0.08"
+   ...
+   ```
+You can see two different examples, ```local``` and ```external```:
+
+* **local** means that you have to sign the Witness directly when you call the ```./05c_regStakepoolCert.sh``` script. Thats the prefered method if you're the only owner of the pool and you have your Hardware-Wallet available to plug it into your machine.
+
+* **external** means that you wanna sign this Witness separate in an additional step. This can be on the *same machine* or it can be on *another machine*. So this comes also in handy when you run a *MultiOwnerPool*, thats the method you collect the signed Witnesses from all the other owners.
+
+:warning: As i wrote above, when at least one pool owner is using a Hardware-Wallet stake key, the individual owner delegations are not included anymore automatically when running ```./05c_regStakepoolCert.sh```. Therefore **you have to transmit each pool delegation** for each owner one by one **after the pool Registration** via the script ```./06_regDelegationCert.sh```! If you're doing this on an Offline-Machine, make sure you have a few small CLI-based operator wallets laying around (smallwallet1, smallwallet2, smallwallet3,...) to directly pay for each delegation registration.<br>Also you can include all the unsigned Witness files in the **offlineTransfer.json** to bring it out of your Offline-Machine if you like. :smiley:
+
+Read more about how to sign, transfer and assemble unsigned/signed Witnesses in the next Article.
+
+</details>
 
 :construction: **The Hardware-Wallet Section is in progress, please visit again later to see if there are any updates**
 
