@@ -55,7 +55,7 @@ You should keep your directory structure the same on both Machines.
 Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
 
 <details>
-   <summary><b>Show the full Syntax details for each script, main configuration ... </b>:bookmark_tabs:<br></summary>
+   <summary><b>Show the Main Configuration parameters and the full Syntax details for each script ... </b>:bookmark_tabs:<br></summary>
 
 * **00_common.sh:** main config file (:warning:) for the environment itself! Set your variables in there for your config, will be used by the scripts.<br>
     
@@ -194,7 +194,7 @@ The scripts uses per default (configurable) the file **offlineTransfer.json** to
 
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is an array of all the ownerStake from steps 03, poolRewards is the name of the stakeaddress getting the pool rewards (can be the same as poolOwner account), poolPledge in lovelaces, poolCost per epoch in lovelaces, poolMargin in 0.00-1.00 (0-100%).<br>
    poolRelays is an array of your IPv4/IPv6 or DNS named public pool relays. Currently the types DNS, IP, IP4, IPv4, IP6 and IPv6 are supported. Examples of multiple relays can be found [HERE](#using-multiple-relays-in-your-poolnamepooljson) <br> MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location). <br>There is also the option to provide ITN-Witness data in an extended metadata json file. Please read some infos about that [here](#bulb-itn-witness-ticker-check-for-wallets)<br>After the edit, rerun the script with the name again.<br>
-   > :bulb:   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](#file-autolock) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
+   > :bulb:   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](#file-autolock-for-enhanced-security) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
@@ -248,65 +248,7 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 </details>
 
-### poolname.pool.json
-
-The **poolname.pool.json** file is you main config file to manage your pool-settings like owners, fees, costs ...<br>
-   
-<details>
-   <summary>Checkout how the config json looks like and the parameters ... </b>:bookmark_tabs:<br></summary>
-
-<br>Your config json could end up like this one after the pool was registered and also later de-registered:
-```console
-{
-  "poolName": "mypool",
-  "poolOwner": [
-         {
-         "ownerName": "owner",
-         "ownerWitness": "local"
-         }
-         {
-         "ownerName": "otherowner2",
-         "ownerWitness": "external"
-         }
-   ],
-  "poolRewards": "owner",
-  "poolPledge": "100000000000",
-  "poolCost": "500000000",
-  "poolMargin": "0.10",
-  "poolRelays": [
-         {
-         "relayType": "dns",
-         "relayEntry": "relay-1.mypool.com",
-         "relayPort": "3001"
-         },
-         {
-         "relayType": "dns",
-         "relayEntry": "relay-2.mypool.com",
-         "relayPort": "3001"
-         }
-  ],
-  "poolMetaName": "This is my Pool",
-  "poolMetaDescription": "This is the description of my Pool!",
-  "poolMetaTicker": "POOL",
-  "poolMetaHomepage": "https://mypool.com",
-  "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
-  "poolExtendedMetaUrl": "",
-  "---": "--- DO NOT EDIT BELOW THIS LINE ---",
-  "poolMetaHash": "f792c672a350971266b5404f04ff3bd47deb1544bc411566a2f95c090c1202cf",
-  "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
-  "regCertFile": "mypool.pool.cert",
-  "poolID": "68c2d7335f542f2d8b961bf6de5d5fd046b912b671868b30b79c3e2219f7e51a",
-  "regEpoch": "21",
-  "regSubmitted": "So Mai 31 14:39:46 CEST 2020",
-  "deregCertCreated": "Di Jun  2 17:13:39 CEST 2020",
-  "deregCertFile": "mypool.pool.dereg-cert",
-  "deregEpoch": "37",
-  "deregSubmitted": "Di Jun  2 17:14:38 CEST 2020"
-}
-```
-</details>
-
-### Filenames used and autolock for security
+### Filenames used
 
 <details>
    <summary><b>Show all used naming schemes like *.addr, *.skey, *.pool.json, ... </b>:bookmark_tabs:<br></summary>
@@ -360,7 +302,7 @@ If you have an address and you wanna use it for later just do a simple:<br>
 
 </details>
 
-### File autolock
+### File autolock for enhanced security
 
 For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
 ```
@@ -368,6 +310,65 @@ chmod 600 poolname.pool.json
 nano poolname.pool.json
 chmod 400 poolname.pool.json
 ```
+
+### Poolname.pool.json (Config-File for each Pool)
+
+The **poolname.pool.json** file is your main config file to manage your Pool-Settings like owners, fees, costs ...<br>
+   
+<details>
+   <summary><b>Checkout how the config json looks like and the parameters ... </b>:bookmark_tabs:<br></summary>
+
+<br>Your config json could end up like this one after the pool was registered and also later de-registered:
+```console
+{
+  "poolName": "mypool",
+  "poolOwner": [
+         {
+         "ownerName": "owner",
+         "ownerWitness": "local"
+         }
+         {
+         "ownerName": "otherowner2",
+         "ownerWitness": "external"
+         }
+   ],
+  "poolRewards": "owner",
+  "poolPledge": "100000000000",
+  "poolCost": "500000000",
+  "poolMargin": "0.10",
+  "poolRelays": [
+         {
+         "relayType": "dns",
+         "relayEntry": "relay-1.mypool.com",
+         "relayPort": "3001"
+         },
+         {
+         "relayType": "dns",
+         "relayEntry": "relay-2.mypool.com",
+         "relayPort": "3001"
+         }
+  ],
+  "poolMetaName": "This is my Pool",
+  "poolMetaDescription": "This is the description of my Pool!",
+  "poolMetaTicker": "POOL",
+  "poolMetaHomepage": "https://mypool.com",
+  "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+  "poolExtendedMetaUrl": "",
+  "---": "--- DO NOT EDIT BELOW THIS LINE ---",
+  "poolMetaHash": "f792c672a350971266b5404f04ff3bd47deb1544bc411566a2f95c090c1202cf",
+  "regCertCreated": "So Mai 31 14:38:53 CEST 2020",
+  "regCertFile": "mypool.pool.cert",
+  "poolID": "68c2d7335f542f2d8b961bf6de5d5fd046b912b671868b30b79c3e2219f7e51a",
+  "regEpoch": "21",
+  "regSubmitted": "So Mai 31 14:39:46 CEST 2020",
+  "deregCertCreated": "Di Jun  2 17:13:39 CEST 2020",
+  "deregCertFile": "mypool.pool.dereg-cert",
+  "deregEpoch": "37",
+  "deregSubmitted": "Di Jun  2 17:14:38 CEST 2020"
+}
+```
+</details>
+
 
 ### Directory Structure
 
@@ -611,7 +612,7 @@ If you wanna update you pledge, costs, owners or metadata on a registered stakep
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
-1. [Unlock](#file-autolock) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
+1. [Unlock](#file-autolock-for-enhanced-security) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert file from it
 1. :bulb: **Upload** the new ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
 1. (Optional create delegation certificates if you have added an owner or an extra rewards account with script 05b)
@@ -984,7 +985,7 @@ Lets pretend you already have registered your stakepool 'mypool' in the past usi
 
 **Offline-Machine:** (same steps like working online)
 
-1. [Unlock](#file-autolock) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
+1. [Unlock](#file-autolock-for-enhanced-security) the existing mypool.pool.json file and edit it. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, save it again. 
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate a new mypool.pool.cert, mypool.metadata.json file from it
 1. (Optional create delegation certificates if you have added an owner or an extra rewards account with script 05b)
 1. Generate the offline Re-Registration of your stakepool with ```./05c_regStakepoolCert.sh mypool smallwallet1```<br>Your transaction with your updated pool-certificate is now stored in the offlineTransfer.json. As you have noticed, the 05c script also asked you if it should include the (maybe new) metadata files also in the offlineTransfer.json. So you need only one file for the transfer, we can extract them on the Online-Machine.
