@@ -21,7 +21,7 @@ If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley
 
 # Online-Mode vs. Offline-Mode
 
-The scripts are capable to be used in **Online**- and **Offline**-Mode (examples below). It depends on your setup, your needs and just how you wanna work. Doing transactions with pledge accounts in Online-Mode can be a security risk, also doing Stakepool-Registrations in pure Online-Mode can be risky. To enhance Security the scripts can be used on a Online-Machine and an Offline-Machine. You only have to **transfer one single file (offlineTransfer.json)** between the Machines. If you wanna use the Offline-Mode, your **Gateway-Script** to get Data In/Out of the offlineTransfer.json is the **01_workOffline.sh** Script. The **offlineTransfer.json** is your carry bag between the Machines.<br>
+The scripts are capable to be used in [**Online**](#examples-in-online-mode)- and [**Offline**](#examples-in-offline-mode)-Mode (examples below). It depends on your setup, your needs and just how you wanna work. Doing transactions with pledge accounts in Online-Mode can be a security risk, also doing Stakepool-Registrations in pure Online-Mode can be risky. To enhance Security the scripts can be used on a Online-Machine and an Offline-Machine. You only have to **transfer one single file (offlineTransfer.json)** between the Machines. If you wanna use the Offline-Mode, your **Gateway-Script** to get Data In/Out of the offlineTransfer.json is the **01_workOffline.sh** Script. The **offlineTransfer.json** is your carry bag between the Machines.<br>
 
 Why not always using Offline-Mode? You have to do transactions online, you have to check balances online. Also, there are plenty of usecases using small wallets without the need of the additional steps to do all offline everytime. Also if you're testing some things on Testnets, it would be a pain to always transfer files between the Hot- and the Cold-Machine. You choose how you wanna work... :-)<br>
 
@@ -52,11 +52,28 @@ You should keep your directory structure the same on both Machines.
 
 # Scriptfiles Syntax & Filenames
 
+Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
+
 <details>
-   <summary><b>Show the full Syntax details for each script ... </b>:bookmark_tabs:</summary>
+   <summary><b>Show the full Syntax details for each script, main configuration ... </b>:bookmark_tabs:<br></summary>
 
-
-* **00_common.sh:** main config file (!) set your variables in there for your config, will be used by the scripts.<br>
+* **00_common.sh:** main config file (:warning:) for the environment itself! Set your variables in there for your config, will be used by the scripts.<br>
+    
+  | Important Parameters | Description | Example |
+  | :---         |     :---      | :--- |
+  | socket | Path to your running passive node<br>in Online-Mode | ```db-mainnet/node.socket``` |
+  | genesisfile | Path to your *SHELLEY* genesis file | ```config-mainnet/mainnet-shelley-genesis.json``` |
+  | genesisfile_byron | Path to your *BYRON* genesis file | ```config-mainnet/mainnet-byron-genesis.json``` |
+  | cardanocli | Path to your *cardano-cli* binary | ```./cardano-cli``` (Default)<br>```cardano-cli``` if in the global PATH |
+  | cardanonode | Path to your *cardano-node* binary | ```./cardano-node``` (Default)<br>```cardano-node``` if in the global PATH |
+  | cardanohwcli | Path to your *cardano-hw-cli* binary<br>(only for HW-Wallet support) | ```cardano-hw-cli``` if in the global PATH (Default)|
+  | offlineMode | Switch for the scripts to work<br>in *Online*- or *Offline*-Mode | ```yes``` for Offline-Mode<br>```no``` for Online-Mode (Default) |
+  | offlineFile | Path to the File used for the transfer<br>between the Online- and Offline-Machine | ```./offlineTransfer.json``` (Default) |
+    | magicparam<br>addrformat | Type of the Chain your using<br>and the Address-Format | ```--mainnet``` for mainnet<br>```--testnet-magic 1097911063``` for the testnet<br>```--testnet-magic 3``` for launchpad |
+  | byronToShelleyEpochs | Number of Epochs between Byron<br>to Shelley Fork | ```208``` for mainnet (Default)<br>```74``` for the testnet<br>```2``` for launchpad |
+  | itn_jcli | Path to your *jcli* binary<br>(only for ITN ticker proof) | ```./jcli``` (Default) |
+   
+    
   
   **Overwritting the default settings:** You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
   :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
@@ -229,9 +246,16 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   <br>```./11b_burnAsset.sh SUPERTOKEN 22 mypolicy mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
   <br>```./11b_burnAsset.sh MEGATOKEN 10 mypolicy owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
 
+</details>
+
 ### poolname.pool.json
 
-The json file could end up like this one after the pool was registered and also later de-registered.
+The **poolname.pool.json** file is you main config file to manage your pool-settings like owners, fees, costs ...<br>
+   
+<details>
+   <summary>Checkout how the config json looks like and the parameters ... </b>:bookmark_tabs:<br></summary>
+
+<br>Your config json could end up like this one after the pool was registered and also later de-registered:
 ```console
 {
   "poolName": "mypool",
@@ -282,13 +306,12 @@ The json file could end up like this one after the pool was registered and also 
 ```
 </details>
 
-
 ### Filenames used and autolock for security
 
 <details>
    <summary><b>Show all used naming schemes like *.addr, *.skey, *.pool.json, ... </b>:bookmark_tabs:<br></summary>
    
-I use the following naming scheme for the files:<br>
+<br>I use the following naming scheme for the files:<br>
 ``` 
 Simple "enterprise" address to only receive/send funds (no staking possible with these type of addresses):
 name.addr, name.vkey, name.skey
@@ -351,7 +374,7 @@ chmod 400 poolname.pool.json
 <details>
    <summary><b>Checkout how to use the scripts with directories ... </b>:bookmark_tabs:<br></summary>
 
-There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax) below.<p>However, if you wanna use directories there is a way: 
+There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax--filenames) below.<p>However, if you wanna use directories there is a way: 
 * **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
 1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
 1. Make a directory whereever you like
@@ -491,7 +514,7 @@ Many steps in the workflow are pretty much the same with or without a Hardware-W
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
 **If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
 
-The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax).<br>
+The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax--filenames).<br>
 Working in [Offline-Mode](#examples-in-offline-mode) introduces another step before and ofter each example, so you should understand the Online-Mode first.
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
@@ -808,7 +831,7 @@ Thats it. :-)
 
 # Examples in Offline-Mode
 
-The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax). Working offline is like working online, all is working in Offline-Mode, theses are just a few examples. :smiley:<br>
+The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax--filenames). Working offline is like working online, all is working in Offline-Mode, theses are just a few examples. :smiley:<br>
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
 
