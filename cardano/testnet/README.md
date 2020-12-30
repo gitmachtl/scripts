@@ -1,15 +1,14 @@
 # StakePool Operator Scripts (SPOS) for Testnets
 
-## *Here you can find the files for the Testnet environments, new stuff, alpha/beta ...*
-
 ### Examples on how to use the scripts online and/or offline, with or without a Hardware-Wallet can be found on this page :smiley:
-
 
 |:bulb: Minimum Versions required | cardano-cli | cardano-node | cardano-hw-cli |
 | :---  |   :---:     |    :---:     |     :---:      |
 || <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.1.1</b><br>*if you use hw-wallets* |
 
-**PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> launchpad**
+***PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> launchpad***
+
+### About
 
 Theses scripts here should help you to manage your StakePool via the CLI. As always use them at your own risk, but they should be errorfree. Scripts were made to make things easier while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently.<br>
 Some scripts are using **jq, curl & bc** so make sure you have it installed ```(sudo apt update && sudo apt install -y jq curl bc)```
