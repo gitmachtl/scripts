@@ -560,41 +560,50 @@ Read more about how to sign, transfer and assemble unsigned/signed Witnesses in 
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
 **If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
 
-The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax--filenames).<br>
+The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax--filenames). Make sure you have a fully synced passive node running on your machine, make sure you have set the right parameters in the scirpts config file **00_common.sh**<br>
 Working in [Offline-Mode](#examples-in-offline-mode) introduces another step before and ofter each example, so you should understand the Online-Mode first.
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
 
-## Generating a normal address, register a stake address, register a stake pool
+## Generate some wallets for the daily operator work
 
-Lets say we wanna make ourself a normal address to send/receive ada, we want this to be nicknamed mywallet.
-Than we want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
+So first you should create yourself a few small wallets for the daily Operator work, there is no need to use your big-owner-pledge-wallet for this every time. Lets say we wanna create three small wallets with the name smallwallet1, smallwallet2 and smallwallet3. And we wanna fund them via daedalus for example.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+   
+<br><b>Steps:</b>
+1. Create three new payment-only wallets by running<br>```./02_genPaymentAddrOnly.sh smallwallet1 cli```<br>```./02_genPaymentAddrOnly.sh smallwallet2 cli```<br>```./02_genPaymentAddrOnly.sh smallwallet3 cli```
+1. Fund the three wallets with some ADA from your existing Daedalus or Yoroi wallet. You can show the address and the current balance by running<br>
+```./01_queryAddress.sh smallwallet1```<br>```./01_queryAddress.sh smallwallet2```<br>```./01_queryAddress.sh smallwallet3```
+
+Theses are your **daily work** operator wallets, never ever use your pledge owner wallet for such works, don't do it, be safe.<br>
+If you wanna do a pool registration (next step) make sure that you have **at least 505 ADA** on your *smallwallet1* account!
+
+</details>
+
+## Generate an owner account, generate the StakePool keys, register the StakePool
+
+We want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
 
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
-1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files and source it (```source ./00_common.sh```)
-1. Generate a simple address to receive some ADA ```./02_genPaymentAddrOnly.sh mywallet```
-1. Transfer some ADA to that new address mywallet.addr
-1. Check that you received it using ```./01_queryAddress.sh mywallet```
+<br><b>Steps:</b>
+1. Make sure you have enough funds on your *smallwallet1* account we created before. You will need around **505 ADA to complete the process**. You can check the current balance by running ```./01_queryAddress.sh smallwallet1```
 1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner cli```
-1. Send yourself over some funds to that new address owner.payment.addr to pay for the registration fees
-<br>```./01_sendLovelaces.sh mywallet owner.payment 10000000```<br>
-If you wanna send over all funds from your mywallet call the script like
-<br>```./01_sendLovelaces.sh mywallet owner.payment ALL```
-1. Check that you received it using ```./01_queryAddress.sh owner.payment```
-1. Register the owner stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh owner.staking owner.payment```
-1. (Optional: you can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh owner``` if you don't see it, wait a little and retry)
+1. Register the owner stake key on the blockchain, **smallwallet1** will pay for this<br>```./03b_regStakingAddrCert.sh owner smallwallet1```
+1. Wait a minute so the transaction and stake key registration is completed
+1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh owner``` if you don't see it, wait a little and retry
 1. Generate the keys for your coreNode
    1. ```./04a_genNodeKeys.sh mypool```
    1. ```./04b_genVRFKeys.sh mypool```
    1. ```./04c_genKESKeys.sh mypool```
    1. ```./04d_genNodeOpCert.sh mypool```
-1. Now you have all the key files to start your coreNode with them
-1. Make sure you have enough funds on your owner.payment.addr to pay the pool registration fee in the next steps. Make sure to make your fund big enough to stay above the pledge that we will set in the next step.
+1. Now you have all the key files to start your coreNode with them: **mypool.vrf.skey, mypool.kes-000.skey, mypool.node-000.opcert**
 1. Generate your stakepool certificate
-   1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it
-   1. We want 200k ADA pledge, 10k ADA costs per epoch and 8% pool margin so let us set these and the Metadata values in the json file like
+   1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled **mypool.pool.json** file for you, **edit it !**
+   1. We want 200k ADA pledge, 10k ADA costs per epoch and 4% pool margin so let us set these and the Metadata values in the json file like
    ```console
    {
       "poolName": "mypool",
@@ -607,7 +616,7 @@ If you wanna send over all funds from your mywallet call the script like
       "poolRewards": "owner",
       "poolPledge": "200000000000",
       "poolCost": "10000000000",
-      "poolMargin": "0.08"
+      "poolMargin": "0.04"
       "poolRelays": [
          {
          "relayType": "dns",
@@ -624,15 +633,18 @@ If you wanna send over all funds from your mywallet call the script like
       "---": "--- DO NOT EDIT BELOW THIS LINE ---"
    }
    ```
-   1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file
-1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
+1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the **mypool.pool.cert** file
+1. Delegate to your own pool as owner -> **pledge** ```./05b_genDelegationCert.sh mypool owner``` this will generate the **owner.deleg.cert**
 1. :bulb: **Upload** the generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
-1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool owner.payment```    
+1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool smallwallet1```
+1. Optionally you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner``` if you don't see it instantly, wait a little and retry the same command
+
+:warning: Make sure you transfer enough ADA to your new **owner.payment.addr** so you respect the registered Pledge amount, otherwise you will not get any rewards for you or your delegators!
 
 Done.
 </details>
 
-## Generating & register a stake address, just delegating to a stakepool
+## Generate & register a stake address, just delegate to a stakepool
 
 Lets say we wanna create a payment(base)/stake address combo with the nickname delegator and we wanna delegate the funds in the payment(base) address of that to the pool yourpool. (You'll need the yourpool.node.vkey for that.)
 
@@ -642,10 +654,11 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
 1. First, we need a running node. After that make your adjustments in the 00_common.sh script so the variables are pointing to the right files.
 1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator cli```
 1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
-1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```<br>Other example: ```./03b_regStakingAddrCert.sh delegator.staking mywallet``` Here you would use the funds in mywallet to pay for the fees.
-1. (Optional: you can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command)
+1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```<br>Other example: ```./03b_regStakingAddrCert.sh delegator.staking smallwallet1``` Here you would use the funds in *smallwallet1* to pay for the fees.
+1. You can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command
 1. Generate the delegation certificate delegator.deleg.cert with ```./05b_genDelegationCert.sh yourpool delegator```
 1. Register the delegation certificate now on the blockchain with funds from delegator.payment.addr<br>```./06_regDelegationCert.sh delegator delegator.payment```
+1. You can verify that your delegation to the pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command
 
 Done.
 </details>
@@ -666,7 +679,7 @@ If you wanna update you pledge, costs, owners or metadata on a registered stakep
 Done.  
 </details>
 
-## Claiming rewards on the Shelley blockchain
+## Claiming rewards on the blockchain
 
 I'am sure you wanna claim some of your rewards that you earned running your stakepool. So lets say you have rewards in your owner.staking address and you wanna claim it to the owner.payment address.
 
@@ -726,7 +739,8 @@ It's similar to a single owner stake pool registration (example above). All owne
 1. Delegate all owners to the pool -> pledge
 <br>```./05b_genDelegationCert.sh mypool owner-1``` this will generate the owner-1.deleg.cert
 <br>```./05b_genDelegationCert.sh mypool owner-2``` this will generate the owner-2.deleg.cert
-1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool paymentaddress```    
+1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool smallwallet1```    
+1. Optionally you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner-1``` and ```./03c_checkStakingAddrOnChain.sh owner-1``` if you don't see it instantly, wait a little and retry the same command
 
 Done.
 </details>
@@ -921,7 +935,7 @@ So first you should create yourself a few small wallets for the daily Operator w
 
 **Offline-Machine:**
 
-1. Create three new payment-only wallets by running<br>```./02_genPaymentAddrOnly.sh smallwallet1```<br>```./02_genPaymentAddrOnly.sh smallwallet2```<br>```./02_genPaymentAddrOnly.sh smallwallet3```
+1. Create three new payment-only wallets by running<br>```./02_genPaymentAddrOnly.sh smallwallet1 cli```<br>```./02_genPaymentAddrOnly.sh smallwallet2 cli```<br>```./02_genPaymentAddrOnly.sh smallwallet3 cli```
 1. Add the three new smallwallet1/2/3.addr files to your offlineTransfer.json<br>```./01_workOffline.sh attach smallwallet1.addr```<br>```./01_workOffline.sh attach smallwallet2.addr```<br>```./01_workOffline.sh attach smallwallet3.addr```
 
 :floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
