@@ -47,7 +47,16 @@ You need the cardano-cli on the Offline-Machine, same version as on the Online-M
 
 You should keep your directory structure the same on both Machines.
 
-:bulb: **Best practice Advise for Stakepool Operators:** Even that the Offline-Machine is pretty secure, it can be compromised by a physical attack on in. So, after you   have registered your Pool, move away our pledge payment signing keys like the ```owner.payment.skey``` from the machine and store it in a secure place. You don't need it to update your Stakepool. To do some updates, generate yourself a few small payment wallets with the script 02. To do more than one transaction in a single "Online->Offline->Online" process i would recommend to have at least three small wallets with a few ADA on it. You can do all Pool-Updates, Re-Registrations, Reward-Claims, etc. with theses.<br>**There is no need to have the pledge owner payment signing keys on that machine at all!**
+</details>
+
+<details>
+   <summary><b>Best practice Advise for Stakepool Operators ... </b>:bookmark_tabs:</summary>
+   
+&nbsp;<br>
+1. Work in Offline-Mode whenever you can, even when you use Hardware-Keys, your Node-Cold-Keys should be on an Offline-Machine.
+1. Use Hardware-Keys (Ledger/Trezor) for your Owner-Pledge-Funds! You can choose between Full-Hardware and Hybrid-Mode if you like (description below)
+1. Make yourself a few small Operator CLI-Wallets for the daily usage. There is absolutly no need to have your Owner-Pledge-Wallet/Key around all the time. You need at least three small wallets if you wanna do more than one transactions in a single "Online->Offline->Online" process.
+1. If you don't have a Hardware-Wallet, make sure that you move away your ```owner.payment.skey``` completely onto a secure medium like an encrypted USB-Stick and put it in a safe. An Offline-Machine is pretty secure, but it can be compromised by a physical attack on in. So don't leave your ```owner.payment.skey``` even on your Offline-Machine.
 
 </details>
 
