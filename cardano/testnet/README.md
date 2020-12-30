@@ -394,7 +394,7 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 # Working with Hardware-Wallets as an SPO
 
-Please take a few minutes and take a look at the Sections here to find out how to prepare your system, what are the limitations when working with a Hardware-Wallet Ledger Nano S, Nano X or Trezor Model-T.
+Please take a few minutes and take a look at the Sections here to find out how to prepare your system, what are the limitations when working with a Hardware-Wallet Ledger Nano S, Nano X or Trezor Model-T. If you need Multi-Witnesses and how to work with them if so ...
 
 ## Limitations to the PoolOperation
 
