@@ -1,8 +1,8 @@
 # StakePool Operator Scripts (SPOS) for Testnets
 
-## Here you can find the files for the Testnet environments, new stuff, alpha/beta ...
+## *Here you can find the files for the Testnet environments, new stuff, alpha/beta ...*
 
-## Examples on how to use the scripts online and offline can be found on this page :smiley:
+### Examples on how to use the scripts online and/or offline, with or without a Hardware-Wallet can be found on this page :smiley:
 
 
 |:bulb: Minimum Versions required | cardano-cli | cardano-node | cardano-hw-cli |
