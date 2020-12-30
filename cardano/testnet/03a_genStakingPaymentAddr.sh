@@ -15,12 +15,12 @@ case $# in
   2) 	addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
 	keyType=$2;;
   * ) cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | hw | hwpayonly>
+ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | hw | hybrid>
 
 Examples:
 $(basename $0) owner cli		... generates Payment & Staking keys via cli (was default method before)
 $(basename $0) owner hw		... generates Payment & Staking keys using Ledger/Trezor HW-Keys
-$(basename $0) owner hwpayonly	... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli (comfort mode for multiowner pools)
+$(basename $0) owner hybrid	... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli (comfort mode for multiowner pools)
 
 EOF
   exit 1;; esac
@@ -74,7 +74,7 @@ fi
 
 echo
 
-if [[ ${keyType^^} == "CLI" || ${keyType^^} == "HWPAYONLY" ]]; then
+if [[ ${keyType^^} == "CLI" || ${keyType^^} == "HYBRID" ]]; then
 
 	#Building the StakeAddress Keys from CLI for the normal CLI type or when HWPAYONLY was choosen
 	${cardanocli} ${subCommand} stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
