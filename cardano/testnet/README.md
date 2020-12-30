@@ -1,12 +1,12 @@
 # StakePool Operator Scripts (SPOS) for Testnets
 
-***Examples on how to use the scripts ONLINE and/or OFFLINE, with or without a Hardware-Wallet can be found on this page :smiley:***
+*Examples on how to use the scripts **ONLINE** and/or **OFFLINE**, with or without a **Ledger/Trezor-Wallet** can be found on this page :smiley:*
 
 | *Minimum Versions required* | cardano-cli | cardano-node | cardano-hw-cli |
 | :---  |   :---:     |    :---:     |     :---:      |
 || <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.1.1</b><br>*if you use hw-wallets* |
 
-> ***:bulb: PLEASE USE THE CONFIG AND GENESIS FILES FROM [here](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html) -> testnet / launchpad / allegra***
+> *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet, launchpad or allegra*
 
 ### About
 
