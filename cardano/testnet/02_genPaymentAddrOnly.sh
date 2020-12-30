@@ -17,8 +17,8 @@ cat >&2 <<EOF
 ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | hw>
 
 Examples:
-$(basename $0) owner cli                ... generates a PaymentOnly Address via cli (was default method before)
-$(basename $0) owner hw         ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet
+$(basename $0) owner cli    ... generates a PaymentOnly Address via cli (was default method before)
+$(basename $0) owner hw     ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet
 
 EOF
 exit 1;
