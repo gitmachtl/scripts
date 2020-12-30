@@ -603,7 +603,7 @@ We want to make ourself a pool owner stake address with the nickname owner, also
 1. Now you have all the key files to start your coreNode with them: **mypool.vrf.skey, mypool.kes-000.skey, mypool.node-000.opcert**
 1. Generate your stakepool certificate
    1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled **mypool.pool.json** file for you, **edit it !**
-   1. We want 200k ADA pledge, 10k ADA costs per epoch and 4% pool margin so let us set these and the Metadata values in the json file like
+   1. We want 200k ADA pledge, 500 ADA costs per epoch and 4% pool margin so let us set these and the Metadata values in the json file like
    ```console
    {
       "poolName": "mypool",
@@ -615,7 +615,7 @@ We want to make ourself a pool owner stake address with the nickname owner, also
       ],
       "poolRewards": "owner",
       "poolPledge": "200000000000",
-      "poolCost": "10000000000",
+      "poolCost": "500000000",
       "poolMargin": "0.04"
       "poolRelays": [
          {
