@@ -24,7 +24,7 @@ If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley
 
 The scripts are capable to be used in [**Online**](#examples-in-online-mode)- and [**Offline**](#examples-in-offline-mode)-Mode (examples below). It depends on your setup, your needs and just how you wanna work. Doing transactions with pledge accounts in Online-Mode can be a security risk, also doing Stakepool-Registrations in pure Online-Mode can be risky. To enhance Security the scripts can be used on a Online-Machine and an Offline-Machine. You only have to **transfer one single file (offlineTransfer.json)** between the Machines. If you wanna use the Offline-Mode, your **Gateway-Script** to get Data In/Out of the offlineTransfer.json is the **01_workOffline.sh** Script. The **offlineTransfer.json** is your carry bag between the Machines.<br>
 
-Why not always using Offline-Mode? You have to do transactions online, you have to check balances online. Also, there are plenty of usecases using small wallets without the need of the additional steps to do all offline everytime. Also if you're testing some things on Testnets, it would be a pain to always transfer files between the Hot- and the Cold-Machine. You choose how you wanna work... :-)<br>
+Why not always using Offline-Mode? You have to do transactions online, you have to check balances online. Also, there are plenty of usecases using small wallets without the need of the additional steps to do all offline everytime. Also if you're testing some things on Testnets, it would be a pain to always transfer files between the Hot- and the Cold-Machine. You choose how you wanna work... :smiley:<br>
 
 <details>
    <summary><b>How do you switch between Online- and Offline-Mode? </b>:bookmark_tabs:</summary>
@@ -53,11 +53,12 @@ You should keep your directory structure the same on both Machines.
    <summary><b>Best practice Advise for Stakepool Operators ... </b>:bookmark_tabs:</summary>
    
 &nbsp;<br>
-1. Work in Offline-Mode whenever you can, even when you use Hardware-Keys, your Node-Cold-Keys should be on an Offline-Machine.
+1. Work in Offline-Mode whenever you can, even when you use Hardware-Keys, your PoolNode-Cold-Keys should be on an Offline-Machine.
 1. Use Hardware-Keys (Ledger/Trezor) for your Owner-Pledge-Funds! You can choose between Full-Hardware and Hybrid-Mode if you like (description below). Get a 2nd Hardware-Wallet as a backup for the first one, you can restore it with the same Seed-Phrase and they will work both in the same way. Store this 2nd one at another location!
 1. Make yourself a few small Operator CLI-Wallets for the daily usage. There is absolutly no need to have your Owner-Pledge-Wallet/Key around all the time. You need at least three small wallets if you wanna do more than one transactions in a single "Online->Offline->Online" process.
-1. If you don't have a Hardware-Wallet, make sure that you move away your ```owner.payment.skey``` completely onto a secure medium like an encrypted USB-Stick and put it in a safe. An Offline-Machine is pretty secure, but it can be compromised by a physical attack on in. So don't leave your ```owner.payment.skey``` even on your Offline-Machine.
+1. If you don't have a Hardware-Wallet, make sure that you move away your ```owner.payment.skey``` completely onto a secure medium like an encrypted USB-Stick and put it in a safe. Store a copy of it in a 2nd secure place at another location. An Offline-Machine is pretty secure, but it can be compromised by a physical attack on in. So don't leave your ```owner.payment.skey``` even on your Offline-Machine.
 1. Don't tell anybody - not even a good Telegram buddy - where your owner keys are or how your secure structure looks like, we have seen "Social Hacking" in the past. Just keep this information to yourself. 
+1. If someone is hacking your stake keys thats annoying. If someone gets to your PoolNode-Cold-Keys thats even more annoying, but if someone gets to your Owner-Pledge-Fund keys, your funds are lost. So, take care of your keys! :smiley:
 
 </details>
 
