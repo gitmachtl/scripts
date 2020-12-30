@@ -615,7 +615,7 @@ Yep, it was that simple.
 
 </details>
 
-:construction: **The Hardware-Wallet Section is in progress, please visit again later to see if there are any updates**
+> :construction: The Hardware-Wallet Section is in progress, please visit again later to see if there are any updates
 
 &nbsp;<br>&nbsp;<br>
 # Examples in Online-Mode
