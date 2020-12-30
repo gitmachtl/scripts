@@ -546,9 +546,69 @@ You can see two different examples, ```local``` and ```external```:
 
 * **external** means that you wanna sign this Witness separate in an additional step. This can be on the *same machine* or it can be on *another machine*. So this comes also in handy when you run a *MultiOwnerPool*, thats the method you collect the signed Witnesses from all the other owners.
 
-:warning: As i wrote above, when at least one pool owner is using a Hardware-Wallet stake key, the individual owner delegations are not included anymore automatically when running ```./05c_regStakepoolCert.sh```. Therefore **you have to transmit each pool delegation** for each owner one by one **after the pool Registration** via the script ```./06_regDelegationCert.sh```! If you're doing this on an Offline-Machine, make sure you have a few small CLI-based operator wallets laying around (smallwallet1, smallwallet2, smallwallet3,...) to directly pay for each delegation registration.<br>Also you can include all the unsigned Witness files in the **offlineTransfer.json** to bring it out of your Offline-Machine if you like. :smiley:
+> :warning: As i wrote above, when at least one pool owner is using a Hardware-Wallet stake key, the individual owner delegations are not included anymore automatically when running ```./05c_regStakepoolCert.sh```. Therefore **you have to transmit each pool delegation** for each owner one by one **after the pool Registration** via the script ```./06_regDelegationCert.sh```! If you're doing this on an Offline-Machine, make sure you have a few small CLI-based operator wallets laying around (smallwallet1, smallwallet2, smallwallet3,...) to directly pay for each delegation registration.<br>Also you can include all the unsigned Witness files in the **offlineTransfer.json** to bring it out of your Offline-Machine if you like. :smiley:
 
 Read more about how to sign, transfer and assemble unsigned/signed Witnesses in the next Article.
+
+</details>
+
+<details>
+   <Summary><b>How to work with Multi-Witnesses with/without Hardware-Wallet owners involved ... </b>:bookmark_tabs:<br></summary>
+
+<br>As you have read in the previous article, we have to deal with Multi-Witnesses now for a PoolRegistration if Hardware-Wallets are involved as owners. You can also use Multi-Witnesses with normal CLI-based accounts if you like to work this way in a MultiPoolOwner environment. 
+
+When you run ```./05c_regStakepoolCert.sh mypool smallwallet1``` and you have **external** Witnesses in your **poolname.pool.json** you will get out one, two or more **unsigned** Witness-Files in the naming scheme: ```<poolname>.<ownername>_<id>.witness```<br>
+In Offline-Mode the script will ask you if you wanna include these files directly into the **offlineTransfer.json** to bring it over to the Online-Machine. You can decide about this for each Witness-File.
+
+### Check about the Witness-Status in your current PoolRegistration process
+
+If there are any **unsigned Witnesses** left open for your PoolRegistration, you can't complete the transaction. To handle all the Witness-Functions a new script was created with the name **```./05d_poolWitness.sh```** :smiley:
+
+You can check the current status of your Witnesses for your pool **mypool** (example) by running: **```./05d_poolWitness info mypool```**
+
+This will show you how many Witnesses included in your current PoolRegistration are READY **signed (green)** and which ones are MISSING **unsigned (magenta)** and must be signed now.<br>To do so you have the Witness-File we learned about a few lines above ```<poolname>.<ownername>_<id>.witness```. You can **sign a Witness-File** on the same machine, on your Online-Machine, on your Offline-Machine or send the file around the world and let it sign by a friend so he can send it back to you later. 
+
+> :warning: You have a limited time window to complete all the Witnesses, this is set to 100.000 slots, so a little bit over 1 day !
+
+### Sign an unsigned Witness-File
+
+Lets say we have an unsigned Witness-File for the pool owner *ledgerowner* for the pool *mypool* and we wanna sign this now.
+
+To sign the Witness-File with the corresponding signing key just run<br>**```./05d_poolWitness sign mypool.ledgerowner_1609258523.witness ledgerowner```**
+
+If the stake key is a normal cli key it will sign it directly, if its a Ledger Hardware-Wallet (as the name suggests) you need to connect the Ledger now and execute the signing with it. When the **unsigned** Witness-File is **signed**, it will save the information about it back into the same Witness-File. Transfer it back to your original machine if you have moved it out somewhere to now **add** it back to your ongoing PoolRegistration. Read in the next chapter how to do so.
+
+### Adding signed Witness-Files to your Pool Registration (Assemble Witnesses)
+
+When you're finished signing all the pending Witness-Files its now time to **add** them back together into your ongoing Pool Registration.
+
+You can check the current status of your Witnesses for your pool **mypool** (example) by running: **```./05d_poolWitness info mypool```**
+
+To **add a signed Witness-File** into your current Pool Registration simply run: <br>**```./05d_poolWitness add mypool.ledgerowner_1609258523.witness mypool```**
+
+The script will do a check if the Witness is correct and will add it to the Witness-Collection if so. Also you will see a status update about your currently included Witnesses. If there are some left or if they are now all complete (all Witness showing a green READY).
+
+Run the command again for eachr **pending signed Witness-File** until you have added them all.
+
+### Submit the final Pool Registration 
+
+After you have included(add) all signed Witnesses back into the Pool Registration, you can finally execute the transaction by simply running the original command again like:<br>**```./05c_regStakepoolCert.sh mypool smallwallet1```**
+
+If you're in Offline-Mode, the script will again ask you if you wanna include the transaction in the **offlineTransfer.json** to bring it to the Online-Machine. In Online-Mode the transaction will be execute directly on the chain.
+
+DONE - Puuh :smiley:
+
+> :warning: If you have created a new Pool or if you have added new owners, you have to register each Delegation now on the chain via script ```./06_regDelegationCert.sh```. This additional step is normally included in the ```./05c_regStakepoolCert.sh``` but cannot be used if an owner is a Hardware-Wallet !
+
+> :warning: As long as you have an ongoing opened Pool Registration, you're not allowed to use your payment address for anything else, because the txBody is already made with the exact amounts of ADA for the transaction in & out !
+
+### Abort an ongoing Pool Registration Witness-Collection
+
+If you have made a mistake in the pool config, or if you just wanna start over again you have to clear all the Witness entries in the Witness-Collection of the ongoing Pool Registration.
+
+To **clear all Witness-Entries** in the Pool Registration **to start fresh** simply run: **```./05d_poolWitness clear mypool```**
+
+Yep, it was that simple.
 
 </details>
 
@@ -848,7 +908,7 @@ If you wanna retire the staking address owner, you have to do just a few things
 1. You can check the current status of your onchain registration via the script 03c like<br>
    ```./03c_checkStakingAddrOnChain.sh owner```<br>If it doesn't go away directly, wait a little and retry this script.
 
-:warning: Do't retire a stakeaddress if you were delegated to a blockproducing StakePool before, you will receive rewards for the next 2 epochs on that account. Retire it only afterwards!
+:warning: Don't retire a stakeaddress if you were delegated to a blockproducing StakePool before, you will receive rewards for the next 2 epochs on that account. Retire it only afterwards!
    
  
 Done.
