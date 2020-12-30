@@ -80,6 +80,7 @@ Please make yourself familiar on how to call each script with the required param
   **Overwritting the default settings:** You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
   :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
+&nbsp;<br>
 * **01_workOffline.sh:** this is the script you're doing your **Online**->**Offline**->**Online**->**Offline** work with
 <br>```./01_workOffline.sh <command> [additional data]``` 
 <br>```./01_workOffline.sh new``` Resets the offlineTransfer.json with only the current protocol-parameters in it (OnlineMode only)
@@ -94,8 +95,9 @@ Please make yourself familiar on how to call each script with the required param
 <br>```./01_workOffline.sh clearhistory``` Removes the history in the offlineTransfer.json
 <br>```./01_workOffline.sh clearfiles``` Removes the attached files in the offlineTransfer.json
 
-The scripts uses per default (configurable) the file **offlineTransfer.json** to store the data in between the Machines.
+  The scripts uses per default (configurable) the file **offlineTransfer.json** to store the data in between the Machines.
 
+&nbsp;<br>
 * **01_queryAddress.sh:** checks the amount of lovelaces and tokens on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
 <br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
@@ -103,6 +105,7 @@ The scripts uses per default (configurable) the file **offlineTransfer.json** to
 <br>```./01_queryAddress.sh addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m``` shows the lovelaces on this given Bech32 address
 <br>```./01_queryAddress.sh stake1u9w60cpjg0xnp6uje8v3plcsmmrlv3vndcz0t2lgjma0segm2x9gk``` shows the rewards on this given Bech32 address
 
+&nbsp;<br>
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address
 <br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` (you can send to an HASH address too)
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
@@ -110,54 +113,72 @@ The scripts uses per default (configurable) the file **offlineTransfer.json** to
 <br>```./01_sendLovelaces.sh addr1 addr2 ALLFUNDS``` to send **ALL funds** from addr1.addr to addr2.addr **including Tokens** if present
 <br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL lovelaces from addr1.addr to the given Bech32 address
 
+&nbsp;<br>
 * **01_sendAssets.sh:** sends Assets(Tokens) and optional a given amount of lovelaces from one address to another
 <br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset> <AmountOfAssets|ALL> [Optional Amount of lovelaces to attach]```
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
 <br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. Using the PolicyID.TokenNameHASH allowes you to send out Tokens you've got from others. You own generated Tokens can be referenced by the policyName.tokenName schema.
 
+&nbsp;<br>
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
 <br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
 <br>```./01_claimRewards.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
 <br>```./01_claimRewards.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
 
+&nbsp;<br>
 * **01_sendVoteMeta.sh:** modified sendLoveLaces script to simply send a voting json metadata file
 <br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName>```
 <br>```./01_sendLovelaces.sh addr1 myvote``` to just send the myvote.json votingfile from funds on addr1.addr
 <br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process)
 
+&nbsp;<br>
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
 <br>```./02_genPaymentAddrOnly.sh <name> <keymode: cli | hw>```
-<br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the files addr1.addr, addr1.skey, addr1.vkey<br>
+<br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the CLI-based files addr1.addr, addr1.skey, addr1.vkey
+<br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the HardwareWallet-based files addr1.addr, addr1.hwsfiles, addr1.vkey<br>
 
+&nbsp;<br>
 * **03a_genStakingPaymentAddr.sh:** generates the base/payment address & staking address combo with the given name and also the stake address registration certificate
-<br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hwpayonly>```
-<br>```./03a_genStakingPaymentAddr.sh owner cli``` will generate the files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert<br>
+<br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hybrid>```
 
+   ```./03a_genStakingPaymentAddr.sh owner cli``` will generate CLI-based files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert
+
+   ```./03a_genStakingPaymentAddr.sh owner hw``` will generate HardwareWallet-based files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey, owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
+
+   ```./03a_genStakingPaymentAddr.sh owner hybrid``` will generate HardwareWallet-based payment files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey and CLI-based staking files owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
+
+&nbsp;<br>
 * **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
 <br>```./03b_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
 <br>```./03b_regStakingAddrCert.sh owner.staking addr1``` will register the staking addr owner.staking using the owner.staking.cert with funds from addr1 on the blockchain. you could of course also use the owner.payment address here for funding.<br>
 
+&nbsp;<br>
 * **03c_checkStakingAddrOnChain.sh:** check the blockchain about the staking address
 <br>```./03c_checkStakingAddrOnChain.sh <name>```
 <br>```./03c_checkStakingAddrOnChain.sh owner``` will check if the address in owner.staking.addr is currently registered on the blockchain
 
+&nbsp;<br>
 * **04a_genNodeKeys.sh:** generates the poolname.node.vkey and poolname.node.skey cold keys and resets the poolname.node.counter file
 <br>```./04a_genNodeKeys.sh <poolname>```
 <br>```./04a_genNodeKeys.sh mypool```
 
+&nbsp;<br>
 * **04b_genVRFKeys.sh:** generates the poolname.vrf.vkey/skey files
 <br>```./04b_genVRFKeys.sh <poolname>```
 <br>```./04b_genVRFKeys.sh mypool```
 
+&nbsp;<br>
 * **04c_genKESKeys.sh:** generates a new pair of poolname.kes-xxx.vkey/skey files, and updates the poolname.kes.counter file. every time you generate a new keypair the number(xxx) autoincrements. To renew your kes/opcert before the keys of your node expires just rerun 04c and 04d!
 <br>```./04c_genKESKeys.sh <poolname>```
 <br>```./04c_genKESKeys.sh mypool```
 
+&nbsp;<br>
 * **04d_genNodeOpCert.sh:** calculates the current KES period from the genesis.json and issues a new poolname.node-xxx.opcert certificate. it also generates the poolname.kes-expire.json file which contains the valid start KES-Period and also contains infos when the generated kes-keys will expire. to renew your kes/opcert before the keys of your node expires just rerun 04c and 04d! after that, update the files on your stakepool server and restart the coreNode
 <br>```./04d_genNodeOpCert.sh <poolname>```
 <br>```./04d_genNodeOpCert.sh mypool```
 
+&nbsp;<br>
 * **05a_genStakepoolCert.sh:** generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain
   <br>```./05a_genStakepoolCert.sh <PoolNodeName> [optional registration-protection key]``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
   To register a protected Ticker you will have to provide the secret protection key as a second parameter to the script.<br>
@@ -198,10 +219,12 @@ The scripts uses per default (configurable) the file **offlineTransfer.json** to
    poolRelays is an array of your IPv4/IPv6 or DNS named public pool relays. Currently the types DNS, IP, IP4, IPv4, IP6 and IPv6 are supported. Examples of multiple relays can be found [HERE](#using-multiple-relays-in-your-poolnamepooljson) <br> MetaName/Description/Ticker/Homepage is your Metadata for your Pool. The script generates the poolname.metadata.json for you. In poolMetaUrl you must specify your location of the file later on your webserver (you have to upload it to this location). <br>There is also the option to provide ITN-Witness data in an extended metadata json file. Please read some infos about that [here](#bulb-itn-witness-ticker-check-for-wallets)<br>After the edit, rerun the script with the name again.<br>
    > :bulb:   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](#file-autolock-for-enhanced-security) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
+&nbsp;<br>
 * **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
 <br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
 <br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
 
+&nbsp;<br>
 * **05c_regStakepoolCert.sh:** (re)register your **poolname.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from the given name.addr on the blockchain. it also updates the pool-ID and the registration date in the poolname.pool.json
 <br>```./05c_regStakepoolCert.sh <PoolNodeName> <PaymentAddrForRegistration> [optional REG / REREG keyword]```
 <br>```./05c_regStakepoolCert.sh mypool owner.payment``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain. Owner.payment.addr will pay for the fees.<br>
@@ -209,6 +232,7 @@ If the pool was registered before (when there is a **regSubmitted** value in the
   > :bulb: If something went wrong with the original pool registration, you can force the script to redo a normal registration by adding the keyword REG on the commandline like ```./05c_regStakepoolCert.sh mypool mywallet REG```<br>
 Also you can force the script to do a re-registration by adding the keyword REREG on the command line like ```./05c_regStakepoolCert.sh mypool mywallet REREG```
 
+&nbsp;<br>
 * **05d_poolWitness.sh:** gives you Status Information, also Signing, Adding and Clearing Witnesses for a PoolRegistration
   <br>```./05d_poolWitness.sh <command> [additional data]``` 
   <br>```05d_poolWitness.sh sign <witnessfile> <signingkey>``` signs the witnessFile with the given signingKey
@@ -223,10 +247,12 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   ```05d_poolWitness.sh info <poolFileName>``` shows the current witness state in the poolFileName.pool.json
   <br>```05d_poolWitness.sh info mypool``` shows the current witness state in the mypool.pool.json to see if some are still missing
 
+&nbsp;<br>
 * **06_regDelegationCert.sh:** register a simple delegation (from 05b) name.deleg.cert 
 <br>```./06_regDelegationCert.sh <delegatorName> <nameOfPaymentAddr>```
 <br>```./06_regDelegationCert.sh someone someone.payment``` this will register the delegation certificate someone.deleg.cert for the stake-address someone.staking.addr on the blockchain. The transaction fees will be paid from someone.payment.addr.
 
+&nbsp;<br>
 * **07a_genStakepoolRetireCert.sh:** generates the de-registration certificate poolname.pool.dereg-cert to retire a stakepool from the blockchain
   <br>```./07a_genStakepoolRetireCert.sh <PoolNodeName> [optional retire EPOCH]```
   <br>```./07a_genStakepoolRetireCert.sh mypool``` generates the mypool.pool.dereg-cert to retire the pool in the NEXT epoch
@@ -235,28 +261,34 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is the name of the StakeOwner from steps 03
 
+&nbsp;<br>
 * **07b_deregStakepoolCert.sh:** de-register (retire) your pool with the **poolname.pool.dereg-cert certificate** with funds from name.payment.addr from the blockchain. it also updates the de-registration date in the poolname.pool.json
 <br>```./07b_deregStakepoolCert.sh <PoolNodeName> <PaymentAddrForDeRegistration>```
 <br>```./07b_deregStakepoolCert.sh mypool mywallet``` this will retire your pool mypool with the cert generated with script 07a from the blockchain. The transactions fees will be paid from the mywallet.addr account.<br>
   :bulb: Don't de-register your rewards/staking account yet, you will receive the pool deposit fee on it!<br>
 
+&nbsp;<br>
 * **08a_genStakingAddrRetireCert.sh:** generates the de-registration certificate name.staking.dereg-cert to retire a stake-address form the blockchain
   <br>```./08a_genStakingAddrRetireCert.sh <name>```
   <br>```./08a_genStakingAddrRetireCert.sh owner``` generates the owner.staking.dereg-cert to retire the owner.staking.addr
   
+&nbsp;<br>
 * **08b_deregStakingAddrCert.sh:** re-register (retire) you stake-address with the **name.staking.dereg-cert certificate** with funds from name.payment.add from the blockchain.
   <br>```./08b_deregStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
   <br>```./08b_deregStakingAddrCert.sh owner.staking owner.payment``` this will retire your owner staking address with the cert generated with script 08a from the blockchain.
 
+&nbsp;<br>
 * **10_genPolicy.sh:** generate policy keys, signing script and id as files **name.policy.skey/vkey/script/id**. You need a policy for Token minting.
   <br>```./10_genPolicy.sh <PolicyName>```
   <br>```./10_genPolicy.sh mypolicy``` this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
 
+&nbsp;<br>
 * **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyID generated before. This updates the Token Status File **policyname.tokenname.asset** for later usage when sending/burning Tokens.
   <br>```./11a_mintAsset.sh <AssetName> <AssetAmount to mint> <PolicyName> <nameOfPaymentAddr>```
   <br>```./11a_mintAsset.sh SUPERTOKEN 1000 mypolicy mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
   <br>```./11a_mintAsset.sh MEGATOKEN 30 mypolicy owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
 
+&nbsp;<br>
 * **11b_burnAsset.sh:** burnes Assets(Token) on a given payment address with a policyID you own the keys for. This updates the Token Status File **policyname.tokenname.asset** for later usage when sending/burning Tokens.
   <br>```./11b_burnAsset.sh <AssetName> <AssetAmount to mint> <PolicyName> <nameOfPaymentAddr>```
   <br>```./11b_burnAsset.sh SUPERTOKEN 22 mypolicy mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
@@ -629,7 +661,26 @@ Yep, it was that simple.
 
 </details>
 
-> :construction: The Hardware-Wallet Section is in progress, please visit again later to see if there are any updates
+## Choose your preferred Key-Type for your Owner-Pledge-Account(s)
+
+As an SPO you can choose how to handle your Owner Pledge Account(s). You can have them as CLI-based Payment&Stake keys, as HW-based Payment&Stake keys or you can have them as HYBRID keys with Hardware-Payment Protection via a HW-Wallet and Stake keys via normal CLI.
+
+<details>
+   <Summary><b>How to generate different Key-Types, Pros and Contras ... </b>:bookmark_tabs:<br></summary>
+
+<br>Generating the different Key-Types is easy with the ```./03a_genStakingPaymentAddr.sh <name> <key-type>``` script. It takes two parameters:
+* name: Thats the name you wanna use for the account/filename
+* key-type: Here you can choose between the normal CLI keys, HW (Ledger/Trezor) keys and HYBRID keys.
+
+| Key<br>Type | Payment/Spending<br>Key :key: | Staking/Rewards<br>Key :key: | Security<br>Level | Pros and Cons |
+| :---: | :---: | :---: | :---: | :---: |
+| CLI | via cli<br>(.skey) | via cli<br>(.skey) | medium | You can do everything, but you have<br>to keep your .skeys offline for enhanced security |
+| HYBRID | via HW-Wallet<br>(.hwsfile) | via cli<br>(.skey) | high | The pledge funds are protected via the Hardware-Wallet.<br>You can do Pool-Updates for MultiOwners without<br>any Hardware-Wallet attached. |
+| HW | via HW-Wallet<br>(.hwsfile) | via HW-Wallet<br>(.hwsfile) | highest | Pledge funds and Stake keys are secured<br>via the Hardware-Wallet. MultiOwnerPools have to sign<br>with each Hardware-Wallet for every PoolUpdate |
+
+So you can see in this table there are Pros and Cons with the different types of Keys. You as the SPO have to choose how you wanna work. The Hybrid-Mode is kind of a "comfort" mode for MultiOwnerPools, but you have to take the following in consideration: You have to use the generated payment(base) Address to fund with your Pledge, you will not see your Wallet delegated to your Pool if your plug the Hardware-Key into Daedalus-, Yoroi- or Adalite-Wallet. If you do a transaction out of it via one of the said wallets, you have to take everything out and send it back to the generated payment(base) Address. So, this mode is comfortable, it protects the Funds with the Hardware-Key, but you also must be a little careful. :smiley:
+
+</details>
 
 &nbsp;<br>&nbsp;<br>
 # Examples in Online-Mode
@@ -641,6 +692,8 @@ The examples in here are for using the scripts in Online-Mode. Please get yourse
 Working in [Offline-Mode](#examples-in-offline-mode) introduces another step before and ofter each example, so you should understand the Online-Mode first.
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
+
+> :construction: The Hardware-Wallet Section is in progress, examples using HardwareKeys to register your StakePool and how to migrate from the old CLI-Keys to Hardware-Keys will follow!
 
 ## Generate some wallets for the daily operator work
 
