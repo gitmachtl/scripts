@@ -1207,7 +1207,7 @@ The examples in here are for using the scripts in Offine-Mode. Please get yourse
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
 
-> :construction: The Hardware-Wallet Section is in progress, examples using HardwareKeys to register your StakePool and how to migrate from the old CLI-Keys to Hardware-Keys offline will follow!
+> :construction: The Hardware-Wallet Section is in progress, an example how to migrate from the old CLI-Keys to Hardware-Keys offline will follow!
 
 **Understand the workflow in Offline-Mode:**
 
