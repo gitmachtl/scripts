@@ -1490,7 +1490,7 @@ Lets pretend you already have registered your stakepool 'mypool' in the past usi
 Done.  
 </details>
 
-## Claiming rewards on the Shelley blockchain
+## Claiming rewards on the Shelley blockchain in Offline-Mode
 
 I'am sure you wanna claim some of your rewards that you earned running your stakepool. So lets say you have rewards in your owner.staking address and you wanna claim it to the owner.payment address by paying with funds from smallwallet2.
 
