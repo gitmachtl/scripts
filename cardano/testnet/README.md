@@ -65,7 +65,7 @@ You should keep your directory structure the same on both Machines.
 <details>
    <summary><b>How do you migrate your existing StakePool to HW-Wallet-Owner-Keys ... </b>:bookmark_tabs:</summary>
 
-<br>You can find examples below in the Online- and Offline-Examples section. [Online-Migration-Example](#migrate-your-existing-stakepool-to-hw-wallet-owner-keys-ledgertrezor)
+<br>You can find examples below in the Online- and Offline-Examples section. [Online-Migration-Example](#migrate-your-existing-stakepool-to-hw-wallet-owner-keys-ledgertrezor), [Offline-Migration-Example](#migrate-your-existing-stakepool-offline-to-hw-wallet-owner-keys-ledgertrezor)
 
 </details>
 
@@ -705,7 +705,7 @@ Yep, it was that simple.
 <details>
    <summary><b>How do you migrate your existing StakePool to HW-Wallet-Owner-Keys ... </b>:bookmark_tabs:</summary>
 
-<br>You can find examples below in the Online- and Offline-Examples section. [Online-Migration-Example](#migrate-your-existing-stakepool-to-hw-wallet-owner-keys-ledgertrezor)
+<br>You can find examples below in the Online- and Offline-Examples section. [Online-Migration-Example](#migrate-your-existing-stakepool-to-hw-wallet-owner-keys-ledgertrezor), [Offline-Migration-Example](#migrate-your-existing-stakepool-offline-to-hw-wallet-owner-keys-ledgertrezor)
 
 </details>
 
