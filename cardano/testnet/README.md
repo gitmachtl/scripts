@@ -470,10 +470,12 @@ As an SPO you can choose how to handle your Owner Pledge Account(s). You can hav
 | Key<br>Type | Payment/Spending<br>Key :key: | Staking/Rewards<br>Key :key: | Security<br>Level | Pros and Cons |
 | :---: | :---: | :---: | :---: | :---: |
 | CLI | via cli<br>(.skey) | via cli<br>(.skey) | medium | You can do everything, but you have<br>to keep your .skeys offline for enhanced security |
-| HYBRID | via HW-Wallet<br>(.hwsfile) | via cli<br>(.skey) | high | The pledge funds are protected via the Hardware-Wallet.<br>You can do Pool-Updates for MultiOwners without<br>any Hardware-Wallet attached. |
+| HYBRID **&sup1;** | via HW-Wallet<br>(.hwsfile) | via cli<br>(.skey) | high | The pledge funds are protected via the Hardware-Wallet.<br>You can do Pool-Updates for MultiOwners without<br>any Hardware-Wallet attached. **&sup1;** |
 | HW | via HW-Wallet<br>(.hwsfile) | via HW-Wallet<br>(.hwsfile) | highest | Pledge funds and Stake keys are secured<br>via the Hardware-Wallet. MultiOwnerPools have to sign<br>with each Hardware-Wallet for every PoolUpdate |
 
-So you can see in this table there are Pros and Cons with the different types of Keys. You as the SPO have to choose how you wanna work. The Hybrid-Mode is kind of a "comfort" mode for MultiOwnerPools, but you have to take the following in consideration: You have to use the generated payment(base) Address to fund with your Pledge, you will not see your Wallet delegated to your Pool if your plug the Hardware-Key into Daedalus-, Yoroi- or Adalite-Wallet. If you do a transaction out of it via one of the said wallets, you have to take everything out and send it back to the generated payment(base) Address. So, this mode is comfortable, it protects the Funds with the Hardware-Key, but you also must be a little careful. :smiley:
+So you can see in this table there are Pros and Cons with the different types of Keys. You as the SPO have to choose how you wanna work.
+
+:warning: **&sup1;**) The Hybrid-Mode is kind of a "comfort" mode for MultiOwnerPools, but you have to take the following in consideration: You have to use the generated payment(base) Address to fund with your Pledge, you will not see your Wallet delegated to your Pool if your plug the Hardware-Key into Daedalus-, Yoroi- or Adalite-Wallet. If you do a transaction out of it via one of the said wallets, you have to take everything out and send it back to the generated payment(base) Address. So, this mode is comfortable, it protects the Funds with the Hardware-Key, but you also must be a little careful. :smiley:
 
 </details>
 
