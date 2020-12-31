@@ -1207,8 +1207,6 @@ The examples in here are for using the scripts in Offine-Mode. Please get yourse
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
 
-> :construction: The Hardware-Wallet Section is in progress, an example how to migrate from the old CLI-Keys to Hardware-Keys offline will follow!
-
 **Understand the workflow in Offline-Mode:**
 
 * **Step 1 : On the Online-Machine**
@@ -1460,6 +1458,146 @@ ledgerowner as owner and also as rewards-account. We do the signing on the machi
 
 </details>
 
+## Migrate your existing Stakepool to HW-Wallet-Owner-Keys (Ledger/Trezor)
+
+So this is an important one for many of you that already have registered a stakepool on Cardano before. Now is the time to upgrade your owner funds security to the next level by using HW-Wallet-Keys instead of CLI-Keys. In the example below we have an existing CLI-Owner with name **owner**, and we want to migrate that to the new owner with name **ledgerowner**. <br>
+We use the smallwallet1 to pay for the different fees in this process. Make sure you have at least **10 ADA** on it.
+
+<details>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>**Online-Machine:**
+
+1. Add/Update the current UTXO balance for smallwallet1 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet1``` (smallwallet1 will source the new ledgerowner for the stake-address and delegation registration, **at least 10 ADA should be on that wallet**)
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:**
+
+1. Make sure you have enough funds on your *smallwallet1* account we created before. You will need around **10 ADA to complete the process**. You can check the current balance by running ```./01_queryAddress.sh smallwallet1```
+1. Generate the new ledgerowner stake/payment combo with full Hardware-Keys ```./03a_genStakingPaymentAddr.sh ledgerowner hw```<br>
+   See your options in the section [here](#choose-your-preferred-key-type-for-your-owner-pledge-accounts) to choose between CLI, HW and HYBRID keys.  
+1. Make an offline transaction by sending some funds from your *smallwallet1* to your new *ledgerowner.payment* address for the stake key and delegation registration, 5 ADA should be ok for this ```./01_sendLovelaces.sh smallwallet1 ledgerowner.payment 5000000```
+1. Add the new ledgerowner.payment.addr and ledgerowner.staking.addr to your offlineTransfer.json<br>```./01_workOffline.sh attach ledgerowner.payment.addr```<br>```./01_workOffline.sh attach ledgerowner.staking.addr```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Extract the attached files (ledgerowner.payment.addr, ledgerowner.staking.addr) from the transferOffline.json<br>```./01_workOffline.sh extract```
+1. Execute the cued transaction (smallwallet1 to ledgerowner.payment) to the blockchain by running<br>```./01_workOffline.sh execute```
+1. Wait a minute so the transaction is completed
+1. Verify that you have now the 5 ADA on your ledgerowner.payment address<br>```./01_queryAddress ledgerowner.payment``` if you don't see it, wait a little and retry
+1. Add/Update the new UTXO balance for ledgerowner.payment in the offlineTransfer.json by running<br>```./01_workOffline.sh add ledgerowner.payment``` (we need it to pay for the delegation cert next)
+1. Add/Update the current UTXO balance for smallwallet1 in the offlineTransfer.json by running<br>```./01_workOffline.sh add smallwallet1``` (we need it to pay for the pool Re-Registration and you've just paid with it)
+
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:**
+
+1. Generate the ledgerowner stake key registration on the blockchain, **the hw-wallet itself must pay for this**<br>```./03b_regStakingAddrCert.sh ledgerowner ledgerowner.payment```
+1. The poolOwner section in your mypool.pool.json file looks like this right now:
+   ```console
+   ...
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "owner",
+         "ownerWitness": "local"
+         }
+      ],
+      "poolRewards": "owner",
+      "poolPledge": "200000000000",
+   ...
+   ```
+   Maybe you don't have the ownerWitness entry, but thats ok it will be added automatically or you can add it by yourself.
+1. [Unlock](#file-autolock-for-enhanced-security) the existing mypool.pool.json file and **add the new ledgerowner** to the list of owners, also we want that the new rewards account is also the new ledgerowner. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, **EDIT IT** and **SAVE IT**:
+   ```console
+   ...
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "owner",
+         "ownerWitness": "local"
+         },
+         {
+         "ownerName": "ledgerowner",
+         "ownerWitness": "local"
+         }
+      ],
+      "poolRewards": "ledgerowner",
+      "poolPledge": "200000000000",
+   ...
+   ```
+   We wanna do the signing on this machine so you can leave ownerWitness at 'local'. You can find out more about the ownerWitness parameter and how to work with Multi-Witnesses [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved)
+1. Run ```./05a_genStakepoolCert.sh mypool``` to generate the updated pool certificate **mypool.pool.cert**
+1. Delegate to your own pool as owner -> **pledge** ```./05b_genDelegationCert.sh mypool ledgerowner``` this will generate the **ledgerowner.deleg.cert**
+1. Generate now the transaction for the the stakepool registration, smallwallet1 will pay for the re-registration fees<br>```./05c_regStakepoolCert.sh mypool smallwallet1```<br>Let the script also autoinclude your new mypool.metadata.json file into the transferOffline.json if you have changed some Metadata!
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Extract the maybe attached files (mypool.metadata.json) from the transferOffline.json ```./01_workOffline.sh extract```
+1. If you have changed also some Metadata, **upload** the newly generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error. If you have only updated the owners, skip it.
+1. Execute the cued transaction (ledgerowner stakekey registration) on the blockchain by running<br>```./01_workOffline.sh execute```
+1. Wait a minute so the transaction is completed
+1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it, wait a little and retry
+1. Execute the next cued transaction (stakepool registration) on the blockchain by running<br>```./01_workOffline.sh execute```
+1. Wait a minute so the transaction is complete
+1. Add/Update the current UTXO balance for ledgerowner.payment in the offlineTransfer.json by running<br>```./01_workOffline.sh add ledgerowner.payment``` (we need it to pay for the delegation next and you just paid with it)
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:**
+
+1. Send all owner delegations to the blockchain. :bulb: Notice! This is different than before when using only CLI-Owner-Keys, if any owner is a HW-Wallet than you have to send the individual delegations after the stakepool registration. You can read more about it [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved).<br>We have only one new owner (ledgerowner) so lets do this by running the following command, **the HW-Wallet itself must pay for this**<br>```./06_regDelegationCert.sh ledgerowner ledgerowner.payment```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Execute the cued transaction (ledgerowner delegation registration) on the blockchain by running<br>```./01_workOffline.sh execute```
+1. Wait a minute so the transaction is completed
+1. Verify that your owner delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it instantly, wait a little and retry the same command
+
+&nbsp;<br>
+:warning: <b>Now WAIT! Wait for 2 epoch changes!</b> :warning: So if you're doing this in epoch n, wait until epoch n+2 before you continue!
+
+&nbsp;<br>
+Now two epochs later your new additional **ledgerowner** co-owner is fully active. Its now the time to **transfer your owner funds** from the old **owner** to the new **ledgerowner**. 
+
+**Online-Machine:**
+
+1. Add/Update the current UTXO balance for owner.payment (oldaccount) in the offlineTransfer.json by running<br>```./01_workOffline.sh add owner.payment```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:**
+
+1. You can now transfert all funds from the old owner-account 'owner' to the new pledge account 'ledgerowner' by running:<br>```./01_sendLovelaces.sh owner.payment ledgerowner.payment ALLFUNDS```<br>This will move over all lovelaces and even assets that are on the your old owner.payment address to your new ledger.payment address.
+
+Be aware, this little transaction needed some fees, so you maybe have to top up your ledgerowner.payment account later with 1 ADA from another wallet to met your registered pledge again!
+
+**Online-Machine:**
+
+1. Execute the cued transaction (owner.payment to ledgerowner.payment) on the blockchain by running<br>```./01_workOffline.sh execute```
+
+&nbsp;<br>
+:warning: <b>WAIT AGAIN! Wait for 2 epoch changes!</b> :warning: So if you're doing this in epoch n, wait until epoch n+2 before you continue! :warning:
+
+&nbsp;<br>
+Why waiting again? Well, **we** also **changed the rewards-account** when we added the new ledgerowner, this takes 4 epochs on the blockchain to get fully updated. So, until now **you have received the rewards** of the pool **to your old owner.staking account**. Please check you rewards now and do a withdrawal of them, an example can be found below.
+
+&nbsp;<br>
+**Done**, you have fully migrated to your new ledgerowner in Offline-Mode, congrats! :smiley:
+
+> Optional: If you wanna get rid of your old owner entry (you can leave it in there) in your stakepool registration - do the following:
+  <br>Do it like the steps above, re-edit your mypool.pool.json file and remove the entry of the old owner from the poolOwner list. Save the file, generate a new certificate by running script 05a. Register it on the chain again like above or like the example below "Update stakepool parameters on the blockchain in Offline-Mode". Now you have only your new ledgerowner in your pool registration. 
+
+</details>
+
 ## Update stakepool parameters on the blockchain in Offline-Mode
 
 Lets pretend you already have registered your stakepool 'mypool' in the past using theses scripts, now lets update some pool parameters like pledge, fees or the description for the stakepool(metadata). We use the smallwallet1 to pay for this update.
@@ -1523,7 +1661,7 @@ Done.
 
 </details>
 
-## Sending some funds from one address to another address
+## Sending some funds from one address to another address in Offline-Mode
 
 Lets say you wanna transfer 1000 Ada from your big-owner-payment-wallet owner.payment to a different address like smallwallet3 in this example.
 Also you wanna transfer 20 ADA from smallwallet1 to smallwallet3 at the same time, only transfering the offlineTransfer.json once. 
