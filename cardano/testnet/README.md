@@ -931,7 +931,7 @@ So this is an important one for many of you that already have registered a stake
 :warning: <b>Now WAIT! Wait for 2 epoch changes!</b> :warning: So if you're doing this in epoch n, wait until epoch n+2 before you continue!
 
 &nbsp;<br>
-Now two epochs later your new additional **ledgerowner** co-owner is fully active. Its now the time to **transfer your owner funds** from the old **owner** to the new **ledgerowner**. You can do this by running:<br>```./01_sendLovelaces.sh owner.payment ledgerowner.payment ALLFUNDS```<br>This will move over all lovelaces and even assets that are on the your old owner.payment address to your new ledger.payment address.
+Now two epochs later your new additional **ledgerowner** co-owner is fully active. Its now the time to **transfer your owner funds** from the old **owner** to the new **ledgerowner**. You can do this by running:<br>```./01_sendLovelaces.sh owner.payment ledgerowner.payment ALLFUNDS```<br>This will move over all lovelaces and even assets that are on your old owner.payment address to your new ledger.payment address.
 
 Be aware, this little transaction needed some fees, so you maybe have to top up your ledgerowner.payment account with 1 ADA from another wallet to met your registered pledge again. Check your balance on your ledgerowner account by running ```./01_queryAddress.sh ledgerowner.payment```
 
@@ -1576,7 +1576,7 @@ Now two epochs later your new additional **ledgerowner** co-owner is fully activ
 
 **Offline-Machine:**
 
-1. You can now transfert all funds from the old owner-account 'owner' to the new pledge account 'ledgerowner' by running:<br>```./01_sendLovelaces.sh owner.payment ledgerowner.payment ALLFUNDS```<br>This will move over all lovelaces and even assets that are on the your old owner.payment address to your new ledger.payment address.
+1. You can now transfer all funds from the old owner-account 'owner' to the new pledge account 'ledgerowner' by running:<br>```./01_sendLovelaces.sh owner.payment ledgerowner.payment ALLFUNDS```<br>This will move over all lovelaces and even assets that are on your old owner.payment address to your new ledger.payment address.
 
 Be aware, this little transaction needed some fees, so you maybe have to top up your ledgerowner.payment account later with 1 ADA from another wallet to met your registered pledge again!
 
