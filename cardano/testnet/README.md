@@ -1344,6 +1344,8 @@ Done.
 
 ## Create the StakePool offline with HW-Wallet-Owner-Keys (Ledger/Trezor)
 
+> Remark: This is a little advanced, but its the only way if you wanna do it completely offline.
+
 We want to make ourself a pool owner stake address with the nickname ledgerowner by using a HW-Key, we want to register the pool with the poolname mypool. The poolname is only to keep the files on the harddisc in order, poolname is not a ticker!<br>
 We use the smallwallet1&2 to pay for the different fees in this process. Make sure you have enough funds on smallwallet1 & smallwallet2 for this registration.
 
