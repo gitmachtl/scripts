@@ -706,8 +706,6 @@ Working in [Offline-Mode](#examples-in-offline-mode) introduces another step bef
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
 
-> :construction: The Hardware-Wallet Section is in progress, examples using HardwareKeys to register your StakePool and how to migrate from the old CLI-Keys to Hardware-Keys will follow!
-
 ## Generate some wallets for the daily operator work
 
 So first you should create yourself a few small wallets for the daily Operator work, there is no need to use your big-owner-pledge-wallet for this every time. Lets say we wanna create three small wallets with the name smallwallet1, smallwallet2 and smallwallet3. And we wanna fund them via daedalus for example.
@@ -1194,6 +1192,8 @@ Thats it. :-)
 The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax--filenames). Working offline is like working online, all is working in Offline-Mode, theses are just a few examples. :smiley:<br>
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
+
+> :construction: The Hardware-Wallet Section is in progress, examples using HardwareKeys to register your StakePool and how to migrate from the old CLI-Keys to Hardware-Keys offline will follow!
 
 **Understand the workflow in Offline-Mode:**
 
