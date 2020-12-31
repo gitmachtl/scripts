@@ -1580,6 +1580,8 @@ Now two epochs later your new additional **ledgerowner** co-owner is fully activ
 
 Be aware, this little transaction needed some fees, so you maybe have to top up your ledgerowner.payment account later with 1 ADA from another wallet to met your registered pledge again!
 
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
 **Online-Machine:**
 
 1. Execute the cued transaction (owner.payment to ledgerowner.payment) on the blockchain by running<br>```./01_workOffline.sh execute```
