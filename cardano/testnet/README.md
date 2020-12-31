@@ -1347,7 +1347,7 @@ Done.
 > Remark: This is a little advanced, but its the only way if you wanna do it completely offline.
 
 We want to make ourself a pool owner stake address with the nickname ledgerowner by using a HW-Key, we want to register the pool with the poolname mypool. The poolname is only to keep the files on the harddisc in order, poolname is not a ticker!<br>
-We use the smallwallet1 to pay for the different fees in this process. Make sure you have enough funds on smallwallet1 this registration, **510 ADA** should be ok.
+We use the smallwallet1 to pay for the different fees in this process. Make sure you have at least **510 ADA** on it.
 
 <details>
    <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
