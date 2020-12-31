@@ -56,7 +56,7 @@ You should keep your directory structure the same on both Machines.
 1. Work in Offline-Mode whenever you can, even when you use Hardware-Keys, your PoolNode-Cold-Keys should be on an Offline-Machine.
 1. Use Hardware-Keys (Ledger/Trezor) for your Owner-Pledge-Funds! You can choose between Full-Hardware and Hybrid-Mode if you like (description below). Get a 2nd Hardware-Wallet as a backup for the first one, you can restore it with the same Seed-Phrase and they will work both in the same way. Store this 2nd one at another location!
 1. Make yourself a few small Operator CLI-Wallets for the daily usage. There is absolutly no need to have your Owner-Pledge-Wallet/Key around all the time. You need at least three small wallets if you wanna do more than one transactions in a single "Online->Offline->Online" process.
-1. If you don't have a Hardware-Wallet, make sure that you move away your ```owner.payment.skey``` completely onto a secure medium like an encrypted USB-Stick and put it in a safe. Store a copy of it in a 2nd secure place at another location. An Offline-Machine is pretty secure, but it can be compromised by a physical attack on in. So don't leave your ```owner.payment.skey``` even on your Offline-Machine.
+1. If you don't have a Hardware-Wallet, make sure that you move away your ```owner.payment.skey``` completely onto a secure medium like an encrypted USB-Stick and put it in a safe. Store a copy of it in a 2nd secure place at another location. An Offline-Machine is pretty secure, but it can be compromised by a physical attack on it. So don't leave your ```owner.payment.skey``` even on your Offline-Machine.
 1. Don't tell anybody - not even a good Telegram buddy - where your owner keys are or how your secure structure looks like, we have seen "Social Hacking" in the past. Just keep this information to yourself. 
 1. If someone is hacking your stake keys thats annoying. If someone gets to your PoolNode-Cold-Keys thats even more annoying, but if someone gets to your Owner-Pledge-Fund keys, your funds are lost. So, take care of your keys! :smiley:
 
@@ -456,7 +456,28 @@ There is no directory structure, the current design is FLAT. So all Examples bel
 
 Please take a few minutes and take a look at the Sections here to find out how to prepare your system, what are the limitations when working with a Hardware-Wallet Ledger Nano S, Nano X or Trezor Model-T. If you need Multi-Witnesses and how to work with them if so ...
 
-## Limitations to the PoolOperation
+## Choose your preferred Key-Type for your Owner-Pledge-Account(s)
+
+As an SPO you can choose how to handle your Owner Pledge Account(s). You can have them as CLI-based Payment&Stake keys, as HW-based Payment&Stake keys or you can have them as HYBRID keys with Hardware-Payment Protection via a HW-Wallet and Stake keys via normal CLI.
+
+<details>
+   <Summary><b>How to generate different Key-Types, Pros and Contras ... </b>:bookmark_tabs:<br></summary>
+
+<br>Generating the different Key-Types is easy with the ```./03a_genStakingPaymentAddr.sh <name> <key-type>``` script. It takes two parameters:
+* name: Thats the name you wanna use for the account/filename
+* key-type: Here you can choose between the normal CLI keys, HW (Ledger/Trezor) keys and HYBRID keys.
+
+| Key<br>Type | Payment/Spending<br>Key :key: | Staking/Rewards<br>Key :key: | Security<br>Level | Pros and Cons |
+| :---: | :---: | :---: | :---: | :---: |
+| CLI | via cli<br>(.skey) | via cli<br>(.skey) | medium | You can do everything, but you have<br>to keep your .skeys offline for enhanced security |
+| HYBRID | via HW-Wallet<br>(.hwsfile) | via cli<br>(.skey) | high | The pledge funds are protected via the Hardware-Wallet.<br>You can do Pool-Updates for MultiOwners without<br>any Hardware-Wallet attached. |
+| HW | via HW-Wallet<br>(.hwsfile) | via HW-Wallet<br>(.hwsfile) | highest | Pledge funds and Stake keys are secured<br>via the Hardware-Wallet. MultiOwnerPools have to sign<br>with each Hardware-Wallet for every PoolUpdate |
+
+So you can see in this table there are Pros and Cons with the different types of Keys. You as the SPO have to choose how you wanna work. The Hybrid-Mode is kind of a "comfort" mode for MultiOwnerPools, but you have to take the following in consideration: You have to use the generated payment(base) Address to fund with your Pledge, you will not see your Wallet delegated to your Pool if your plug the Hardware-Key into Daedalus-, Yoroi- or Adalite-Wallet. If you do a transaction out of it via one of the said wallets, you have to take everything out and send it back to the generated payment(base) Address. So, this mode is comfortable, it protects the Funds with the Hardware-Key, but you also must be a little careful. :smiley:
+
+</details>
+
+## Limitations to the PoolOperation when using Hardware-Wallets
 
 <details>
    <summary><b>About Limitations, what can you do, what can't you do ...</b>:bookmark_tabs:<br></summary>
@@ -669,27 +690,6 @@ If you have made a mistake in the pool config, or if you just wanna start over a
 To **clear all Witness-Entries** in the Pool Registration **to start fresh** simply run: **```./05d_poolWitness clear mypool```**
 
 Yep, it was that simple.
-
-</details>
-
-## Choose your preferred Key-Type for your Owner-Pledge-Account(s)
-
-As an SPO you can choose how to handle your Owner Pledge Account(s). You can have them as CLI-based Payment&Stake keys, as HW-based Payment&Stake keys or you can have them as HYBRID keys with Hardware-Payment Protection via a HW-Wallet and Stake keys via normal CLI.
-
-<details>
-   <Summary><b>How to generate different Key-Types, Pros and Contras ... </b>:bookmark_tabs:<br></summary>
-
-<br>Generating the different Key-Types is easy with the ```./03a_genStakingPaymentAddr.sh <name> <key-type>``` script. It takes two parameters:
-* name: Thats the name you wanna use for the account/filename
-* key-type: Here you can choose between the normal CLI keys, HW (Ledger/Trezor) keys and HYBRID keys.
-
-| Key<br>Type | Payment/Spending<br>Key :key: | Staking/Rewards<br>Key :key: | Security<br>Level | Pros and Cons |
-| :---: | :---: | :---: | :---: | :---: |
-| CLI | via cli<br>(.skey) | via cli<br>(.skey) | medium | You can do everything, but you have<br>to keep your .skeys offline for enhanced security |
-| HYBRID | via HW-Wallet<br>(.hwsfile) | via cli<br>(.skey) | high | The pledge funds are protected via the Hardware-Wallet.<br>You can do Pool-Updates for MultiOwners without<br>any Hardware-Wallet attached. |
-| HW | via HW-Wallet<br>(.hwsfile) | via HW-Wallet<br>(.hwsfile) | highest | Pledge funds and Stake keys are secured<br>via the Hardware-Wallet. MultiOwnerPools have to sign<br>with each Hardware-Wallet for every PoolUpdate |
-
-So you can see in this table there are Pros and Cons with the different types of Keys. You as the SPO have to choose how you wanna work. The Hybrid-Mode is kind of a "comfort" mode for MultiOwnerPools, but you have to take the following in consideration: You have to use the generated payment(base) Address to fund with your Pledge, you will not see your Wallet delegated to your Pool if your plug the Hardware-Key into Daedalus-, Yoroi- or Adalite-Wallet. If you do a transaction out of it via one of the said wallets, you have to take everything out and send it back to the generated payment(base) Address. So, this mode is comfortable, it protects the Funds with the Hardware-Key, but you also must be a little careful. :smiley:
 
 </details>
 
