@@ -586,7 +586,7 @@ You should now be able to use your Trezor Model-T device as the username you hav
 
 ## Changes to the Operator-Workflow when Hardware-Wallets are involved
 
-Many steps in the workflow are pretty much the same with or without a Hardware-Wallet involved. But there were changes needed to some steps and scripts calls. There are several Limitations what you can do with a HW-Wallet, you can find the list [here](#limitations-to-the-pooloperation).
+Many steps in the workflow are pretty much the same with or without a Hardware-Wallet involved. But there were changes needed to some steps and scripts calls. There are several Limitations what you can do with a HW-Wallet, you can find the list [here](#limitations-to-the-pooloperation-when-using-hardware-wallets).
 
 <details>
    <Summary><b>Register a StakePool with Hardware-Wallet owners involved ... </b>:bookmark_tabs:<br></summary>
