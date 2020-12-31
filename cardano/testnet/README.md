@@ -1458,7 +1458,7 @@ ledgerowner as owner and also as rewards-account. We do the signing on the machi
 
 </details>
 
-## Migrate your existing Stakepool to HW-Wallet-Owner-Keys (Ledger/Trezor)
+## Migrate your existing Stakepool offline to HW-Wallet-Owner-Keys (Ledger/Trezor)
 
 So this is an important one for many of you that already have registered a stakepool on Cardano before. Now is the time to upgrade your owner funds security to the next level by using HW-Wallet-Keys instead of CLI-Keys. In the example below we have an existing CLI-Owner with name **owner**, and we want to migrate that to the new owner with name **ledgerowner**. <br>
 We use the smallwallet1 to pay for the different fees in this process. Make sure you have at least **10 ADA** on it.
