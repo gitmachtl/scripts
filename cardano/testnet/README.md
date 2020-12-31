@@ -725,9 +725,9 @@ If you wanna do a pool registration (next step) make sure that you have **at lea
 
 </details>
 
-## Generate an owner account, generate the StakePool keys, register the StakePool
+## Create the StakePool with CLI-Owner-Keys
 
-We want to make ourself a pool owner stake address with the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker!
+We want to make ourself a pool owner stake address with the nickname owner, we want to register the pool with the name mypool. The name is only to keep the files on the harddisc in order, name is not a ticker!
 
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
@@ -784,26 +784,157 @@ We want to make ourself a pool owner stake address with the nickname owner, also
 
 :warning: Make sure you transfer enough ADA to your new **owner.payment.addr** so you respect the registered Pledge amount, otherwise you will not get any rewards for you or your delegators!
 
-Done.
+Done. :smiley:
 </details>
 
-## Generate & register a stake address, just delegate to a stakepool
+## Create the StakePool with HW-Wallet-Owner-Keys (Ledger/Trezor)
 
-Lets say we wanna create a payment(base)/stake address combo with the nickname delegator and we wanna delegate the funds in the payment(base) address of that to the pool yourpool. (You'll need the yourpool.node.vkey for that.)
+We want to make ourself a pool owner stake address with the nickname ledgerowner by using a HW-Key, we want to register the pool with the poolname mypool. The poolname is only to keep the files on the harddisc in order, poolname is not a ticker!
 
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 <br><b>Steps:</b>
-1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator cli```
-1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
-1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```<br>Other example: ```./03b_regStakingAddrCert.sh delegator.staking smallwallet1``` Here you would use the funds in *smallwallet1* to pay for the fees.
-1. You can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command
-1. Generate the delegation certificate delegator.deleg.cert with ```./05b_genDelegationCert.sh yourpool delegator```
-1. Register the delegation certificate now on the blockchain with funds from delegator.payment.addr<br>```./06_regDelegationCert.sh delegator delegator.payment```
-1. You can verify that your delegation to the pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command
+1. Make sure you have enough funds on your *smallwallet1* account we created before. You will need around **510 ADA to complete the process**. You can check the current balance by running ```./01_queryAddress.sh smallwallet1```
+1. Generate the owner stake/payment combo with full Hardware-Keys ```./03a_genStakingPaymentAddr.sh ledgerowner hw```<br>
+   See your options in the section [here](#choose-your-preferred-key-type-for-your-owner-pledge-accounts) to choose between CLI, HW and HYBRID keys.  
+1. Send some funds from your *smallwallet1* to your new *ledgerowner.payment* address for the stake key and delegation registration, 5 ADA should be ok for this ```./01_sendLovelaces.sh smallwallet1 ledgerowner.payment 5000000```
+1. Wait a minute so the transaction is completed   
+1. Register the ledgerowner stake key on the blockchain, **the hw-wallet itself must pay for this**<br>```./03b_regStakingAddrCert.sh ledgerowner ledgerowner.payment```
+1. Wait a minute so the transaction and stake key registration is completed
+1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it, wait a little and retry
+1. Generate the keys for your coreNode
+   1. ```./04a_genNodeKeys.sh mypool```
+   1. ```./04b_genVRFKeys.sh mypool```
+   1. ```./04c_genKESKeys.sh mypool```
+   1. ```./04d_genNodeOpCert.sh mypool```
+1. Now you have all the key files to start your coreNode with them: **mypool.vrf.skey, mypool.kes-000.skey, mypool.node-000.opcert**
+1. Generate your stakepool certificate
+   1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled **mypool.pool.json** file for you, **edit it !**
+   1. We want 200k ADA pledge, 500 ADA costs per epoch and 4% pool margin so let us set these and the Metadata values in the json file like below. Also we want the 
+ledgerowner as owner and also as rewards-account. We do the signing on the machine itself so ownerWitness can stay at 'local'. You can find out more about the ownerWitness parameter and how to work with Multi-Witnesses [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved):
+   ```console
+   {
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "ledgerowner",
+         "ownerWitness": "local"
+         }
+      ],
+      "poolRewards": "ledgerowner",
+      "poolPledge": "200000000000",
+      "poolCost": "500000000",
+      "poolMargin": "0.04"
+      "poolRelays": [
+         {
+         "relayType": "dns",
+         "relayEntry": "relay.mypool.com",
+         "relayPort": "3001"
+         }
+      ],
+      "poolMetaName": "This is my Pool",
+      "poolMetaDescription": "This is the description of my Pool!",
+      "poolMetaTicker": "POOL",
+      "poolMetaHomepage": "https://mypool.com",
+      "poolMetaUrl": "https://mypool.com/mypool.metadata.json",
+      "poolExtendedMetaUrl": "",
+      "---": "--- DO NOT EDIT BELOW THIS LINE ---"
+   }
+   ```
+1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the **mypool.pool.cert** file
+1. Delegate to your own pool as owner -> **pledge** ```./05b_genDelegationCert.sh mypool ledgerowner``` this will generate the **ledgerowner.deleg.cert**
+1. :bulb: **Upload** the generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
+1. Register your stakepool on the blockchain, smallwallet1 will pay for the registration fees<br>```./05c_regStakepoolCert.sh mypool smallwallet1```
+1. Wait a minute so the transaction and stakepool registration is completed
+1. Send all owner delegations to the blockchain. :bulb: Notice! This is different than before when using only CLI-Owner-Keys, if any owner is a HW-Wallet than you have to send the individual delegations after the stakepool registration. You can read more about it [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved).<br>We have only one owner so lets do this by running the following command, **the HW-Wallet itself must pay for this**<br>```./06_regDelegationCert.sh ledgerowner ledgerowner.payment```
+1. Wait a minute so the transaction and delegation certificate is completed
+1. Verify that your owner delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it instantly, wait a little and retry the same command
 
-Done.
+:warning: Make sure you transfer enough ADA to your new **ledgerowner.payment.addr** so you respect the registered Pledge amount, otherwise you will not get any rewards for you or your delegators!
+
+Done. :smiley:
+</details>
+
+## Migrate your existing Stakepool to HW-Wallet-Owner-Keys (Ledger/Trezor)
+
+So this is an important one for many of you that already have registered a stakepool on Cardano before. Now is the time to upgrade your owner funds security to the next level by using HW-Wallet-Keys instead of CLI-Keys. In the example below we have an existing CLI-Owner with name **owner**, and we want to migrate that to the new owner with name **ledgerowner**. The poolname is mypool in this example, but you know the game, you have done it before.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br><b>Steps:</b>
+1. Make sure you have enough funds on your *smallwallet1* account we created before. You will need around **5 ADA to complete the process**. You can check the current balance by running ```./01_queryAddress.sh smallwallet1```
+1. The poolOwner section in your mypool.pool.json file looks like this right now:
+   ```console
+   ...
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "owner",
+         "ownerWitness": "local"
+         }
+      ],
+      "poolRewards": "owner",
+      "poolPledge": "200000000000",
+   ...
+   ```
+   Maybe you don't have the ownerWitness entry, but thats ok it will be added automatically or you can add it by yourself.
+1. Generate the new owner stake/payment combo with full Hardware-Keys ```./03a_genStakingPaymentAddr.sh ledgerowner hw```<br>
+   See your options in the section [here](#choose-your-preferred-key-type-for-your-owner-pledge-accounts) to choose between CLI, HW and HYBRID keys.  
+1. Send some funds from your *smallwallet1* to your new *ledgerowner.payment* address for the stake key and delegation registration, 5 ADA should be ok for this ```./01_sendLovelaces.sh smallwallet1 ledgerowner.payment 5000000```
+1. Wait a minute so the transaction is completed   
+1. Register the ledgerowner stake key on the blockchain, **the hw-wallet itself must pay for this**<br>```./03b_regStakingAddrCert.sh ledgerowner ledgerowner.payment```
+1. Wait a minute so the transaction and stake key registration is completed
+1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it, wait a little and retry
+1. [Unlock](#file-autolock-for-enhanced-security) the existing mypool.pool.json file and **add the new ledgerowner** to the list of owners, also we want that the new rewards account is also the new ledgerowner. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, **EDIT IT** and **SAVE IT**:
+   ```console
+   ...
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "owner",
+         "ownerWitness": "local"
+         },
+         {
+         "ownerName": "ledgerowner",
+         "ownerWitness": "local"
+         }
+      ],
+      "poolRewards": "ledgerowner",
+      "poolPledge": "200000000000",
+   ...
+   ```
+   We wanna do the signing on this machine so you can leave ownerWitness at 'local'. You can find out more about the ownerWitness parameter and how to work with Multi-Witnesses [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved)
+1. Run ```./05a_genStakepoolCert.sh mypool``` to generate the updated pool certificate **mypool.pool.cert**
+1. Delegate the new **ledgerowner** to your own pool as owner -> **pledge** ```./05b_genDelegationCert.sh mypool ledgerowner``` this will generate the **ledgerowner.deleg.cert**
+1. If you have changed also some Metadata, **upload** the newly generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error. If you have only updated the owners, skip it.
+1. Re-Register your stakepool on the blockchain, smallwallet1 will pay for the registration fees. This will be only a pool update, so this will not cost you the initial 500 ADA, only a few fees.<br>```./05c_regStakepoolCert.sh mypool smallwallet1```
+1. Wait a minute so the transaction and stakepool registration is completed
+1. Send all new owner delegations to the blockchain. :bulb: Notice! This is different than before when using only CLI-Owner-Keys, if any owner is a HW-Wallet than you have to send the individual delegations after the stakepool registration. You can read more about it [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved).<br>We have only one new owner so lets do this by running the following command, **the HW-Wallet itself must pay for this**<br>```./06_regDelegationCert.sh ledgerowner ledgerowner.payment```
+1. Wait a minute so the transaction and delegation certificate is completed
+1. Verify that your new owner delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it instantly, wait a little and retry the same command
+
+&nbsp;<br>
+:warning: <b>Now WAIT! Wait for 2 epoch changes!</b> :warning: So if you're doing this in epoch n, wait until epoch n+2 before you continue!
+
+&nbsp;<br>
+Now two epochs later your new additional **ledgerowner** co-owner is fully active. Its now the time to **transfer your owner funds** from the old **owner** to the new **ledgerowner**. You can do this by running:<br>```./01_sendLovelaces.sh owner.payment ledgerowner.payment ALLFUNDS```<br>This will move over all lovelaces and even assets that are on the your old owner.payment address to your new ledger.payment address.
+
+Be aware, this little transaction needed some fees, so you maybe have to top up your ledgerowner.payment account with 1 ADA from another wallet to met your registered pledge again. Check your balance on your ledgerowner account by running ```./01_queryAddress.sh ledgerowner.payment```
+
+&nbsp;<br>
+:warning: <b>WAIT AGAIN! Wait for 2 epoch changes!</b> :warning: So if you're doing this in epoch n, wait until epoch n+2 before you continue! :warning:
+
+&nbsp;<br>
+Why waiting again? Well, **we** also **changed the rewards-account** when we added the new ledgerowner, this takes 4 epochs on the blockchain to get fully updated. So, until now **you have received the rewards** of the pool **to your old owner.staking account**. Please check you rewards now and do a withdrawal of them, an example can be found below.
+
+&nbsp;<br>
+**Done**, you have fully migrated to your new ledgerowner, congrats! :smiley:
+
+> Optional: If you wanna get rid of your old owner entry (you can leave it in there) in your stakepool registration - do the following:
+  <br>Do it like the steps above, re-edit your mypool.pool.json file and remove the entry of the old owner from the poolOwner list. Save the file, generate a new certificate by running script 05a. Register it on the chain again like above or like the example below "Update stakepool parameters on the blockchain". Now you have only your new ledgerowner in your pool registration. 
+
 </details>
 
 ## Update stakepool parameters on the blockchain
@@ -833,8 +964,10 @@ I'am sure you wanna claim some of your rewards that you earned running your stak
 <br><b>Steps:</b>
 1. Check that you have rewards in your stakeaccount by running ```./01_queryAddress.sh owner.staking```
 1. Now you can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment```
-   This will claim the rewards from the owner.staking account and sends it to the owner.payment address, also owner.payment will pay for the transaction fees. It is only possible to claim all rewards, not only a part of it.<br>
-   :bulb: ATTENTION, claiming rewards costs transaction fees! So you have two choices for that: The destination address pays for the transaction fees, or you specify an additional account that pays for the transaction fees. You can find examples for that above at the script 01_claimRewards.sh description.
+   This will claim the rewards from the owner.staking account and sends it to the owner.payment address, also owner.payment will pay for the transaction fees.<br>
+   Or, you can claim your rewards by running ```./01_claimRewards.sh owner.staking owner.payment smallwallet1``` This will claim the rewards from the owner.staking account and sends it to the owner.payment address, the smallwallet1 will pay for the transaction fees. It is only possible to claim all rewards, not only a part of it.
+   
+:bulb: ATTENTION, claiming rewards costs transaction fees! So you have two choices for that: The destination address pays for the transaction fees, or you specify an additional account that pays for the transaction fees like in the 2nd method shown above.
 
 Done.  
 
@@ -852,6 +985,26 @@ If you ran a stakepool on the ITN and you only have your owner SK ed25519(e) and
 
 Done.  
 </details>
+
+## Generate & register a stake address, just delegate to a stakepool
+
+Lets say we wanna create a payment(base)/stake address combo with the nickname delegator and we wanna delegate the funds in the payment(base) address of that to the pool yourpool. (You'll need the yourpool.node.vkey for that.)
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br><b>Steps:</b>
+1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator cli```
+1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
+1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```<br>Other example: ```./03b_regStakingAddrCert.sh delegator.staking smallwallet1``` Here you would use the funds in *smallwallet1* to pay for the fees.
+1. You can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command
+1. Generate the delegation certificate delegator.deleg.cert with ```./05b_genDelegationCert.sh yourpool delegator```
+1. Register the delegation certificate now on the blockchain with funds from delegator.payment.addr<br>```./06_regDelegationCert.sh delegator delegator.payment```
+1. You can verify that your delegation to the pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command
+
+Done.
+</details>
+
 
 ## Register a multiowner stake pool
 
