@@ -59,7 +59,8 @@ showVersionInfo="yes"	#yes/no to show the version info and script mode on every 
 
 minNodeVersion="1.24.2"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minCardanoAppVersion="2.1.0"  #minimum version for the cardano-app on the ledger/trezor hardwarewallet
+minLedgerCardanoAppVersion="2.1.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minTrezorCardanoAppVersion="2.3.4"  #minimum version for the cardano-app on the Trezor hardwarewallet
 
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
@@ -498,7 +499,7 @@ start_HwWallet() {
 
 if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
 echo -ne "\e[33mPlease open the Cardano App on your Hardware-Wallet (abort with CTRL+C)\e[0m\n\n\033[2A\n"
-tmp=$(${cardanohwcli} device version 2> /dev/stdout)
+local tmp=$(${cardanohwcli} device version 2> /dev/stdout)
 local pointStr="....."
 until [[ "${tmp}" == *"app version"* && ! "${tmp}" == *"undefined"* ]]; do
 	local tmpCnt=6
@@ -509,10 +510,28 @@ until [[ "${tmp}" == *"app version"* && ! "${tmp}" == *"undefined"* ]]; do
 	done
 tmp=$(${cardanohwcli} device version 2> /dev/stdout)
 done
-versionApp=$(echo "${tmp}" |& head -n 1 |& awk {'print $4'})
-versionCheck "${minCardanoAppVersion}" "${versionApp}"
-if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a Cardano App version ${minCardanoAppVersion} or higher on your Hardware Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
-echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m found!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
+
+local walletManu=$(echo "${tmp}" |& head -n 1 |& awk {'print $1'})
+local versionApp=$(echo "${tmp}" |& head -n 1 |& awk {'print $4'})
+
+case ${walletManu^^} in
+
+	LEDGER ) #For Ledger Hardware-Wallets
+		versionCheck "${minLedgerCardanoAppVersion}" "${versionApp}"
+		if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a Cardano App version ${minLedgerCardanoAppVersion} or higher on your ${walletManu} Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+		;;
+
+        TREZOR ) #For Trezor Hardware-Wallets
+                versionCheck "${minTrezorCardanoAppVersion}" "${versionApp}"
+                if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use Cardano App version ${minTrezorCardanoAppVersion} or higher on your ${walletManu} Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+                ;;
+
+	* ) #For any other Manuf.
+		majorError "Only Ledger and Trezor Hardware-Wallets are supported at the moment!"; exit 1;
+		;;
+esac
+
+echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
 }
 
 #-------------------------------------------------------
