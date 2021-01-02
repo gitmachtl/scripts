@@ -61,11 +61,12 @@ poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 
 regProtectionKey=$(jq -r .regProtectionKey <<< ${poolJSON} 2> /dev/null); if [[ "${regProtectionKey}" == null ]]; then regProtectionKey=""; fi
 
 #Checks for needed local files
-if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[35mERROR - \"${regCertFile}\" does not exist! Please create it first with script 05a.\e[0m"; exit 1; fi
+if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[35mERROR - \"${regCertFile}\" StakePool (Re)registration-Certificate does not exist or was already submitted before!\n\nPlease create it by running script:\e[0m 05a_genStakepoolCert.sh ${poolFile}\n"; exit 1; fi
 if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
 if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
 if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a or 02. No hardware-wallet allowed for poolRegistration payments! :-(\e[0m\n"; exit 1; fi
+
 
 #Load regSubmitted value from the pool.json. If there is an entry, than do a Re-Registration (changes the Fee!)
 regSubmitted=$(jq -r .regSubmitted <<< ${poolJSON} 2> /dev/null); if [[ "${regSubmitted}" == null ]]; then regSubmitted=""; fi
@@ -578,6 +579,11 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
 			        echo "${newJSON}" > ${poolFile}.pool.json
 			        file_lock ${poolFile}.pool.json
 			        echo -e "\e[32mDONE\n"
+
+				#Delete the just used RegistrationCertificat so it can't be submitted again as a mistake, build one again with 05a first
+				file_unlock ${regCertFile}
+				rm ${regCertFile}
+
 			        else
 			        echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;
 			        fi
@@ -644,6 +650,10 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                                         echo -e "\e[33mTransaction txJSON has been stored in the '$(basename ${offlineFile})'.\nYou can now transfer it to your online machine for execution.\e[0m\n";
 							#Display information to manually register the OwnerDelegationCertificates on the chain if a hardware-wallet is involved. With only cli based staking keys, we can include all the delegation certificates in one transaction
 							if [[ "${regWitnessHardwareWalletIncluded}" == "yes" ]]; then echo -e "\n\e[33mThere is at least one Hardware-Wallet involved, so you have to register the DelegationCertificate for each Owner in additional transactions after the ${regWitnessType} !\e[0m\n"; fi
+
+			                                #Delete the just used RegistrationCertificat so it can't be submitted again as a mistake, build one again with 05a first
+			                                file_unlock ${regCertFile}
+			                                rm ${regCertFile}
 
                                                  else
                                                         echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
