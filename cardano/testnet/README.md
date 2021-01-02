@@ -2,9 +2,9 @@
 
 *Examples on how to use the scripts **ONLINE** and/or **OFFLINE**, with or without a **Ledger/Trezor-Wallet** can be found on this page :smiley:*
 
-| *Minimum Versions required* | cardano-cli | cardano-node | cardano-hw-cli |
-| :---  |   :---:     |    :---:     |     :---:      |
-|| <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.24.2</b><br>*git checkout tags/1.24.2* | <b>1.1.1</b><br>*if you use hw-wallets* |
+| *Minimum Versions required* | cardano-cli | cardano-node | cardano-hw-cli | Ledger Cardano-App | Trezor FW |
+| :---  |   :---:     |    :---:     |     :---:      |     :---:      |     :---:      |
+|| <b>1.24.2</b><br><sub>**git checkout tags/1.24.2**</sub> | <b>1.24.2</b><br><sub>**git checkout tags/1.24.2**</sub> | <b>1.1.1</b><br><sub>**if you use hw-wallets** | <b>2.1.0</b><br><sub>**if you use hw-wallets** | <b>2.3.5</b><br><sub>**if you use hw-wallets** |
 
 > *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet, launchpad or allegra*
 
@@ -314,70 +314,6 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 </details>
 
-### Filenames used
-
-<details>
-   <summary><b>Show all used naming schemes like *.addr, *.skey, *.pool.json, ... </b>:bookmark_tabs:<br></summary>
-   
-<br>I use the following naming scheme for the files:<br>
-``` 
-Simple "enterprise" address to only receive/send funds (no staking possible with these type of addresses):
-name.addr, name.vkey, name.skey
-
-Payment(Base)/Staking address combo:
-name.payment.addr, name.payment.skey/vkey, name.deleg.cert
-name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
-
-Node/Pool files:
-poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json,
-poolname.metadata.json, poolname.extended-metadata.json, poolname.additional-metadata.json
-poolname.vrf.skey/vkey, poolname.pool.id, poolname.pool.id-bech
-poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
-poolname.kes.counter, poolname.kes-expire.json
-
-ONLINE<->OFFLINE transfer files:
-offlineTransfer.json
-
-ITN witness files:
-poolname.itn.skey/vkey
-```
-
-New for Hardware-Wallet (Ledger/Trezor) support:<br>
-```
-Hardware-SigningFile for simple "enterprise" address:
-name.hwsfile (its like the .skey)
-
-Hardware-SigningFile for Payment(Base)/Staking address combo:
-name.payment.hwsfile, name.staking.hwsfile (its like the .skey)
-
-Witness-Files for PoolRegistration or PoolReRegistration:
-poolname_name_id.witness
-```
-
-New in Mary-Era:<br>
-```
-Policy files:
-policyname.policy.skey/vkey, policyname.policy.script, policyname.policy.id
-
-(Multi)Assets:
-policyname.tokenname.asset
-```
-
-The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
-If you have an address and you wanna use it for later just do a simple:<br>
-```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
-
-</details>
-
-### File autolock for enhanced security
-
-For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
-```
-chmod 600 poolname.pool.json
-nano poolname.pool.json
-chmod 400 poolname.pool.json
-```
-
 ### Poolname.pool.json (Config-File for each Pool)
 
 The **poolname.pool.json** file is your main config file to manage your Pool-Settings like owners, fees, costs ...<br>
@@ -457,6 +393,70 @@ The **poolname.pool.json** file is your main config file to manage your Pool-Set
 **Don't ever edit the JSON below the line --- DO NOT EDIT BELOW THIS LINE ---**, the scripts will use and fill that space when you use them.
 </details>
 
+
+### Filenames used
+
+<details>
+   <summary><b>Show all used naming schemes like *.addr, *.skey, *.pool.json, ... </b>:bookmark_tabs:<br></summary>
+   
+<br>I use the following naming scheme for the files:<br>
+``` 
+Simple "enterprise" address to only receive/send funds (no staking possible with these type of addresses):
+name.addr, name.vkey, name.skey
+
+Payment(Base)/Staking address combo:
+name.payment.addr, name.payment.skey/vkey, name.deleg.cert
+name.staking.addr, name.staking.skey/vkey, name.staking.cert/dereg-cert
+
+Node/Pool files:
+poolname.node.skey/vkey, poolname.node.counter, poolname.pool.cert/dereg-cert, poolname.pool.json,
+poolname.metadata.json, poolname.extended-metadata.json, poolname.additional-metadata.json
+poolname.vrf.skey/vkey, poolname.pool.id, poolname.pool.id-bech
+poolname.kes-xxx.skey/vkey, poolname.node-xxx.opcert (xxx increments with each KES generation = poolname.kes.counter)
+poolname.kes.counter, poolname.kes-expire.json
+
+ONLINE<->OFFLINE transfer files:
+offlineTransfer.json
+
+ITN witness files:
+poolname.itn.skey/vkey
+```
+
+New for Hardware-Wallet (Ledger/Trezor) support:<br>
+```
+Hardware-SigningFile for simple "enterprise" address:
+name.hwsfile (its like the .skey)
+
+Hardware-SigningFile for Payment(Base)/Staking address combo:
+name.payment.hwsfile, name.staking.hwsfile (its like the .skey)
+
+Witness-Files for PoolRegistration or PoolReRegistration:
+poolname_name_id.witness
+```
+
+New in Mary-Era:<br>
+```
+Policy files:
+policyname.policy.skey/vkey, policyname.policy.script, policyname.policy.id
+
+(Multi)Assets:
+policyname.tokenname.asset
+```
+
+The *.addr files contains the address in the format "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" for example.
+If you have an address and you wanna use it for later just do a simple:<br>
+```echo "addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m" > myaddress.addr```
+
+</details>
+
+### File autolock for enhanced security
+
+For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
+```
+chmod 600 poolname.pool.json
+nano poolname.pool.json
+chmod 400 poolname.pool.json
+```
 
 ### Directory Structure
 
