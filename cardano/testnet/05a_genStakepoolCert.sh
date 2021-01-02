@@ -190,6 +190,11 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_unlock ${poolFile}.pool.id-bech
 echo "${poolIDbech}" > ${poolFile}.pool.id-bech
 file_lock ${poolFile}.pool.id-bech
+file_unlock ${poolFile}.pool.json
+newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolIDbech: \"${poolIDbech}\"}")
+echo "${newJSON}" > ${poolFile}.pool.json
+file_lock ${poolFile}.pool.json
+
 
 
 #Check about Extended Metadata
@@ -375,6 +380,8 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
+	#Now include the checksum of this certificate also in the poolJson so we can check it in 05c
+	#poolCertChecksum=$(cksum ${poolName}.pool.cert 2> /dev/null | awk '{ print $1 }')
 	file_unlock ${poolFile}.pool.json
 	newJSON=$(cat ${poolFile}.pool.json | jq ". += {regCertCreated: \"$(date -R)\"}" | jq ". += {regCertFile: \"${poolName}.pool.cert\"}")
 	echo "${newJSON}" > ${poolFile}.pool.json
