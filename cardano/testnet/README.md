@@ -6,7 +6,7 @@
 | :---  |   :---:     |    :---:     |     :---:      |     :---:      |     :---:      |
 | *Required<br>version<br><sub>or higher</sub>* | <b>1.24.2</b><br><sub>**git checkout tags/1.24.2**</sub> | <b>1.24.2</b><br><sub>**git checkout tags/1.24.2**</sub> | <b>1.1.1</b><br><sub>**if you use hw-wallets** | <b>2.1.0</b><br><sub>**if you use hw-wallets** | <b>2.3.5</b><br><sub>**if you use hw-wallets** |
 
-> *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet, launchpad or allegra*
+> *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet, launchpad or allegra*. Rename the common.inc.testnet or common.inc.launchpad file to just common.inc to overwrite the default-settings in 00_common.inc to testnet/launchpad environment or do your own setting directly in the 00_common.inc main-config-file.
 
 &nbsp;<br>
 ### About
