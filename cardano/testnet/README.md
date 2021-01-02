@@ -79,7 +79,7 @@ Please make yourself familiar on how to call each script with the required param
 <details>
    <summary><b>How to get the scripts on your Linux machine ... </b>:bookmark_tabs:<br></summary>
    
-<br>You can just download the [ZIP-Archive](https://github.com/gitmachtl/scripts/archive/master.zip), unzip it in a directory of your choice and use it directly in there.<br>
+<br>You can just download the [ZIP-Archive](https://github.com/gitmachtl/scripts/archive/master.zip), unzip it in a directory of your choice and use the scripts directly in there.<br>
 However, if you wanna make them usable in all directories you should make a fixed directory like **$HOME/cardanoscripts** and add this directory to your global PATH environment:
 
 **Make a fixed directory for the scripts and set the PATH**
