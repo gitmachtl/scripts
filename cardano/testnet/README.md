@@ -97,13 +97,13 @@ git clone https://github.com/gitmachtl/scripts.git $HOME/cardanoscripts
 
 Now its time to **choose** if you wanna use the **Mainnet-Scripts or the Testnet-Scripts**. You have to copy the right ones into the 'bin' subdirectory of your $HOME/cardanoscripts:
 
-**Using the Mainnet-Scripts - Install/Update**
+**Using the Mainnet-Scripts - Install or Update**
 ``` console
 cd $HOME/cardanoscripts
 git fetch origin && git reset --hard origin/master
 cp cardano/mainnet/* bin/
 ```
-**Using the Testnet-Scripts - Install/Update**
+**Using the Testnet-Scripts - Install or Update**
 ``` console
 cd $HOME/cardanoscripts
 git fetch origin && git reset --hard origin/master
