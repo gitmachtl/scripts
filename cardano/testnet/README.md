@@ -136,7 +136,7 @@ The global PATH is set to the 'bin' subdirectory in your $HOME/cardanoscripts di
 
 </details>
 
-### Main-Configuration File and all the other ones - Here is the description of each
+### Main-Configuration File and all the other ones - Here is the description of each one
 
 <details>
    <summary><b>Show the Main Configuration parameters and the full Syntax details for each script ... </b>:bookmark_tabs:<br></summary>
