@@ -117,9 +117,9 @@ The global PATH is set to the 'bin' subdirectory in your $HOME/cardanoscripts di
 </details>
 
 <details>
-   <summary><b>Checkout how to use the scripts with directories ... </b>:bookmark_tabs:<br></summary>
+   <summary><b>Checkout how to use the scripts with directories for wallets/pooldata... </b>:bookmark_tabs:<br></summary>
 
-<br>There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax--filenames) above.<p>However, if you wanna use directories there is a way: 
+<br>There is no fixed directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax--filenames) above.<p>However, if you wanna use directories there is a way: 
 * **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
 1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
 1. Make a directory whereever you like
