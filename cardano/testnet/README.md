@@ -74,6 +74,68 @@ You should keep your directory structure the same on both Machines.
 
 Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
 
+### How to install and the Directory Structure
+
+<details>
+   <summary><b>How to get the scripts on your Linux machine ... </b>:bookmark_tabs:<br></summary>
+   
+<br>You can just download the [ZIP-Archive](https://github.com/gitmachtl/scripts/archive/master.zip), unzip it in a directory of your choice and use it directly in there.<br>
+However, if you wanna make them usable in all directories you should make a fixed directory like **$HOME/cardanoscripts** and add this directory to your global PATH environment:
+
+**Make a fixed directory for the scripts and set the PATH**
+```console
+mkdir -p $HOME/cardanoscripts/bin && cd $_
+echo "export PATH=\"$PWD:\$PATH\"" >> $HOME/.profile
+export PATH="$PWD:$PATH"
+```
+You have now made the folder 'cardanoscripts' in your HOME directory, also you have set the PATH in the $HOME/.profile, so it would survice a reboot.<br>
+
+**Git-Clone the Repository into your fixed directory**
+``` console
+git clone https://github.com/gitmachtl/scripts.git $HOME/cardanoscripts
+```
+
+Now its time to **choose** if you wanna use the **Mainnet-Scripts or the Testnet-Scripts**. You have to copy the right ones into the 'bin' subdirectory of your $HOME/cardanoscripts:
+
+**Using the Mainnet-Scripts - Install/Update**
+``` console
+cd $HOME/cardanoscripts
+git fetch origin && git reset --hard origin/master
+cp cardano/mainnet/* bin/
+```
+**Using the Testnet-Scripts - Install/Update**
+``` console
+cd $HOME/cardanoscripts
+git fetch origin && git reset --hard origin/master
+cp cardano/testnet/* bin/
+```
+
+The global PATH is set to the 'bin' subdirectory in your $HOME/cardanoscripts directory. Whatever script is in there, thats the one thats active on the whole machine.
+
+**DONE, you can now start to set the right config in your 00_common.sh or common.inc configuration file. Read the details below. :smiley:**
+<br>&nbsp;<br>
+</details>
+
+<details>
+   <summary><b>Checkout how to use the scripts with directories ... </b>:bookmark_tabs:<br></summary>
+
+<br>There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax--filenames) above.<p>However, if you wanna use directories there is a way: 
+* **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
+1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
+1. Make a directory whereever you like
+1. Call the scripts from within this directory, all files will be generated/used in this directory<p>
+* **Method-2:** Using subdirectories from a base directory:
+1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
+1. Make a directory that is your BASE directory like /home/user/cardano
+1. Go into this directory ```cd /home/user/cardano``` and make other subdirectories like ```mkdir mywallets``` and ```mkdir mypools```
+1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
+   <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada cli``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
+   <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
+   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them.<br>
+   :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
+
+</details>
+
 ### Main-Configuration File and all the other ones - Here is the description of each
 
 <details>
@@ -459,28 +521,6 @@ chmod 600 poolname.pool.json
 nano poolname.pool.json
 chmod 400 poolname.pool.json
 ```
-
-### Directory Structure
-
-<details>
-   <summary><b>Checkout how to use the scripts with directories ... </b>:bookmark_tabs:<br></summary>
-
-<br>There is no directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax--filenames) below.<p>However, if you wanna use directories there is a way: 
-* **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
-1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
-1. Make a directory whereever you like
-1. Call the scripts from within this directory, all files will be generated/used in this directory<p>
-* **Method-2:** Using subdirectories from a base directory:
-1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
-1. Make a directory that is your BASE directory like /home/user/cardano
-1. Go into this directory ```cd /home/user/cardano``` and make other subdirectories like ```mkdir mywallets``` and ```mkdir mypools```
-1. **Call the scripts now only from this BASE directory** and give the names to the scripts **WITH** the directory in a relative way like (examples):
-   <br>```03a_genStakingPaymentAddr.sh mywallets/allmyada cli``` this will generate your StakeAddressCombo with name allmyada in the mywallets subdirectory
-   <br>```05b_genDelegationCert.sh mypools/superpool mywallets/allmyada``` this will generate the DelegationCertificate for your StakeAddress allmyada to your Pool named superpool.
-   So, just use always the directory name infront to reference it on the commandline parameters. And keep in mind, you have to do it always from your choosen BASE directory. Because files like the poolname.pool.json are refering also to the subdirectories. And YES, you need a name like superpool or allmyada for it, don't call the scripts without them.<br>
-   :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
-
-</details>
 
 &nbsp;<br>&nbsp;<br>
 # Working with Hardware-Wallets as an SPO
