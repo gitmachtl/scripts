@@ -74,6 +74,8 @@ You should keep your directory structure the same on both Machines.
 
 Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
 
+### Main-Configuration File and all the other ones - Here is the description of each
+
 <details>
    <summary><b>Show the Main Configuration parameters and the full Syntax details for each script ... </b>:bookmark_tabs:<br></summary>
 
