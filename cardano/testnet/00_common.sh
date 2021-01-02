@@ -60,7 +60,7 @@ showVersionInfo="yes"	#yes/no to show the version info and script mode on every 
 minNodeVersion="1.24.2"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="2.1.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
-minTrezorCardanoAppVersion="2.3.4"  #minimum version for the cardano-app on the Trezor hardwarewallet
+minTrezorCardanoAppVersion="2.3.5"  #minimum version for the cardano-app on the Trezor hardwarewallet
 
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
