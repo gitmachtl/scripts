@@ -74,7 +74,7 @@ You should keep your directory structure the same on both Machines.
 
 Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
 
-### How to install and the Directory Structure
+### How to Install/Copy the Scripts and about the Directory Structure
 
 <details>
    <summary><b>How to get the scripts on your Linux machine ... </b>:bookmark_tabs:<br></summary>
