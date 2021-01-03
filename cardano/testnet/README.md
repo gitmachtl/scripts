@@ -518,7 +518,7 @@ If you have an address and you wanna use it for later just do a simple:<br>
 
 ### File autolock for enhanced security
 
-For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
+For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the poolname.pool.json simply do a:<br>
 ```
 chmod 600 poolname.pool.json
 nano poolname.pool.json
