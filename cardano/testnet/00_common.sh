@@ -66,6 +66,8 @@ minTrezorCardanoAppVersion="2.3.5"  #minimum version for the cardano-app on the 
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
 
 #Overwrite variables via env file if present
+scriptDir=$(dirname "$0")
+if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
