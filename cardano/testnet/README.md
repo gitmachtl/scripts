@@ -72,7 +72,7 @@ You should keep your directory structure the same on both Machines.
 
 # How to Install/Copy the Scripts
 
-Installation is simple, just copy them over or do a git clone so you can do also a quick update in the future.
+Installation is simple, just copy them over or do a git clone so you can also do a quick update in the future.
 
 <details>
    <summary><b>How to get the scripts on your Linux machine ... </b>:bookmark_tabs:<br></summary>
