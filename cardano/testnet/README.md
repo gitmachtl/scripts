@@ -935,7 +935,7 @@ ledgerowner as owner and also as rewards-account. We do the signing on the machi
 Done. :smiley:
 </details>
 
-## Migrate your existing Stakepool to HW-Wallet-Owner-Keys (Ledger/Trezor)
+## Migrate your existing StakePool to HW-Wallet-Owner-Keys (Ledger/Trezor)
 
 So this is an important one for many of you that already have registered a stakepool on Cardano before. Now is the time to upgrade your owner funds security to the next level by using HW-Wallet-Keys instead of CLI-Keys. In the example below we have an existing CLI-Owner with name **owner**, and we want to migrate that to the new owner with name **ledgerowner**. The poolname is mypool in this example, but you know the game, you have done it before.
 
@@ -1016,7 +1016,7 @@ Why waiting again? Well, **we** also **changed the rewards-account** when we add
 
 </details>
 
-## Update stakepool parameters on the blockchain
+## Update StakePool Parameters on the blockchain
 
 If you wanna update you pledge, costs, owners or metadata on a registered stakepool just do the following
 
@@ -1069,6 +1069,9 @@ Done.
 
 From time to time you have to rotate the so called HOT-Keys on your BlockProducer Node, thats the KES-Keys and the OPCERT. Here is an example on how to rotate the keys for your mypool.
 
+<details>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
 <br><b>Steps:</b>
 1. ```./04c_genKESKeys.sh mypool```
 1. ```./04d_genNodeOpCert.sh mypool```
@@ -1098,7 +1101,7 @@ Done.
 </details>
 
 
-## Register a multiowner stake pool
+## Register a Multiowner-StakePool
 
 It's similar to a single owner stake pool registration (example above). All owners must have a registered stake address on the blockchain first! Here is a 2 owner example ...
 
@@ -1208,7 +1211,7 @@ Your poolRelays array section in the json file should like similar to:
 </details>
 
 
-## Retire a stakepool from the blockchain
+## Retire a StakePool from the blockchain
 
 If you wanna retire your registered stakepool mypool, you have to do just a few things
 
