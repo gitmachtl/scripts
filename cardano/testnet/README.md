@@ -133,7 +133,7 @@ cp cardano/testnet/* bin/
 </details>
 
 &nbsp;<br>&nbsp;<br>
-# Scriptfiles Syntax & Filenames
+# Configuration, Scriptfiles Syntax & Filenames
 
 Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
 
