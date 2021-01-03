@@ -86,7 +86,7 @@ mkdir -p $HOME/cardanoscripts/bin && cd $_
 echo "export PATH=\"$PWD:\$PATH\"" >> $HOME/.profile
 export PATH="$PWD:$PATH"
 ```
-You have now made the folder 'cardanoscripts' in your HOME directory, also you have set the PATH in the $HOME/.profile, so it would survice a reboot. The global PATH is set to the 'bin' subdirectory in your $HOME/cardanoscripts directory. Whatever script is in there, thats the one thats active on the whole machine.<br>
+You have now made the folder 'cardanoscripts' in your HOME directory, also you have set the PATH in the $HOME/.profile, so it would survive a reboot. The global PATH is set to the 'bin' subdirectory in your $HOME/cardanoscripts directory. Whatever script is in there, thats the one thats active on the whole machine.<br>
 
 **Git-Clone the Repository into your fixed directory**
 ``` console
