@@ -381,12 +381,12 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 ### Poolname.pool.json (Config-File for each Pool)
 
-The **poolname.pool.json** file is your main config file to manage your Pool-Settings like owners, fees, costs ...<br>
+The **poolname.pool.json** file is your Config-Json to manage your individual Pool-Settings like owners, fees, costs. You don't have to create the base structure of this Config-Json, **the script 05a_genStakepoolCert.sh will generate a blank one for you** ...<br>
    
 <details>
-   <summary><b>Checkout how the config json looks like and the parameters ... </b>:bookmark_tabs:<br></summary>
+   <summary><b>Checkout how the Config-Json looks like and the parameters ... </b>:bookmark_tabs:<br></summary>
 
-<br>Your config json could end up like this one after the pool was registered and also later de-registered:
+<br>Your Config-Json could end up like this one after the pool was registered and also later retired:
 ```console
 {
   "poolName": "mypool",
