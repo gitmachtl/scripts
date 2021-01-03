@@ -35,7 +35,7 @@ echo "${param}"
 #Read the pool JSON file and extract the parameters -> report an error is something is missing or wrong/empty and exit
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 1; fi
 deregCertFile=$(readJSONparam "deregCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
-poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi #only used to write out an description of this action in offline mode
 
 #Checks for needed files
 if [ ! -f "${deregCertFile}" ]; then echo -e "\n\e[34mERROR - \"${deregCertFile}\" does not exist! Please create it first with script 05d.\e[0m"; exit 2; fi

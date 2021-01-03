@@ -22,9 +22,10 @@ echo "
         \"poolName\":   \"${poolFile}\",
         \"poolOwner\": [
                 {
-                \"ownerName\": \"set_your_owner_name_here\"
+                \"ownerName\": \"just_a_minimum_placeholder_no_need_to_set_it_for_pool_retirement\"
                 }
-        ]
+        ],
+        \"poolMetaTicker\":   \"EMPTY\"
 }
 " > ${poolFile}.pool.json
 echo
