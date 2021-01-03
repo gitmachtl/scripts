@@ -115,7 +115,7 @@ cp cardano/testnet/* bin/
 <details>
    <summary><b>Checkout how to use the scripts with directories for wallets/pooldata... </b>:bookmark_tabs:<br></summary>
 
-<br>There is no fixed directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#scriptfiles-syntax--filenames) above.<p>However, if you wanna use directories there is a way: 
+<br>There is no fixed directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#configuration-scriptfiles-syntax--filenames) above.<p>However, if you wanna use directories there is a way: 
 * **Method-1:** Making a directory for a complete set: (all wallet and poolfiles in one directory)
 1. Put the scripts in a directory that is in your PATH environment variable, so you can call the scripts from everywhere.
 1. Make a directory whereever you like
@@ -133,11 +133,13 @@ cp cardano/testnet/* bin/
 </details>
 
 &nbsp;<br>&nbsp;<br>
-# Scriptfiles Syntax & Filenames
+# Configuration, Scriptfiles Syntax & Filenames
 
 Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
 
-### Main-Configuration File and all the other ones - Here is the description of each one
+### Main-Configuration-File (00_common.sh) - Syntax for all the other ones
+
+Checkout the configuration parameters in your 00_common.sh Main-Configuration file and the ScriptFile Syntax for the Scripts themselfs.
 
 <details>
    <summary><b>Show the Main Configuration parameters and the full Syntax details for each script ... </b>:bookmark_tabs:<br></summary>
@@ -265,7 +267,7 @@ Please make yourself familiar on how to call each script with the required param
 * **05a_genStakepoolCert.sh:** generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain
   <br>```./05a_genStakepoolCert.sh <PoolNodeName> [optional registration-protection key]``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
   To register a protected Ticker you will have to provide the secret protection key as a second parameter to the script.<br>
-  The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName(s), RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) and PoolMetaData. This script will also generate the poolname.metadata.json file for the upload to your webserver. Learn more about the parameters in this config json [here](#poolnamepooljson-config-file-for-each-pool):
+  The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName(s), RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) and PoolMetaData. This script will also generate the poolname.metadata.json file for the upload to your webserver. Learn more about the parameters in this config json [here](#pool-configuration-file-poolnamepooljson---config-file-for-each-pool):
   <br>**Sample mypool.pool.json**
   ```console
    {
@@ -379,12 +381,73 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 </details>
 
-### Poolname.pool.json (Config-File for each Pool)
+### Pool-Configuration-File (poolname.pool.json) - Config-File for each Pool
 
 The **poolname.pool.json** file is your Config-Json to manage your individual Pool-Settings like owners, fees, costs. You don't have to create the base structure of this Config-Json, **the script 05a_genStakepoolCert.sh will generate a blank one for you** ...<br>
    
 <details>
    <summary><b>Checkout how the Config-Json looks like and the parameters ... </b>:bookmark_tabs:<br></summary>
+
+<br>**Sample mypool.pool.json**
+  ```console
+   {
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "owner",
+         "ownerWitness": "local"
+         },
+         {
+         "ownerName": "ledgerowner",
+         "ownerWitness": "local"
+         }    
+      ],
+      "poolRewards": "owner",
+      "poolPledge": "100000000000",
+      "poolCost": "340000000",
+      "poolMargin": "0.05",
+      "poolRelays": [
+         {
+         "relayType": "dns",
+         "relayEntry": "relay1.wakandapool.com",
+         "relayPort": "3001"
+         },
+         {
+         "relayType": "dns",
+         "relayEntry": "relay2.wakandapool.com",
+         "relayPort": "3001"
+         }        
+      ],
+      "poolMetaName": "Wakanda Forever StakePool",
+      "poolMetaDescription": "Don't fight with the black panther, our servers are powered by Vibranium!",
+      "poolMetaTicker": "WKNDA",
+      "poolMetaHomepage": "https://www.wakandapool.com",
+      "poolMetaUrl": "https://www.wakandapool.com/mypool.metadata.json",
+      "poolExtendedMetaUrl": "",
+      "---": "--- DO NOT EDIT BELOW THIS LINE ---"
+    }
+   ```
+
+| Parameter | Description | Example |
+| :---         |     :---      | :--- |
+| poolName | Reference to the fileName used on the hdd, so this is normally the same as the poolName.pool.json | mypool for mypool.pool.json |
+| *poolOwner:* ownerName | The name of the pool owner(s) name, this is in line when you use for example the 03a_genStakingPaymentAddr.sh script with that name | owner |
+| *poolOwner:* ownerWitness | The choosen method when the StakePool Registration will be signed:<br>**local:** means a direct sign when running the registration<br>**external:** means that you wanna collect the signed Witness later or with an external source. Take a look [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved) to learn more about MultiWitnesses. | local or empty (default) |
+| poolRewards | The name of the pool rewards account name, this is in line when you use for example the 03a script with that name. The rewards of your pool will land on that account. | owner |
+| poolPledge | The amount of lovelaces (1 ADA = 1 Mio lovelaces) you're commiting to hold in your owner wallet(s) | 100000000000 (100 kADA) |
+| poolCost | The amount of lovelaces (1 ADA = 1 Mio lovelaces) you're taking as a fee per epoch from the total rewards | 340000000 (340 ADA) |
+| poolMargin | The amount in percentage you're taking from the total rewards:<br>0.00=0%, 0.10=10%, 1.00=100% | 0.05 (5%) |
+| *poolRelays:* relayType | The type of relayEntry you wanna use:<br>**ip:** you provide the relayEntry as an IPv4 x.x.x.x<br>**ip6:** you provide the relayEntry as an IPv6 address<br>**dns:** you provide the relayEntry as a FQDN entry like relay1.wakandapool.com | dns (prefered) |
+| *poolRelays:* relayEntry | The IP-Address or DNS-Name your relay is reachable to the public| relay1.wakandapool.com |
+| *poolRelays:* relayPort | The public TCP-Port of your relay, this port must be opened to everyone so they can reach your relay node| 3001 (default) |
+| poolMetaName | This is a longer Name for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| Wakanda Forever StakePool |
+| poolMetaDescription | This is a longer description for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| ...tell your story... |
+| poolMetaTicker | Thats the short name - also known as Ticker - for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| WKNDA |
+| poolMetaHomepage | This is a link to your StakePool-Homepage. As we are security oriented, this should be a https:// link.| `https://www.wakandapool.com` |
+| poolMetaUrl | This is a link to your MetaFile of your StakePool, it contains all the MetaData above to be shown in the wallets. The scripts will automatically produce this file (f.e. mypool.metadata.json) for you, but you have to upload it yourself to your Homepage. As we are security oriented, this should be a https:// link.| <sub>`https://www.wakandapool.com/mypool.metadata.json`</sub> |
+| poolExtendedMetaUrl | You don't need this entry for a working StakePool!<br>Like the one above, it contains all the special additional informations about your StakePool that cannot be stored in the normal MetaData file. Like your ITN Witness, or all the additions Adapools.org made. The scripts will automatically produce this file (f.e. mypool.extended-metadata.json) for you. Learn more about it [here](#itn-witness-ticker-check-for-wallets-and-extended-metadatajson-infos)| <sub>`https://www.wakandapool.com/mypool.metadata.json`</sub> |
+
+**Don't ever edit the JSON below the line --- DO NOT EDIT BELOW THIS LINE ---**, the scripts will use and fill that space when you use them.
 
 <br>Your Config-Json could end up like this one after the pool was registered and also later retired:
 ```console
@@ -436,26 +499,6 @@ The **poolname.pool.json** file is your Config-Json to manage your individual Po
 }
 ```
 
-| Parameter | Description | Example |
-| :---         |     :---      | :--- |
-| poolName | Reference to the fileName used on the hdd, so this is normally the same as the poolName.pool.json | mypool |
-| *poolOwner:* ownerName | The name of the pool owner(s) name, this is in line when you use for example the<br>03a script with that name | owner |
-| *poolOwner:* ownerWitness | The choosen method when the StakePool Registration will be signed:<br>**local:** means a direct sign when running the registration<br>**external:** means that you wanna collect the signed Witness later or with an external source. Take a look [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved) to learn more about MultiWitnesses. | local or empty (default) |
-| poolRewards | The name of the pool rewards account name, this is in line when you use for example the 03a script with that name. The rewards of your pool will land on that account. | owner |
-| poolPledge | The amount of lovelaces (1 ADA = 1 Mio lovelaces) you're commiting to hold in your owner wallet(s) | 100000000000 (100 kADA) |
-| poolCost | The amount of lovelaces (1 ADA = 1 Mio lovelaces) you're taking as a fee per epoch from the total rewards | 340000000 (340 ADA) |
-| poolMargin | The amount in percentage you're taking from the total rewards:<br>0.00=0%, 0.10=10%, 1.00=100% | 0.05 (5%) |
-| *poolRelays:* relayType | The type of relayEntry you wanna use:<br>**ip:** you provide the relayEntry as an IPv4 x.x.x.x<br>**ip6:** you provide the relayEntry as an IPv6 address<br>**dns:** you provide the relayEntry as a FQDN entry like relay1.wakandapool.com | dns (prefered) |
-| *poolRelays:* relayEntry | The IP-Address or DNS-Name your relay is reachable to the public| relay1.wakandapool.com |
-| *poolRelays:* relayPort | The public TCP-Port of your relay, this port must be opened to everyone so they can reach your relay node| 3001 (default) |
-| poolMetaName | This is a longer Name for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| Wakanda Forever StakePool |
-| poolMetaDescription | This is a longer description for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| ...tell your story... |
-| poolMetaTicker | Thats the short name - also known as Ticker - for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| WKNDA |
-| poolMetaHomepage | This is a link to your StakePool-Homepage. As we are security oriented, this should be a https:// link.| `https://www.wakandapool.com` |
-| poolMetaUrl | This is a link to your MetaFile of your StakePool, it contains all the MetaData above to be shown in the wallets. The scripts will automatically produce this file (f.e. mypool.metadata.json) for you, but you have to upload it yourself to your Homepage. As we are security oriented, this should be a https:// link.| <sub>`https://www.wakandapool.com/mypool.metadata.json`</sub> |
-| poolExtendedMetaUrl | You don't need this entry for a working StakePool!<br>Like the one above, it contains all the special additional informations about your StakePool that cannot be stored in the normal MetaData file. Like your ITN Witness, or all the additions Adapools.org made. The scripts will automatically produce this file (f.e. mypool.extended-metadata.json) for you. Learn more about it [here](#itn-witness-ticker-check-for-wallets-and-extended-metadatajson-infos)| <sub>`https://www.wakandapool.com/mypool.metadata.json`</sub> |
-
-**Don't ever edit the JSON below the line --- DO NOT EDIT BELOW THIS LINE ---**, the scripts will use and fill that space when you use them.
 </details>
 
 
@@ -516,7 +559,7 @@ If you have an address and you wanna use it for later just do a simple:<br>
 
 ### File autolock for enhanced security
 
-For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the name.pool.json simply do a:<br>
+For a security reason, all important generated files are automatically locked against deleting/overwriting them by accident! Only the scripts will unlock/lock some of them automatically. If you wanna edit/delete a file by hand like editing the poolname.pool.json simply do a:<br>
 ```
 chmod 600 poolname.pool.json
 nano poolname.pool.json
@@ -780,7 +823,7 @@ Yep, it was that simple.
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
 **If you have the scripts copied to an other directory reachable via the PATH environment variable, than call the scripts WITHOUT the leading ./ !**
 
-The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#scriptfiles-syntax--filenames). Make sure you have a fully synced passive node running on your machine, make sure you have set the right parameters in the scirpts config file **00_common.sh**<br>
+The examples in here are for using the scripts in Online-Mode. Please get yourself familiar on how to use each single script, a detailed Syntax about each script can be found [here](#configuration-scriptfiles-syntax--filenames). Make sure you have a fully synced passive node running on your machine, make sure you have set the right parameters in the scirpts config file **00_common.sh**<br>
 Working in [Offline-Mode](#examples-in-offline-mode) introduces another step before and ofter each example, so you should understand the Online-Mode first.
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
@@ -933,7 +976,7 @@ ledgerowner as owner and also as rewards-account. We do the signing on the machi
 Done. :smiley:
 </details>
 
-## Migrate your existing Stakepool to HW-Wallet-Owner-Keys (Ledger/Trezor)
+## Migrate your existing StakePool to HW-Wallet-Owner-Keys (Ledger/Trezor)
 
 So this is an important one for many of you that already have registered a stakepool on Cardano before. Now is the time to upgrade your owner funds security to the next level by using HW-Wallet-Keys instead of CLI-Keys. In the example below we have an existing CLI-Owner with name **owner**, and we want to migrate that to the new owner with name **ledgerowner**. The poolname is mypool in this example, but you know the game, you have done it before.
 
@@ -1014,7 +1057,7 @@ Why waiting again? Well, **we** also **changed the rewards-account** when we add
 
 </details>
 
-## Update stakepool parameters on the blockchain
+## Update StakePool Parameters on the blockchain
 
 If you wanna update you pledge, costs, owners or metadata on a registered stakepool just do the following
 
@@ -1063,7 +1106,23 @@ If you ran a stakepool on the ITN and you only have your owner SK ed25519(e) and
 Done.  
 </details>
 
-## Generate & register a stake address, just delegate to a stakepool
+## Rotate the KES-Keys and the opcert of the StakePool
+
+From time to time you have to rotate the so called HOT-Keys on your BlockProducer Node, thats the KES-Keys and the OPCERT. Here is an example on how to rotate the keys for your mypool.
+
+<details>
+   <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br><b>Steps:</b>
+1. ```./04c_genKESKeys.sh mypool```
+1. ```./04d_genNodeOpCert.sh mypool```
+
+Thats it, upload the new keys to your BlockProducer Node. Rename them or set the new right config, restart the BlockProducer Node to load the new keys.
+
+Done.  
+</details>
+
+## Generate & register a stake address, just delegate to a StakePool
 
 Lets say we wanna create a payment(base)/stake address combo with the nickname delegator and we wanna delegate the funds in the payment(base) address of that to the pool yourpool. (You'll need the yourpool.node.vkey for that.)
 
@@ -1083,7 +1142,7 @@ Done.
 </details>
 
 
-## Register a multiowner stake pool
+## Register a Multiowner-StakePool
 
 It's similar to a single owner stake pool registration (example above). All owners must have a registered stake address on the blockchain first! Here is a 2 owner example ...
 
@@ -1193,7 +1252,7 @@ Your poolRelays array section in the json file should like similar to:
 </details>
 
 
-## Retire a stakepool from the blockchain
+## Retire a StakePool from the blockchain
 
 If you wanna retire your registered stakepool mypool, you have to do just a few things
 
@@ -1268,7 +1327,7 @@ Thats it. :-)
 &nbsp;<br>&nbsp;<br>
 # Examples in Offline-Mode
 
-The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#scriptfiles-syntax--filenames). Working offline is like working online, all is working in Offline-Mode, theses are just a few examples. :smiley:<br>
+The examples in here are for using the scripts in Offine-Mode. Please get yourself familiar first with the scripts in [Online-Mode](#examples-in-online-mode). Also a detailed Syntax about each script can be found [here](#configuration-scriptfiles-syntax--filenames). Working offline is like working online, all is working in Offline-Mode, theses are just a few examples. :smiley:<br>
 
 :bulb: Make sure your 00_common.sh is having the correct setup for your system!
 
@@ -1385,7 +1444,7 @@ We want to make a pool owner stake address the nickname owner, also we want to r
    }
    ```
    
-   :bulb: You can find more details on the scripty-syntax [here](#scriptfiles-syntax)
+   :bulb: You can find more details on the scripty-syntax [here](#configuration-scriptfiles-syntax--filenames)
    
 1. Run ```./05a_genStakepoolCert.sh mypool``` again with the saved json file, this will generate the mypool.pool.cert file.<br>:bulb: If you wanna protect your TICKER a little more against others, contact me and you will get a unique TickerProtectionKey for your Ticker! If you already have one, run ```./05a_genStakepoolCert.sh <PoolNodeName> <your registration protection key>```<br>
 1. Delegate to your own pool as owner -> pledge ```./05b_genDelegationCert.sh mypool owner``` this will generate the owner.deleg.cert
