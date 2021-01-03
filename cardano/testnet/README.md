@@ -19,7 +19,7 @@ Contacts: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter -
 If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley Ada Address, thx! :-)
 ```addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql```
 
-&nbsp;<br>&nbsp;<br>
+&nbsp;<br>&nbsp;<br> 
 # Online-Mode vs. Offline-Mode
 
 The scripts are capable to be used in [**Online**](#examples-in-online-mode)- and [**Offline**](#examples-in-offline-mode)-Mode (examples below). It depends on your setup, your needs and just how you wanna work. Doing transactions with pledge accounts in Online-Mode can be a security risk, also doing Stakepool-Registrations in pure Online-Mode can be risky. To enhance Security the scripts can be used on a Online-Machine and an Offline-Machine. You only have to **transfer one single file (offlineTransfer.json)** between the Machines. If you wanna use the Offline-Mode, your **Gateway-Script** to get Data In/Out of the offlineTransfer.json is the **01_workOffline.sh** Script. The **offlineTransfer.json** is your carry bag between the Machines.<br>
