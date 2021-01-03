@@ -388,6 +388,63 @@ The **poolname.pool.json** file is your Config-Json to manage your individual Po
 <details>
    <summary><b>Checkout how the Config-Json looks like and the parameters ... </b>:bookmark_tabs:<br></summary>
 
+<br>**Sample mypool.pool.json**
+  ```console
+   {
+      "poolName": "mypool",
+      "poolOwner": [
+         {
+         "ownerName": "owner",
+         "ownerWitness": "local"
+         }
+      ],
+      "poolRewards": "owner",
+      "poolPledge": "100000000000",
+      "poolCost": "340000000",
+      "poolMargin": "0.05",
+      "poolRelays": [
+         {
+         "relayType": "dns",
+         "relayEntry": "relay1.wakandapool.com",
+         "relayPort": "3001"
+         },
+         {
+         "relayType": "dns",
+         "relayEntry": "relay2.wakandapool.com",
+         "relayPort": "3001"
+         }        
+      ],
+      "poolMetaName": "Wakanda Forever StakePool",
+      "poolMetaDescription": "Don't fight with the black panther, our servers are powered by Vibranium!",
+      "poolMetaTicker": "WKNDA",
+      "poolMetaHomepage": "https://www.wakandapool.com",
+      "poolMetaUrl": "https://www.wakandapool.com/mypool.metadata.json",
+      "poolExtendedMetaUrl": "",
+      "---": "--- DO NOT EDIT BELOW THIS LINE ---"
+    }
+   ```
+
+| Parameter | Description | Example |
+| :---         |     :---      | :--- |
+| poolName | Reference to the fileName used on the hdd, so this is normally the same as the poolName.pool.json | mypool |
+| *poolOwner:* ownerName | The name of the pool owner(s) name, this is in line when you use for example the<br>03a script with that name | owner |
+| *poolOwner:* ownerWitness | The choosen method when the StakePool Registration will be signed:<br>**local:** means a direct sign when running the registration<br>**external:** means that you wanna collect the signed Witness later or with an external source. Take a look [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved) to learn more about MultiWitnesses. | local or empty (default) |
+| poolRewards | The name of the pool rewards account name, this is in line when you use for example the 03a script with that name. The rewards of your pool will land on that account. | owner |
+| poolPledge | The amount of lovelaces (1 ADA = 1 Mio lovelaces) you're commiting to hold in your owner wallet(s) | 100000000000 (100 kADA) |
+| poolCost | The amount of lovelaces (1 ADA = 1 Mio lovelaces) you're taking as a fee per epoch from the total rewards | 340000000 (340 ADA) |
+| poolMargin | The amount in percentage you're taking from the total rewards:<br>0.00=0%, 0.10=10%, 1.00=100% | 0.05 (5%) |
+| *poolRelays:* relayType | The type of relayEntry you wanna use:<br>**ip:** you provide the relayEntry as an IPv4 x.x.x.x<br>**ip6:** you provide the relayEntry as an IPv6 address<br>**dns:** you provide the relayEntry as a FQDN entry like relay1.wakandapool.com | dns (prefered) |
+| *poolRelays:* relayEntry | The IP-Address or DNS-Name your relay is reachable to the public| relay1.wakandapool.com |
+| *poolRelays:* relayPort | The public TCP-Port of your relay, this port must be opened to everyone so they can reach your relay node| 3001 (default) |
+| poolMetaName | This is a longer Name for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| Wakanda Forever StakePool |
+| poolMetaDescription | This is a longer description for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| ...tell your story... |
+| poolMetaTicker | Thats the short name - also known as Ticker - for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| WKNDA |
+| poolMetaHomepage | This is a link to your StakePool-Homepage. As we are security oriented, this should be a https:// link.| `https://www.wakandapool.com` |
+| poolMetaUrl | This is a link to your MetaFile of your StakePool, it contains all the MetaData above to be shown in the wallets. The scripts will automatically produce this file (f.e. mypool.metadata.json) for you, but you have to upload it yourself to your Homepage. As we are security oriented, this should be a https:// link.| <sub>`https://www.wakandapool.com/mypool.metadata.json`</sub> |
+| poolExtendedMetaUrl | You don't need this entry for a working StakePool!<br>Like the one above, it contains all the special additional informations about your StakePool that cannot be stored in the normal MetaData file. Like your ITN Witness, or all the additions Adapools.org made. The scripts will automatically produce this file (f.e. mypool.extended-metadata.json) for you. Learn more about it [here](#itn-witness-ticker-check-for-wallets-and-extended-metadatajson-infos)| <sub>`https://www.wakandapool.com/mypool.metadata.json`</sub> |
+
+**Don't ever edit the JSON below the line --- DO NOT EDIT BELOW THIS LINE ---**, the scripts will use and fill that space when you use them.
+
 <br>Your Config-Json could end up like this one after the pool was registered and also later retired:
 ```console
 {
@@ -438,26 +495,6 @@ The **poolname.pool.json** file is your Config-Json to manage your individual Po
 }
 ```
 
-| Parameter | Description | Example |
-| :---         |     :---      | :--- |
-| poolName | Reference to the fileName used on the hdd, so this is normally the same as the poolName.pool.json | mypool |
-| *poolOwner:* ownerName | The name of the pool owner(s) name, this is in line when you use for example the<br>03a script with that name | owner |
-| *poolOwner:* ownerWitness | The choosen method when the StakePool Registration will be signed:<br>**local:** means a direct sign when running the registration<br>**external:** means that you wanna collect the signed Witness later or with an external source. Take a look [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved) to learn more about MultiWitnesses. | local or empty (default) |
-| poolRewards | The name of the pool rewards account name, this is in line when you use for example the 03a script with that name. The rewards of your pool will land on that account. | owner |
-| poolPledge | The amount of lovelaces (1 ADA = 1 Mio lovelaces) you're commiting to hold in your owner wallet(s) | 100000000000 (100 kADA) |
-| poolCost | The amount of lovelaces (1 ADA = 1 Mio lovelaces) you're taking as a fee per epoch from the total rewards | 340000000 (340 ADA) |
-| poolMargin | The amount in percentage you're taking from the total rewards:<br>0.00=0%, 0.10=10%, 1.00=100% | 0.05 (5%) |
-| *poolRelays:* relayType | The type of relayEntry you wanna use:<br>**ip:** you provide the relayEntry as an IPv4 x.x.x.x<br>**ip6:** you provide the relayEntry as an IPv6 address<br>**dns:** you provide the relayEntry as a FQDN entry like relay1.wakandapool.com | dns (prefered) |
-| *poolRelays:* relayEntry | The IP-Address or DNS-Name your relay is reachable to the public| relay1.wakandapool.com |
-| *poolRelays:* relayPort | The public TCP-Port of your relay, this port must be opened to everyone so they can reach your relay node| 3001 (default) |
-| poolMetaName | This is a longer Name for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| Wakanda Forever StakePool |
-| poolMetaDescription | This is a longer description for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| ...tell your story... |
-| poolMetaTicker | Thats the short name - also known as Ticker - for your StakePool, this will be shown in the Wallets like Daedalus or Yoroi.| WKNDA |
-| poolMetaHomepage | This is a link to your StakePool-Homepage. As we are security oriented, this should be a https:// link.| `https://www.wakandapool.com` |
-| poolMetaUrl | This is a link to your MetaFile of your StakePool, it contains all the MetaData above to be shown in the wallets. The scripts will automatically produce this file (f.e. mypool.metadata.json) for you, but you have to upload it yourself to your Homepage. As we are security oriented, this should be a https:// link.| <sub>`https://www.wakandapool.com/mypool.metadata.json`</sub> |
-| poolExtendedMetaUrl | You don't need this entry for a working StakePool!<br>Like the one above, it contains all the special additional informations about your StakePool that cannot be stored in the normal MetaData file. Like your ITN Witness, or all the additions Adapools.org made. The scripts will automatically produce this file (f.e. mypool.extended-metadata.json) for you. Learn more about it [here](#itn-witness-ticker-check-for-wallets-and-extended-metadatajson-infos)| <sub>`https://www.wakandapool.com/mypool.metadata.json`</sub> |
-
-**Don't ever edit the JSON below the line --- DO NOT EDIT BELOW THIS LINE ---**, the scripts will use and fill that space when you use them.
 </details>
 
 
