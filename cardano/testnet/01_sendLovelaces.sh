@@ -251,7 +251,19 @@ rm ${txFile} 2> /dev/null
 #If payment address is a hardware wallet, use the cardano-hw-cli for the signing
 if [[ -f "${fromAddr}.hwsfile" ]]; then
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} shelley transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${magicparam} --out-file ${txFile} 2> /dev/stdout)
+
+	#if rxcnt==2 that means that some funds are returned back to the hw-wallet and if its a staking address, we can hide the return
+	#amount of lovelaces which could cause confusion. we have to add the --change-output-key-file parameters for payment and stake if
+	#its a base address. this only works great for base addresses, otherwise a warning would pop up on the hw-wallet complaining about that
+	#there are no rewards, tzz.
+	hwWalletReturnStr=""
+	if [[ ${rxcnt} == 2 ]]; then
+					#but now we have to check if its a base address, in that case we also need to add the staking.hwsfile
+					stakeFromAddr="$(basename ${fromAddr} .payment).staking"
+					if [[ -f "${stakeFromAddr}.hwsfile" ]]; then hwWalletReturnStr="--change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeFromAddr}.hwsfile"; fi
+				fi
+
+        tmp=$(${cardanohwcli} shelley transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txFile} 2> /dev/stdout)
         if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 else
