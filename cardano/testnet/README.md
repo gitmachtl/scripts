@@ -430,7 +430,7 @@ The **poolname.pool.json** file is your Config-Json to manage your individual Po
 
 | Parameter | Description | Example |
 | :---         |     :---      | :--- |
-| poolName | Reference to the fileName used on the hdd, so this is normally the same as the poolName.pool.json | mypool for mypool.pool.json |
+| poolName | Reference to the fileName used on the hdd for the node files, so this is normally the same as the poolName.pool.json | mypool for mypool.node.vkey,mypool.node.skey ... |
 | *poolOwner:* ownerName | The name of the pool owner(s) name, this is in line when you use for example the 03a_genStakingPaymentAddr.sh script with that name | owner |
 | *poolOwner:* ownerWitness | The choosen method when the StakePool Registration will be signed:<br>**local:** means a direct sign when running the registration<br>**external:** means that you wanna collect the signed Witness later or with an external source. Take a look [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved) to learn more about MultiWitnesses. | local or empty (default) |
 | poolRewards | The name of the pool rewards account name, this is in line when you use for example the 03a script with that name. The rewards of your pool will land on that account. | owner |
