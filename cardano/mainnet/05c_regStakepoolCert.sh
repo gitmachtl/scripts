@@ -12,19 +12,34 @@
 
 #Check command line parameter
 case $# in
-  2|3) regPayName="$2";
-      poolFile="$1";;
+  2|3) regPayName="$(dirname $2)/$(basename $2 .addr)"; regPayName=${regPayName/#.\//}
+      poolFile="$(dirname $1)/$(basename $(basename $1 .json) .pool)"; poolFile=${poolFile/#.\//};;
   * ) cat >&2 <<EOF
 ERROR - Usage: $(basename $0) <PoolNodeName> <PaymentAddrForRegistration> [optional keyword REG to force a registration, REREG to force a re-registration]
 EOF
   exit 1;; esac
 
+if [[ $# -eq 3 ]]; then  forceParam=$3; else forceParam=""; fi
+
+
 #Check if referenced JSON file exists
 if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[35mERROR - ${poolFile}.pool.json does not exist! Please create it first with script 05a.\e[0m"; exit 1; fi
 
+poolJSON=$(cat ${poolFile}.pool.json)	#Read PoolJSON File into poolJSON variable for modifications within this script
+
+#Check if there is already an opened witness in the poolJSON, if not create a new one with the current utctime in seconds as id
+regWitnessID=$(jq -r .regWitness.id <<< ${poolJSON} 2> /dev/null);
+if [[ "${regWitnessID}" == null || "${regWitnessID}" == 0 ]]; then #Opening up a new witness in the poolJSON
+	regWitnessID=""; #used later to determine if it is a new witnesscollection or an existing one
+	poolJSON=$(jq ".regWitness = { id: $(date +%s), type: \"\", ttl: 0, regPayName: \"\", txBody: {}, witnesses: {} }" <<< ${poolJSON})
+	#Write the opened Witness only if the txBody was created successfully
+	else
+	regWitnessDate=$(date --date="@${regWitnessID}") #Get date of the already existing witnesscollection
+fi
+
 #Small subroutine to read the value of the JSON and output an error if parameter is empty/missing
 function readJSONparam() {
-param=$(jq -r .$1 ${poolFile}.pool.json 2> /dev/null)
+param=$(jq -r .$1 <<< ${poolJSON} 2> /dev/null)
 if [[ $? -ne 0 ]]; then echo "ERROR - ${poolFile}.pool.json is not a valid JSON file" >&2; exit 1;
 elif [[ "${param}" == null ]]; then echo "ERROR - Parameter \"$1\" in ${poolFile}.pool.json does not exist" >&2; exit 1;
 elif [[ "${param}" == "" ]]; then echo "ERROR - Parameter \"$1\" in ${poolFile}.pool.json is empty" >&2; exit 1;
@@ -43,59 +58,87 @@ regCertFile=$(readJSONparam "regCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaHash=$(readJSONparam "poolMetaHash"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
-regProtectionKey=$(jq -r .regProtectionKey ${poolFile}.pool.json 2> /dev/null); if [[ "${regProtectionKey}" == null ]]; then regProtectionKey=""; fi
+regProtectionKey=$(jq -r .regProtectionKey <<< ${poolJSON} 2> /dev/null); if [[ "${regProtectionKey}" == null ]]; then regProtectionKey=""; fi
+
+#Checks for needed local files
+if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[35mERROR - \"${regCertFile}\" StakePool (Re)registration-Certificate does not exist or was already submitted before!\n\nPlease create it by running script:\e[0m 05a_genStakepoolCert.sh ${poolFile}\n"; exit 1; fi
+if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
+if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
+if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a or 02. No hardware-wallet allowed for poolRegistration payments! :-(\e[0m\n"; exit 1; fi
 
 
 #Load regSubmitted value from the pool.json. If there is an entry, than do a Re-Registration (changes the Fee!)
-regSubmitted=$(jq -r .regSubmitted ${poolFile}.pool.json 2> /dev/null)
-if [[ "${regSubmitted}" == null ]]; then regSubmitted=""; fi
+regSubmitted=$(jq -r .regSubmitted <<< ${poolJSON} 2> /dev/null); if [[ "${regSubmitted}" == null ]]; then regSubmitted=""; fi
 
-#Force registration instead of re-registration via optional command line command "force"
-if [[ $# -eq 3 ]]; then forceParam=$3; fi
-if [[ ${forceParam^^} == "REG" ]]; then regSubmitted="";  	#force a new registration
-elif [[ ${forceParam^^} == "REREG" ]]; then regSubmitted="xxx";	#force a re-registration
+#SO, now only do the following stuff the first time when no witnesscollection exists -> starting a new poolregistration/poolderegistration. No change possible after witnesscollection opening
+if [[ "${regWitnessID}" == "" ]]; then
+
+	#Add the node witness and payment witness at first entries
+	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = {}" <<< ${poolJSON});
+	poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = {}" <<< ${poolJSON});
+
+	#Force registration instead of re-registration via optional command line command "force"
+	if [[ "${forceParam}" == "" ]]; then
+		deregSubmitted=$(jq -r .deregSubmitted <<< ${poolJSON} 2> /dev/null); if [[ ! "${deregSubmitted}" == null ]]; then echo -e "\n\e[35mERROR - I'am confused, the pool was registered and retired before. Please specify if you wanna register or reregister the pool now with the optional keyword REG or REREG !\e[0m\n"; exit 1; fi
+	elif [[ "${forceParam^^}" == "REG" ]]; then regSubmitted="";  	#force a new registration
+	elif [[ "${forceParam^^}" == "REREG" ]]; then regSubmitted="xxx";	#force a re-registration
+	fi
+
+else #WitnessID and data already in the poolJSON
+       storedRegPayName=$(jq -r .regWitness.regPayName <<< ${poolJSON}) #load data from already started witness collection
+       if [[ ! "${forceParam}" == "" ]]; then #if a force parameter was given but there is already a witness in the poolJSON, exit with an error, not allowed, you have to start a new witness
+                echo -e "\e[35mERROR - You already started a witness collection. If you wanna change the Registration-Type (reg or rereg) now,\nyou have to start all over again by running:\e[33m 05d_poolWitness.sh clear ${poolFile}\e[35m\n\nIf you just wanna complete your started poolRegistration run:\e[33m 05c_regStakepoolCert ${poolFile} ${storedRegPayName}\n\e[35mwithout the REG or REREG keyword. :-)\e[0m\n";
+		exit 1;
+       fi
 fi
 
-#Checks for needed files
-if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[35mERROR - \"${regCertFile}\" does not exist! Please create it first with script 05a.\e[0m"; exit 1; fi
-if [ ! -f "${rewardsName}.staking.skey" ]; then echo -e "\n\e[35mERROR - \"${rewardsName}.staking.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
-if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
-if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
-if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+ownerCnt=$(jq -r '.poolOwner | length' <<< ${poolJSON})
+certCnt=$(( ${ownerCnt} + 1 ))	#Total number of needed certificates: poolRegistrationCertificate and every poolOwnerDelegationCertificate
+registrationCerts="--certificate ${regCertFile}" #list of all needed certificates: poolRegistrationCertificat and every poolOwnerDelegationCertificate
+witnessCount=2	#Total number of needed witnesses: poolnode skey, registration payment skey/hwsfile + each owner witness + maybe rewards account witness
+hardwareWalletIncluded="no"
 
-ownerCnt=$(jq -r '.poolOwner | length' ${poolFile}.pool.json)
-certCnt=$(( ${ownerCnt} + 1 ))
-signingKeys="--signing-key-file ${regPayName}.skey --signing-key-file ${poolName}.node.skey"
-witnessCount=2
-registrationCerts="--certificate ${regCertFile}"
-rewardsAccountIncluded="no"
+#Lets first count all needed witnesses and check about the delegation certificates
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
 do
-  ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName ${poolFile}.pool.json)
-  if [ ! -f "${ownerName}.staking.skey" ]; then echo -e "\e[35mERROR - ${ownerName}.staking.skey is missing, please generate it with script 03a !\e[0m"; exit 1; fi
-  if [ ! -f "${ownerName}.deleg.cert" ]; then echo -e "e[35mERROR - \"${ownerName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 1; fi
+  ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName <<< ${poolJSON})
+  witnessCount=$(( ${witnessCount} + 1 )) #Every owner is of course also needed as witness
+  if [ ! -f "${ownerName}.staking.vkey" ]; then echo -e "\e[0mERROR - \"${ownerName}.staking.vkey\" is missing! Check poolOwner/ownerName field in ${poolFile}.pool.json, or generate one with script 03a !\e[0m"; exit 1; fi
+  if [[ "$(jq -r .description < ${ownerName}.staking.vkey)" == *"Hardware"* ]]; then hardwareWalletIncluded="yes"; fi
+  if [ ! -f "${ownerName}.deleg.cert" ]; then echo -e "\e[35mERROR - \"${ownerName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 1; fi
   #When we are in the loop, just build up also all the needed signingkeys & certificates for the transaction
-  signingKeys="${signingKeys} --signing-key-file ${ownerName}.staking.skey"
-  witnessCount=$(( ${witnessCount} + 1 ))
   registrationCerts="${registrationCerts} --certificate ${ownerName}.deleg.cert"
   #Also check, if the ownername is the same as the one in the rewards account, if so we don't need an extra signing key later
-  if [[ "${ownerName}" == "${rewardsName}" ]]; then rewardsAccountIncluded="yes"; fi
+  if [[ "${regWitnessID}" == "" ]]; then poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\" = {}" <<< ${poolJSON}); fi #include the witnesses in the poolJSON if its a new collection
 done
 
-#Add the rewards account signing staking key if needed
-if [[ "${rewardsAccountIncluded}" == "no" ]]; then signingKeys="${signingKeys} --signing-key-file ${rewardsName}.staking.skey";   witnessCount=$(( ${witnessCount} + 1 )); fi
-
+#If a hardware wallet is involved as an owner, then reduce the certificates to only the stakepoolRegistrationCertificate, its not allowed to also submit the delegationCertificates in one transaction :-(
+if [[ "${hardwareWalletIncluded}" == "yes" ]]; then
+registrationCerts="--certificate ${regCertFile}" #reduce back to only the poolRegistrationCertificate
+certCnt=1	#reduce back to only one certificate
+fi
 
 #-------------------------------------------------------------------------
 
-
 #get values to register the staking address on the blockchain
 currentTip=$(get_currentTip)
-ttl=$(get_currentTTL)
 currentEPOCH=$(get_currentEpoch)
 
-echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m with funds from Address\e[32m ${regPayName}.addr\e[0m:"
+if [[ "${regWitnessID}" == "" ]]; then #New witness collection
+	ttl=$(get_currentTTL)
+	else
+	ttl=$(jq -r .regWitness.ttl <<< ${poolJSON}) #load data from already started witness collection
+        if [[ ${ttl} -lt ${currentTip} ]]; then #if the TTL stored in the witness collection is lower than the current tip, the transaction window is over
+                echo -e "\e[35mERROR - You have waited too long to assemble the witness collection, TTL is now lower than the current chain tip!\nYou have to start all over again by running:\e[33m 05d_poolWitness.sh clear ${poolFile}\e[0m\n"; exit 1;
+        fi
+        storedRegPayName=$(jq -r .regWitness.regPayName <<< ${poolJSON}) #load data from already started witness collection
+	if [[ ! "${regPayName}" == "${storedRegPayName}" ]]; then #if stored payment name has changed, exit with an error, not allowed, you have to start a new witness
+		echo -e "\e[35mERROR - You already started a witness collection, the payment name was \e[32m${storedRegPayName}\e[35m !\nIf you wanna change the payment account you have to start all over again by running:\e[33m 05d_poolWitness.sh clear ${poolFile}\e[35m\n\nIf you just wanna complete your started poolRegistration, run:\e[33m 05c_regStakepoolCert ${poolFile} ${storedRegPayName}\n\n\e[0m"; exit 1;
+	fi
+fi
+
+echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m and Owner-Delegations with funds from Address\e[32m ${regPayName}.addr\e[0m:"
 echo
 
 if ${onlineMode}; then
@@ -126,7 +169,7 @@ if ${onlineMode}; then
 	if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR - Not a valid JSON file on the webserver!\e[0m\n"; exit 1; fi
 	#Ok, downloaded file is a valid JSON file. So now look into the HASH
 	onlineMetaHash=$(${cardanocli} ${subCommand} stake-pool metadata-hash --pool-metadata-file <(echo "${tmpMetadataJSON}") )
-	checkError "$?"
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	#Compare the HASH now, if they don't match up, output an ERROR message and exit
 	if [[ ! "${poolMetaHash}" == "${onlineMetaHash}" ]]; then
 		echo -e "\e[33mERROR - HASH mismatch!\n\nPlease make sure to upload your MetaData JSON file correctly to your webserver!\nPool-Registration aborted! :-(\e[0m\n";
@@ -152,30 +195,27 @@ if ${onlineMode}; then
 			readOfflineFile;
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
-checkError "$?"
 
-minPoolCost=$(jq -r .minPoolCost <<< ${protocolParametersJSON})
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0m   Owner Stake Keys:\e[32m ${ownerCnt}\e[0m owner(s) with the key(s)"
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
 do
-  ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName ${poolFile}.pool.json)
-  echo -e "\e[0m                    \e[32m ${ownerName}.staking.vkey\e[0m & \e[32m${ownerName}.deleg.cert \e[0m"
+  ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName <<< ${poolJSON})
+  echo -ne "\e[0m                    \e[32m ${ownerName}.staking.vkey\e[0m & \e[32m${ownerName}.deleg.cert \e[0m"
+  if [[ "$(jq -r .description < ${ownerName}.staking.vkey)" == *"Hardware"* ]]; then echo -e "(Hardware-Key)"; else echo; fi
 done
-echo -e "\e[0m      Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
-echo -e "\e[0m      Witness Count:\e[32m ${witnessCount} signing keys \e[0m"
+echo -ne "\e[0m      Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
+  if [[ "$(jq -r .description < ${rewardsName}.staking.vkey)" == *"Hardware"* ]]; then echo -e "(Hardware-Key)"; else echo; fi
+echo -e "\e[0m   Witnesses needed:\e[32m ${witnessCount} signed witnesses \e[0m"
 echo -e "\e[0m             Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
 echo -e "\e[0m               Cost:\e[32m ${poolCost} \e[90mlovelaces"
-echo -e "\e[0m      Chain minCost:\e[32m ${minPoolCost} \e[90mlovelaces"
 echo -e "\e[0m             Margin:\e[32m ${poolMargin} \e[0m"
 echo
 echo -e "\e[0m      Current EPOCH:\e[32m ${currentEPOCH}\e[0m"
-echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
+echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (set TTL[invalid_hereafter] is ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
-
-#Check again about the minPoolCost
-if [[ ${poolCost} -lt ${minPoolCost} ]]; then echo -e "\e[35mYour poolCost setting is too low, the current minPoolCost is ${minPoolCost} lovelaces !\e[0m"; exit 1; fi
 
 sendFromAddr=$(cat ${regPayName}.addr)
 sendToAddr=$(cat ${regPayName}.addr)
@@ -186,12 +226,15 @@ echo
 
 #------------------------------------------------------------------
 
+#SO, now only do the following stuff the first time when no witnesscollection exists -> starting a new poolregistration/poolderegistration. No change possible after witnesscollection opening
+if [[ "${regWitnessID}" == "" ]]; then
+
 #
 # Checking UTXO Data of the source address and gathering data about total lovelaces and total assets
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -215,7 +258,7 @@ echo
         #LEVEL 1 - different UTXOs
         for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
         do
-        utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
+        utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
         utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
         assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
@@ -243,8 +286,7 @@ echo
         txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
         echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
-        totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
-        echo -e "Total ADA on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m\n"
+        echo -e "Total ADA on the Address:\e[32m $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
         totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
@@ -252,7 +294,7 @@ echo
                         printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
-                        assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
+                        assetHashName=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
                         printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
@@ -265,90 +307,264 @@ minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${t
 
 #------------------------------------------------------------------
 
-
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
-checkError "$?"
-echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m ${fee} lovelaces \e[90m"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
 #Check if pool was registered before and calculate Fee for registration or set it to zero for re-registration
 if [[ "${regSubmitted}" == "" ]]; then   #pool not registered before
 				  poolDepositFee=$(jq -r .poolDeposit <<< ${protocolParametersJSON})
 				  echo -e "\e[0mPool Deposit Fee: \e[32m ${poolDepositFee} lovelaces \e[90m"
-				  minRegistrationFund=$(( ${poolDepositFee}+${fee} ))
+				  minRegistrationFees=$(( ${poolDepositFee}+${fee} ))
+				  registrationType="PoolRegistration"
 				  echo
-				  echo -e "\e[0mMinimum funds required for registration (Sum of fees): \e[32m ${minRegistrationFund} lovelaces \e[90m"
+				  echo -e "\e[0mMinimum funds required for registration (Sum of fees): \e[32m $(convertToADA ${minRegistrationFees}) ADA / ${minRegistrationFees} lovelaces \e[90m"
 				  echo
 				  else   #pool was registered before -> reregistration -> no poolDepositFee
 				  poolDepositFee=0
-				  minRegistrationFund=$(( ${poolDepositFee}+${fee} ))
+				  minRegistrationFees=$(( ${poolDepositFee}+${fee} ))
+				  registrationType="PoolReRegistration"
 				  echo
-				  echo -e "\e[0mMinimum funds required for re-registration (Sum of fees): \e[32m ${minRegistrationFund} lovelaces \e[90m"
+				  echo -e "\e[0mMinimum funds required for re-registration (Sum of fees): \e[32m $(convertToADA ${minRegistrationFees}) ADA / ${minRegistrationFees} lovelaces \e[90m"
 				  echo
 fi
 
 #calculate new balance for destination address
-lovelacesToSend=$(( ${totalLovelaces}-${minRegistrationFund} ))
+lovelacesToSend=$(( ${totalLovelaces}-${minRegistrationFees} ))
 
-echo -e "\e[0mLovelaces that will be return to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
+echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
 echo
 
 #Checking about minimum funds in the UTX0
 if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
 
 txBodyFile="${tempDir}/$(basename ${poolName}).txbody"
-txFile="${tempDir}/$(basename ${poolName}).tx"
 
-echo
 echo -e "\e[0mBuilding the unsigned transaction body with \e[32m ${regCertFile}\e[0m and all PoolOwner Delegation certificates: \e[32m ${txBodyFile} \e[90m"
 echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txBodyFile} | head -n 6   #only show first 6 lines
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${regPayName}.skey\e[0m,\e[32m ${poolName}.node.skey\e[0m and all PoolOwner Staking Keys: \e[32m ${txFile} \e[90m"
+#So now lets ask if this payment looks ok, it will not be displayed later if a witness is missing
+if ! ask "\e[33mDoes this look good for you? Continue?" N; then exit 1; fi #if not ok, abort
 echo
 
-#Sign the unsigned transaction body with the SecureKey
+#OK txBody was built sucessfully so now write it to the witnesscollection in the poolJSON
+
+poolJSON=$(jq ".regWitness.ttl = ${ttl}" <<< ${poolJSON})
+poolJSON=$(jq ".regWitness.txBody = $(cat ${txBodyFile})" <<< ${poolJSON})
+poolJSON=$(jq ".regWitness.regPayName = \"${regPayName}\"" <<< ${poolJSON})
+poolJSON=$(jq ".regWitness.regPayAmount = ${minRegistrationFees}" <<< ${poolJSON})
+poolJSON=$(jq ".regWitness.regPayReturn = ${lovelacesToSend}" <<< ${poolJSON})
+poolJSON=$(jq ".regWitness.type = \"${registrationType}\"" <<< ${poolJSON})
+poolJSON=$(jq ".regWitness.hardwareWalletIncluded = \"${hardwareWalletIncluded}\"" <<< ${poolJSON})
+
+#Fill the witness count with the node-coldkey witness
+echo -e "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ...\n"
+tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${poolName}.node.skey ${magicparam} --out-file /dev/stdout)
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
+
+#Fill the witnesses with the local payment witness, must be a normal cli skey
+echo -e "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ...\n"
+tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey ${magicparam} --out-file /dev/stdout)
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
+
+#Fill the witnesses with the local owner accounts, if you wanna do this in multiple steps you should set ownerWitness: "external" in the pool.json
+for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
+do
+
+  ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName <<< ${poolJSON})
+  ownerWitness=$(jq -r .poolOwner[${tmpCnt}].ownerWitness <<< ${poolJSON});
+
+  if [[ "${ownerWitness}" == null || "${ownerWitness}" == "" || "${ownerWitness^^}" == "LOCAL" ]]; then #local account process now
+
+    if [[ $(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness | length" <<< ${poolJSON}) == 0 ]]; then #only process witness if the entry in the witness collection is empty
+
+	#Fill the witnesses with the local owner witness
+	if [ -f "${ownerName}.staking.skey" ]; then #key is a normal one
+	        echo -e "\e[0mAdding the owner witness from a local signing key '\e[33m${ownerName}.skey\e[0m' ...\n"
+	        tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${ownerName}.staking.skey ${magicparam} --out-file /dev/stdout)
+	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	        poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON
+
+	elif [ -f "${ownerName}.staking.hwsfile" ]; then #key is a hardware wallet
+	        tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
+	        echo -e "\e[0mAdding the owner witness from a local Hardware-Wallet key '\e[33m${ownerName}.hwsfile\e[0m' ..."
+	        #echo -e "\e[33mPlease open the Cardano-App on your Hardware-Wallet to approve the action of the owner witness ... \e[0m\n"
+		#if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
+		start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		tmp=$(${cardanohwcli} shelley transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${ownerName}.staking.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
+	        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+		#Doing a txWitness Hack, because currently the ledger-fw is not using the right Era - Must be removed later when corrected!
+		tmpWitness=$(cat ${tmpWitnessFile})
+		if [[ "$(jq -r .type < ${txBodyFile})" == "TxBodyMary" ]]; then tmpWitness=$(jq ".type = \"TxWitness MaryEra\"" <<< ${tmpWitness}); fi
+		if [[ "$(jq -r .type < ${txBodyFile})" == "TxBodyAllegra" ]]; then tmpWitness=$(jq ".type = \"TxWitness AllegraEra\"" <<< ${tmpWitness}); fi
+	        poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON
+
+	else
+	echo -e "\e[35mError - Owner Signing Key for \"${ownerName}\" not found. No ${ownerName}.staking.skey/hwsfile found !${tmp}\e[0m\n"; exit 1;
+	fi
+    fi
+
+  #elif [[ "${ownerName}" == "${rewardsName}" ]]; then poolJSON=$(jq ".regWitness.witnesses.\"${rewardsName}.staking\".witness = {process: \"external\"}" <<< ${poolJSON}); #mark rewards witness to not process because external
+
+  fi
+
+done
+
+file_unlock ${poolFile}.pool.json
+echo "${poolJSON}" > ${poolFile}.pool.json
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+file_lock ${poolFile}.pool.json
+
+fi # regWitnessID was empty / new witness collection
+
+#--------------------------------------------------------------
+# witness collection with the local files/hardware wallets was collected and writen in the poolJSON
+# we land here also if a witness was created before
+
+regWitnessID=$(jq -r ".regWitness.id" <<< ${poolJSON})
+regWitnessDate=$(date --date="@${regWitnessID}" -R)
+regWitnessType=$(jq -r ".regWitness.type" <<< ${poolJSON})
+regWitnessTxBody=$(jq -r ".regWitness.txBody" <<< ${poolJSON})
+regWitnessHardwareWalletIncluded=$(jq -r ".regWitness.hardwareWalletIncluded" <<< ${poolJSON})
+regWitnessPayAmount=$(jq -r ".regWitness.regPayAmount" <<< ${poolJSON})
+regWitnessPayReturn=$(jq -r ".regWitness.regPayReturn" <<< ${poolJSON})
+
+echo -e "Lovelaces you have to pay: \e[32m $(convertToADA ${regWitnessPayAmount}) ADA / ${regWitnessPayAmount} lovelaces\e[0m"
+echo -e " Lovelaces to be returned: \e[32m $(convertToADA ${regWitnessPayReturn}) ADA / ${regWitnessPayReturn} lovelaces\e[0m"
+echo
+echo -e "\e[0mThis will be a: \e[32m${regWitnessType}\e[0m";
+echo
+echo -e "\e[0mWitness-Collection with ID \e[32m${regWitnessID}\e[0m, lets check about the needed Witnesses for the \e[32m${regWitnessType}\e[0m:\n"
+echo -e "\e[0mWitness-Collection creation date: \e[32m${regWitnessDate}\e[0m"
+echo
+
+missingWitness=""	#will be set to yes if we have at least one missing witness
+witnessCnt=$(jq ".regWitness.witnesses | length" <<< ${poolJSON})
+for (( tmpCnt=0; tmpCnt<${witnessCnt}; tmpCnt++ ))
+do
+
+  witnessName=$(jq -r ".regWitness.witnesses | keys_unsorted[${tmpCnt}]" <<< ${poolJSON})
+
+  if [[ $(jq ".regWitness.witnesses.\"${witnessName}\".witness | length" <<< ${poolJSON}) -gt 0 ]]; then #witness data is in the json
+	echo -e "\e[32m[ Ready ]\e[90m ${witnessName} \e[0m"
+  else
+	missingWitness="yes"
+	extWitnessFile="${poolFile}_$(basename ${witnessName} .staking)_${regWitnessID}.witness"
+        extWitness=$(jq . <<< "{ \"id\": ${regWitnessID}, \"date-created\": \"${regWitnessDate}\", \"ttl\": ${ttl}, \"type\": \"${regWitnessType}\", \"poolFile\": \"${poolFile}\", \"poolMetaTicker\": \"${poolMetaTicker}\", \"signing-name\": \"${witnessName}\", \"signing-vkey\": $(cat ${witnessName}.vkey), \"txBody\": ${regWitnessTxBody}, \"signedWitness\": {}, \"date-signed\": {} }")
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	if [ ! -f "${extWitnessFile}" ]; then #Write it only if file is not present
+		echo "${extWitness}" > ${extWitnessFile}
+		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		echo -e "\e[35m[Missing]\e[90m ${witnessName} \e[0m-> Sign and add it via script \e[33m05d_poolWitness.sh\e[0m and the specific WitnessTransferFile:\e[33m ${extWitnessFile}\e[0m"
+                else
+                echo -e "\e[35m[Missing]\e[90m ${witnessName} \e[0m-> Sign and add it via script \e[33m05d_poolWitness.sh\e[0m and the specific WitnessTransferFile:\e[33m ${extWitnessFile} \e[35m(still exists!?) \e[0m"
+	fi
+  fi
+
+
+done
+
+echo
+if [[ "${missingWitness}" == "yes" ]]; then
+
+	if ${offlineMode}; then #In offlinemode, ask about adding each witnessfile to the offlineTransfer.json
+
+		for (( tmpCnt=0; tmpCnt<${witnessCnt}; tmpCnt++ ))
+		do
+
+			witnessName=$(jq -r ".regWitness.witnesses | keys_unsorted[${tmpCnt}]" <<< ${poolJSON})
+
+			if [[ $(jq ".regWitness.witnesses.\"${witnessName}\".witness | length" <<< ${poolJSON}) -eq 0 ]]; then
+				fileToAttach="${poolFile}.$(basename ${witnessName}).witness"
+        	                #Ask about attaching the metadata file into the offlineJSON, because we're cool :-)
+                                if [ -f "${fileToAttach}" ]; then
+                                        if ask "\e[33mInclude the '${fileToAttach}' into '$(basename ${offlineFile})' to transfer it in one step?" N; then
+                                        offlineJSON=$( jq ".files.\"${fileToAttach}\" += { date: \"$(date -R)\", size: \"$(du -b ${fileToAttach} | cut -f1)\", base64: \"$(base64 -w 0 ${fileToAttach})\" }" <<< ${offlineJSON});
+                                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+					echo "${offlineJSON}" > ${offlineFile}
+                                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                                        echo
+                                        fi
+                                fi
+
+
+
+			fi
+		done
+	fi
+
+echo -e "\n\e[35mThere are missing witnesses for this transaction, please sign and add them via the script \e[33m05d_poolWitness.sh sign/add\e[0m\nRe-Run this script if you have collected all witnesses.\n\n";
+echo -e "\e[35mIf you wanna clean the witnesses for this poolFile (start over), please clear them via the script \e[33m05d_poolWitness.sh clear ${poolFile}\e[0m\n\n";
+
+exit 1;
+fi
+
+#------------------------------------------------------------------------
+# All witnesses are present, so now lets assemble the transaction together
+#
+
+txFile="${tempDir}/$(basename ${poolName}).tx"
+
+echo -e "\e[0mAssemble the Transaction with the payment \e[32m${regPayName}.skey\e[0m, node\e[32m ${poolName}.node.skey\e[0m and all PoolOwner Witnesses: \e[32m ${txFile} \e[90m"
+echo
+
+witnessString=; witnessContent="";
+witnessCnt=$(jq ".regWitness.witnesses | length" <<< ${poolJSON})
+for (( tmpCnt=0; tmpCnt<${witnessCnt}; tmpCnt++ ))
+do
+  witnessName=$(jq -r ".regWitness.witnesses | keys_unsorted[${tmpCnt}]" <<< ${poolJSON})
+  witnessContent=$(jq -r ".regWitness.witnesses.\"${witnessName}\".witness" <<< ${poolJSON})
+  tmpWitnessFile="${tempDir}/$(basename ${poolName}).witness_${tmpCnt}.tx"
+  echo "${witnessContent}" > ${tmpWitnessFile}
+  witnessString="${witnessString}--witness-file ${tmpWitnessFile} "
+done
+
+#Assemble the transaction
 rm ${txFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} ${signingKeys} --out-file ${txFile} ${magicparam}
-checkError "$?"
+${cardanocli} ${subCommand} transaction assemble --tx-body-file <(echo ${regWitnessTxBody}) ${witnessString} --out-file ${txFile}
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txFile} | head -n 6   #only show first 6 lines
 echo
 
+#Do temporary witness file cleanup
+for (( tmpCnt=0; tmpCnt<${witnessCnt}; tmpCnt++ ))
+do
+  tmpWitnessFile="${tempDir}/$(basename ${poolName}).witness_${tmpCnt}.tx"
+  rm -f ${tmpWitnessFile}
+done
+
 #Read out the POOL-ID
 poolIDhex=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)	#New method since 1.23.0
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 poolIDbech=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)      #New method since 1.23.0
-checkError "$?"
-
-echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
-cat ${poolFile}.pool.json
-echo
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0mPool-ID:\e[32m ${poolIDhex} / ${poolIDbech} \e[90m"
 echo
 
 #Show a warning to respect the pledge amount
-if [[ ${poolPledge} -gt 0 ]]; then echo -e "\e[35mATTENTION - You're registered Pledge will be set to ${poolPledge} lovelaces, please respected it with the sum of all registered owner addresses!\e[0m\n"; fi
+if [[ ${poolPledge} -gt 0 ]]; then echo -e "\e[35mATTENTION - You're registered Pledge will be set to ${poolPledge} lovelaces, please respect it with the sum of all registered owner addresses!\e[0m\n"; fi
 
-
-#Show a message if it's a reRegistration
-if [[ ! "${regSubmitted}" == "" ]]; then   #pool registered before
-				  echo -e "\e[35mThis will be a Pool Re-Registration\e[0m\n";
-				  offlineRegistrationType="PoolReRegistration"; #Just as Type info for the offline file
-				    else
-				  offlineRegistrationType="PoolRegistration"; #Just as Type info for the offline File
-fi
+#Show a message about the registration type
+echo -e "\e[0mThis will be a: \e[32m${regWitnessType}\e[0m\n";
+offlineRegistrationType="${regWitnessType}"; #Just as Type info for the offline file, same as the regWitnessType
 
 if ask "\e[33mDoes this look good for you? Do you have enough pledge in your owner account(s), continue and register on chain ?" N; then
         echo
@@ -359,10 +575,15 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
 			        #No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
 			        if [[ $? -eq 0 ]]; then
 			        file_unlock ${poolFile}.pool.json
-			        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R)\"}")
+			        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R)\"}" | jq "del (.regWitness)")
 			        echo "${newJSON}" > ${poolFile}.pool.json
 			        file_lock ${poolFile}.pool.json
 			        echo -e "\e[32mDONE\n"
+
+				#Delete the just used RegistrationCertificat so it can't be submitted again as a mistake, build one again with 05a first
+				file_unlock ${regCertFile}
+				rm ${regCertFile}
+
 			        else
 			        echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;
 			        fi
@@ -370,6 +591,10 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                 echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
                                 cat ${poolFile}.pool.json
                                 echo
+
+				#Display information to manually register the OwnerDelegationCertificates on the chain if a hardware-wallet is involved. With only cli based staking keys, we can include all the delegation certificates in one transaction
+				if [[ "${regWitnessHardwareWalletIncluded}" == "yes" ]]; then
+				        echo -e "\n\e[33mThere is at least one Hardware-Wallet involved, so you have to register the DelegationCertificate for each Owner in additional transactions after the ${regWitnessType} !\e[0m\n"; fi
 
                           else  #offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)
@@ -394,7 +619,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
 				if [ -f "${fileToAttach}" ]; then
 					if ask "\e[33mInclude the '${fileToAttach}' into '$(basename ${offlineFile})' to transfer it in one step?" N; then
 					offlineJSON=$( jq ".files.\"${fileToAttach}\" += { date: \"$(date -R)\", size: \"$(du -b ${fileToAttach} | cut -f1)\", base64: \"$(base64 -w 0 ${fileToAttach})\" }" <<< ${offlineJSON});
-				        checkError "$?"
+				        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 					echo
 					fi
 				fi
@@ -404,7 +629,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                 if [ -f "${fileToAttach}" ]; then
                                         if ask "\e[33mInclude the '${fileToAttach}' into '$(basename ${offlineFile})' to transfer it in one step?" N; then
                                         offlineJSON=$( jq ".files.\"${fileToAttach}\" += { date: \"$(date -R)\", size: \"$(du -b ${fileToAttach} | cut -f1)\", base64: \"$(base64 -w 0 ${fileToAttach})\" }" <<< ${offlineJSON});
-					checkerror "$?"
+					checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 					echo
                                         fi
                                 fi
@@ -418,16 +643,42 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
 							cat ${poolFile}.pool.json
 							echo
 			                                file_unlock ${poolFile}.pool.json
-			                                newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R) (only offline, no proof)\"}")
+			                                newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R) (only offline, no proof)\"}" | jq "del (.regWitness)")
 			                                echo "${newJSON}" > ${poolFile}.pool.json
 			                                file_lock ${poolFile}.pool.json
                                                         showOfflineFileInfo;
                                                         echo -e "\e[33mTransaction txJSON has been stored in the '$(basename ${offlineFile})'.\nYou can now transfer it to your online machine for execution.\e[0m\n";
+							#Display information to manually register the OwnerDelegationCertificates on the chain if a hardware-wallet is involved. With only cli based staking keys, we can include all the delegation certificates in one transaction
+							if [[ "${regWitnessHardwareWalletIncluded}" == "yes" ]]; then echo -e "\n\e[33mThere is at least one Hardware-Wallet involved, so you have to register the DelegationCertificate for each Owner in additional transactions after the ${regWitnessType} !\e[0m\n"; fi
+
+			                                #Delete the just used RegistrationCertificat so it can't be submitted again as a mistake, build one again with 05a first
+			                                file_unlock ${regCertFile}
+			                                rm ${regCertFile}
+
                                                  else
                                                         echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
                                 fi
 
         fi
+
+
+else #ask: Does this look good for you? Do you have enough pledge in your owner account(s), continue and register on chain ?
+
+	#Ok, if said not, lets ask if the collected witnesses should be deleted from the poolFile
+	if ask "\n\e[33mDo you wanna delete the witness collection from the ${poolFile}.pool.json ?" N; then
+                #Clears the witnesscollection in the ${poolFile}
+                poolJSON=$(cat ${poolFile}.pool.json)   #Read PoolJSON File into poolJSON variable for modifications within this script
+                if [[ $( jq -r ".regWitness | length" <<< ${poolJSON}) -gt 0 ]]; then
+                                poolJSON=$( jq "del (.regWitness)" <<< ${poolJSON})
+                                file_unlock ${poolFile}.pool.json
+                                echo "${poolJSON}" > ${poolFile}.pool.json
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                                file_unlock ${poolFile}.pool.json
+                else
+                echo -e "\n\e[0mThere are no witnesses in the ${poolFile} !\e[0m\n";
+                fi
+	fi
+
 
 fi
 

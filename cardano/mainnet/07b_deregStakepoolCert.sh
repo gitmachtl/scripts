@@ -12,8 +12,8 @@
 
 #Check command line parameter
 case $# in
-  2 ) deregPayName="$2";
-      poolFile="$1";;
+  2 ) deregPayName="$(dirname $2)/$(basename $2 .addr)"; deregPayName=${deregPayName/#.\//};
+      poolFile="$(dirname $1)/$(basename $(basename $1 .json) .pool)"; poolFile=${poolFile/#.\//};;
   * ) cat >&2 <<EOF
 ERROR - Usage: $(basename $0) <PoolNodeName> <PaymentAddrForDeRegistration>
 EOF
@@ -35,7 +35,7 @@ echo "${param}"
 #Read the pool JSON file and extract the parameters -> report an error is something is missing or wrong/empty and exit
 poolName=$(readJSONparam "poolName"); if [[ ! $? == 0 ]]; then exit 1; fi
 deregCertFile=$(readJSONparam "deregCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
-poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi #only used to write out an description of this action in offline mode
 
 #Checks for needed files
 if [ ! -f "${deregCertFile}" ]; then echo -e "\n\e[34mERROR - \"${deregCertFile}\" does not exist! Please create it first with script 05d.\e[0m"; exit 2; fi
@@ -71,7 +71,7 @@ echo
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?";
+                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -95,7 +95,7 @@ echo
         #LEVEL 1 - different UTXOs
         for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
         do
-        utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
+        utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
         utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
         assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
@@ -123,8 +123,7 @@ echo
         txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
         echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
-        totalInADA=$(bc <<< "scale=6; ${totalLovelaces} / 1000000")
-        echo -e "Total ADA on the Address:\e[32m  ${totalInADA} ADA / ${totalLovelaces} lovelaces \e[0m\n"
+        echo -e "Total ADA on the Address:\e[32m  $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
         totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
@@ -147,8 +146,7 @@ if ${onlineMode}; then
                   else
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
-checkError "$?"
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
 
 #----------------------------------------------------------------
@@ -160,22 +158,22 @@ signingKeys="--signing-key-file ${deregPayName}.skey --signing-key-file ${poolNa
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 --certificate ${deregCertFile} --out-file ${txBodyFile}
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m ${fee} lovelaces \e[90m"
+echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
-minDeRegistrationFund=${fee}
+minDeRegistrationFees=${fee}
 echo
-echo -e "\e[0mMinimum funds required for de-registration (Sum of fees): \e[32m ${minDeRegistrationFund} lovelaces \e[90m"
+echo -e "\e[0mMinimum funds required for de-registration (Sum of fees): \e[32m $(convertToADA ${minDeRegistrationFees}) ADA / ${minDeRegistrationFees} lovelaces \e[90m"
 echo
 
 #calculate new balance for destination address
-lovelacesToSend=$(( ${totalLovelaces}-${minDeRegistrationFund} ))
+lovelacesToSend=$(( ${totalLovelaces}-${minDeRegistrationFees} ))
 
-echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
+echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
 echo
 
 #Checking about minimum funds in the UTX0
@@ -191,19 +189,20 @@ echo
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --certificate ${deregCertFile} --out-file ${txBodyFile}
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txBodyFile}
 echo
 echo
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${deregPayName}.skey\e[0m & \e[32m${poolName}.node.skey\e[0m: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the payment \e[32m${deregPayName}.skey\e[0m & node \e[32m${poolName}.node.skey\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
 rm ${txFile} 2> /dev/null
 ${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} ${signingKeys} ${magicparam} --out-file ${txFile}
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txFile}
 echo
+
 
 if ask "\e[33mDoes this look good for you? Continue ?" N; then
         echo
@@ -213,7 +212,7 @@ if ask "\e[33mDoes this look good for you? Continue ?" N; then
                                 #No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
                                 if [[ $? -eq 0 ]]; then
                                 file_unlock ${poolFile}.pool.json
-                                newJSON=$(cat ${poolFile}.pool.json | jq ". += {regSubmitted: \"$(date -R)\"}")
+                                newJSON=$(cat ${poolFile}.pool.json | jq ". += {deregSubmitted: \"$(date -R)\"}")
                                 echo "${newJSON}" > ${poolFile}.pool.json
                                 file_lock ${poolFile}.pool.json
                                 echo -e "\e[32mDONE\n"

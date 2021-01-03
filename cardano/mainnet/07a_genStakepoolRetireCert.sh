@@ -10,7 +10,7 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile=$1; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> [optional retirement EPOCH value]"; exit 1; fi
+if [[ $# -gt 0 && ! $1 == "" ]]; then poolFile="$(dirname $1)/$(basename $(basename $1 .json) .pool)"; poolFile=${poolFile/#.\//}; else echo "ERROR - Usage: $(basename $0) <PoolNodeName> [optional retirement EPOCH value]"; exit 1; fi
 
 if [[ $# -eq 2 ]]; then retireEPOCH=$2; fi
 
@@ -22,9 +22,10 @@ echo "
         \"poolName\":   \"${poolFile}\",
         \"poolOwner\": [
                 {
-                \"ownerName\": \"set_your_owner_name_here\"
+                \"ownerName\": \"just_a_minimum_placeholder_no_need_to_set_it_for_pool_retirement\"
                 }
-        ]
+        ],
+        \"poolMetaTicker\":   \"EMPTY\"
 }
 " > ${poolFile}.pool.json
 echo
@@ -59,7 +60,7 @@ if ${onlineMode}; then
 			readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 eMax=$(jq -r .eMax <<< ${protocolParametersJSON})
 
 currentEPOCH=$(get_currentEpoch)
@@ -85,7 +86,7 @@ echo -e "Retire EPOCH set to:\e[32m ${retireEPOCH}\e[0m"
 file_unlock ${poolName}.pool.dereg-cert
 
 ${cardanocli} ${subCommand} stake-pool deregistration-certificate --cold-verification-key-file ${poolName}.node.vkey --epoch ${retireEPOCH} --out-file ${poolName}.pool.dereg-cert
-checkError "$?"
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
