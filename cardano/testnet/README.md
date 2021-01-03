@@ -399,7 +399,7 @@ The **poolname.pool.json** file is your Config-Json to manage your individual Po
          },
          {
          "ownerName": "ledgerowner",
-         "ownerWitness": "external"
+         "ownerWitness": "local"
          }    
       ],
       "poolRewards": "owner",
