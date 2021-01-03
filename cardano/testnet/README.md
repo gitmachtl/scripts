@@ -68,13 +68,11 @@ You should keep your directory structure the same on both Machines.
 <br>You can find examples below in the Online- and Offline-Examples section. [Online-Migration-Example](#migrate-your-existing-stakepool-to-hw-wallet-owner-keys-ledgertrezor), [Offline-Migration-Example](#migrate-your-existing-stakepool-offline-to-hw-wallet-owner-keys-ledgertrezor)
 
 </details>
-
 &nbsp;<br>&nbsp;<br>
-# Scriptfiles Syntax & Filenames
 
-Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
+# How to Install/Copy the Scripts
 
-### How to Install/Copy the Scripts and about the Directory Structure
+Installation is simple, just copy them over or do a git clone so you can do also a quick update in the future.
 
 <details>
    <summary><b>How to get the scripts on your Linux machine ... </b>:bookmark_tabs:<br></summary>
@@ -135,6 +133,11 @@ The global PATH is set to the 'bin' subdirectory in your $HOME/cardanoscripts di
    :bulb: Don't call the scripts with directories like ../xyz or /xyz/abc, it will not work at the moment. Call them from the choosen BASE directory without a leading . or .. Thx!
 
 </details>
+
+&nbsp;<br>&nbsp;<br>
+# Scriptfiles Syntax & Filenames
+
+Please make yourself familiar on how to call each script with the required parameters, there are plenty of examples in the description below or in the examples.
 
 ### Main-Configuration File and all the other ones - Here is the description of each one
 
