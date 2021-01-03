@@ -78,32 +78,32 @@ Installation is simple, just copy them over or do a git clone so you can also do
    <summary><b>How to get the scripts on your Linux machine ... </b>:bookmark_tabs:<br></summary>
    
 <br>You can just download the [ZIP-Archive](https://github.com/gitmachtl/scripts/archive/master.zip), unzip it in a directory of your choice and use the scripts directly in there.<br>
-However, if you wanna make them usable in all directories you should make a fixed directory like **$HOME/cardanoscripts** and add this directory to your global PATH environment:
+However, if you wanna make them usable in all directories you should make a fixed directory like **$HOME/stakepoolscripts** and add this directory to your global PATH environment:
 
 **Make a fixed directory for the scripts and set the PATH**
 ```console
-mkdir -p $HOME/cardanoscripts/bin && cd $_
+mkdir -p $HOME/stakepoolscripts/bin && cd $_
 echo "export PATH=\"$PWD:\$PATH\"" >> $HOME/.profile
 export PATH="$PWD:$PATH"
 ```
-You have now made the folder 'cardanoscripts' in your HOME directory, also you have set the PATH in the $HOME/.profile, so it would survive a reboot. The global PATH is set to the 'bin' subdirectory in your $HOME/cardanoscripts directory. Whatever script is in there, thats the one thats active on the whole machine.<br>
+You have now made the folder 'stakepoolscripts' in your HOME directory, also you have set the PATH in the $HOME/.profile, so it would survive a reboot. The global PATH is set to the 'bin' subdirectory in your $HOME/stakepoolscripts directory. Whatever script is in there, thats the one thats active on the whole machine.<br>
 
 **Git-Clone the Repository into your fixed directory**
 ``` console
-git clone https://github.com/gitmachtl/scripts.git $HOME/cardanoscripts
+git clone https://github.com/gitmachtl/scripts.git $HOME/stakepoolscripts
 ```
 
-Now its time to **choose** if you wanna use the **Mainnet-Scripts or the Testnet-Scripts**. You have to copy the right ones into the 'bin' subdirectory of your $HOME/cardanoscripts:
+Now its time to **choose** if you wanna use the **Mainnet-Scripts or the Testnet-Scripts**. You have to copy the right ones into the 'bin' subdirectory of your $HOME/stakepoolscripts:
 
 **Using the Mainnet-Scripts - Install or Update**
 ``` console
-cd $HOME/cardanoscripts
+cd $HOME/stakepoolscripts
 git fetch origin && git reset --hard origin/master
 cp cardano/mainnet/* bin/
 ```
 **Using the Testnet-Scripts - Install or Update**
 ``` console
-cd $HOME/cardanoscripts
+cd $HOME/stakepoolscripts
 git fetch origin && git reset --hard origin/master
 cp cardano/testnet/* bin/
 ```
