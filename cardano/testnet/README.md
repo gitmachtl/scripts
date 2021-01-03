@@ -379,7 +379,7 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 </details>
 
-### Poolname.pool.json (Config-File for each Pool)
+### Pool-Configuration-File (poolname.pool.json) - Config-File for each Pool
 
 The **poolname.pool.json** file is your Config-Json to manage your individual Pool-Settings like owners, fees, costs. You don't have to create the base structure of this Config-Json, **the script 05a_genStakepoolCert.sh will generate a blank one for you** ...<br>
    
