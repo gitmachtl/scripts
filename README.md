@@ -8,6 +8,6 @@ Useful scripts from **ATADA_StakePool_Austria** for any StakePool Operator out t
 
 **Contacts:**<br>
 Telegram - @atada_stakepool<br>
-Twitter - [@ATADA_Stakepool] (https://twitter.com/ATADA_Stakepool)<br>
+Twitter - [@ATADA_Stakepool](https://twitter.com/ATADA_Stakepool)<br>
 Email - stakepool@stakepool.at<br>
 Homepage - https://stakepool.at
