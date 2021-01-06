@@ -190,8 +190,8 @@ if [[ -f "${regPayName}.hwsfile" && -f "${delegName}.staking.hwsfile" && "${paym
         if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-elif [[ -f "${stakeAddr}.skey" && -f "${fromAddr}.skey" ]]; then #with the normal cli skey
-	${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey --signing-key-file ${delegName}.staking.skey ${magicparam} --out-file ${txFile}
+elif [[ -f "${delegName}.staking.skey" && -f "${regPayName}.skey" ]]; then #with the normal cli skey
+        ${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey --signing-key-file ${delegName}.staking.skey ${magicparam} --out-file ${txFile}
 else
 echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet can only be used to register its own staking key on the chain.\e[0m\n"; exit 1;
 fi
