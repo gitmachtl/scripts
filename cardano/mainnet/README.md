@@ -628,7 +628,7 @@ So you can see in this table there are Pros and Cons with the different types of
 
 Basically, you have to do all HW-Wallet related things directly with the hardware wallet.
 
-*) You can overcome some of the issues by using a Hybrid-StakeAddress with the Hardware-Wallet. In that case you can work with the HW stake keys like with normal CLI keys, only the payment keys are protected via the HW Wallet (MultiOwner-ComfortMode). Creating such a Hybrid-StakingAddressCombo for a HW-Wallet is supported by the script ```./03a_genStakingPaymentAddr.sh <name> hwpayonly``` command.
+*) You can overcome some of the issues by using a Hybrid-StakeAddress with the Hardware-Wallet. In that case you can work with the HW stake keys like with normal CLI keys, only the payment keys are protected via the HW Wallet (MultiOwner-ComfortMode). Creating such a Hybrid-StakingAddressCombo for a HW-Wallet is supported by the script ```./03a_genStakingPaymentAddr.sh <name> hybrid``` command. Check the different key-types [here](#choose-your-preferred-key-type-for-your-owner-pledge-accounts)
 
 </details>
 
