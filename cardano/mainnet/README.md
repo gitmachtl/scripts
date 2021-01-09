@@ -634,7 +634,7 @@ Basically, you have to do all HW-Wallet related things directly with the hardwar
 
 ## How to prepare your system before using a Hardware-Wallet
 
-We don't want to run the scripts as a superuser (sudo), so you should add some udev informations.
+We don't want to run the scripts as a superuser (sudo), so you should add some udev informations. Also for Trezor you have to install the Trezor Bridge.
 
 <details>
    <summary><b>Prepare your system so you can use the Hardware-Wallet as a Non-SuperUser ...</b>:bookmark_tabs:<br></summary>
@@ -646,7 +646,7 @@ You can find the GitHub-Repository here: https://github.com/vacuumlabs/cardano-h
 
 Please follow the installation instructions on the website, its really simple to get the binary onto your system. You can install it via a .deb Package, from a .tar.gz or you can compile it yourself.
 
-### Rules for Ledger Nano S & Nano X
+### Installing Ledger Nano S / Nano X
 
 You can find a pretty good summary of how to add the udev rules to you system on this website: https://support.ledger.com/hc/en-us/articles/360019301813-Fix-USB-issues
 
@@ -677,7 +677,11 @@ $ sudo udevadm control --reload-rules
 ```
 You should now be able to use your Ledger Nano S or Nano X device as the username you have set in the rules table without using sudo. :smiley:
 
-### Rules for Trezor Model-T
+### Installing Trezor Model-T
+
+Installing the Trezor HW-Wallet is similar like to Trezor, but you also need to **install the Trezor Bridge** after you have added the udev rules.
+
+**1. Set the udev Rules**
 
 You can find the support page for the udev rules of the Trezor devices here: https://wiki.trezor.io/Udev_rules
 
@@ -700,7 +704,21 @@ After you have created this file in the /etc/udev/rules.d folder, please run the
 $ sudo udevadm trigger
 $ sudo udevadm control --reload-rules
 ```
-You should now be able to use your Trezor Model-T device as the username you have set in the rules table without using sudo. :smiley:
+
+Now would be the time to unplug and reconnect your Trezor Model-T device.
+
+**2. Install the Trezor-Bridge:**
+
+This is the last step needed, you need to install the latest version of the Trezor-Bridge. You can find the latest version on the official TrezorBridge Github-Repo [here](https://github.com/trezor/webwallet-data/tree/master/bridge).
+
+In time of writing, the latest released TrezorBridge version is 2.0.27, so lets grab that and install it:
+
+``` console
+$ sudo wget https://github.com/trezor/webwallet-data/raw/master/bridge/2.0.27/trezor-bridge_2.0.27_amd64.deb
+$ sudo dpkg -i trezor-bridge_2.0.27_amd64.deb
+```
+
+You should now be able to use your Trezor Model-T device as the username you have set in the rules table without using sudo. You can check the status of the running TrezorBridge in the background by launching a browser and checking the Status-Page at [http://127.0.0.1:21325](http://127.0.0.1:21325) :smiley:
 
 </details>
 
