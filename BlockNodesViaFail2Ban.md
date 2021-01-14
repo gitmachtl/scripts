@@ -1,6 +1,6 @@
 # Block IPs from other nodes that are not upgraded to the latest node version and on the allegra mainnet
 
-<img src="https://www.stakepool.at/pics/stakepool_operator_scripts.png" border=0></img><br>
+<a href="https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet"><img src="https://www.stakepool.at/pics/stakepool_operator_scripts.png" border=0></img></a><br>
 
 If you have already installed **fail2ban** to ban bad actors trying to break into your machine, good, if not
 
