@@ -1197,7 +1197,7 @@ It's similar to a single owner stake pool registration (example above). All owne
 <br>```./05b_genDelegationCert.sh mypool owner-1``` this will generate the owner-1.deleg.cert
 <br>```./05b_genDelegationCert.sh mypool owner-2``` this will generate the owner-2.deleg.cert
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool smallwallet1```    
-1. Optionally you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner-1``` and ```./03c_checkStakingAddrOnChain.sh owner-1``` if you don't see it instantly, wait a little and retry the same command
+1. Optionally you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner-1``` and ```./03c_checkStakingAddrOnChain.sh owner-2``` if you don't see it instantly, wait a little and retry the same command
 
 Done.
 </details>
