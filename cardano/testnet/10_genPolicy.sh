@@ -19,6 +19,10 @@ if [ -f "${policyName}.policy.script" ]; then echo -e "\e[35mWARNING - ${policyN
 if [ -f "${policyName}.policy.id" ]; then echo -e "\e[35mWARNING - ${policyName}.policy.id already present, delete it or use another name !\e[0m"; exit 2; fi
 
 
+#Check if the destination directory for the policy exists, if not, try to make it
+policyDirName="$(dirname ${policyName})"; policyDirName=${policyDirName/#.\//};
+if [ ! -d "${policyDirName}" ]; then mkdir -p ${policyDirName}; checkError "$?"; fi
+
 ${cardanocli} address key-gen --verification-key-file ${policyName}.policy.vkey --signing-key-file ${policyName}.policy.skey
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${policyName}.policy.vkey

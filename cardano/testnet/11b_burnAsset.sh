@@ -11,13 +11,15 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  4 ) fromAddr="$(dirname $4)/$(basename $4 .addr)"; fromAddr=${fromAddr/#.\//};
+
+  3|4 ) fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr=${fromAddr};
-      policyName="$3";
-      assetBurnAmount="$2";
-      assetBurnName="$1";;
+      policyName="$(echo $1 | cut -d. -f 1)";
+      assetBurnName="$(echo $1 | cut -d. -f 2)";
+      assetBurnAmount="$2";;
+
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <AssetName> <AssetAmount> <PolicyName> <PaymentAddressName>
+Usage:  $(basename $0) <AssetName> <AssetAmount> <PolicyName> <PaymentAddressName> [optional Metadata.json to send along]
 EOF
   exit 1;; esac
 
@@ -31,10 +33,24 @@ if [[ ${assetBurnAmount} -lt 1 ]]; then echo -e "\e[35mError - The Amount of Ass
 if [ ! -f "${policyName}.policy.id" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.id\" id-file does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
 if [ ! -f "${policyName}.policy.script" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.script\" scriptfile does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
 if [ ! -f "${policyName}.policy.skey" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.skey\" signing key does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
+policyID=$(cat ${policyName}.policy.id)
+
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 
-policyID=$(cat ${policyName}.policy.id)
+#Check if there is also an optional metadata file present
+metafileParameter=""
+if [[ $# -eq 4 ]]; then
+                        metafile="$(dirname $4)/$(basename $4 .json).json"; metafile=${metafile//.\//}
+                        if [ ! -f "${metafile}" ]; then echo -e "The specified Metadata JSON-File '${metafile}' does not exist. Please try again."; exit 1; fi
+                        #Do a simple basic check if the metadatum is in the 0..65535 range
+                        metadatum=$(jq -r "keys_unsorted[0]" ${metafile} 2> /dev/null)
+                        if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
+                        #Check if it is null, a number, lower then zero, higher then 65535
+			if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
+                        metafileParameter="--metadata-json-file ${metafile}"
+fi
+
 
 #Sending ALL lovelaces, so only 1 receiver addresses
 rxcnt="1"
@@ -150,7 +166,7 @@ if [[ ${assetAmountAfterBurn} -lt 0 ]]; then echo -e "\n\e[35mYou can't burn ${a
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}.${assetBurnName}" --invalid-hereafter ${ttl} --fee 0 --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}.${assetBurnName}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -163,7 +179,7 @@ echo -e "\e[0mLovelaces to return to source ${toAddr}.addr: \e[33m $(convertToAD
 #Checking about minimum funds in the UTX0
 if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
 
-echo
+if [[ ! "${metafile}" == "" ]]; then echo -e "\n\e[0mAdding Metadata-File: \e[32m${metafile} \e[90m\n"; cat ${metafile}; fi
 
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
 txFile="${tempDir}/$(basename ${fromAddr}).tx"
@@ -174,7 +190,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}.${assetBurnName}" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}.${assetBurnName}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 #echo "${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out \"${sendToAddr}+${lovelacesToSend}${assetsOutString}\" --mint \"${assetBurnAmount} ${policyID}.${assetBurnName}\" --invalid-hereafter ${ttl}  --out-file ${txBodyFile}"
 
