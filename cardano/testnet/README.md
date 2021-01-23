@@ -1960,7 +1960,7 @@ Done - You have mint (created) 1000 new SUPERTOKENs and they are now added to th
 
 </details>
 
-## How to burn/destroy Native Tokens
+## How to burn/destroy Native Tokens in Offline-Mode
 
 If you wanna burn(destroy) some Native-Tokens, you can do it similar to the minting process. Here you can find an example on how to do it.
 
@@ -1992,7 +1992,7 @@ Done - You have burned (destroyed) 200 SUPERTOKENs. You can send Native-Tokens w
 </details>
 
 
-## How to send Native Tokens
+## How to send Native Tokens in Offline-Mode
 
 This is as simply as sending lovelaces(ADA) from one wallet address to another address. Here you can find two examples on how to do it with self created Tokens and with Tokens you got from other ones.
 
