@@ -2,7 +2,7 @@
 
 *Examples on how to use the scripts **ONLINE** and/or **OFFLINE**, with or without a **Ledger/Trezor-Wallet** can be found on this page :smiley:*
 
-| | [cardano-cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-node](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor FW |
+| | [cardano-cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-node](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |   :---:     |    :---:     |     :---:      |     :---:      |     :---:      |
 | *Required<br>version<br><sub>or higher</sub>* | <b>1.24.2</b><br><sub>**git checkout tags/1.24.2**</sub> | <b>1.24.2</b><br><sub>**git checkout tags/1.24.2**</sub> | <b>1.1.1</b><br><sub>**if you use hw-wallets** | <b>2.1.0</b><br><sub>**if you use hw-wallets** | <b>2.3.5</b><br><sub>**if you use hw-wallets** |
 
