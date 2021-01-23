@@ -1229,9 +1229,7 @@ From the Mary-Era on, you can easily mint(generate) Native-Tokens by yourself, h
 
 The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
 
-Done - You have mint (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the ./01_sendAssets.sh scripts similar to ./01_sendLovelaces.sh
-
-:smiley:
+Done - You have mint (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the example below. :smiley:
 
 </details>
 
@@ -1249,7 +1247,7 @@ If you wanna burn(destroy) some Native-Tokens, you can do it similar to the mint
 
 The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
 
-Done - You have burned (destroyed) 200 SUPERTOKENs. You can send Native-Tokens wth the ./01_sendAssets.sh scripts similar to ./01_sendLovelaces.sh. :smiley:
+Done - You have burned (destroyed) 200 SUPERTOKENs. You can send Native-Tokens with the example below. :smiley:
 
 </details>
 
@@ -1926,6 +1924,132 @@ Make sure you have your owner.payment.addr and smallwallet1.addr file on your On
 Done.  
 
 </details>
+
+## How to mint/create Native Tokens in Offline-Mode
+
+From the Mary-Era on, you can easily mint(generate) Native-Tokens by yourself, here you can find an example on how to do it.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under the policy **mypolicy**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
+
+**Online-Machine:**
+
+1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. First you have to generate a policyName/ID. You can reuse the same policyName/ID to mint other Assets(Tokens) later again. If you already have the policy, skip to step 3
+1. Run ```./10_genPolicy.sh assets/mypolicy``` to generate a new policy with name 'mypolicy' in the assets subdirectory (you can do it in the same directory too of course)
+1. Run ```./11a_mintAsset.sh assets/mypolicy.SUPERTOKEN 1000 mywallet``` to mint 1000 new SUPERTOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
+
+Done - You have mint (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the example below.
+
+:smiley:
+
+</details>
+
+## How to burn/destroy Native Tokens
+
+If you wanna burn(destroy) some Native-Tokens, you can do it similar to the minting process. Here you can find an example on how to do it.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>Important, you can only burn Native-Tokes that you have the policy for. You cannot burn other Native-Tokens that were sent to your wallet address. So lets say we wanna burn 200 **SUPERTOKEN** that we created before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory, and the address we wanna burn the Tokens from is the account **mywallet**.
+
+**Online-Machine:**
+
+1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. Run ```./11b_burnAsset.sh assets/mypolicy.SUPERTOKEN 200 mywallet``` to burn 200 SUPERTOKENs from the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Burning-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
+
+Done - You have burned (destroyed) 200 SUPERTOKENs. You can send Native-Tokens with the example below. :smiley:
+
+</details>
+
+
+## How to send Native Tokens
+
+This is as simply as sending lovelaces(ADA) from one wallet address to another address. Here you can find two examples on how to do it with self created Tokens and with Tokens you got from other ones.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>Lets say we wanna send 15 **SUPERTOKEN** that we created by our own before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory. The Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
+
+**Online-Machine:**
+
+1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. Run ```./01_sendAssets.sh mywallet yourwallet assets/mypolicy.SUPERTOKEN.asset 15``` to send 15 SUPERTOKENs from *mywallet* to *yourwallet*.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
+
+Done. :smiley:
+
+As you can see, we referenced the Token via the AssetsFile ***assets/mypolicy.SUPERTOKEN.asset***. That was easy, wasn't it?
+
+Lets now say we wanna send 36 **RANDOMCOIN**s that we got from another user. For that we have to reference it via the full PolicyID.Assetname scheme. In this example these RANDOMCOIN Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
+
+**Online-Machine:**
+
+1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. Run ```./01_queryAddress.sh mywallet``` to show the content of the *mywallet* address
+1. Select&Copy the Token you wanna send, in this example we wanna send the RANDOMCOINs.<br>
+   So your selection could look like: ```34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN```<br>
+   Paste it into the command Step 3.
+1. Run ```./01_sendAssets.sh mywallet yourwallet 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN 36``` to send 36 of theses RANDOMCOINs from *mywallet* to *yourwallet*.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
+
+Done. :smiley:
+
+There are more options available to select the amount of the Tokens. You can find all the syntax for this 01_sendAssets.sh script [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+&nbsp;<br>
+</details>
+
 
 # Conclusion
 
