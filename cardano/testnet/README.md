@@ -368,19 +368,30 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 &nbsp;<br>
 * **10_genPolicy.sh:** generate policy keys, signing script and id as files **name.policy.skey/vkey/script/id**. You need a policy for Token minting.
   <br>```./10_genPolicy.sh <PolicyName>```
-  <br>```./10_genPolicy.sh mypolicy``` this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
+  
+  ```./10_genPolicy.sh mypolicy```<br>this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
+  
+  ```./10_genPolicy.sh assets/mypolicy2```<br>this will generate the policyfiles with name mypolicy2.policy.skey, mypolicy2.policy.vkey, mypolicy2.policy.script & mypolicy2.policy.id in the 'assets' subdirectory
 
 &nbsp;<br>
-* **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyID generated before. This updates the Token Status File **policyname.tokenname.asset** for later usage when sending/burning Tokens.
-  <br>```./11a_mintAsset.sh <AssetName> <AssetAmount to mint> <PolicyName> <nameOfPaymentAddr>```
-  <br>```./11a_mintAsset.sh SUPERTOKEN 1000 mypolicy mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
-  <br>```./11a_mintAsset.sh MEGATOKEN 30 mypolicy owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
+* **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyName generated before. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
+  <br>```./11a_mintAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [optional Metadata JSON to include]```
+  
+  ```./11a_mintAsset.sh mypolicy.SUPERTOKEN 1000 mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
+  
+  ```./11a_mintAsset.sh mypolicy.MEGATOKEN 30 owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
+  
+  ```./11a_mintAsset.sh mypolicy.HYPERTOKEN 150 owner.payment mymetadata.json```<br>this will mint 150 new HYPERTOKEN with policy 'mypolicy' on the payment address owner.payment.addr and will also attach the mymetadata.json as metadata in the Minting-Transaction
 
 &nbsp;<br>
-* **11b_burnAsset.sh:** burnes Assets(Token) on a given payment address with a policyID you own the keys for. This updates the Token Status File **policyname.tokenname.asset** for later usage when sending/burning Tokens.
-  <br>```./11b_burnAsset.sh <AssetName> <AssetAmount to mint> <PolicyName> <nameOfPaymentAddr>```
-  <br>```./11b_burnAsset.sh SUPERTOKEN 22 mypolicy mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
-  <br>```./11b_burnAsset.sh MEGATOKEN 10 mypolicy owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
+* **11b_burnAsset.sh:** burnes Assets(Token) on a given payment address with a policyName you own the keys for. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
+  <br>```./11b_burnAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [optional Metadata JSON to include]```
+  
+  ```./11b_burnAsset.sh mypolicy.SUPERTOKEN 22 mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
+  
+  ```./11b_burnAsset.sh mypolicy.MEGATOKEN 10 owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
+  
+  ```./11b_burnAsset.sh assets/mypolicy2.HYPERTOKEN 5 owner.payment```<br>this will burn 5 HYPERTOKEN with policy 'mypolicy2' from the subdirectory assets on the payment address owner.payment.addr, also it will send along the mymetadata.json in the Burning-Transaction
 
 </details>
 
@@ -1197,7 +1208,7 @@ It's similar to a single owner stake pool registration (example above). All owne
 <br>```./05b_genDelegationCert.sh mypool owner-1``` this will generate the owner-1.deleg.cert
 <br>```./05b_genDelegationCert.sh mypool owner-2``` this will generate the owner-2.deleg.cert
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool smallwallet1```    
-1. Optionally you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner-1``` and ```./03c_checkStakingAddrOnChain.sh owner-1``` if you don't see it instantly, wait a little and retry the same command
+1. Optionally you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner-1``` and ```./03c_checkStakingAddrOnChain.sh owner-2``` if you don't see it instantly, wait a little and retry the same command
 
 Done.
 </details>
