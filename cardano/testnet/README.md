@@ -2050,7 +2050,6 @@ There are more options available to select the amount of the Tokens. You can fin
 &nbsp;<br>
 </details>
 
-
 # Conclusion
 
 As you can see, its always the same procedure working in Offline-Mode:
