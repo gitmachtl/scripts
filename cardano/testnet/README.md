@@ -6,7 +6,7 @@
 | :---  |   :---:     |    :---:     |     :---:      |     :---:      |     :---:      |
 | *Required<br>version<br><sub>or higher</sub>* | <b>1.24.2</b><br><sub>**git checkout tags/1.24.2**</sub> | <b>1.24.2</b><br><sub>**git checkout tags/1.24.2**</sub> | <b>1.1.1</b><br><sub>**if you use hw-wallets** | <b>2.1.0</b><br><sub>**if you use hw-wallets** | <b>2.3.5</b><br><sub>**if you use hw-wallets** |
 
-> *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet, launchpad or allegra*. 
+> *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet, launchpad or staging*. 
 
 &nbsp;<br>
 ### About
