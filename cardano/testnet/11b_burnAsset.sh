@@ -15,7 +15,7 @@ case $# in
   3|4 ) fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr=${fromAddr};
       policyName="$(echo $1 | cut -d. -f 1)";
-      assetBurnName="$(echo $1 | cut -d. -f 2)";
+      assetBurnName="$(echo $1 | cut -d. -f 2-)"; assetBurnName="$(basename ${assetBurnName} .asset)"; #assetBurnName=${assetBurnName//./};
       assetBurnAmount="$2";;
 
   * ) cat >&2 <<EOF
@@ -25,7 +25,7 @@ EOF
 
 
 #Check assetBurnName for alphanummeric only, 32 chars max
-if [[ ! "${assetBurnName}" == "${assetBurnName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName should only contain alphanummeric chars!\e[0m"; exit; fi
+if [[ ! "${assetBurnName}" == "${assetBurnName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetBurnName}' should only contain alphanummeric chars!\e[0m"; exit; fi
 if [[ ${#assetBurnName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit; fi
 if [[ ${assetBurnAmount} -lt 1 ]]; then echo -e "\e[35mError - The Amount of Assets to burn must be a positive number!\e[0m"; exit; fi
 

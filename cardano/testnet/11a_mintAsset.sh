@@ -15,7 +15,7 @@ case $# in
   3|4 ) fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr=${fromAddr};
       policyName="$(echo $1 | cut -d. -f 1)";
-      assetMintName="$(echo $1 | cut -d. -f 2)";
+      assetMintName="$(echo $1 | cut -d. -f 2-)"; assetMintName="$(basename ${assetMintName} .asset)"; #assetMintName=${assetMintName//./};
       assetMintAmount="$2";;
 
   * ) cat >&2 <<EOF
@@ -24,12 +24,8 @@ Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName>
 EOF
   exit 1;; esac
 
-      #If AssetFileName was provided, read out the PolicyName and the AssetMintName from that json file
-      if [ -f "${assetFileName}" ]; then policyName="$(echo ${assetFileName} | cut -d. -f 1)"; assetToSend="$(jq -r .policyID < ${assetToSend}.asset).$(jq -r .name < ${assetToSend}.asset)"; fi
-
-
 #Check assetMintName for alphanummeric only, 32 chars max
-if [[ ! "${assetMintName}" == "${assetMintName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName should only contain alphanummeric chars!\e[0m"; exit; fi
+if [[ ! "${assetMintName}" == "${assetMintName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetMintName}' should only contain alphanummeric chars!\e[0m"; exit; fi
 if [[ ${#assetMintName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit; fi
 if [[ ${assetMintAmount} -lt 1 ]]; then echo -e "\e[35mError - The Amount of Assets to mint must be a positive number!\e[0m"; exit; fi
 
