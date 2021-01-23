@@ -206,7 +206,7 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset> <AmountOfAssets|ALL> [Optional Amount of lovelaces to attach]```
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
-<br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. Using the PolicyID.TokenNameHASH allowes you to send out Tokens you've got from others. You own generated Tokens can be referenced by the policyName.tokenName schema.
+<br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. Using the PolicyID.TokenNameHASH allowes you to send out Tokens you've got from others. You own generated Tokens can be referenced by the AssetFile 'policyName.tokenName.asset' schema for a easier handling.
 
 &nbsp;<br>
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
@@ -1212,6 +1212,81 @@ It's similar to a single owner stake pool registration (example above). All owne
 
 Done.
 </details>
+
+## How to mint/create Native Tokens
+
+From the Mary-Era on, you can easily mint(generate) Native-Tokens by yourself, here you can find an example on how to do it.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under the policy **mypolicy**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
+
+<br><b>Steps:</b>
+1. First you have to generate a policyName/ID. You can reuse the same policyName/ID to mint other Assets(Tokens) later again. If you already have the policy, skip to step 3
+1. Run ```./10_genPolicy.sh assets/mypolicy``` to generate a new policy with name 'mypolicy' in the assets subdirectory (you can do it in the same directory too of course)
+1. Run ```./11a_mintAsset.sh assets/mypolicy.SUPERTOKEN 1000 mywallet``` to mint 1000 new SUPERTOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
+
+Done - You have mint (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the ./01_sendAssets.sh scripts similar to ./01_sendLovelaces.sh
+
+:smiley:
+
+</details>
+
+## How to burn/destroy Native Tokens
+
+If you wanna burn(destroy) some Native-Tokens, you can do it similar to the minting process. Here you can find an example on how to do it.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>Important, you can only burn Native-Tokes that you have the policy for. You cannot burn other Native-Tokens that were sent to your wallet address. So lets say we wanna burn 200 **SUPERTOKEN** that we created before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory, and the address we wanna burn the Tokens from is the account **mywallet**.
+
+<br><b>Steps:</b>
+1. Run ```./11b_burnAsset.sh assets/mypolicy.SUPERTOKEN 200 mywallet``` to burn 200 SUPERTOKENs from the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Burning-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
+
+Done - You have burned (destroyed) 200 SUPERTOKENs. You can send Native-Tokens wth the ./01_sendAssets.sh scripts similar to ./01_sendLovelaces.sh. :smiley:
+
+</details>
+
+
+## How to send Native Tokens
+
+This is as simply as sending lovelaces(ADA) from one wallet address to another address. Here you can find two examples on how to do it with self created Tokens and with Tokens you got from other ones.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>Lets say we wanna send 15 **SUPERTOKEN** that we created by our own before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory. The Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
+
+<br><b>Steps:</b>
+1. Run ```./01_sendAssets.sh mywallet yourwallet assets/mypolicy.SUPERTOKEN.asset 15``` to send 15 SUPERTOKENs from *mywallet* to *yourwallet*.
+
+Done. :smiley:
+
+As you can see, we referenced the Token via the AssetsFile ***assets/mypolicy.SUPERTOKEN.asset***. That was easy, wasn't it?
+
+Lets now say we wanna send 36 **RANDOMCOIN**s that we got from another user. For that we have to reference it via the full PolicyID.Assetname scheme. In this example these RANDOMCOIN Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
+
+<br><b>Steps:</b>
+1. Run ```./01_queryAddress.sh mywallet``` to show the content of the *mywallet* address
+1. Select&Copy the Token you wanna send, in this example we wanna send the RANDOMCOINs.<br>
+   So your selection could look like: ```34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN```<br>
+   Paste it into the command Step 3.
+1. Run ```./01_sendAssets.sh mywallet yourwallet 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN 36``` to send 36 of theses RANDOMCOINs from *mywallet* to *yourwallet*.
+
+Done. :smiley:
+
+There are more options available to select the amount of the Tokens. You can find all the syntax for this 01_sendAssets.sh script [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+&nbsp;<br>
+</details>
+
+
 
 ## Using multiple relays in your poolname.pool.json
 
