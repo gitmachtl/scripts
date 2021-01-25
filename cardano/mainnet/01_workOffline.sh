@@ -150,7 +150,7 @@ case ${action} in
                 offlineJSON=$( jq ".files.\"${fileToAttach}\" += { date: \"$(date -R)\", size: \"$(du -b ${fileToAttach} | cut -f1)\", base64: \"$(base64 -w 0 ${fileToAttach})\" }" <<< ${offlineJSON});
 
                 if [[ $? -eq 0 ]]; then
-                                        offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed pool registration transaction for '${poolMetaTicker}', payment via '${regPayName}'\" } ]" <<< ${offlineJSON})
+                                        offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"attached file '${fileToAttach}'\" } ]" <<< ${offlineJSON})
                                         echo "${offlineJSON}" > ${offlineFile}
                 			showOfflineFileInfo;
                 			echo -e "\e[33mFile '${fileToAttach}' was attached into the '$(basename ${offlineFile})'. :-)\e[0m\n";
@@ -707,15 +707,17 @@ echo
 echo -e "\e[36mExtracting ${filesCnt} files from the '$(basename ${offlineFile})': \e[0m"
 echo
 
+offlineJSONtemp=${offlineJSON}	#make a temporary local copy of all the files entries, because we delete it directly in the main one
+
 for (( tmpCnt=0; tmpCnt<${filesCnt}; tmpCnt++ ))
 do
 
-  filePath=$(jq -r ".files | keys[${tmpCnt}]" <<< ${offlineJSON})
-  fileDate=$(jq -r ".files.\"${filePath}\".date" <<< ${offlineJSON})
-  fileSize=$(jq -r ".files.\"${filePath}\".size" <<< ${offlineJSON})
+  filePath=$(jq -r ".files | keys[${tmpCnt}]" <<< ${offlineJSONtemp})
+  fileDate=$(jq -r ".files.\"${filePath}\".date" <<< ${offlineJSONtemp})
+  fileSize=$(jq -r ".files.\"${filePath}\".size" <<< ${offlineJSONtemp})
   echo -ne "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${filePath} \e[90m(${fileSize}, ${fileDate})\e[0m -> "
 
-  fileBase64=$(jq -r ".files.\"${filePath}\".base64" <<< ${offlineJSON})
+  fileBase64=$(jq -r ".files.\"${filePath}\".base64" <<< ${offlineJSONtemp})
 
   #Decode base64 and write the it to the filePath
   if [ -f "${filePath}" ]; then
