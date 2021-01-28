@@ -14,3 +14,6 @@ addrformat="--testnet-magic 3"  #choose "--mainnet" for mainnet address format o
 #itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
 
 byronToShelleyEpochs=2 #208 for the mainnet, 74 for the public testnet, 1 for allegra testnet, 2 for launchpad
+
+minNodeVersion="1.24.2"  #minimum allowed node version
+maxNodeVersion="1.24.2"  #maximum allowed node version
