@@ -6,13 +6,9 @@ socket="db-testnet/node.socket"
 genesisfile="configuration-testnet/testnet-shelley-genesis.json"           #Shelley-Genesis path
 genesisfile_byron="configuration-testnet/testnet-byron-genesis.json"       #Byron-Genesis path
 
-#cardanocli="./cardano-cli"      #Path to your cardano-cli you wanna use
-#cardanonode="./cardano-node"    #Path to your cardano-node you wanna use
-
 magicparam="--testnet-magic 1097911063" #choose "--mainnet" for mainnet or for example "--testnet-magic 42" for a testnet
 addrformat="--testnet-magic 1097911063"  #choose "--mainnet" for mainnet address format or like "--testnet-magic 42" for testnet address format
 
-#itn_jcli="./jcli" #only needed if you wanna include your itn witness for your pool-ticker
-
 byronToShelleyEpochs=74 #208 for the mainnet, 74 for the public testnet
 
+minNodeVersion="1.25.1"
