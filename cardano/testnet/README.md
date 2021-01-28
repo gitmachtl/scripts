@@ -1036,7 +1036,10 @@ So this is an important one for many of you that already have registered a stake
    See your options in the section [here](#choose-your-preferred-key-type-for-your-owner-pledge-accounts) to choose between CLI, HW and HYBRID keys.  
 1. Send some funds from your *smallwallet1* to your new *ledgerowner.payment* address for the stake key and delegation registration, 5 ADA should be ok for this ```./01_sendLovelaces.sh smallwallet1 ledgerowner.payment 5000000```
 1. Wait a minute so the transaction is completed   
-1. Register the ledgerowner stake key on the blockchain, **the hw-wallet itself must pay for this**<br>```./03b_regStakingAddrCert.sh ledgerowner ledgerowner.payment```
+1. Register the ledgerowner stake key on the blockchain:<br>&nbsp;<br>
+   * ```./03b_regStakingAddrCert.sh ledgerowner ledgerowner.payment``` if you have a Full-Hardware(**HW**) key (Step 3)<br>
+  or
+   * ```./03b_regStakingAddrCert.sh ledgerowner smallwallet1``` if you have a Hybrid-Hardware(**HYBRID**) key (Step 3)<br>&nbsp;
 1. Wait a minute so the transaction and stake key registration is completed
 1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it, wait a little and retry
 1. [Unlock](#file-autolock-for-enhanced-security) the existing mypool.pool.json file and **add the new ledgerowner** to the list of owners, also we want that the new rewards account is also the new ledgerowner. Only edit the values above the "--- DO NOT EDIT BELOW THIS LINE ---" line, **EDIT IT** and **SAVE IT**:
@@ -1063,7 +1066,10 @@ So this is an important one for many of you that already have registered a stake
 1. If you have changed also some Metadata, **upload** the newly generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error. If you have only updated the owners, skip it.
 1. Re-Register your stakepool on the blockchain, smallwallet1 will pay for the registration fees. This will be only a pool update, so this will not cost you the initial 500 ADA, only a few fees.<br>```./05c_regStakepoolCert.sh mypool smallwallet1```
 1. Wait a minute so the transaction and stakepool registration is completed
-1. Send all new owner delegations to the blockchain. :bulb: Notice! This is different than before when using only CLI-Owner-Keys, if any owner is a HW-Wallet than you have to send the individual delegations after the stakepool registration. You can read more about it [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved).<br>We have only one new owner so lets do this by running the following command, **the HW-Wallet itself must pay for this**<br>```./06_regDelegationCert.sh ledgerowner ledgerowner.payment```
+1. Send all new owner delegations to the blockchain. :bulb: Notice! This is different than before when using only CLI-Owner-Keys, if any owner is a HW-Wallet than you have to send the individual delegations after the stakepool registration. You can read more about it [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved). We have only one new owner so lets do this by running the following command:<br>&nbsp;<br>
+   * ```./06_regDelegationCert.sh ledgerowner ledgerowner.payment``` if you have a Full-Hardware(**HW**) key (Step 3)<br>
+   or
+   * ```./06_regDelegationCert.sh ledgerowner smallwallet1``` if you have a Hybrid-Hardware(**HYBRID**) key (Step 3)<br>&nbsp;
 1. Wait a minute so the transaction and delegation certificate is completed
 1. Verify that your new owner delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it instantly, wait a little and retry the same command
 
