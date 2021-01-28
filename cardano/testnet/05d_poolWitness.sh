@@ -385,15 +385,14 @@ case ${action} in
 			echo -e "\e[0mSigning via Hardware-Wallet ...\n"
 			if [ ! -f "${signingKey}.hwsfile" ]; then echo -e "\n\e[35mError - \"${signingKey}.hwsfile\" file not found !\e[0m"; exit 1; fi
 	                start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-			tmp=$(${cardanohwcli} transaction witness --tx-body-file <(echo ${witnessTxBody}) --hw-signing-file ${signingKey}.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
+			tmp=$(${cardanohwcli} shelley transaction witness --tx-body-file <(echo ${witnessTxBody}) --hw-signing-file ${signingKey}.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
 			if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-	                tmpWitness=$(cat ${tmpWitnessFile})
 	                #Doing a txWitness Hack, because currently the ledger-fw is not using the right Era - Must be removed later when corrected!
-	                #Disabled now with cardano-hw-cli release 1.1.2
-			#if [[ "$(jq -r .type <<< ${witnessTxBody})" == "TxBodyMary" ]]; then tmpWitness=$(jq ".type = \"TxWitness MaryEra\"" <<< ${tmpWitness}); fi
-	                #if [[ "$(jq -r .type <<< ${witnessTxBody})" == "TxBodyAllegra" ]]; then tmpWitness=$(jq ".type = \"TxWitness AllegraEra\"" <<< ${tmpWitness}); fi
+	                tmpWitness=$(cat ${tmpWitnessFile})
+	                if [[ "$(jq -r .type <<< ${witnessTxBody})" == "TxBodyMary" ]]; then tmpWitness=$(jq ".type = \"TxWitness MaryEra\"" <<< ${tmpWitness}); fi
+	                if [[ "$(jq -r .type <<< ${witnessTxBody})" == "TxBodyAllegra" ]]; then tmpWitness=$(jq ".type = \"TxWitness AllegraEra\"" <<< ${tmpWitness}); fi
 
                 	witnessJSON=$(jq ".signedWitness = ${tmpWitness}" <<< ${witnessJSON}); #include the witness in the witnessJSON
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

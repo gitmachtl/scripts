@@ -212,7 +212,7 @@ echo
 #If payment address is a hardware wallet, use the cardano-hw-cli for the signing
 if [[ -f "${fromAddr}.hwsfile" ]]; then
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${magicparam} --out-file ${txFile} 2> /dev/stdout)
+        tmp=$(${cardanohwcli} shelley transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${magicparam} --out-file ${txFile} 2> /dev/stdout)
         if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 else

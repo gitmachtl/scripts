@@ -322,8 +322,8 @@ fi
 ownerKeys="" #building string for the certificate
 
 #Check needed inputfiles
-if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.node.vkey is missing! Check poolName field in ${poolFile}.pool.json about the right path, or generate it with script 04a !\e[0m"; exit 1; fi
-if [ ! -f "${poolName}.vrf.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.vrf.vkey is missing! Check poolName field in ${poolFile}.pool.json about the right path, or generate it with script 04b !\e[0m"; exit 1; fi
+if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.node.vkey is missing, please generate it with script 04a !\e[0m"; exit 1; fi
+if [ ! -f "${poolName}.vrf.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.vrf.vkey is missing, please generate it with script 04b !\e[0m"; exit 1; fi
 if [ ! -f "${rewardsName}.staking.vkey" ]; then echo -e "\e[0mERROR - ${rewardsName}.staking.vkey is missing! Check poolRewards field in ${poolFile}.pool.json, or generate one with script 03a !\e[0m"; exit 1; fi
 
 rewardsAccountIncluded="no"

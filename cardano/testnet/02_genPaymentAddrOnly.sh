@@ -63,7 +63,7 @@ if [[ ${keyType^^} == "CLI" ]]; then #Building it from the cli
 
         #We need a enterprise paymentonly keypair with vkey and hwsfile from a Hardware-Key, so lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/0H/0/0 --verification-key-file ${addrName}.vkey --hw-signing-file ${addrName}.hwsfile 2> /dev/stdout)
+        tmp=$(${cardanohwcli} shelley address key-gen --path 1852H/1815H/0H/0/0 --verification-key-file ${addrName}.vkey --hw-signing-file ${addrName}.hwsfile 2> /dev/stdout)
         if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
