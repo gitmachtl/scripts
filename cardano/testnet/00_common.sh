@@ -61,12 +61,13 @@ minNodeVersion="1.24.2"  #minimum allowed node version for this script-collectio
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="2.1.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.3.5"  #minimum version for the cardano-app on the Trezor hardwarewallet
+minHardwareCliVersion="1.1.2" #minimum version for the cardano-hw-cli
 
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
 
 #Overwrite variables via env file if present
-scriptDir=$(dirname "$0")
+scriptDir=$(dirname "$0" 2> /dev/null)
 if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
@@ -354,6 +355,44 @@ echo "${outJSON}"
 }
 #-------------------------------------------------------
 
+#-------------------------------------------------------
+#Cuts out all UTXOs in a mary style UTXO JSON that contains Assets
+onlyLovelaces_UTXO()
+{
+local inJSON=${1}
+local outJSON=${inJSON}
+local utxoEntryCnt=$(jq length <<< ${inJSON})
+local tmpCnt=0
+for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
+do
+local utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${inJSON})
+local utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${inJSON})
+local assetCnt=$(jq -r ".\"${utxoHashIndex}\".amount[1] | length" <<< ${inJSON})
+if [[ ${assetCnt} -gt 0 ]]; then local outJSON=$( jq "del (.\"${utxoHashIndex}\")" <<< ${outJSON}); fi
+done
+echo "${outJSON}"
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Cuts out all UTXOs in a mary style UTXO JSON that does not contains Assets
+onlyAssets_UTXO()
+{
+local inJSON=${1}
+local outJSON=${inJSON}
+local utxoEntryCnt=$(jq length <<< ${inJSON})
+local tmpCnt=0
+for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
+do
+local utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${inJSON})
+local utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${inJSON})
+local assetCnt=$(jq -r ".\"${utxoHashIndex}\".amount[1] | length" <<< ${inJSON})
+if [[ ${assetCnt} -eq 0 ]]; then local outJSON=$( jq "del (.\"${utxoHashIndex}\")" <<< ${outJSON}); fi
+done
+echo "${outJSON}"
+}
+#-------------------------------------------------------
+
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO level that has to be sent depending on the assets and the minUTXO protocol-parameters
@@ -500,14 +539,19 @@ if [ -f "${offlineFile}" ]; then
 start_HwWallet() {
 
 if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
-echo -ne "\e[33mPlease open the Cardano App on your Hardware-Wallet (abort with CTRL+C)\e[0m\n\n\033[2A\n"
+
+versionHWCLI=$(${cardanohwcli} version 2> /dev/null |& head -n 1 |& awk {'print $6'})
+versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+
+echo -ne "\e[33mPlease connect & unlock your Hardware-Wallet, open the Cardano-App on Ledger-Devices (abort with CTRL+C)\e[0m\n\n\033[2A\n"
 local tmp=$(${cardanohwcli} device version 2> /dev/stdout)
 local pointStr="....."
 until [[ "${tmp}" == *"app version"* && ! "${tmp}" == *"undefined"* ]]; do
 	local tmpCnt=6
 	while [[ ${tmpCnt} > 0 ]]; do
 	tmpCnt=$(( ${tmpCnt} - 1 ))
-	echo -ne "\r\e[35m${tmp}\e[0m - retry in ${tmpCnt} secs ${pointStr:${tmpCnt}}\033[K"
+	echo -ne "\r\e[35m${tmp:0:64} ...\e[0m - retry in ${tmpCnt} secs ${pointStr:${tmpCnt}}\033[K"
 	sleep 1
 	done
 tmp=$(${cardanohwcli} device version 2> /dev/stdout)

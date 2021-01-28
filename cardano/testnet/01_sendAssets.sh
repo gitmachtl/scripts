@@ -16,7 +16,7 @@ case $# in
       assetToSend="$3";
       amountToSend="$4";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <PolicyID.Name of the asset OR <PATHtoNAME>.asset of the asset file> <Amount of assets to send OR keyword ALL> [Optional Amount of lovelaces to attach, normally zero]
+Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <PolicyID.Name of the asset OR the PATH to the AssetFile(.asset)> <Amount of assets to send OR keyword ALL> [Optional Amount of lovelaces to attach, normally zero]
 EOF
   exit 1;; esac
 
@@ -29,7 +29,8 @@ if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey
 if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
 
 #Check if the assetToSend is a file xxx.asset then read out the data from the file instead
-if [ -f "${assetToSend}.asset" ]; then assetToSend="$(jq -r .policyID < ${assetToSend}.asset).$(jq -r .name < ${assetToSend}.asset)"; fi
+assetFile="$(dirname ${assetToSend})/$(basename ${assetToSend} .asset).asset"
+if [ -f "${assetFile}" ]; then assetToSend="$(jq -r .policyID < ${assetFile}).$(jq -r .name < ${assetFile})"; fi
 
 echo -e "\e[0mSending assets from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
 echo
