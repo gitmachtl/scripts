@@ -9,6 +9,6 @@ genesisfile_byron="configuration-testnet/staging-byron-genesis.json"       #Byro
 magicparam="--testnet-magic 633343913" #choose "--mainnet" for mainnet or for example "--testnet-magic 42" for a testnet
 addrformat="--mainnet"  #choose "--mainnet" for mainnet address format or like "--testnet-magic 42" for testnet address format
 
-byronToShelleyEpochs=208 #208 for the mainnet, 74 for the public testnet, 1 for allegra testnet
+byronToShelleyEpochs=208 #208 for the mainnet(or staging), 74 for the public testnet, 1 for allegra testnet
 
 minNodeVersion="1.25.1"
