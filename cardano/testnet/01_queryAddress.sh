@@ -37,12 +37,19 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
                                 utxoJSON=$(jq -r ".address.\"${checkAddr}\".utxoJSON" <<< ${offlineJSON})
                                 if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
 	fi
-	utxoEntryCnt=$(jq length <<< ${utxoJSON})
-	if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
-	echo
 
 	#Convert UTXO into mary style if UTXO is shelley/allegra style
 	if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
+
+	#onlyLovelaces=true
+	#if ${onlyLovelaces}; then utxoJSON=$(onlyLovelaces_UTXO "${utxoJSON}"); fi
+
+        #onlyAssets=true
+        #if ${onlyAssets}; then utxoJSON=$(onlyAssets_UTXO "${utxoJSON}"); fi
+
+        utxoEntryCnt=$(jq length <<< ${utxoJSON})
+        if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
+        echo
 
 	#Calculating the total amount of lovelaces in all utxos on this address
 	totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
@@ -59,6 +66,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
 	assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
 	assetsEntryCnt=$(jq length <<< ${assetsJSON})
+
 	if [[ ${assetsEntryCnt} -gt 0 ]]; then
 			#LEVEL 2 - different policyIDs
 			for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
