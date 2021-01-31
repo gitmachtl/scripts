@@ -12,14 +12,24 @@
 
 if [[ $# -eq 1 && ! $1 == "" ]]; then nodeName=$1; else echo "ERROR - Usage: $0 <name>"; exit 2; fi
 
-#check that *.kes.counter and *.node.counter is present
-if [ ! -f "${nodeName}.kes.counter" ]; then echo -e "\e[0mERROR - Please generate new KES Keys with ${nodeName}.kes.counter first ...\e[0m"; exit 2; fi
-if [ ! -f "${nodeName}.node.counter" ]; then echo -e "\e[0mERROR - Please generate Node Keys with ${nodeName}.node.counter first with script 04a ...\e[0m"; exit 2; fi
+#check that *.kes.counter and *.node.skey is present
+if [ ! -f "${nodeName}.kes.counter" ]; then echo -e "\e[0mERROR - Please generate new KES Keys with ${nodeName}.kes.counter first with script 04c ...\e[0m"; exit 2; fi
+if [ ! -f "${nodeName}.node.skey" ]; then echo -e "\e[0mERROR - Cannot find '${nodeName}.node.skey', please generate Node Keys with ${nodeName}.node.counter first with script 04a ...\e[0m"; exit 2; fi
 
+#check if there is a node.counter file, if not, ask about generating a new one
+if [ ! -f "${nodeName}.node.counter" ]; then
+					#echo -e "\e[0mERROR - Please generate Node Keys with ${nodeName}.node.counter first with script 04a ...\e[0m"; exit 2;
+					if ask "\e[33mCannot find '${nodeName}.node.counter', do you wanna create a new one?" N; then
+							if [ ! -f "${nodeName}.node.vkey" ]; then echo -e "\n\e[35mERROR - Cannot find '${nodeName}.node.vkey', please generate Node Keys first with script 04a ...\e[0m\n"; exit 2; fi
+							${cardanocli} ${subCommand} node new-counter --cold-verification-key-file ${nodeName}.node.vkey --counter-value 0 --operational-certificate-issue-counter-file ${nodeName}.node.counter
+					else
+					echo -e "\n\e[35mERROR - Cannot create new OperationalCertificate (opcert) without a '${nodeName}.node.counter' file!\n\e[0m"; exit 2;
+					fi
+fi
 
 #grab the next issue number from the counter file
 nextKESnumber=$(cat ${nodeName}.node.counter | jq -r .description | awk 'match($0,/Next certificate issue number: [0-9]+/) {print substr($0, RSTART+31,RLENGTH-31)}')
-nextKESnumber=$(printf "%03d" ${nextKESnumber})  #to get a nice 4 digit output
+nextKESnumber=$(printf "%03d" ${nextKESnumber})  #to get a nice 3 digit output
 
 #grab the latest generated KES number
 latestKESnumber=$(cat ${nodeName}.kes.counter)
@@ -56,17 +66,12 @@ currentKESperiod=$(( (${currentSlot}-${byronSlots}) / (${slotsPerKESPeriod}*${sl
 if [[ "${currentKESperiod}" -lt 0 ]]; then currentKESperiod=0; fi
 
 
-######################
-#TEMPORARY FIX
-#currentKESperiod=0
-
 #Calculating Expire KES Period and Date/Time
 maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
 expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
 #expireTimeSec=$(( ${transTimeEnd} + (${slotLength}*${expiresKESperiod}*${slotsPerKESPeriod}) ))
 expireTimeSec=$(( ${currentTimeSec} + (${slotLength}*${maxKESEvolutions}*${slotsPerKESPeriod}) ))
 expireDate=$(date --date=@${expireTimeSec})
-
 
 file_unlock ${nodeName}.kes-expire.json
 echo -e "{\n\t\"latestKESfileindex\": \"${latestKESnumber}\",\n\t\"currentKESperiod\": \"${currentKESperiod}\",\n\t\"expireKESperiod\": \"${expiresKESperiod}\",\n\t\"expireKESdate\": \"${expireDate}\"\n}" > ${nodeName}.kes-expire.json
