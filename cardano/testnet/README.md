@@ -36,7 +36,7 @@ Why not always using Offline-Mode? You have to do transactions online, you have 
 <br>```offlineMode="no"``` Scripts are working in Online-Mode
 <br>```offlineMode="yes"``` Scripts are working in Offline-Mode
 
-So on the Online-Machine you set the ```offlineMode="no"``` and on the Offline-Machine you set the ```offlineMode="yes"```.
+So on the Online-Machine you set the ```offlineMode="no"``` and on the Offline-Machine you set the ```offlineMode="yes"```. 
 
 </details>
 
