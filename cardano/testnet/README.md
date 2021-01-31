@@ -367,11 +367,14 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 &nbsp;<br>
 * **10_genPolicy.sh:** generate policy keys, signing script and id as files **name.policy.skey/vkey/script/id**. You need a policy for Token minting.
-  <br>```./10_genPolicy.sh <PolicyName>```
+  <br>```./10_genPolicy.sh <PolicyName> [Optional valid xxx Slots (default=unlimited)]```
   
   ```./10_genPolicy.sh mypolicy```<br>this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
   
   ```./10_genPolicy.sh assets/mypolicy2```<br>this will generate the policyfiles with name mypolicy2.policy.skey, mypolicy2.policy.vkey, mypolicy2.policy.script & mypolicy2.policy.id in the 'assets' subdirectory
+  
+  ```./10_genPolicy.sh assets/special 600```<br>this will generate the policyfiles with name special.policy.skey, special.policy.vkey, special.policy.script & special.policy.id in the 'assets' subdirectory with a limited minting/burning access of 600 seconds(10 mins). Within those 10 mins you can mint lets say 200000 Tokens. After this 10 mins you will not be able to mint more Tokens or burn any Tokens with that Policy. So the total amount of the Tokens made with this Policy is fixed on the chain. :smiley:
+  
 
 &nbsp;<br>
 * **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyName generated before. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
@@ -382,6 +385,8 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   ```./11a_mintAsset.sh mypolicy.MEGATOKEN 30 owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
   
   ```./11a_mintAsset.sh mypolicy.HYPERTOKEN 150 owner.payment mymetadata.json```<br>this will mint 150 new HYPERTOKEN with policy 'mypolicy' on the payment address owner.payment.addr and will also attach the mymetadata.json as metadata in the Minting-Transaction
+  
+  It generally depends on the Policy-Type (made by the script 10a) if you can mint unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be more.
 
 &nbsp;<br>
 * **11b_burnAsset.sh:** burnes Assets(Token) on a given payment address with a policyName you own the keys for. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
@@ -392,6 +397,8 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   ```./11b_burnAsset.sh mypolicy.MEGATOKEN 10 owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
   
   ```./11b_burnAsset.sh assets/mypolicy2.HYPERTOKEN 5 owner.payment```<br>this will burn 5 HYPERTOKEN with policy 'mypolicy2' from the subdirectory assets on the payment address owner.payment.addr, also it will send along the mymetadata.json in the Burning-Transaction
+
+It generally depends on the Policy-Type (made by the script 10a) if you can burn unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be less.
 
 </details>
 
@@ -1226,7 +1233,9 @@ From the Mary-Era on, you can easily mint(generate) Native-Tokens by yourself, h
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
-<br>So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under the policy **mypolicy**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
+### Mint an unresticted amount of Tokens
+
+So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under the policy **mypolicy**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
 
 <br><b>Steps:</b>
 1. First you have to generate a policyName/ID. You can reuse the same policyName/ID to mint other Assets(Tokens) later again. If you already have the policy, skip to step 3
@@ -1235,7 +1244,20 @@ From the Mary-Era on, you can easily mint(generate) Native-Tokens by yourself, h
 
 The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
 
-Done - You have mint (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the example below. :smiley:
+Done - You have minted (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the example below. You can mint more anytime if you like. :smiley:
+
+### Mint a resticted amount of Tokens within a set time window
+
+Lets say we wanna create 200000 Tokens with the name **RARETOKEN** under the policy **special**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
+
+<br><b>Steps:</b>
+1. First you have to generate a policyName/ID that is time limited (slotheight limited). Using such a policy gives you the ability to mint your Tokens on the Chain for a limited amount of time, after that your cannot mint more or burn any of those. 
+1. Run ```./10_genPolicy.sh assets/special 600``` to generate a new policy with name 'special' in the assets subdirectory. The slotheight (time limit) is set to 600 -> 600 seconds 
+1. Run ```./11a_mintAsset.sh assets/special.RARETOKEN 200000 mywallet``` to mint 200000 RARETOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+The AssetsFile ***assets/special.RARETOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
+
+Done - You have minted (created) 200000 RARETOKENs within the given time limit and there will never be more RARETOKENs available on the the chain, the policy for minting and burning is deactivated automatically after the set 600 seconds (10 mins). :smiley:
 
 </details>
 
@@ -1938,7 +1960,9 @@ From the Mary-Era on, you can easily mint(generate) Native-Tokens by yourself, h
 <details>
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
-<br>So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under the policy **mypolicy**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
+### Mint an unresticted amount of Tokens
+
+So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under the policy **mypolicy**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
 
 **Online-Machine:**
 
@@ -1960,7 +1984,35 @@ The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated w
 
 1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
 
-Done - You have mint (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the example below.
+Done - You have minted (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the example below. You can mint more if you like later.
+
+:smiley:
+
+### Mint a resticted amount of Tokens within a set time window
+
+Lets say we wanna create 200000 Tokens with the name **RARETOKEN** under the policy **special**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
+
+**Online-Machine:**
+
+1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:** (same steps like working online)
+
+1. First you have to generate a policyName/ID that is time limited (slotheight limited). Using such a policy gives you the ability to mint your Tokens on the Chain for a limited amount of time, after that your cannot mint more or burn any of those. 
+1. Run ```./10_genPolicy.sh assets/special 600``` to generate a new policy with name 'special' in the assets subdirectory. The slotheight (time limit) is set to 1200 -> 1200 seconds 
+1. Run ```./11a_mintAsset.sh assets/special.RARETOKEN 200000 mywallet``` to mint 200000 RARETOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+The AssetsFile ***assets/special.RARETOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
+
+**Online-Machine:**
+
+1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
+
+Done - You have minted (created) 200000 RARETOKENs within the given time limit and there will never be more RARETOKENs available on the the chain, the policy for minting and burning is deactivated automatically after the given 1200 seconds (20 mins). :smiley:
 
 :smiley:
 
