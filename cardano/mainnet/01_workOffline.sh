@@ -589,21 +589,22 @@ case ${transactionType} in
 		        #the one in the currently pool.json file. If they match up, continue. Otherwise exit with an ERROR
 		        #Fetch online metadata.json file from the pool webserver
 		        echo -ne "\e[0mMetadata HASH Check, fetching the MetaData JSON file from \e[32m${poolMetaUrl}\e[0m: "
-		        tmpMetadataJSON=$(curl -sL "${poolMetaUrl}" 2> /dev/null)
+		        tmpMetadataJSON="${tempDir}/tmpmetadata.json"
+			curl -sL "${poolMetaUrl}" --output "${tmpMetadataJSON}"
 		        if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR, can't fetch the metadata file from the webserver!\e[0m\n"; exit 1; fi
 		        #Check the downloaded data that is a valid JSON file
-		        tmpCheckJSON=$(echo "${tmpMetadataJSON}" | jq . 2> /dev/null)
+			tmpCheckJSON=$(jq . "${tmpMetadataJSON}" 2> /dev/null)
 		        if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Not a valid JSON file on the webserver!\e[0m\n"; exit 1; fi
 		        #Ok, downloaded file is a valid JSON file. So now look into the HASH
-		        onlineMetaHash=$(${cardanocli} ${subCommand} stake-pool metadata-hash --pool-metadata-file <(echo "${tmpMetadataJSON}") )
+			onlineMetaHash=$(${cardanocli} ${subCommand} stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
 		        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		        #Compare the HASH now, if they don't match up, output an ERROR message and exit
 		        if [[ ! "${poolMetaHash}" == "${onlineMetaHash}" ]]; then
 		                echo -e "\e[35mERROR - HASH mismatch!\n\nPlease make sure to upload your MetaData JSON file correctly to your webserver!\nPool-Registration aborted! :-(\e[0m\n";
-		                echo -e "\nYour remote file at \e[32m${poolMetaUrl}\e[0m with HASH \e[32m${onlineMetaHash}\e[0m:\n"
-		                echo -e "--- BEGIN ---\e[33m"
-		                echo "${tmpMetadataJSON}"
-		                echo -e "\e[0m---  END  ---"
+		                echo -e "\nYour remote file at \e[32m${poolMetaUrl}\e[0m with HASH \e[32m${onlineMetaHash}\e[0m\ndoes not match with your local HASH \e[32m${poolMetaHash}\e[0m:\n"
+		                echo -e "--- BEGIN REMOTE FILE ---\e[33m"
+		                cat "${tmpMetadataJSON}"
+		                echo -e "\e[0m---  END REMOTE FILE ---"
 		                echo -e "\e[0m\n"
 		                exit 1;
 		        else echo -e "\e[32mOK\e[0m\n"; fi
