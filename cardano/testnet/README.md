@@ -1071,7 +1071,7 @@ So this is an important one for many of you that already have registered a stake
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate the updated pool certificate **mypool.pool.cert**
 1. Delegate the new **ledgerowner** to your own pool as owner -> **pledge** ```./05b_genDelegationCert.sh mypool ledgerowner``` this will generate the **ledgerowner.deleg.cert**
 1. If you have changed also some Metadata, **upload** the newly generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error. If you have only updated the owners, skip it.
-1. Re-Register your stakepool on the blockchain, smallwallet1 will pay for the registration fees. This will be only a pool update, so this will not cost you the initial 500 ADA, only a few fees.<br>```./05c_regStakepoolCert.sh mypool smallwallet1```
+1. Re-Register your stakepool on the blockchain, smallwallet1 will pay for the registration fees. This will be only a pool update, so this will not cost you the initial 500 ADA, only a few fees.<br>```./05c_regStakepoolCert.sh mypool smallwallet1 REREG```
 1. Wait a minute so the transaction and stakepool registration is completed
 1. Send all new owner delegations to the blockchain. :bulb: Notice! This is different than before when using only CLI-Owner-Keys, if any owner is a HW-Wallet than you have to send the individual delegations after the stakepool registration. You can read more about it [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved). We have only one new owner so lets do this by running the following command:<br>&nbsp;<br>
    * ```./06_regDelegationCert.sh ledgerowner ledgerowner.payment``` if you have a Full-Hardware(**HW**) key (Step 3)<br>
@@ -1790,7 +1790,7 @@ We use the smallwallet1 to pay for the different fees in this process. Make sure
    We wanna do the signing on this machine so you can leave ownerWitness at 'local'. You can find out more about the ownerWitness parameter and how to work with Multi-Witnesses [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved)
 1. Run ```./05a_genStakepoolCert.sh mypool``` to generate the updated pool certificate **mypool.pool.cert**
 1. Delegate to your own pool as owner -> **pledge** ```./05b_genDelegationCert.sh mypool ledgerowner``` this will generate the **ledgerowner.deleg.cert**
-1. Generate now the transaction for the the stakepool registration, smallwallet1 will pay for the re-registration fees<br>```./05c_regStakepoolCert.sh mypool smallwallet1```<br>Let the script also autoinclude your new mypool.metadata.json file into the transferOffline.json if you have changed some Metadata!
+1. Generate now the transaction for the stakepool re-registration, smallwallet1 will pay for the re-registration fees<br>```./05c_regStakepoolCert.sh mypool smallwallet1 REREG```<br>Let the script also autoinclude your new mypool.metadata.json file into the transferOffline.json if you have changed some Metadata!
 
 :floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
 
