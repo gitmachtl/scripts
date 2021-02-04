@@ -157,8 +157,6 @@ echo
 
 echo
 
-echo "**${assetsOutString}**"
-
 #Read ProtocolParameters
 if ${onlineMode}; then
                         protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
