@@ -15,7 +15,7 @@ case $# in
   3|4 ) fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr=${fromAddr};
       policyName="$(echo $1 | cut -d. -f 1)";
-      assetMintName="$(echo $1 | cut -d. -f 2-)"; assetMintName="$(basename ${assetMintName} .asset)"; #assetMintName=${assetMintName//./};
+      assetMintName="$(echo $1 | cut -d. -f 2-)"; assetMintName=$(basename "${assetMintName}" .asset); #assetMintName=${assetMintName//./};
       assetMintAmount="$2";;
 
   * ) cat >&2 <<EOF
@@ -25,7 +25,8 @@ EOF
   exit 1;; esac
 
 #Check assetMintName for alphanummeric only, 32 chars max
-if [[ ! "${assetMintName}" == "${assetMintName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetMintName}' should only contain alphanummeric chars!\e[0m"; exit; fi
+if [[ "${assetMintName}" == ".asset" ]]; then assetMintName="";
+elif [[ ! "${assetMintName}" == "${assetMintName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetMintName}' should only contain alphanummeric chars!\e[0m"; exit; fi
 if [[ ${#assetMintName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit; fi
 if [[ ${assetMintAmount} -lt 1 ]]; then echo -e "\e[35mError - The Amount of Assets to mint must be a positive number!\e[0m"; exit; fi
 
@@ -98,8 +99,12 @@ echo
 
         #totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
 	#Preload the new Asset to mint in the totalAssetsJSON
-	totalAssetsJSON=$( jq ". += {\"${policyID}.${assetMintName}\":{amount: ${assetMintAmount}, name: \"${assetMintName}\"}}" <<< "{}")
+
+	if [[ "${assetMintName}" == "" ]]; then point=""; else point="."; fi
+
+	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetMintName}\":{amount: ${assetMintAmount}, name: \"${assetMintName}\"}}" <<< "{}")
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
+	totalPolicyIDsJSON=$( jq ". += {\"${policyID}\": 1}" <<< ${totalPolicyIDsJSON})
 
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
 	#LEVEL 1 - different UTXOs
@@ -123,9 +128,10 @@ echo
                                 do
                                 assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-                                oldValue=$(jq -r ".\"${assetHash}.${assetName}\".amount" <<< ${totalAssetsJSON})
+				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+				oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$((${oldValue}+${assetAmount}))
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}.${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
                          done
@@ -151,6 +157,8 @@ echo
 
 echo
 
+echo "**${assetsOutString}**"
+
 #Read ProtocolParameters
 if ${onlineMode}; then
                         protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
@@ -160,10 +168,12 @@ if ${onlineMode}; then
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
 
+if [[ "${assetMintName}" == "" ]]; then point=""; else point="."; fi
+
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --mint "${assetMintAmount} ${policyID}.${assetMintName}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --mint "${assetMintAmount} ${policyID}${point}${assetMintName}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -187,7 +197,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "${assetMintAmount} ${policyID}.${assetMintName}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "${assetMintAmount} ${policyID}${point}${assetMintName}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 #echo "${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out \"${sendToAddr}+${lovelacesToSend}${assetsOutString}\" --mint \"${assetMintAmount} ${policyID}.${assetMintName}\" --invalid-hereafter ${ttl}  --out-file ${txBodyFile}"
 

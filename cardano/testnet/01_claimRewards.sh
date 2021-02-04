@@ -10,7 +10,7 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  2|3 ) stakeAddr="$(dirname $1)/$(basename $1 .staking).staking"; stakeAddr=${stakeAddr/#.\//}
+  2|3|4 ) stakeAddr="$(dirname $1)/$(basename $1 .staking).staking"; stakeAddr=${stakeAddr/#.\//}
 	toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//};;
   * ) cat >&2 <<EOF
 Usage:  $(basename $0) <StakeAddressName> <To AddressName> [optional <FeePaymentAddressName>]
@@ -24,7 +24,7 @@ if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tem
 
 #Check if an optional fee payment address is given and different to the receiver address
 fromAddr=${toAddr}
-if [[ $# -eq 3 ]]; then fromAddr="$(dirname $3)/$(basename $3 .addr)"; fi
+if [ $# -eq 3 ] && [ ! "${3^^}" == "ONLYADA" ]; then fromAddr="$(dirname $3)/$(basename $3 .addr)"; fi
 if [[ "${fromAddr}" == "${toAddr}" ]]; then rxcnt="1"; else rxcnt="2"; fi
 
 #Checks for needed files
@@ -40,7 +40,8 @@ if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e
 
 echo -e "\e[0mClaim Staking Rewards from Address\e[32m ${stakeAddr}.addr\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
 echo
-echo
+
+lastCallParam=${@: -1};
 
 #get live values
 currentTip=$(get_currentTip)
@@ -116,11 +117,16 @@ echo
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
                                 if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
         fi
-	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
-	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
         #Convert UTXO into mary style if UTXO is shelley/allegra style
         if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
+
+	#Only use UTXOs with lovelaces in it if Scripts was called with the last parameter keyword "ONLYADA"
+	if [[ "${lastCallParam^^}" == "ONLYADA" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly UTXOs with ADA(lovelaces) on it, no Assets\e[0m\n"; utxoJSON=$(onlyLovelaces_UTXO "${utxoJSON}"); fi
+
+        txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
+        if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
+
 
 	#Calculating the total amount of lovelaces in all utxos on this address
         totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
@@ -152,9 +158,10 @@ echo
                                 do
                                 assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-                                oldValue=$(jq -r ".\"${assetHash}.${assetName}\".amount" <<< ${totalAssetsJSON})
+				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$((${oldValue}+${assetAmount}))
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}.${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
                          done

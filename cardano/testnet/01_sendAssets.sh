@@ -29,8 +29,13 @@ if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey
 if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
 
 #Check if the assetToSend is a file xxx.asset then read out the data from the file instead
-assetFile="$(dirname ${assetToSend})/$(basename ${assetToSend} .asset).asset"
-if [ -f "${assetFile}" ]; then assetToSend="$(jq -r .policyID < ${assetFile}).$(jq -r .name < ${assetFile})"; fi
+assetFile="$(dirname ${assetToSend})/$(basename "${assetToSend}" .asset).asset"
+
+if [ -f "${assetFile}" ]; then
+				tmpAssetPolicy="$(jq -r .policyID < ${assetFile})"
+				tmpAssetName="$(jq -r .name < ${assetFile})"
+				if [[ "${tmpAssetName}" == "" ]]; then assetToSend="${tmpAssetPolicy}"; else assetToSend="${tmpAssetPolicy}.${tmpAssetName}"; fi
+fi
 
 echo -e "\e[0mSending assets from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
 echo
@@ -98,9 +103,10 @@ echo
                                 do
                                 assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-                                oldValue=$(jq -r ".\"${assetHash}.${assetName}\".amount" <<< ${totalAssetsJSON})
+				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$((${oldValue}+${assetAmount}))
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}.${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
                          done

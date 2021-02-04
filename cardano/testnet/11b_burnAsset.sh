@@ -15,17 +15,18 @@ case $# in
   3|4 ) fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr=${fromAddr};
       policyName="$(echo $1 | cut -d. -f 1)";
-      assetBurnName="$(echo $1 | cut -d. -f 2-)"; assetBurnName="$(basename ${assetBurnName} .asset)"; #assetBurnName=${assetBurnName//./};
+      assetBurnName="$(echo $1 | cut -d. -f 2-)"; assetBurnName=$(basename "${assetBurnName}" .asset); #assetBurnName=${assetBurnName//./};
       assetBurnAmount="$2";;
 
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <AssetName> <AssetAmount> <PolicyName> <PaymentAddressName> [optional Metadata.json to send along]
+Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName> [optional Metadata.json to send along]
 EOF
   exit 1;; esac
 
 
 #Check assetBurnName for alphanummeric only, 32 chars max
-if [[ ! "${assetBurnName}" == "${assetBurnName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetBurnName}' should only contain alphanummeric chars!\e[0m"; exit; fi
+if [[ "${assetBurnName}" == ".asset" ]]; then assetBurnName="";
+elif [[ ! "${assetBurnName}" == "${assetBurnName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetBurnName}' should only contain alphanummeric chars!\e[0m"; exit; fi
 if [[ ${#assetBurnName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit; fi
 if [[ ${assetBurnAmount} -lt 1 ]]; then echo -e "\e[35mError - The Amount of Assets to burn must be a positive number!\e[0m"; exit; fi
 
@@ -99,7 +100,8 @@ echo
 
         #totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
 	#Preload the new Asset to burn in the totalAssetsJSON with the negative number of assets to burn, will sum up later
-	totalAssetsJSON=$( jq ". += {\"${policyID}.${assetBurnName}\":{amount: -${assetBurnAmount}, name: \"${assetBurnName}\"}}" <<< "{}")
+	if [[ "${assetBurnName}" == "" ]]; then point=""; else point="."; fi
+	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetBurnName}\":{amount: -${assetBurnAmount}, name: \"${assetBurnName}\"}}" <<< "{}")
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
@@ -124,9 +126,10 @@ echo
                                 do
                                 assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-                                oldValue=$(jq -r ".\"${assetHash}.${assetName}\".amount" <<< ${totalAssetsJSON})
+				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$((${oldValue}+${assetAmount}))
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}.${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
                          done
@@ -163,6 +166,7 @@ if ${onlineMode}; then
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
 
+if [[ "${assetBurnName}" == "" ]]; then point=""; else point="."; fi
 
 #Check amount of assets after the burn
 assetAmountAfterBurn=$(jq -r ".\"${policyID}.${assetBurnName}\".amount" <<< ${totalAssetsJSON})
@@ -171,7 +175,7 @@ if [[ ${assetAmountAfterBurn} -lt 0 ]]; then echo -e "\n\e[35mYou can't burn ${a
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}.${assetBurnName}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -195,7 +199,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}.${assetBurnName}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 #echo "${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out \"${sendToAddr}+${lovelacesToSend}${assetsOutString}\" --mint \"${assetBurnAmount} ${policyID}.${assetBurnName}\" --invalid-hereafter ${ttl}  --out-file ${txBodyFile}"
 
