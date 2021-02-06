@@ -152,7 +152,7 @@ This will fetch the checksum file from an external webserver and it will compare
 0x_convertITNtoStakeAddress.sh: OK
 0x_showCurrentEpochKES.sh: OK
 ```
-All files are verified! :smiley:
+All files are verified! :smiley:<br>**Don't panic if you see a fail**, this could also mean that you have not the latest version of the script on your system. Read above on how to simply update to the latest version.
 <br>&nbsp;<br>
 </details>
 
