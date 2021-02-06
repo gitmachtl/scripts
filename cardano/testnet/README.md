@@ -116,6 +116,48 @@ cp cardano/testnet/* bin/
 </details>
 
 <details>
+   <summary><b>How to verify the SHA256 checksum for Mainnet-Scripts ... </b>:bookmark_tabs:<br></summary>
+   
+<br>In addition to the `sha256sum_sposcripts.txt` file that is stored in the GitHub Repository, you can do an additional check with a file that is hosted on a different secury webserver:
+
+**Change into the Directory of the Mainnet-Scripts(bin) and Verify the SHA256 checksum**
+```console
+cd $HOME/stakepoolscripts/bin
+sha256sum -c <(curl -s https://my-ip.at/sha256/sha256sum_sposcripts.txt)
+```
+This will fetch the checksum file from an external webserver and it will compare each \*.sh file with the stored sha256 checksum, you should get an output like this:<br>
+```console
+00_common.sh: OK
+01_claimRewards.sh: OK
+01_queryAddress.sh: OK
+01_sendLovelaces.sh: OK
+01_sendVoteMeta.sh: OK
+01_workOffline.sh: OK
+02_genPaymentAddrOnly.sh: OK
+03a_genStakingPaymentAddr.sh: OK
+03b_regStakingAddrCert.sh: OK
+03c_checkStakingAddrOnChain.sh: OK
+04a_genNodeKeys.sh: OK
+04b_genVRFKeys.sh: OK
+04c_genKESKeys.sh: OK
+04d_genNodeOpCert.sh: OK
+05a_genStakepoolCert.sh: OK
+05b_genDelegationCert.sh: OK
+05c_regStakepoolCert.sh: OK
+05d_poolWitness.sh: OK
+06_regDelegationCert.sh: OK
+07a_genStakepoolRetireCert.sh: OK
+07b_deregStakepoolCert.sh: OK
+08a_genStakingAddrRetireCert.sh: OK
+08b_deregStakingAddrCert.sh: OK
+0x_convertITNtoStakeAddress.sh: OK
+0x_showCurrentEpochKES.sh: OK
+```
+All files are verified! :smiley:
+<br>&nbsp;<br>
+</details>
+
+<details>
    <summary><b>Checkout how to use the scripts with directories for wallets/pooldata... </b>:bookmark_tabs:<br></summary>
 
 <br>There is no fixed directory structure, the current design is FLAT. So all Examples below are generating/using files within the same directory. This should be fine for the most of you. If you're fine with this, skip this section and check the [Scriptfile Syntax](#configuration-scriptfiles-syntax--filenames) above.<p>However, if you wanna use directories there is a way: 
