@@ -53,7 +53,7 @@ something similar to this:
 
 ``` console
 git clone https://github.com/input-output-hk/voting-tools
-cd voter-registration-tool
+cd voting-tools
 echo -e "package cardano-crypto-praos\n  flags: -external-libsodium-vrf\n" > cabal.project.local
 cabal update
 cabal build all
