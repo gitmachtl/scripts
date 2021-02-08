@@ -37,6 +37,10 @@ Now lets generate the two keyfiles:
 
 You have generated the secret- and the public-voting key, we use them now in the next steps.
 
+## Where will the voting rewards distributed to?
+
+Thats an important one, before (Fund2) the voting rewards were distributed back onto the stake address as rewards. Now they will be returned on the payment address you use in the next step below !
+
 ## Generate the signed voting registration
 
 You need the **voter-registration** tool for this, you have to compile it like you 
@@ -88,7 +92,7 @@ The registration tool needs some parameters to call:
 ```                      
 
 So in our case we need a payment address, this should **NOT BE YOUR PLEDGE ADDRESS**! Just a simple
-payment address to pay for the transaction, we call it **somepayment**. So we need the somepayment.skey,
+payment address to pay for the transaction, we call it **somepayment**. Also, this **payment address will receive the voting rewards** ! So we need the somepayment.skey,
 also we need the somepayment address as text, or in the example below we read it out from the somepayment.addr 
 file directly. Than you need of course your pledge.staking.skey you wanna register for Catalyst Voting.
 Then we need the public voting key we generated in the steps above with jcli. You have to choose the network,
