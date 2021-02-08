@@ -45,8 +45,10 @@ compile your cardano-node.<p>
 The tool is written in haskell, you compile it the same way as you do with your cardano node, should be
 something similar to this:
 
+:bulb: **Repo Link below was updated for Catalyst Fund3 !**
+
 ``` console
-git clone https://github.com/input-output-hk/voter-registration-tool
+git clone https://github.com/input-output-hk/voting-tools
 cd voter-registration-tool
 echo -e "package cardano-crypto-praos\n  flags: -external-libsodium-vrf\n" > cabal.project.local
 cabal update
@@ -78,6 +80,11 @@ The registration tool needs some parameters to call:
                       (--mainnet | --testnet-magic NATURAL)
                       [--time-to-live WORD64]
                       --out-file FILE
+                      [--byron-era | --shelley-era | --allegra-era | --mary-era]
+                      [--shelley-mode | --byron-mode
+                      [--epoch-slots NATURAL] |
+                      --cardano-mode [--epoch-slots NATURAL]]
+
 ```                      
 
 So in our case we need a payment address, this should **NOT BE YOUR PLEDGE ADDRESS**! Just a simple
@@ -95,6 +102,8 @@ path to the signed transaction output file, lets call it **vote-catalyst.tx**. S
                       --vote-public-key catalyst-vote.pkey \
                       --stake-signing-key pledge.staking.skey \
                       --mainnet \
+                      --mary-era
+                      --cardano-mode
                       --out-file vote-registration.tx
 ```
 
