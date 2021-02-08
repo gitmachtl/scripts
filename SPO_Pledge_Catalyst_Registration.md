@@ -102,8 +102,8 @@ path to the signed transaction output file, lets call it **vote-catalyst.tx**. S
                       --vote-public-key catalyst-vote.pkey \
                       --stake-signing-key pledge.staking.skey \
                       --mainnet \
-                      --mary-era
-                      --cardano-mode
+                      --mary-era \
+                      --cardano-mode \
                       --out-file vote-registration.tx
 ```
 
