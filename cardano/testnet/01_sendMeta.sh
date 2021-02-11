@@ -28,7 +28,7 @@ lovelacesToSend="ALL"
 
 #Throw an error if the metadata.json file does not exist
 if [ ! -f "${metafile}" ]; then
-  echo -e "The specified '${metafile' file does not exist. Please try again."
+  echo -e "The specified '${metafile}' file does not exist. Please try again."
   exit 1
 fi
 
