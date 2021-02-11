@@ -191,7 +191,7 @@ importNodeSkey() {
         if [ -f "${poolName}/${poolName}.node.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}/${poolName}.node.skey\" already exist, please delete it first or choose another name.\e[0m\n" >&2; exit 1; fi;
 
 	#Check the right type
-	if [[ ! "$(jq -r .type $1)" == "StakePoolSigningKey_ed25519" ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid node(cold).skey file.\e[0m\n" >&2; exit 1; fi;
+	if [[ ! "$(jq -r .type $1)" == *"SigningKey"* ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid node(cold).skey file.\e[0m\n" >&2; exit 1; fi;
 
         #Copy the source to the new destination file
         echo
@@ -241,7 +241,7 @@ importVrfSkey() {
         if [ -f "${poolName}/${poolName}.vrf.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}/${poolName}.vrf.skey\" already exist, please delete it first or choose another name.\e[0m\n" >&2; exit 1; fi;
 
         #Check the right type
-        if [[ ! "$(jq -r .type $1)" == "VrfSigningKey_PraosVRF" ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid vrf.skey file.\e[0m\n" >&2; exit 1; fi;
+        if [[ ! "$(jq -r .type $1)" == *"SigningKey"* ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid vrf.skey file.\e[0m\n" >&2; exit 1; fi;
 
         #Copy the source to the new destination file
         echo
@@ -288,7 +288,7 @@ importPaymentSkey() {
         if [ -f "${poolName}/${ownerName}.payment.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}/${ownerName}.payment.skey\" already exist, please delete it first or choose another name.\e[0m\n" >&2; exit 1; fi;
 
         #Check the right type
-        if [[ ! "$(jq -r .type $1)" == "PaymentSigningKeyShelley_ed25519" ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid payment.skey file.\e[0m\n" >&2; exit 1; fi;
+        if [[ ! "$(jq -r .type $1)" == *"SigningKey"* ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid payment.skey file.\e[0m\n" >&2; exit 1; fi;
 
         #Copy the source to the new destination file
         echo
@@ -316,7 +316,7 @@ importStakingSkey() {
         if [ -f "${poolName}/${ownerName}.staking.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}/${ownerName}.staking.skey\" already exist, please delete it first or choose another name.\e[0m\n" >&2; exit 1; fi;
 
         #Check the right type
-        if [[ ! "$(jq -r .type $1)" == "StakeSigningKeyShelley_ed25519" ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid stake.skey file.\e[0m\n" >&2; exit 1; fi;
+        if [[ ! "$(jq -r .type $1)" == *"SigningKey"* ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid stake.skey file.\e[0m\n" >&2; exit 1; fi;
 
         #Copy the source to the new destination file
         echo
