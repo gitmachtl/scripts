@@ -300,6 +300,14 @@ importPaymentSkey() {
         #Generate the pairing Vkey file from the Skey file
         echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.payment.vkey\e[0m' ... " >&2;
         ${cardanocli} key verification-key --signing-key-file "${poolName}/${ownerName}.payment.skey" --verification-key-file "${poolName}/${ownerName}.payment.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+	#If the verification key is an extended one, convert it into a non-extended one
+	tmp=$(jq -r .type "${poolName}/${ownerName}.payment.vkey" 2> /dev/null)
+        if [[ ! "${tmp^^}" == *"EXTENDED"* ]]; then
+		${cardanocli} key non-extended-key --extended-verification-key-file "${poolName}/${ownerName}.payment.vkey" --verification-key-file "${poolName}/${ownerName}.payment.vkey";
+  		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+	fi
+
         file_lock ${poolName}/${ownerName}.payment.vkey
         echo -e "\e[32mOK\e[0m\n" >&2;
 
@@ -328,6 +336,14 @@ importStakingSkey() {
         #Generate the pairing Vkey file from the Skey file
         echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.staking.vkey\e[0m' ... " >&2;
         ${cardanocli} key verification-key --signing-key-file "${poolName}/${ownerName}.staking.skey" --verification-key-file "${poolName}/${ownerName}.staking.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #If the verification key is an extended one, convert it into a non-extended one
+        tmp=$(jq -r .type "${poolName}/${ownerName}.staking.vkey" 2> /dev/null)
+        if [[ ! "${tmp^^}" == *"EXTENDED"* ]]; then
+                ${cardanocli} key non-extended-key --extended-verification-key-file "${poolName}/${ownerName}.staking.vkey" --verification-key-file "${poolName}/${ownerName}.staking.vkey";
+                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+        fi
+
         file_lock ${poolName}/${ownerName}.staking.vkey
         echo -e "\e[32mOK\e[0m\n" >&2;
 
