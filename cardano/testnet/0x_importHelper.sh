@@ -303,7 +303,7 @@ importPaymentSkey() {
 
 	#If the verification key is an extended one, convert it into a non-extended one
 	tmp=$(jq -r .type "${poolName}/${ownerName}.payment.vkey" 2> /dev/null)
-        if [[ ! "${tmp^^}" == *"EXTENDED"* ]]; then
+        if [[ "${tmp^^}" == *"EXTENDED"* ]]; then
 		${cardanocli} key non-extended-key --extended-verification-key-file "${poolName}/${ownerName}.payment.vkey" --verification-key-file "${poolName}/${ownerName}.payment.vkey";
   		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 	fi
@@ -339,7 +339,7 @@ importStakingSkey() {
 
         #If the verification key is an extended one, convert it into a non-extended one
         tmp=$(jq -r .type "${poolName}/${ownerName}.staking.vkey" 2> /dev/null)
-        if [[ ! "${tmp^^}" == *"EXTENDED"* ]]; then
+        if [[ "${tmp^^}" == *"EXTENDED"* ]]; then
                 ${cardanocli} key non-extended-key --extended-verification-key-file "${poolName}/${ownerName}.staking.vkey" --verification-key-file "${poolName}/${ownerName}.staking.vkey";
                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
         fi
