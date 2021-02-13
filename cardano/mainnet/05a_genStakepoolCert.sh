@@ -145,7 +145,7 @@ if [[ ${#poolMetaName} -gt 50 ]]; then echo -e "\e[35mERROR - The poolMetaName i
 
 poolMetaTickerOrig=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
 	poolMetaTicker=${poolMetaTickerOrig//[^[:alnum:]]/_}   #Filter out forbidden chars and replace with _
-	poolMetaTicker=${poolMetaTicker^^} #convert to uppercase
+	#poolMetaTicker=${poolMetaTicker^^} #convert to uppercase
 	if [[ ${#poolMetaTicker} -lt 3 || ${#poolMetaTicker} -gt 5 ]]; then echo -e "\e[35mERROR - The poolMetaTicker Entry must be between 3-5 chars long !\e[0m"; exit 1; fi
 	if [[ ! "${poolMetaTicker}" == "${poolMetaTickerOrig}" ]]; then #If corrected ticker is different than to the one in the pool.json file, ask if it is ok to use the new one
 		echo
