@@ -84,6 +84,7 @@ The registration tool needs some parameters to call:
                       (--mainnet | --testnet-magic NATURAL)
                       [--time-to-live WORD64]
                       --out-file FILE
+                      [--sign]
                       [--byron-era | --shelley-era | --allegra-era | --mary-era]
                       [--shelley-mode | --byron-mode
                       [--epoch-slots NATURAL] |
@@ -108,6 +109,7 @@ path to the signed transaction output file, lets call it **vote-catalyst.tx**. S
                       --mainnet \
                       --mary-era \
                       --cardano-mode \
+                      --sign \
                       --out-file vote-registration.tx
 ```
 
