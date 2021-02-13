@@ -71,6 +71,14 @@ You should keep your directory structure the same on both Machines.
 <br>You can find examples below in the Online- and Offline-Examples section. [Online-Migration-Example](#migrate-your-existing-stakepool-to-hw-wallet-owner-keys-ledgertrezor), [Offline-Migration-Example](#migrate-your-existing-stakepool-offline-to-hw-wallet-owner-keys-ledgertrezor)
 
 </details>
+
+<details>
+   <summary><b>How do you import your existing Keys made via CLI or Tutorials ... </b>:bookmark_tabs:</summary>
+
+<br>You can find examples how to import your existing live PoolData in Online- or Offline-Mode [here](#import-your-existing-pool-from-cli-keys-or-tutorials)
+
+</details>
+
 &nbsp;<br>&nbsp;<br>
 
 # How to Install/Copy the Scripts
@@ -891,6 +899,76 @@ Yep, it was that simple.
 </details>
 
 &nbsp;<br>&nbsp;<br>
+
+# Import your existing Pool from CLI-Keys or Tutorials
+
+If you already have your Pool running and you made it all via the cli commands, or you made it for example via the [Coincashew-Tutorial](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node) you can now import/copy that keys pretty easy with the new importHelper tool. Please checkout the two methods below for doing it in Online- and Offline-Mode.
+
+### Import your existing data in Online-Mode
+
+Find out how to import your existing pool data in Online-Mode.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>So, the StakePoolOperator Scripts needs all the owner/pool data in a specific naming scheme. You can learn about that in the information above in this README. To help you a little bit bringing over your existing data there is now a little script called 0x_importHelper.sh available. All you have to do is to give your pool a name (this is used to reference it on the filenames) and your current PoolID in Hex or Bech32 format. I have partnered up with Crypto2099 to get your current Pooldata via his API. The tool will ask you about the location of your ***.skeys*** for your node(cold), vrf, owner and rewards account. It will copy them all into a new directory for you with the right naming scheme and it will also prepopulate the needed pool.json file for you :smiley:<br>
+
+Lets say you wanna import the data for your pool "WAKANDA FOREVER" with the poolid `abcdefc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6dcba`
+
+<br><b>Steps:</b>
+1. Run the following command<br> ```./0x_importHelper.sh wakanda abcdefc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6dcba```<br>to import the live data of your current pool with the shortname ***wakanda*** and the given poolid from the chain
+1. Answer the question in the script about the location of your node(cold).skey file
+1. Answer the question in the script about the location of your vrf.skey file
+1. Answer the question in the script about the location of the payment.skey and stake.skey of owner(1)<br>You can add more owners by repeating the step.
+1. Add the additional rewards account if you have one also with the location of the payment.skey and stake.skey
+
+&nbsp;<br>
+**DONE**, the script has now copied all your keys and files into the new subdirectory ***wakanda*** for you. All the .vkeys, addresses, delegation-certs are generated on the fly.<br>
+
+You can now start to use theses StakePoolOperator Scripts like you already has used them before by just changing into this new directory. :smiley:
+
+</details>
+
+### Import your existing data in Offline-Mode
+
+Find out how to import your existing pool data in Offline-Mode.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>So, the StakePoolOperator Scripts needs all the owner/pool data in a specific naming scheme. You can learn about that in the information above in this README. To help you a little bit bringing over your existing data there is now a little script called 0x_importHelper.sh available. All you have to do is to give your pool a name (this is used to reference it on the filenames) and your current PoolID in Hex or Bech32 format. I have partnered up with Crypto2099 to get your current Pooldata via his API. The tool will ask you about the location of your ***.skeys*** for your node(cold), vrf, owner and rewards account. It will copy them all into a new directory for you with the right naming scheme and it will also prepopulate the needed pool.json file for you :smiley:<br>
+
+Lets say you wanna import the data for your pool "WAKANDA FOREVER" with the poolid `abcdefc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6dcba`. Make sure you have all your keys and files on the Offline-Machine.
+
+<br><b>Steps:</b>
+
+**Online-Machine:**
+
+1. Make a fresh version of the offlineTransfer.json by running ```./01_workOffline.sh new```
+1. Run the following command<br> ```./0x_importHelper.sh wakanda abcdefc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6dcba poolinfo.json```<br>to import the live data of your current pool with the shortname ***wakanda*** and the given poolid from the chain and export is as the file `poolinfo.json`
+
+The script will also ask you if you wanna add the exported file directly to the *offlineTransfer.json.* Answer that with yes.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:**
+
+1. Extract the embedded *poolinfo.json* file by running ```./01_workOffline.sh extract```<br>This will extract the file onto your Offline-Machine back with the same name *poolinfo.json*
+1. Lets create the needed files by running<br> ```./0x_importHelper.sh wakanda poolinfo.json```<br>to import the data of your current pool from the file *poolinfo.json*
+1. Answer the question in the script about the location of your node(cold).skey file
+1. Answer the question in the script about the location of your vrf.skey file
+1. Answer the question in the script about the location of the payment.skey and stake.skey of owner(1)<br>You can add more owners by repeating the step.
+1. Add the additional rewards account if you have one also with the location of the payment.skey and stake.skey
+
+&nbsp;<br>
+**DONE**, the script has now copied all your keys and files into the new subdirectory ***wakanda*** for you. All the .vkeys, addresses, delegation-certs are generated on the fly. A good tip is to copy now all your *.addr* files for your daily work over back to your Online-Machine to check them out. You will also need them to do "PoolWork" in Offline-Mode later.<br>
+
+You can now start to use theses StakePoolOperator Scripts like you already has used them before by just changing into this new directory. :smiley:
+
+</details>
+
+&nbsp;<br>&nbsp;<br>
+
 # Examples in Online-Mode
 
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
@@ -1433,7 +1511,6 @@ The examples in here are for using the scripts in Offine-Mode. Please get yourse
 * Online-Machine: Set the ```offlineMode="no"``` parameter in the 00_common.sh, common.inc or ~/.common.inc config file.<br>Make sure you have a running and fully synced cardano-node on this Machine. Also cardano-cli.
 
 * Offline-Machine: Set the ```offlineMode="yes"``` parameter in the 00_common.sh, common.inc or ~/.common.inc config file.<br>You only need the cardano-cli on this Machine, no cardano-node binaries.
-
 
 ## Generate some wallets for the daily operator work
 
