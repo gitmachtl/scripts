@@ -420,7 +420,7 @@ while [[ ! "${ownerName}" == "" ]]; do
 	                        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.deleg.cert\e[0m' ... ";
 	 			${cardanocli} ${subCommand} stake-address delegation-certificate --stake-verification-key-file "${poolName}/${ownerName}.staking.vkey" --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --out-file "${poolName}/${ownerName}.deleg.cert"
 				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-				file_lock ${delegateStakeAddr}.deleg.cert
+				file_lock "${poolName}/${ownerName}.deleg.cert"
 			        echo -e "\e[32mOK\e[0m";
 			fi
 
