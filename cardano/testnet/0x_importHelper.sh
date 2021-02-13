@@ -415,6 +415,14 @@ while [[ ! "${ownerName}" == "" ]]; do
 			file_lock "${poolName}/${ownerName}.staking.cert"
 		        echo -e "\e[32mOK\e[0m";
 
+                        #Create the delegation certificate to this pool
+			if [ -f "${poolName}/${poolName}.node.vkey" ] && [ -f "${poolName}/${ownerName}.staking.vkey" ]; then
+	                        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.deleg.cert\e[0m' ... ";
+	 			${cardanocli} ${subCommand} stake-address delegation-certificate --stake-verification-key-file "${poolName}/${ownerName}.staking.vkey" --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --out-file "${poolName}/${ownerName}.deleg.cert"
+				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+				file_lock ${delegateStakeAddr}.deleg.cert
+			        echo -e "\e[32mOK\e[0m";
+			fi
 
 			#Add the ownerstaking address to the poolJSON file
 			ownerAddr=$(cat "${poolName}/${ownerName}.staking.addr")
@@ -437,8 +445,9 @@ while [[ ! "${ownerName}" == "" ]]; do
 	fi
 
 echo
+
 ownerCounter=$(( ${ownerCounter} + 1 )); ownerName="owner-${ownerCounter}"
-echo -ne "\e[33mPlease provide a name for the \e[32mPoolOwner #${ownerCounter}\e[33m or leave it blank to skip:\e[0m"
+echo -ne "\e[33mPlease provide a name for the \e[32mPoolOwner #${ownerCounter}\e[33m or leave it blank(delete) to skip:\e[0m"
 read -e -i "${ownerName}" -p " " ownerName
 ownerName=${ownerName//[^[:alnum:]]-_/};
 done
