@@ -122,8 +122,8 @@ if ${showVersionInfo}; then
 fi
 
 #Check path to genesis files
-if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file is wrong or the file is missing!"; exit 1; fi
-if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file is wrong or the file is missing!"; exit 1; fi
+if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
 #-------------------------------------------------------------
 
