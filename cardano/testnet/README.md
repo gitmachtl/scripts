@@ -264,19 +264,22 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
 &nbsp;<br>
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
-<br>```./02_genPaymentAddrOnly.sh <name> <keymode: cli | hw>```
+<br>```./02_genPaymentAddrOnly.sh <name> <keymode: cli | hw> [optional Account# for HW-Wallet 0-1000]```
 <br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the CLI-based files addr1.addr, addr1.skey, addr1.vkey
-<br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the HardwareWallet-based files addr1.addr, addr1.hwsfiles, addr1.vkey<br>
+<br>```./02_genPaymentAddrOnly.sh addr1 hw``` will generate the HardwareWallet-based files addr1.addr, addr1.hwsfiles, addr1.vkey
+<br>```./02_genPaymentAddrOnly.sh addr2 hw 1``` will generate the HardwareWallet-based files addr2.addr, addr2.hwsfiles, addr2.vkey from subaccount #1 (default=0)<br>
 
 &nbsp;<br>
 * **03a_genStakingPaymentAddr.sh:** generates the base/payment address & staking address combo with the given name and also the stake address registration certificate
-<br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hybrid>```
+<br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hybrid> [optional Account# for HW-Wallet 0-1000]```
 
    ```./03a_genStakingPaymentAddr.sh owner cli``` will generate CLI-based files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert
 
    ```./03a_genStakingPaymentAddr.sh owner hw``` will generate HardwareWallet-based files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey, owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
 
    ```./03a_genStakingPaymentAddr.sh owner hybrid``` will generate HardwareWallet-based payment files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey and CLI-based staking files owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
+
+   ```./03a_genStakingPaymentAddr.sh owner hw 5``` will generate HardwareWallet-based files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey, owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert using SubAccount #5 (Default=#0)
 
 &nbsp;<br>
 * **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
