@@ -337,6 +337,52 @@ if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era
 if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 #-------------------------------------------------------
 
+
+#-------------------------------------------------------
+#Converts a raw UTXO query output into a Allegra style UTXO JSON with stringnumbers
+generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
+{
+
+local utxoJSON="{}" #start with a blank JSON skeleton
+local utxoAddress=${2}
+
+  while IFS= read -r line; do
+  IFS=' ' read -ra utxo_entry <<< "${line}" # utxo_entry array holds entire utxo string
+  local utxoHashIndex="${utxo_entry[0]}#${utxo_entry[1]}"
+  local utxoAmountLovelaces=${utxo_entry[2]}
+
+  #Build the entry for each UtxoHashIndex
+  local utxoJSON=$( jq ".\"${utxoHashIndex}\".amount = [ \"${utxoAmountLovelaces}\", [] ]" <<< ${utxoJSON})
+  local utxoJSON=$( jq ".\"${utxoHashIndex}\".address = \"${utxoAddress}\"" <<< ${utxoJSON})
+
+  #Add the Token entries if tokens available
+  if [[ ${#utxo_entry[@]} -gt 4 ]]; then # contains tokens
+    idx=5
+    while [[ ${#utxo_entry[@]} -gt ${idx} ]]; do
+      local asset_amount=${utxo_entry[${idx}]}
+      local asset_hash_name="${utxo_entry[$((idx+1))]}"
+      IFS='.' read -ra asset <<< "${asset_hash_name}"
+      local asset_policy=${asset[0]}
+      local asset_name=${asset[1]}
+
+      #Add the Entry of the Token
+      local policyArrayIndex=$( jq ".\"${utxoHashIndex}\".amount[1][0] | index(\"${asset_policy}\")" <<< ${utxoJSON});
+      if [[ "${policyArrayIndex}" == null ]]; then #If policy does not exist, generate first entry
+	 local utxoJSON=$( jq ".\"${utxoHashIndex}\".amount[1] += [ [ \"${asset_policy}\", [ [ \"${asset_name}\",\"${asset_amount}\" ] ] ] ]" <<< ${utxoJSON})
+                			      else
+         local utxoJSON=$( jq ".\"${utxoHashIndex}\".amount[1][${policyArrayIndex}][1] += [ [ \"${asset_name}\",\"${asset_amount}\" ] ]" <<< ${utxoJSON})
+      fi
+
+      idx=$(( idx + 3 ))
+    done
+  fi
+  echo
+done < <(printf "${1}\n" | tail -n +3) #read in from parameter 1 (raw utxo) but cut first two lines
+echo "${utxoJSON}"
+}
+#-------------------------------------------------------
+
+
 #-------------------------------------------------------
 #Converts a Shelley/Allegra style UTXO JSON into a Mary style JSON
 convert_UTXO()
