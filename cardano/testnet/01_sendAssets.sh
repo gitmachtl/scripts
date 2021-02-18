@@ -23,7 +23,7 @@ EOF
 if [[ $# -eq 5 ]]; then lovelacesToSend="$5"; else lovelacesToSend=0; fi
 
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 
 #Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
@@ -63,7 +63,9 @@ echo
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}")
+                                #utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -74,7 +76,7 @@ echo
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
 	#Calculating the total amount of lovelaces in all utxos on this address
-        totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
+        totalLovelaces=0
 
         totalAssetsJSON="{}"; 	#Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
@@ -87,6 +89,7 @@ echo
         do
         utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
         utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
+	totalLovelaces=$(( ${totalLovelaces} + ${utxoAmount} ))
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
         assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
@@ -106,7 +109,7 @@ echo
 				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$((${oldValue}+${assetAmount}))
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
                          done
@@ -148,7 +151,7 @@ echo
         fi
 
 	#Update the new value in the totalAssetsJSON
-	totalAssetsJSON=$( jq ". += {\"${assetToSend}\":{amount: ${amountToReturn}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+	totalAssetsJSON=$( jq ". += {\"${assetToSend}\":{amount: \"${amountToReturn}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
 
 	echo
 
@@ -229,14 +232,36 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile} \e[0m"
 echo
 
 #Sign the unsigned transaction body with the SecureKey
 rm ${txFile} 2> /dev/null
-${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile} 
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
+#If payment address is a hardware wallet, use the cardano-hw-cli for the signing
+if [[ -f "${fromAddr}.hwsfile" ]]; then
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #if rxcnt==2 that means that some funds are returned back to the hw-wallet and if its a staking address, we can hide the return
+        #amount of lovelaces which could cause confusion. we have to add the --change-output-key-file parameters for payment and stake if
+        #its a base address. this only works great for base addresses, otherwise a warning would pop up on the hw-wallet complaining about that
+        #there are no rewards, tzz.
+        hwWalletReturnStr=""
+        if [[ ${rxcnt} == 2 ]]; then
+                                        #but now we have to check if its a base address, in that case we also need to add the staking.hwsfile
+                                        stakeFromAddr="$(basename ${fromAddr} .payment).staking"
+                                        if [[ -f "${stakeFromAddr}.hwsfile" ]]; then hwWalletReturnStr="--change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeFromAddr}.hwsfile"; fi
+                                fi
+
+        tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txFile} 2> /dev/stdout)
+        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+else
+        ${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+fi
+
+echo -ne "\e[90m"
 cat ${txFile}
 echo
 
@@ -247,6 +272,12 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 ${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\e[32mDONE\n"
+
+                                #Show the TxID
+                                txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
+
                           else  #offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)
                                 offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",

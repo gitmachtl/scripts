@@ -236,7 +236,9 @@ if [[ "${regWitnessID}" == "" ]]; then
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}")
+                                #utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -249,7 +251,8 @@ if [[ "${regWitnessID}" == "" ]]; then
         if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
 
 	#Calculating the total amount of lovelaces in all utxos on this address
-        totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
+        #totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
+        totalLovelaces=0
 
         totalAssetsJSON="{}"; 	#Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
@@ -262,6 +265,7 @@ if [[ "${regWitnessID}" == "" ]]; then
         do
         utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
         utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
+        totalLovelaces=$(( ${totalLovelaces} + ${utxoAmount} ))
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
         assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
@@ -281,7 +285,7 @@ if [[ "${regWitnessID}" == "" ]]; then
 				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$((${oldValue}+${assetAmount}))
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
                          done
@@ -373,15 +377,17 @@ poolJSON=$(jq ".regWitness.type = \"${registrationType}\"" <<< ${poolJSON})
 poolJSON=$(jq ".regWitness.hardwareWalletIncluded = \"${hardwareWalletIncluded}\"" <<< ${poolJSON})
 
 #Fill the witness count with the node-coldkey witness
-echo -e "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ...\n"
+echo -ne "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ... "
 tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${poolName}.node.skey ${magicparam} --out-file /dev/stdout)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+echo -e "\e[32mOK\n"
 poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
 
 #Fill the witnesses with the local payment witness, must be a normal cli skey
-echo -e "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ...\n"
+echo -ne "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ... "
 tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey ${magicparam} --out-file /dev/stdout)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+echo -e "\e[32mOK\n"
 poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
 
 #Fill the witnesses with the local owner accounts, if you wanna do this in multiple steps you should set ownerWitness: "external" in the pool.json
@@ -397,16 +403,16 @@ do
 
 	#Fill the witnesses with the local owner witness
 	if [ -f "${ownerName}.staking.skey" ]; then #key is a normal one
-	        echo -e "\e[0mAdding the owner witness from a local signing key '\e[33m${ownerName}.skey\e[0m' ...\n"
+	        echo -ne "\e[0mAdding the owner witness from a local signing key '\e[33m${ownerName}.skey\e[0m' ... "
 	        tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${ownerName}.staking.skey ${magicparam} --out-file /dev/stdout)
 	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		echo -e "\e[32mOK\n"
 	        poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON
 
 	elif [ -f "${ownerName}.staking.hwsfile" ]; then #key is a hardware wallet
 	        tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
-	        echo -e "\e[0mAdding the owner witness from a local Hardware-Wallet key '\e[33m${ownerName}.hwsfile\e[0m' ..."
-	        #echo -e "\e[33mPlease open the Cardano-App on your Hardware-Wallet to approve the action of the owner witness ... \e[0m\n"
-		#if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
+		if ! ask "\e[0mAdding the owner witness from a local Hardware-Wallet key '\e[33m${ownerName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
+
 		start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${ownerName}.staking.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
 	        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
@@ -595,6 +601,11 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                 echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
                                 cat ${poolFile}.pool.json
                                 echo
+
+                                #Show the TxID
+                                txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
 
 				#Display information to manually register the OwnerDelegationCertificates on the chain if a hardware-wallet is involved. With only cli based staking keys, we can include all the delegation certificates in one transaction
 				if [[ "${regWitnessHardwareWalletIncluded}" == "yes" ]]; then

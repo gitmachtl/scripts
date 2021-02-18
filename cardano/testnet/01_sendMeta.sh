@@ -207,6 +207,7 @@ if [ "${ENV_SKIP_PROMPT^^}" == "YES" ] || ask "\e[33mDoes this look good for you
 
                                 #Show the TxID
                                 txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
 
                           else  #offlinestore

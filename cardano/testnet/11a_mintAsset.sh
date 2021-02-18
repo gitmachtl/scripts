@@ -26,9 +26,9 @@ EOF
 
 #Check assetMintName for alphanummeric only, 32 chars max
 if [[ "${assetMintName}" == ".asset" ]]; then assetMintName="";
-elif [[ ! "${assetMintName}" == "${assetMintName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetMintName}' should only contain alphanummeric chars!\e[0m"; exit; fi
-if [[ ${#assetMintName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit; fi
-if [[ ${assetMintAmount} -lt 1 ]]; then echo -e "\e[35mError - The Amount of Assets to mint must be a positive number!\e[0m"; exit; fi
+elif [[ ! "${assetMintName}" == "${assetMintName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetMintName}' should only contain alphanummeric chars!\e[0m"; exit 1; fi
+if [[ ${#assetMintName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit 1; fi
+if [[ ${assetMintAmount} -lt 1 ]]; then echo -e "\e[35mError - The Amount of Assets to mint must be a positive number!\e[0m"; exit 1; fi
 
 # Check for needed input files - missing - work to do :-)
 if [ ! -f "${policyName}.policy.id" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.id\" id-file does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
@@ -74,7 +74,7 @@ if [[ ${ttl} -le ${currentTip} ]]; then echo -e "\e[35mError - Your given Policy
 sendFromAddr=$(cat ${fromAddr}.addr)
 sendToAddr=${sendFromAddr}
 
-check_address "${sendFromAddr}"
+check_address "${sendFromAddr}"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 
 echo -e "\e[0mPayment Address and Asset-Destination-Address ${fromAddr}.addr:\e[32m ${sendFromAddr} \e[90m"
 echo
@@ -84,25 +84,26 @@ echo
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}")
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
-                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
         fi
 
         txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
-        if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
+        if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit 1; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
         #Calculating the total amount of lovelaces in all utxos on this address
-        totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
+        totalLovelaces=0
 
         #totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
 	#Preload the new Asset to mint in the totalAssetsJSON
 
 	if [[ "${assetMintName}" == "" ]]; then point=""; else point="."; fi
 
-	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetMintName}\":{amount: ${assetMintAmount}, name: \"${assetMintName}\"}}" <<< "{}")
+	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetMintName}\":{amount: \"${assetMintAmount}\", name: \"${assetMintName}\"}}" <<< "{}")
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 	totalPolicyIDsJSON=$( jq ". += {\"${policyID}\": 1}" <<< ${totalPolicyIDsJSON})
 
@@ -112,6 +113,7 @@ echo
         do
         utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
         utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
+	totalLovelaces=$(( ${totalLovelaces} + ${utxoAmount} ))
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
         assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
@@ -131,7 +133,7 @@ echo
 				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
 				oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$((${oldValue}+${assetAmount}))
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
                          done
@@ -156,6 +158,8 @@ echo
         fi
 
 echo
+
+#echo "**${assetsOutString}**";exit
 
 #Read ProtocolParameters
 if ${onlineMode}; then
@@ -222,12 +226,16 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\e[32mDONE\n"
 
+                                #Show the TxID
+                                txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
+
 			        #Updating the ${policyName}.${assetMintName}.token json
 			        assetFileName="${policyName}.${assetMintName}.asset"
 			        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
 			        oldValue=$(jq -r ".minted" ${assetFileName})
 			        newValue=$(( ${oldValue} + ${assetMintAmount} ))
-			        assetFileJSON=$( jq ". += {minted: ${newValue}, name: \"${assetMintName}\", policyID: \"${policyID}\", policyValidBeforeSlot: \"${ttlFromScript}\", lastUpdate: \"$(date)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
+			        assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetMintName}\", policyID: \"${policyID}\", policyValidBeforeSlot: \"${ttlFromScript}\", lastUpdate: \"$(date -R)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
 
 			        file_unlock ${assetFileName}
 			        echo -e "${assetFileJSON}" > ${assetFileName}
@@ -260,7 +268,7 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 			                                if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
 			                                oldValue=$(jq -r ".minted" ${assetFileName})
 			                                newValue=$(( ${oldValue} + ${assetMintAmount} ))
-			                                assetFileJSON=$( jq ". += {minted: ${newValue}, name: \"${assetMintName}\", policyID: \"${policyID}\", policyValidBeforeSlot: \"${ttlFromScript}\", lastUpdate: \"$(date)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
+			                                assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetMintName}\", policyID: \"${policyID}\", policyValidBeforeSlot: \"${ttlFromScript}\", lastUpdate: \"$(date -R)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
 
 			                                file_unlock ${assetFileName}
 			                                echo -e "${assetFileJSON}" > ${assetFileName}
