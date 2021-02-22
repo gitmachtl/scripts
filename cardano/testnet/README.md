@@ -694,6 +694,17 @@ So you can see in this table there are Pros and Cons with the different types of
 
 </details>
 
+<details>
+   <Summary><b>Can i create more than one account on the Hardware-Key? ... </b>:bookmark_tabs:<br></summary>
+
+<br>Yes, there are different ways you can create more than one account on a Hardware-Wallet. If you own a Trezor Model-T for example, enable the **Passphrase-Mode** on the device. In this case you will be asked about a passphrase everytime you access the Trezor device. Each different passphrase will result in a different account. This is also the prefered option to enhance the security on the Trezor device. So even if you have only one account, use the passphrase method!
+
+There is also another way by using different derive paths on Hardware-Wallets that let you create multiple SubAccounts on it. The paths will are possible with ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. The normal(default) account is using Account# 0.
+The scripts 02 and 03a are supporting this kind of SubAccounts, please checkout the full syntax [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+:bulb: Be aware, not all Wallets support SubAccounts in this way! Adalite for example supports this method for the first 100 Accounts, but you have to use them in order. So first transfer some ADA to the Account# 0, after that you can create an Account #1 with some ADA and so on. If you skip an Account, ADALITE and most likely the other wallets too will not show you the balance. You can always access them via the CLI of course.
+</details>
+
 ## Limitations to the PoolOperation when using Hardware-Wallets
 
 <details>
