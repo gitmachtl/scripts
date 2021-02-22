@@ -234,7 +234,7 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 			        assetFileName="${policyName}.${assetMintName}.asset"
 			        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
 			        oldValue=$(jq -r ".minted" ${assetFileName})
-			        newValue=$(( ${oldValue} + ${assetMintAmount} ))
+			        newValue=$(bc <<< "${oldValue} + ${assetMintAmount}")
 			        assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetMintName}\", policyID: \"${policyID}\", policyValidBeforeSlot: \"${ttlFromScript}\", lastUpdate: \"$(date -R)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
 
 			        file_unlock ${assetFileName}
@@ -267,7 +267,7 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 			                                assetFileName="${policyName}.${assetMintName}.asset"
 			                                if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
 			                                oldValue=$(jq -r ".minted" ${assetFileName})
-			                                newValue=$(( ${oldValue} + ${assetMintAmount} ))
+			                                newValue=$(bc << "${oldValue} + ${assetMintAmount}")
 			                                assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetMintName}\", policyID: \"${policyID}\", policyValidBeforeSlot: \"${ttlFromScript}\", lastUpdate: \"$(date -R)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
 
 			                                file_unlock ${assetFileName}

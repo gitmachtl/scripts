@@ -236,7 +236,7 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 			        assetFileName="${policyName}.${assetBurnName}.asset"
 			        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
 			        oldValue=$(jq -r ".minted" ${assetFileName})
-			        newValue=$(( ${oldValue} - ${assetBurnAmount} ))
+			        newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
 			        assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetBurnName}\", policyID: \"${policyID}\", lastUpdate: \"$(date -R)\", lastAction: \"burn ${assetBurnAmount}\"}" < ${assetFileName})
 
 			        file_unlock ${assetFileName}
@@ -269,7 +269,7 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 						        assetFileName="${policyName}.${assetBurnName}.asset"
 						        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
 						        oldValue=$(jq -r ".minted" ${assetFileName})
-						        newValue=$(( ${oldValue} - ${assetBurnAmount} ))
+						        newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
 						        assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetBurnName}\", policyID: \"${policyID}\", lastUpdate: \"$(date -R)\", lastAction: \"burn ${assetBurnAmount}\"}" < ${assetFileName})
 
 						        file_unlock ${assetFileName}
