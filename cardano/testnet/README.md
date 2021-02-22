@@ -4,7 +4,7 @@
 
 | | [cardano-cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-node](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |   :---:     |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.25.1</b><br><sub>**git checkout tags/1.25.1**</sub> | <b>1.25.1</b><br><sub>**git checkout tags/1.25.1**</sub> | <b>1.1.3</b><br><sub>**if you use hw-wallets** | <b>2.1.0</b><br><sub>**if you use hw-wallets** | <b>2.3.5</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.25.1</b><br><sub>**git checkout tags/1.25.1**</sub> | <b>1.25.1</b><br><sub>**git checkout tags/1.25.1**</sub> | <b>1.1.3</b><br><sub>**if you use hw-wallets** | <b>2.2.0</b><br><sub>**if you use hw-wallets** | <b>2.3.6</b><br><sub>**if you use hw-wallets** |
 
 > *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet, launchpad or staging*. 
 
@@ -71,6 +71,24 @@ You should keep your directory structure the same on both Machines.
 <br>You can find examples below in the Online- and Offline-Examples section. [Online-Migration-Example](#migrate-your-existing-stakepool-to-hw-wallet-owner-keys-ledgertrezor), [Offline-Migration-Example](#migrate-your-existing-stakepool-offline-to-hw-wallet-owner-keys-ledgertrezor)
 
 </details>
+
+<details>
+   <summary><b>How do you import your existing Keys made via CLI or Tutorials ... </b>:bookmark_tabs:</summary>
+
+<br>You can find examples how to import your existing live PoolData in Online- or Offline-Mode [here](#import-your-existing-pool-from-cli-keys-or-tutorials)
+
+</details>
+
+&nbsp;<br>&nbsp;<br>
+
+# How to Install the Cardano-Node
+
+We all worke closely together in the Cardano-Ecosystem, so there is no need that i repeat a How-To here. Instead i will point you to a few Tutorials that are already online and maintained. You can come back here after you have successfully installed the cardano-node. :smiley:
+
+* [Cardano-Node-Installation-Guide](https://cardano-node-installation.stakepool247.eu/) by Stakepool247.eu
+* [How-to-build-a-Haskell-Stakepool-Node](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node) Coincashew-Tutorial
+* [Cardano-Foundation-Stakepool-Course](https://cardano-foundation.gitbook.io/stake-pool-course/stake-pool-guide/getting-started/install-node) StakePool-Course by Cardano-Foundation
+
 &nbsp;<br>&nbsp;<br>
 
 # How to Install/Copy the Scripts
@@ -237,41 +255,54 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
 &nbsp;<br>
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` (you can send to an HASH address too)
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: selected UTXOs]```**&sup1;** (you can send to an HASH address too)
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send **ALL lovelaces** from addr1.addr to addr2.addr, Tokens on addr1.addr are preserved
 <br>```./01_sendLovelaces.sh addr1 addr2 ALLFUNDS``` to send **ALL funds** from addr1.addr to addr2.addr **including Tokens** if present
 <br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL lovelaces from addr1.addr to the given Bech32 address
 
+  :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
+
 &nbsp;<br>
 * **01_sendAssets.sh:** sends Assets(Tokens) and optional a given amount of lovelaces from one address to another
-<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset> <AmountOfAssets|ALL> [Optional Amount of lovelaces to attach]```
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset> <AmountOfAssets|ALL> [Opt: Amount of lovelaces to attach] [Opt: selected UTXOs]```**&sup1;**
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
 <br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. Using the PolicyID.TokenNameHASH allowes you to send out Tokens you've got from others. You own generated Tokens can be referenced by the AssetFile 'policyName.tokenName.asset' schema for a easier handling.
 
+  :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
+
+
 &nbsp;<br>
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
-<br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
+<br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>] [Opt: selected UTXOs]```**&sup1;**
 <br>```./01_claimRewards.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
 <br>```./01_claimRewards.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
 
+  :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
+
+
 &nbsp;<br>
+* **01_sendMeta.sh:** modified sendLoveLaces script to simply send a metadata file
 * **01_sendVoteMeta.sh:** modified sendLoveLaces script to simply send a voting json metadata file
-<br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName>```
+<br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName/MetaFileName>```
 <br>```./01_sendLovelaces.sh addr1 myvote``` to just send the myvote.json votingfile from funds on addr1.addr
 <br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process)
 
+
 &nbsp;<br>
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
-<br>```./02_genPaymentAddrOnly.sh <name> <keymode: cli | hw> [optional Account# for HW-Wallet 0-1000]```
+<br>```./02_genPaymentAddrOnly.sh <name> <keymode: cli | hw> [optional Account# for HW-Wallet 0-1000]```**&sup1;**
 <br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the CLI-based files addr1.addr, addr1.skey, addr1.vkey
 <br>```./02_genPaymentAddrOnly.sh addr1 hw``` will generate the HardwareWallet-based files addr1.addr, addr1.hwsfiles, addr1.vkey
 <br>```./02_genPaymentAddrOnly.sh addr2 hw 1``` will generate the HardwareWallet-based files addr2.addr, addr2.hwsfiles, addr2.vkey from subaccount #1 (default=0)<br>
 
+  :bulb: **&sup1; Expert-Option**: It is possible to specify SubAccounts on your Hardware-Wallet. Theses will derive to the Paths ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. Be aware, not all Wallets support SubAccounts in this way! The default value is: 0
+
+
 &nbsp;<br>
 * **03a_genStakingPaymentAddr.sh:** generates the base/payment address & staking address combo with the given name and also the stake address registration certificate
-<br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hybrid> [optional Account# for HW-Wallet 0-1000]```
+<br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hybrid> [optional Account# for HW-Wallet 0-1000]```**&sup1;**
 
    ```./03a_genStakingPaymentAddr.sh owner cli``` will generate CLI-based files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert
 
@@ -280,6 +311,9 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
    ```./03a_genStakingPaymentAddr.sh owner hybrid``` will generate HardwareWallet-based payment files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey and CLI-based staking files owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
 
    ```./03a_genStakingPaymentAddr.sh owner hw 5``` will generate HardwareWallet-based files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey, owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert using SubAccount #5 (Default=#0)
+
+   :bulb: **&sup1; Expert-Option**: It is possible to specify SubAccounts on your Hardware-Wallet. Theses will derive to the Paths ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. Be aware, not all Wallets support SubAccounts in this way! The default value is: 0
+
 
 &nbsp;<br>
 * **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
@@ -902,6 +936,76 @@ Yep, it was that simple.
 </details>
 
 &nbsp;<br>&nbsp;<br>
+
+# Import your existing Pool from CLI-Keys or Tutorials
+
+If you already have your Pool running and you made it all via the cli commands, or you made it for example via the [Coincashew-Tutorial](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node) you can now import/copy that keys pretty easy with the new importHelper tool. Please checkout the two methods below for doing it in Online- and Offline-Mode.
+
+### Import your existing data in Online-Mode
+
+Find out how to import your existing pool data in Online-Mode.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>So, the StakePoolOperator Scripts needs all the owner/pool data in a specific naming scheme. You can learn about that in the information above in this README. To help you a little bit bringing over your existing data there is now a little script called 0x_importHelper.sh available. All you have to do is to give your pool a name (this is used to reference it on the filenames) and your current PoolID in Hex or Bech32 format. I have partnered up with Crypto2099 to get your current Pooldata via his API. The tool will ask you about the location of your ***.skeys*** for your node(cold), vrf, owner and rewards account. It will copy them all into a new directory for you with the right naming scheme and it will also prepopulate the needed pool.json file for you :smiley:<br>
+
+Lets say you wanna import the data for your pool "WAKANDA FOREVER" with the poolid `abcdefc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6dcba`
+
+<br><b>Steps:</b>
+1. Run the following command<br> ```./0x_importHelper.sh wakanda abcdefc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6dcba```<br>to import the live data of your current pool with the shortname ***wakanda*** and the given poolid from the chain
+1. Answer the question in the script about the location of your node(cold).skey file
+1. Answer the question in the script about the location of your vrf.skey file
+1. Answer the question in the script about the location of the payment.skey and stake.skey of owner(1)<br>You can add more owners by repeating the step.
+1. Add the additional rewards account if you have one also with the location of the payment.skey and stake.skey
+
+&nbsp;<br>
+**DONE**, the script has now copied all your keys and files into the new subdirectory ***wakanda*** for you. All the .vkeys, addresses, delegation-certs are generated on the fly.<br>
+
+You can now start to use theses StakePoolOperator Scripts like you already has used them before by just changing into this new directory. :smiley:
+
+</details>
+
+### Import your existing data in Offline-Mode
+
+Find out how to import your existing pool data in Offline-Mode.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+<br>So, the StakePoolOperator Scripts needs all the owner/pool data in a specific naming scheme. You can learn about that in the information above in this README. To help you a little bit bringing over your existing data there is now a little script called 0x_importHelper.sh available. All you have to do is to give your pool a name (this is used to reference it on the filenames) and your current PoolID in Hex or Bech32 format. I have partnered up with Crypto2099 to get your current Pooldata via his API. The tool will ask you about the location of your ***.skeys*** for your node(cold), vrf, owner and rewards account. It will copy them all into a new directory for you with the right naming scheme and it will also prepopulate the needed pool.json file for you :smiley:<br>
+
+Lets say you wanna import the data for your pool "WAKANDA FOREVER" with the poolid `abcdefc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6dcba`. Make sure you have all your keys and files on the Offline-Machine.
+
+<br><b>Steps:</b>
+
+**Online-Machine:**
+
+1. Make a fresh version of the offlineTransfer.json by running ```./01_workOffline.sh new```
+1. Run the following command<br> ```./0x_importHelper.sh wakanda abcdefc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6dcba poolinfo.json```<br>to import the live data of your current pool with the shortname ***wakanda*** and the given poolid from the chain and export is as the file `poolinfo.json`
+
+The script will also ask you if you wanna add the exported file directly to the *offlineTransfer.json.* Answer that with yes.
+
+:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
+
+**Offline-Machine:**
+
+1. Extract the embedded *poolinfo.json* file by running ```./01_workOffline.sh extract```<br>This will extract the file onto your Offline-Machine back with the same name *poolinfo.json*
+1. Lets create the needed files by running<br> ```./0x_importHelper.sh wakanda poolinfo.json```<br>to import the data of your current pool from the file *poolinfo.json*
+1. Answer the question in the script about the location of your node(cold).skey file
+1. Answer the question in the script about the location of your vrf.skey file
+1. Answer the question in the script about the location of the payment.skey and stake.skey of owner(1)<br>You can add more owners by repeating the step.
+1. Add the additional rewards account if you have one also with the location of the payment.skey and stake.skey
+
+&nbsp;<br>
+**DONE**, the script has now copied all your keys and files into the new subdirectory ***wakanda*** for you. All the .vkeys, addresses, delegation-certs are generated on the fly. A good tip is to copy now all your *.addr* files for your daily work over back to your Online-Machine to check them out. You will also need them to do "PoolWork" in Offline-Mode later.<br>
+
+You can now start to use theses StakePoolOperator Scripts like you already has used them before by just changing into this new directory. :smiley:
+
+</details>
+
+&nbsp;<br>&nbsp;<br>
+
 # Examples in Online-Mode
 
 > :bulb: **The examples below are using the scripts in the same directory, so they are listed with a leading ./**<br>
@@ -1442,6 +1546,8 @@ If you wanna retire your registered stakepool mypool, you have to do just a few 
    ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
 1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool smallwallet1```
  
+:warning: You're PoolDepositFee (500 ADA) will be returned to the rewards account you have set for your pool! So don't delete this account until you received the PoolDepositFee back. They are returned as Rewards, not as a normal Payment!
+
 Done.
 </details>
 
