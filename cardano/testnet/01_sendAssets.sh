@@ -11,16 +11,32 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  4|5 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//}
+  4|5|6 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//}
       toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//}
       assetToSend="$3";
       amountToSend="$4";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <PolicyID.Name of the asset OR the PATH to the AssetFile(.asset)> <Amount of assets to send OR keyword ALL> [Optional Amount of lovelaces to attach, normally zero]
+Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL> [Opt: Amount of lovelaces to include] [Opt: list of UTXOs to use]
+
+
+Optional parameters:
+
+Normally you don't need to specify an Amount of lovelaces to include, the script will calculcate the minimum Amount that is needed by its own.
+
+In rare cases you wanna define the exact UTXOs that should be used for sending Assets out, you can do that as a 6th parameter in the scheme:
+"UTXO1#Index" ... to specify one UTXO, must be in "..."
+"UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in "..."
+
 EOF
   exit 1;; esac
 
-if [[ $# -eq 5 ]]; then lovelacesToSend="$5"; else lovelacesToSend=0; fi
+#Check if an additional amount of lovelaces was set
+if [ $# -ge 5 ] && [[ ! "${5^^}" == *"#"* ]] && [[ ! ${5} == "" ]]; then lovelacesToSend="$5"; else lovelacesToSend=0; fi
+
+#Check if a specific UTXO#IDX was set as last parameter
+lastCallParam=${@: -1};
+if [ $# -ge 5 ] && [[ "${lastCallParam}" == *"#"* ]]; then filterForUTXO="${lastCallParam}"; else filterForUTXO=""; fi
+
 
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
@@ -72,6 +88,10 @@ echo
                                 if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
         fi
 
+
+        #Only use UTXOs specied in the extra parameter if present
+        if [[ ! "${filterForUTXO}" == "" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly using the UTXO with Hash ${filterForUTXO}\e[0m\n"; utxoJSON=$(filterFor_UTXO "${utxoJSON}" "${filterForUTXO}"); fi
+
 	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
@@ -89,7 +109,7 @@ echo
         do
         utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
         utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
-	totalLovelaces=$(( ${totalLovelaces} + ${utxoAmount} ))
+	totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}")
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
         assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
@@ -108,7 +128,7 @@ echo
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
 				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
-                                newValue=$((${oldValue}+${assetAmount}))
+                                newValue=$(bc <<< "${oldValue}+${assetAmount}")
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
@@ -129,8 +149,8 @@ echo
 	assetAmount=$(jq -r ".\"${assetToSend}\".amount" <<< ${totalAssetsJSON})
         assetName=$(jq -r ".\"${assetToSend}\".name" <<< ${totalAssetsJSON})
 	#If there is no asset of that type, exit with an error
-	if [[ ${assetAmount} -gt 0 ]]; then
-			        echo -e "\e[0mAsset-Amount currenty on ${fromAddr}.addr:\e[32m ${assetAmount} ${assetName} \e[0m"
+	if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then
+			        echo -e "\e[0mAsset-Amount currently on ${fromAddr}.addr:\e[32m ${assetAmount} ${assetName} \e[0m"
         				else
 				echo -e "\n\e[35mError - This asset is not available on the source address!\e[0m\n"; exit 2;
 	fi
@@ -140,11 +160,11 @@ echo
 
         echo -e "\e[0mAsset-Amount to send to ${toAddr}.addr:\e[33m ${amountToSend} ${assetName} \e[0m"
 
-        if [[ ${amountToSend} -lt 1 ]]; then  echo -e "\n\e[35mError - Please input a positive sending amount (integer)!\e[0m\n"; exit 2; fi
+        if [[ $(bc <<< "${amountToSend} < 1") -eq 1 ]]; then  echo -e "\n\e[35mError - Please input a positive sending amount (integer)!\e[0m\n"; exit 2; fi
 
-	amountToReturn=$(( ${assetAmount} - ${amountToSend} ));	#the rest amount of the asset that stays on the source address
+	amountToReturn=$(bc <<< "${assetAmount} - ${amountToSend}");	#the rest amount of the asset that stays on the source address
 
-        if [[ ${amountToReturn} -ge 0 ]]; then
+        if [[ $(bc <<< "${amountToReturn} >= 0") -eq 1 ]]; then
                                 echo -e "\e[0mAsset-Amount that stays on the source Address:\e[32m ${amountToReturn} ${assetName} \e[0m"
                                         else
                                 echo -e "\n\e[35mError - You can't send out more amounts of this assets than it is available on the source address!\e[0m\n"; exit 2;
@@ -165,7 +185,7 @@ echo
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
                         printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
-                        if [[ ${assetAmount} -gt 0 ]]; then assetsReturnString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
+                        if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsReturnString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
 

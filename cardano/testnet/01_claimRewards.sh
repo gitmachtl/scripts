@@ -13,9 +13,16 @@ case $# in
   2|3|4 ) stakeAddr="$(dirname $1)/$(basename $1 .staking).staking"; stakeAddr=${stakeAddr/#.\//}
 	toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//};;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <StakeAddressName> <To AddressName> [optional <FeePaymentAddressName>]
+Usage:  $(basename $0) <StakeAddressName> <To AddressName> [optional: <FeePaymentAddressName>] [optional: list of UTXOs to use]
 Ex.: $(basename $0) atada.staking atada.payment        (claims the rewards from atada.staking.addr and sends them to atada.payment.addr, atada.payment.addr pays the fees)
 Ex.: $(basename $0) atada.staking atada.payment funds  (claims the rewards from atada.staking.addr and sends them to atada.payment.addr, funds.addr pays the fees)
+
+Optional parameter UTXO List:
+
+In rare cases you wanna define the exact UTXOs that should be used for sending Assets out, you can do that as a 6th parameter in the scheme:
+"UTXO1#Index" ... to specify one UTXO, must be in "..."
+"UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in "..."
+
 EOF
   exit 1;; esac
 
@@ -24,7 +31,8 @@ if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tem
 
 #Check if an optional fee payment address is given and different to the receiver address
 fromAddr=${toAddr}
-if [ $# -eq 3 ] && [ ! "${3^^}" == "ONLYADA" ]; then fromAddr="$(dirname $3)/$(basename $3 .addr)"; fi
+
+if [ $# -ge 3 ] && [[ ! "${3^^}" == *"#"* ]] && [[ ! ${3} == "" ]]; then fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//}; fi
 if [[ "${fromAddr}" == "${toAddr}" ]]; then rxcnt="1"; else rxcnt="2"; fi
 
 #Checks for needed files
@@ -42,6 +50,7 @@ echo -e "\e[0mClaim Staking Rewards from Address\e[32m ${stakeAddr}.addr\e[0m wi
 echo
 
 lastCallParam=${@: -1};
+if [ $# -ge 3 ] && [[ "${lastCallParam}" == *"#"* ]]; then filterForUTXO="${lastCallParam}"; else filterForUTXO=""; fi
 
 #get live values
 currentTip=$(get_currentTip)
@@ -122,12 +131,14 @@ echo
         #Convert UTXO into mary style if UTXO is shelley/allegra style
         if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
 
+        #Only use UTXOs specied in the extra parameter if present
+        if [[ ! "${filterForUTXO}" == "" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly using the UTXO with Hash ${filterForUTXO}\e[0m\n"; utxoJSON=$(filterFor_UTXO "${utxoJSON}" "${filterForUTXO}"); fi
+
 	#Only use UTXOs with lovelaces in it if Scripts was called with the last parameter keyword "ONLYADA"
-	if [[ "${lastCallParam^^}" == "ONLYADA" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly UTXOs with ADA(lovelaces) on it, no Assets\e[0m\n"; utxoJSON=$(onlyLovelaces_UTXO "${utxoJSON}"); fi
+	#if [[ "${lastCallParam^^}" == "ONLYADA" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly UTXOs with ADA(lovelaces) on it, no Assets\e[0m\n"; utxoJSON=$(onlyLovelaces_UTXO "${utxoJSON}"); fi
 
         txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
         if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
-
 
 	#Calculating the total amount of lovelaces in all utxos on this address
         totalLovelaces=0
@@ -143,7 +154,7 @@ echo
         do
         utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
         utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
-	totalLovelaces=$(( ${totalLovelaces} + ${utxoAmount} ))
+	totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}")
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
         assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
@@ -162,7 +173,7 @@ echo
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
 				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
-                                newValue=$((${oldValue}+${assetAmount}))
+                                newValue=$(bc <<< "${oldValue}+${assetAmount}")
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
@@ -184,7 +195,7 @@ echo
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
                         printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
-                        if [[ ${assetAmount} -gt 0 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
+                        if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
 echo

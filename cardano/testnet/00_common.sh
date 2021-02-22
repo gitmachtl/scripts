@@ -439,6 +439,25 @@ echo "${outJSON}"
 }
 #-------------------------------------------------------
 
+#-------------------------------------------------------
+#Cuts out all UTXOs in a mary style UTXO JSON that are not the given UTXO hash ($2)
+#The given UTXO hash can be multiple UTXO hashes with the or separator | for egrep
+filterFor_UTXO()
+{
+local inJSON=${1}
+local searchUTXO=${2}
+local outJSON=${inJSON}
+local utxoEntryCnt=$(jq length <<< ${inJSON})
+local tmpCnt=0
+for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
+do
+local utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${inJSON})
+if [[ $(echo "${utxoHashIndex}" | egrep "${searchUTXO}" | wc -l) -eq 0 ]]; then local outJSON=$( jq "del (.\"${utxoHashIndex}\")" <<< ${outJSON}); fi
+done
+echo "${outJSON}"
+}
+#-------------------------------------------------------
+
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO level that has to be sent depending on the assets and the minUTXO protocol-parameters
