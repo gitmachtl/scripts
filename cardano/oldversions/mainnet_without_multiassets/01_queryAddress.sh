@@ -18,7 +18,7 @@ if [ ! -f "${addrName}.addr" ]; then echo "${addrName}" > ${tempDir}/tempAddr.ad
 
 checkAddr=$(cat ${addrName}.addr)
 
-typeOfAddr=$(get_addressType "${checkAddr}"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+typeOfAddr=$(get_addressType "${checkAddr}")
 
 #What type of Address is it? Base&Enterprise or Stake
 if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO adresses
@@ -31,12 +31,11 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
 	#Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
 	if ${onlineMode}; then
-				utxo=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-				utxoJSON=$(generate_UTXO "${utxo}" "${checkAddr}")
+				utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 			  else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${checkAddr}\".utxoJSON" <<< ${offlineJSON})
-                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
 	fi
 
 	#Convert UTXO into mary style if UTXO is shelley/allegra style
@@ -49,10 +48,12 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
         #if ${onlyAssets}; then utxoJSON=$(onlyAssets_UTXO "${utxoJSON}"); fi
 
         utxoEntryCnt=$(jq length <<< ${utxoJSON})
-        if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit 1; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
+        if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
         echo
 
-	totalLovelaces=0;	#Init for the Sum
+	#Calculating the total amount of lovelaces in all utxos on this address
+	totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
+
 	totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
 	totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 
@@ -62,7 +63,6 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	do
 	utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
 	utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
-        totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
 	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
 	assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
 	assetsEntryCnt=$(jq length <<< ${assetsJSON})
@@ -80,10 +80,9 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	                        do
                         	assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                         	assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
-				oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
-				newValue=$(bc <<< "${oldValue}+${assetAmount}")
-				totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+				oldValue=$(jq -r ".\"${assetHash}.${assetName}\".amount" <<< ${totalAssetsJSON})
+				newValue=$((${oldValue}+${assetAmount}))
+				totalAssetsJSON=$( jq ". += {\"${assetHash}.${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
         	                echo -e "\e[90m               PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
 				done
 			done

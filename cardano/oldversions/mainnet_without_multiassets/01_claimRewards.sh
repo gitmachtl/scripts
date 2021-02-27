@@ -10,19 +10,12 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  2|3|4 ) stakeAddr="$(dirname $1)/$(basename $1 .staking).staking"; stakeAddr=${stakeAddr/#.\//}
+  2|3 ) stakeAddr="$(dirname $1)/$(basename $1 .staking).staking"; stakeAddr=${stakeAddr/#.\//}
 	toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//};;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <StakeAddressName> <To AddressName> [optional: <FeePaymentAddressName>] [optional: list of UTXOs to use]
+Usage:  $(basename $0) <StakeAddressName> <To AddressName> [optional <FeePaymentAddressName>]
 Ex.: $(basename $0) atada.staking atada.payment        (claims the rewards from atada.staking.addr and sends them to atada.payment.addr, atada.payment.addr pays the fees)
 Ex.: $(basename $0) atada.staking atada.payment funds  (claims the rewards from atada.staking.addr and sends them to atada.payment.addr, funds.addr pays the fees)
-
-Optional parameter UTXO List:
-
-In rare cases you wanna define the exact UTXOs that should be used for sending Assets out, you can do that as a 6th parameter in the scheme:
-"UTXO1#Index" ... to specify one UTXO, must be in "..."
-"UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in "..."
-
 EOF
   exit 1;; esac
 
@@ -31,8 +24,7 @@ if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tem
 
 #Check if an optional fee payment address is given and different to the receiver address
 fromAddr=${toAddr}
-
-if [ $# -ge 3 ] && [[ ! "${3^^}" == *"#"* ]] && [[ ! ${3} == "" ]]; then fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//}; fi
+if [[ $# -eq 3 ]]; then fromAddr="$(dirname $3)/$(basename $3 .addr)"; fi
 if [[ "${fromAddr}" == "${toAddr}" ]]; then rxcnt="1"; else rxcnt="2"; fi
 
 #Checks for needed files
@@ -48,9 +40,7 @@ if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e
 
 echo -e "\e[0mClaim Staking Rewards from Address\e[32m ${stakeAddr}.addr\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
 echo
-
-lastCallParam=${@: -1};
-if [ $# -ge 3 ] && [[ "${lastCallParam}" == *"#"* ]]; then filterForUTXO="${lastCallParam}"; else filterForUTXO=""; fi
+echo
 
 #get live values
 currentTip=$(get_currentTip)
@@ -120,28 +110,20 @@ echo
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxo=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}")
+                                utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
                                 if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
         fi
+	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
+	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
         #Convert UTXO into mary style if UTXO is shelley/allegra style
         if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
 
-        #Only use UTXOs specied in the extra parameter if present
-        if [[ ! "${filterForUTXO}" == "" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly using the UTXO with Hash ${filterForUTXO}\e[0m\n"; utxoJSON=$(filterFor_UTXO "${utxoJSON}" "${filterForUTXO}"); fi
-
-	#Only use UTXOs with lovelaces in it if Scripts was called with the last parameter keyword "ONLYADA"
-	#if [[ "${lastCallParam^^}" == "ONLYADA" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly UTXOs with ADA(lovelaces) on it, no Assets\e[0m\n"; utxoJSON=$(onlyLovelaces_UTXO "${utxoJSON}"); fi
-
-        txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
-        if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
-
 	#Calculating the total amount of lovelaces in all utxos on this address
-        totalLovelaces=0
+        totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
 
         totalAssetsJSON="{}"; 	#Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
@@ -154,7 +136,6 @@ echo
         do
         utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
         utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
-	totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}")
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
         assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
@@ -171,10 +152,9 @@ echo
                                 do
                                 assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
-                                oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
-                                newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                oldValue=$(jq -r ".\"${assetHash}.${assetName}\".amount" <<< ${totalAssetsJSON})
+                                newValue=$((${oldValue}+${assetAmount}))
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}.${assetName}\":{amount: ${newValue}, name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
                          done
@@ -195,7 +175,7 @@ echo
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
                         printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
-                        if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
+                        if [[ ${assetAmount} -gt 0 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
 echo
@@ -296,6 +276,7 @@ echo
 #cat ${txFile}
 #echo
 
+
 if ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         if ${onlineMode}; then  #onlinesubmit
@@ -303,12 +284,6 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 ${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\e[32mDONE\n"
-
-				#Show the TxID
-				txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
-				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-				if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
-
                           else  #offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)
                                 offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",

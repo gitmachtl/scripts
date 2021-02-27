@@ -59,9 +59,9 @@ showVersionInfo="yes"	#yes/no to show the version info and script mode on every 
 
 minNodeVersion="1.25.1"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="2.2.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
-minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.2.0" #minimum version for the cardano-hw-cli
+minLedgerCardanoAppVersion="2.1.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minTrezorCardanoAppVersion="2.3.5"  #minimum version for the cardano-app on the Trezor hardwarewallet
+minHardwareCliVersion="1.1.3" #minimum version for the cardano-hw-cli
 
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
@@ -72,11 +72,7 @@ if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
-#Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
-
-#Set the bc linebreak to a big number so we can work with really biiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiig numbers
-export BC_LINE_LENGTH=1000
 
 #Setting online/offline variables and offlineFile default value, versionInfo
 if [[ "${offlineMode^^}" == "YES" ]]; then offlineMode=true; onlineMode=false; else offlineMode=false; onlineMode=true; fi
@@ -126,8 +122,8 @@ if ${showVersionInfo}; then
 fi
 
 #Check path to genesis files
-if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
-if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
+if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file is wrong or the file is missing!"; exit 1; fi
+if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file is wrong or the file is missing!"; exit 1; fi
 
 #-------------------------------------------------------------
 
@@ -341,52 +337,6 @@ if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era
 if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 #-------------------------------------------------------
 
-
-#-------------------------------------------------------
-#Converts a raw UTXO query output into a Allegra style UTXO JSON with stringnumbers
-generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
-{
-
-local utxoJSON="{}" #start with a blank JSON skeleton
-local utxoAddress=${2}
-
-  while IFS= read -r line; do
-  IFS=' ' read -ra utxo_entry <<< "${line}" # utxo_entry array holds entire utxo string
-  local utxoHashIndex="${utxo_entry[0]}#${utxo_entry[1]}"
-  local utxoAmountLovelaces=${utxo_entry[2]}
-
-  #Build the entry for each UtxoHashIndex
-  local utxoJSON=$( jq ".\"${utxoHashIndex}\".amount = [ \"${utxoAmountLovelaces}\", [] ]" <<< ${utxoJSON})
-  local utxoJSON=$( jq ".\"${utxoHashIndex}\".address = \"${utxoAddress}\"" <<< ${utxoJSON})
-
-  #Add the Token entries if tokens available
-  if [[ ${#utxo_entry[@]} -gt 4 ]]; then # contains tokens
-    idx=5
-    while [[ ${#utxo_entry[@]} -gt ${idx} ]]; do
-      local asset_amount=${utxo_entry[${idx}]}
-      local asset_hash_name="${utxo_entry[$((idx+1))]}"
-      IFS='.' read -ra asset <<< "${asset_hash_name}"
-      local asset_policy=${asset[0]}
-      local asset_name=${asset[1]}
-
-      #Add the Entry of the Token
-      local policyArrayIndex=$( jq ".\"${utxoHashIndex}\".amount[1][0] | index(\"${asset_policy}\")" <<< ${utxoJSON});
-      if [[ "${policyArrayIndex}" == null ]]; then #If policy does not exist, generate first entry
-	 local utxoJSON=$( jq ".\"${utxoHashIndex}\".amount[1] += [ [ \"${asset_policy}\", [ [ \"${asset_name}\",\"${asset_amount}\" ] ] ] ]" <<< ${utxoJSON})
-                			      else
-         local utxoJSON=$( jq ".\"${utxoHashIndex}\".amount[1][${policyArrayIndex}][1] += [ [ \"${asset_name}\",\"${asset_amount}\" ] ]" <<< ${utxoJSON})
-      fi
-
-      idx=$(( idx + 3 ))
-    done
-  fi
-  echo
-done < <(printf "${1}\n" | tail -n +3) #read in from parameter 1 (raw utxo) but cut first two lines
-echo "${utxoJSON}"
-}
-#-------------------------------------------------------
-
-
 #-------------------------------------------------------
 #Converts a Shelley/Allegra style UTXO JSON into a Mary style JSON
 convert_UTXO()
@@ -438,25 +388,6 @@ local utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${inJSON})
 local utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${inJSON})
 local assetCnt=$(jq -r ".\"${utxoHashIndex}\".amount[1] | length" <<< ${inJSON})
 if [[ ${assetCnt} -eq 0 ]]; then local outJSON=$( jq "del (.\"${utxoHashIndex}\")" <<< ${outJSON}); fi
-done
-echo "${outJSON}"
-}
-#-------------------------------------------------------
-
-#-------------------------------------------------------
-#Cuts out all UTXOs in a mary style UTXO JSON that are not the given UTXO hash ($2)
-#The given UTXO hash can be multiple UTXO hashes with the or separator | for egrep
-filterFor_UTXO()
-{
-local inJSON=${1}
-local searchUTXO=${2}
-local outJSON=${inJSON}
-local utxoEntryCnt=$(jq length <<< ${inJSON})
-local tmpCnt=0
-for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
-do
-local utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${inJSON})
-if [[ $(echo "${utxoHashIndex}" | egrep "${searchUTXO}" | wc -l) -eq 0 ]]; then local outJSON=$( jq "del (.\"${utxoHashIndex}\")" <<< ${outJSON}); fi
 done
 echo "${outJSON}"
 }

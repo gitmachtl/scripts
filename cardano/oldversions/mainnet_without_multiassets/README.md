@@ -4,7 +4,7 @@
 
 | | [cardano-cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-node](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor FW |
 | :---  |   :---:     |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.25.1</b><br><sub>**git checkout tags/1.25.1**</sub> | <b>1.25.1</b><br><sub>**git checkout tags/1.25.1**</sub> | <b>1.2.0</b><br><sub>**if you use hw-wallets** | <b>2.2.0</b><br><sub>**if you use hw-wallets** | <b>2.3.6</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.25.1</b><br><sub>**git checkout tags/1.25.1**</sub> | <b>1.25.1</b><br><sub>**git checkout tags/1.25.1**</sub> | <b>1.1.3</b><br><sub>**if you use hw-wallets** | <b>2.1.0</b><br><sub>**if you use hw-wallets** | <b>2.3.5</b><br><sub>**if you use hw-wallets** |
 
 > *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose mainnet*. 
 
@@ -36,7 +36,7 @@ Why not always using Offline-Mode? You have to do transactions online, you have 
 <br>```offlineMode="no"``` Scripts are working in Online-Mode
 <br>```offlineMode="yes"``` Scripts are working in Offline-Mode
 
-So on the Online-Machine you set the ```offlineMode="no"``` and on the Offline-Machine you set the ```offlineMode="yes"```. 
+So on the Online-Machine you set the ```offlineMode="no"``` and on the Offline-Machine you set the ```offlineMode="yes"```.
 
 </details>
 
@@ -81,16 +81,6 @@ You should keep your directory structure the same on both Machines.
 
 &nbsp;<br>&nbsp;<br>
 
-# How to Install the Cardano-Node
-
-We all worke closely together in the Cardano-Ecosystem, so there is no need that i repeat a How-To here. Instead i will point you to a few Tutorials that are already online and maintained. You can come back here after you have successfully installed the cardano-node. :smiley:
-
-* [Cardano-Node-Installation-Guide](https://cardano-node-installation.stakepool247.eu/) by Stakepool247.eu
-* [How-to-build-a-Haskell-Stakepool-Node](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node) Coincashew-Tutorial
-* [Cardano-Foundation-Stakepool-Course](https://cardano-foundation.gitbook.io/stake-pool-course/stake-pool-guide/getting-started/install-node) StakePool-Course by Cardano-Foundation
-
-&nbsp;<br>&nbsp;<br>
-
 # How to Install/Copy the Scripts
 
 Installation is simple, just copy them over or do a git clone so you can also do a quick update in the future.
@@ -128,7 +118,6 @@ cd $HOME/stakepoolscripts
 git fetch origin && git reset --hard origin/master
 cp cardano/testnet/* bin/
 ```
-
 **DONE, you can now start to set the right config in your 00_common.sh or common.inc configuration file. Read the details below. :smiley:**
 <br>&nbsp;<br>
 </details>
@@ -255,65 +244,46 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
 &nbsp;<br>
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: selected UTXOs]```**&sup1;** (you can send to an HASH address too)
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces>``` (you can send to an HASH address too)
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send **ALL lovelaces** from addr1.addr to addr2.addr, Tokens on addr1.addr are preserved
 <br>```./01_sendLovelaces.sh addr1 addr2 ALLFUNDS``` to send **ALL funds** from addr1.addr to addr2.addr **including Tokens** if present
 <br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL lovelaces from addr1.addr to the given Bech32 address
 
-  :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
-
 &nbsp;<br>
 * **01_sendAssets.sh:** sends Assets(Tokens) and optional a given amount of lovelaces from one address to another
-<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset> <AmountOfAssets|ALL> [Opt: Amount of lovelaces to attach] [Opt: selected UTXOs]```**&sup1;**
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset> <AmountOfAssets|ALL> [Optional Amount of lovelaces to attach]```
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
-<br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. Using the PolicyID.TokenNameHASH allowes you to send out Tokens you've got from others. You own generated Tokens can be referenced by the AssetFile 'policyName.tokenName.asset' schema for a easier handling.
-
-  :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
-
+<br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. Using the PolicyID.TokenNameHASH allowes you to send out Tokens you've got from others. You own generated Tokens can be referenced by the policyName.tokenName schema.
 
 &nbsp;<br>
 * **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
-<br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>] [Opt: selected UTXOs]```**&sup1;**
+<br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>]```
 <br>```./01_claimRewards.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
 <br>```./01_claimRewards.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
 
-  :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
-
-
 &nbsp;<br>
-* **01_sendMeta.sh:** modified sendLoveLaces script to simply send a metadata file
 * **01_sendVoteMeta.sh:** modified sendLoveLaces script to simply send a voting json metadata file
-<br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName/MetaFileName>```
+<br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName>```
 <br>```./01_sendLovelaces.sh addr1 myvote``` to just send the myvote.json votingfile from funds on addr1.addr
 <br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process)
 
-
 &nbsp;<br>
 * **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
-<br>```./02_genPaymentAddrOnly.sh <name> <keymode: cli | hw> [optional Account# for HW-Wallet 0-1000]```**&sup1;**
+<br>```./02_genPaymentAddrOnly.sh <name> <keymode: cli | hw>```
 <br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the CLI-based files addr1.addr, addr1.skey, addr1.vkey
-<br>```./02_genPaymentAddrOnly.sh addr1 hw``` will generate the HardwareWallet-based files addr1.addr, addr1.hwsfiles, addr1.vkey
-<br>```./02_genPaymentAddrOnly.sh addr2 hw 1``` will generate the HardwareWallet-based files addr2.addr, addr2.hwsfiles, addr2.vkey from subaccount #1 (default=0)<br>
-
-  :bulb: **&sup1; Expert-Option**: It is possible to specify SubAccounts on your Hardware-Wallet. Theses will derive to the Paths ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. Be aware, not all Wallets support SubAccounts in this way! The default value is: 0
-
+<br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the HardwareWallet-based files addr1.addr, addr1.hwsfiles, addr1.vkey<br>
 
 &nbsp;<br>
 * **03a_genStakingPaymentAddr.sh:** generates the base/payment address & staking address combo with the given name and also the stake address registration certificate
-<br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hybrid> [optional Account# for HW-Wallet 0-1000]```**&sup1;**
+<br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hybrid>```
 
    ```./03a_genStakingPaymentAddr.sh owner cli``` will generate CLI-based files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert
 
    ```./03a_genStakingPaymentAddr.sh owner hw``` will generate HardwareWallet-based files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey, owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
 
    ```./03a_genStakingPaymentAddr.sh owner hybrid``` will generate HardwareWallet-based payment files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey and CLI-based staking files owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
-
-   ```./03a_genStakingPaymentAddr.sh owner hw 5``` will generate HardwareWallet-based files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey, owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert using SubAccount #5 (Default=#0)
-
-   :bulb: **&sup1; Expert-Option**: It is possible to specify SubAccounts on your Hardware-Wallet. Theses will derive to the Paths ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. Be aware, not all Wallets support SubAccounts in this way! The default value is: 0
-
 
 &nbsp;<br>
 * **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
@@ -446,14 +416,11 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 &nbsp;<br>
 * **10_genPolicy.sh:** generate policy keys, signing script and id as files **name.policy.skey/vkey/script/id**. You need a policy for Token minting.
-  <br>```./10_genPolicy.sh <PolicyName> [Optional valid xxx Slots (default=unlimited)]```
+  <br>```./10_genPolicy.sh <PolicyName>```
   
   ```./10_genPolicy.sh mypolicy```<br>this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
   
   ```./10_genPolicy.sh assets/mypolicy2```<br>this will generate the policyfiles with name mypolicy2.policy.skey, mypolicy2.policy.vkey, mypolicy2.policy.script & mypolicy2.policy.id in the 'assets' subdirectory
-  
-  ```./10_genPolicy.sh assets/special 600```<br>this will generate the policyfiles with name special.policy.skey, special.policy.vkey, special.policy.script & special.policy.id in the 'assets' subdirectory with a limited minting/burning access of 600 seconds(10 mins). Within those 10 mins you can mint lets say 200000 Tokens. After this 10 mins you will not be able to mint more Tokens or burn any Tokens with that Policy. So the total amount of the Tokens made with this Policy is fixed on the chain. :smiley:
-  
 
 &nbsp;<br>
 * **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyName generated before. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
@@ -464,8 +431,6 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   ```./11a_mintAsset.sh mypolicy.MEGATOKEN 30 owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
   
   ```./11a_mintAsset.sh mypolicy.HYPERTOKEN 150 owner.payment mymetadata.json```<br>this will mint 150 new HYPERTOKEN with policy 'mypolicy' on the payment address owner.payment.addr and will also attach the mymetadata.json as metadata in the Minting-Transaction
-  
-  It generally depends on the Policy-Type (made by the script 10a) if you can mint unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be more.
 
 &nbsp;<br>
 * **11b_burnAsset.sh:** burnes Assets(Token) on a given payment address with a policyName you own the keys for. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
@@ -476,8 +441,6 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   ```./11b_burnAsset.sh mypolicy.MEGATOKEN 10 owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
   
   ```./11b_burnAsset.sh assets/mypolicy2.HYPERTOKEN 5 owner.payment```<br>this will burn 5 HYPERTOKEN with policy 'mypolicy2' from the subdirectory assets on the payment address owner.payment.addr, also it will send along the mymetadata.json in the Burning-Transaction
-
-It generally depends on the Policy-Type (made by the script 10a) if you can burn unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be less.
 
 </details>
 
@@ -692,17 +655,6 @@ So you can see in this table there are Pros and Cons with the different types of
 
 :warning: **&sup1;**) The Hybrid-Mode is kind of a "comfort" mode for MultiOwnerPools, but you have to take the following in consideration: You have to use the generated payment(base) Address to fund with your Pledge, you will not see your Wallet delegated to your Pool if your plug the Hardware-Key into Daedalus-, Yoroi- or Adalite-Wallet. If you do a transaction out of it via one of the said wallets, you have to take everything out and send it back to the generated payment(base) Address. So, this mode is comfortable, it protects the Funds with the Hardware-Key, but you also must be a little careful. :smiley:
 
-</details>
-
-<details>
-   <Summary><b>Can i create more than one account on the Hardware-Key? ... </b>:bookmark_tabs:<br></summary>
-
-<br>Yes, there are different ways you can create more than one account on a Hardware-Wallet. If you own a Trezor Model-T for example, enable the **Passphrase-Mode** on the device. In this case you will be asked about a passphrase everytime you access the Trezor device. Each different passphrase will result in a different account. This is also the prefered option to enhance the security on the Trezor device. So even if you have only one account, use the passphrase method! Ledger Nano can also be used in Passphrase-Mode, in this case you can generate multiple different PIN-Codes to start der Ledger Nano S/X. Each PIN-Code gives you a new wallet!
-
-There is also another way by using different derive paths on Hardware-Wallets that let you create multiple SubAccounts on it. The paths will are possible with ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. The normal(default) account is using Account# 0.
-The scripts 02 and 03a are supporting this kind of SubAccounts, please checkout the full syntax [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-:bulb: Be aware, not all Wallets support SubAccounts in this way! Adalite for example supports this method for the first 100 Accounts, but you have to use them in order. So first transfer some ADA to the Account# 0, after that you can create an Account #1 with some ADA and so on. If you skip an Account, ADALITE and most likely the other wallets too will not show you the balance. You can always access them via the CLI of course.
 </details>
 
 ## Limitations to the PoolOperation when using Hardware-Wallets
@@ -1386,94 +1338,6 @@ It's similar to a single owner stake pool registration (example above). All owne
 Done.
 </details>
 
-## How to mint/create Native Tokens
-
-From the Mary-Era on, you can easily mint(generate) Native-Tokens by yourself, here you can find an example on how to do it.
-
-<details>
-   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
-
-### Mint an unresticted amount of Tokens
-
-So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under the policy **mypolicy**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
-
-<br><b>Steps:</b>
-1. First you have to generate a policyName/ID. You can reuse the same policyName/ID to mint other Assets(Tokens) later again. If you already have the policy, skip to step 3
-1. Run ```./10_genPolicy.sh assets/mypolicy``` to generate a new policy with name 'mypolicy' in the assets subdirectory (you can do it in the same directory too of course)
-1. Run ```./11a_mintAsset.sh assets/mypolicy.SUPERTOKEN 1000 mywallet``` to mint 1000 new SUPERTOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
-
-Done - You have minted (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the example below. You can mint more anytime if you like. :smiley:
-
-### Mint a resticted amount of Tokens within a set time window
-
-Lets say we wanna create 200000 Tokens with the name **RARETOKEN** under the policy **special**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
-
-<br><b>Steps:</b>
-1. First you have to generate a policyName/ID that is time limited (slotheight limited). Using such a policy gives you the ability to mint your Tokens on the Chain for a limited amount of time, after that your cannot mint more or burn any of those. 
-1. Run ```./10_genPolicy.sh assets/special 600``` to generate a new policy with name 'special' in the assets subdirectory. The slotheight (time limit) is set to 600 -> 600 seconds 
-1. Run ```./11a_mintAsset.sh assets/special.RARETOKEN 200000 mywallet``` to mint 200000 RARETOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-The AssetsFile ***assets/special.RARETOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
-
-Done - You have minted (created) 200000 RARETOKENs within the given time limit and there will never be more RARETOKENs available on the the chain, the policy for minting and burning is deactivated automatically after the set 600 seconds (10 mins). :smiley:
-
-</details>
-
-## How to burn/destroy Native Tokens
-
-If you wanna burn(destroy) some Native-Tokens, you can do it similar to the minting process. Here you can find an example on how to do it.
-
-<details>
-   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
-
-<br>Important, you can only burn Native-Tokes that you have the policy for. You cannot burn other Native-Tokens that were sent to your wallet address. So lets say we wanna burn 200 **SUPERTOKEN** that we created before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory, and the address we wanna burn the Tokens from is the account **mywallet**.
-
-<br><b>Steps:</b>
-1. Run ```./11b_burnAsset.sh assets/mypolicy.SUPERTOKEN 200 mywallet``` to burn 200 SUPERTOKENs from the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Burning-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
-
-Done - You have burned (destroyed) 200 SUPERTOKENs. You can send Native-Tokens with the example below. :smiley:
-
-</details>
-
-
-## How to send Native Tokens
-
-This is as simply as sending lovelaces(ADA) from one wallet address to another address. Here you can find two examples on how to do it with self created Tokens and with Tokens you got from other ones.
-
-<details>
-   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
-
-<br>Lets say we wanna send 15 **SUPERTOKEN** that we created by our own before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory. The Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
-
-<br><b>Steps:</b>
-1. Run ```./01_sendAssets.sh mywallet yourwallet assets/mypolicy.SUPERTOKEN.asset 15``` to send 15 SUPERTOKENs from *mywallet* to *yourwallet*.
-
-Done. :smiley:
-
-As you can see, we referenced the Token via the AssetsFile ***assets/mypolicy.SUPERTOKEN.asset***. That was easy, wasn't it?
-
-Lets now say we wanna send 36 **RANDOMCOIN**s that we got from another user. For that we have to reference it via the full PolicyID.Assetname scheme. In this example these RANDOMCOIN Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
-
-<br><b>Steps:</b>
-1. Run ```./01_queryAddress.sh mywallet``` to show the content of the *mywallet* address
-1. Select&Copy the Token you wanna send, in this example we wanna send the RANDOMCOINs.<br>
-   So your selection could look like: ```34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN```<br>
-   Paste it into the command Step 3.
-1. Run ```./01_sendAssets.sh mywallet yourwallet 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN 36``` to send 36 of theses RANDOMCOINs from *mywallet* to *yourwallet*.
-
-Done. :smiley:
-
-There are more options available to select the amount of the Tokens. You can find all the syntax for this 01_sendAssets.sh script [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-&nbsp;<br>
-</details>
-
-
-
 ## Using multiple relays in your poolname.pool.json
 
 You can mix'n'match multiple relay entries in your poolname.pool.json file, below are a few common examples.
@@ -1557,8 +1421,6 @@ If you wanna retire your registered stakepool mypool, you have to do just a few 
    ```./07a_genStakepoolRetireCert.sh mypool``` this will retire the pool at the next epoch
 1. De-Register your stakepool from the blockchain with ```./07b_deregStakepoolCert.sh mypool smallwallet1```
  
-:warning: You're PoolDepositFee (500 ADA) will be returned to the rewards account you have set for your pool! So don't delete this account until you received the PoolDepositFee back. They are returned as Rewards, not as a normal Payment!
-
 Done.
 </details>
 
@@ -1649,7 +1511,6 @@ The examples in here are for using the scripts in Offine-Mode. Please get yourse
 * Online-Machine: Set the ```offlineMode="no"``` parameter in the 00_common.sh, common.inc or ~/.common.inc config file.<br>Make sure you have a running and fully synced cardano-node on this Machine. Also cardano-cli.
 
 * Offline-Machine: Set the ```offlineMode="yes"``` parameter in the 00_common.sh, common.inc or ~/.common.inc config file.<br>You only need the cardano-cli on this Machine, no cardano-node binaries.
-
 
 ## Generate some wallets for the daily operator work
 
@@ -2113,161 +1974,6 @@ Make sure you have your owner.payment.addr and smallwallet1.addr file on your On
 
 Done.  
 
-</details>
-
-## How to mint/create Native Tokens in Offline-Mode
-
-From the Mary-Era on, you can easily mint(generate) Native-Tokens by yourself, here you can find an example on how to do it.
-
-<details>
-   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
-
-### Mint an unresticted amount of Tokens
-
-So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under the policy **mypolicy**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
-
-**Online-Machine:**
-
-1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
-
-:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
-
-**Offline-Machine:** (same steps like working online)
-
-1. First you have to generate a policyName/ID. You can reuse the same policyName/ID to mint other Assets(Tokens) later again. If you already have the policy, skip to step 3
-1. Run ```./10_genPolicy.sh assets/mypolicy``` to generate a new policy with name 'mypolicy' in the assets subdirectory (you can do it in the same directory too of course)
-1. Run ```./11a_mintAsset.sh assets/mypolicy.SUPERTOKEN 1000 mywallet``` to mint 1000 new SUPERTOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
-
-:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
-
-**Online-Machine:**
-
-1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
-
-Done - You have minted (created) 1000 new SUPERTOKENs and they are now added to the mywallet address. You can now send them out into the world with the example below. You can mint more if you like later.
-
-:smiley:
-
-### Mint a resticted amount of Tokens within a set time window
-
-Lets say we wanna create 200000 Tokens with the name **RARETOKEN** under the policy **special**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
-
-**Online-Machine:**
-
-1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
-
-:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
-
-**Offline-Machine:** (same steps like working online)
-
-1. First you have to generate a policyName/ID that is time limited (slotheight limited). Using such a policy gives you the ability to mint your Tokens on the Chain for a limited amount of time, after that your cannot mint more or burn any of those. 
-1. Run ```./10_genPolicy.sh assets/special 600``` to generate a new policy with name 'special' in the assets subdirectory. The slotheight (time limit) is set to 1200 -> 1200 seconds 
-1. Run ```./11a_mintAsset.sh assets/special.RARETOKEN 200000 mywallet``` to mint 200000 RARETOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-The AssetsFile ***assets/special.RARETOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
-
-:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
-
-**Online-Machine:**
-
-1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
-
-Done - You have minted (created) 200000 RARETOKENs within the given time limit and there will never be more RARETOKENs available on the the chain, the policy for minting and burning is deactivated automatically after the given 1200 seconds (20 mins). :smiley:
-
-:smiley:
-
-</details>
-
-## How to burn/destroy Native Tokens in Offline-Mode
-
-If you wanna burn(destroy) some Native-Tokens, you can do it similar to the minting process. Here you can find an example on how to do it.
-
-<details>
-   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
-
-<br>Important, you can only burn Native-Tokes that you have the policy for. You cannot burn other Native-Tokens that were sent to your wallet address. So lets say we wanna burn 200 **SUPERTOKEN** that we created before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory, and the address we wanna burn the Tokens from is the account **mywallet**.
-
-**Online-Machine:**
-
-1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
-
-:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
-
-**Offline-Machine:** (same steps like working online)
-
-1. Run ```./11b_burnAsset.sh assets/mypolicy.SUPERTOKEN 200 mywallet``` to burn 200 SUPERTOKENs from the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Burning-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
-
-:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
-
-**Online-Machine:**
-
-1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
-
-Done - You have burned (destroyed) 200 SUPERTOKENs. You can send Native-Tokens with the example below. :smiley:
-
-</details>
-
-
-## How to send Native Tokens in Offline-Mode
-
-This is as simply as sending lovelaces(ADA) from one wallet address to another address. Here you can find two examples on how to do it with self created Tokens and with Tokens you got from other ones.
-
-<details>
-   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
-
-<br>Lets say we wanna send 15 **SUPERTOKEN** that we created by our own before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory. The Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
-
-**Online-Machine:**
-
-1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
-
-:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
-
-**Offline-Machine:** (same steps like working online)
-
-1. Run ```./01_sendAssets.sh mywallet yourwallet assets/mypolicy.SUPERTOKEN.asset 15``` to send 15 SUPERTOKENs from *mywallet* to *yourwallet*.
-
-:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
-
-**Online-Machine:**
-
-1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
-
-Done. :smiley:
-
-As you can see, we referenced the Token via the AssetsFile ***assets/mypolicy.SUPERTOKEN.asset***. That was easy, wasn't it?
-
-Lets now say we wanna send 36 **RANDOMCOIN**s that we got from another user. For that we have to reference it via the full PolicyID.Assetname scheme. In this example these RANDOMCOIN Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
-
-**Online-Machine:**
-
-1. Add/Update the current UTXO balance for mywallet in the offlineTransfer.json by running<br>```./01_workOffline.sh add mywallet```
-
-:floppy_disk: Transfer the offlineTransfer.json to the Offline-Machine.
-
-**Offline-Machine:** (same steps like working online)
-
-1. Run ```./01_queryAddress.sh mywallet``` to show the content of the *mywallet* address
-1. Select&Copy the Token you wanna send, in this example we wanna send the RANDOMCOINs.<br>
-   So your selection could look like: ```34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN```<br>
-   Paste it into the command Step 3.
-1. Run ```./01_sendAssets.sh mywallet yourwallet 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN 36``` to send 36 of theses RANDOMCOINs from *mywallet* to *yourwallet*.
-
-:floppy_disk: Transfer the offlineTransfer.json to the Online-Machine.
-
-**Online-Machine:**
-
-1. Execute the created offline transaction now on the blockchain by running<br>```./01_workOffline.sh execute```
-
-Done. :smiley:
-
-There are more options available to select the amount of the Tokens. You can find all the syntax for this 01_sendAssets.sh script [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-&nbsp;<br>
 </details>
 
 # Conclusion
