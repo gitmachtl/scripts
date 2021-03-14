@@ -1,38 +1,45 @@
 #!/bin/bash
 
-#Please set the following variables to your needs, you can overwrite them dynamically
-#by placing a file with name "common.inc" in the calling directory or in "$HOME/.common.inc".
-#It will be sourced into this file automatically if present and can overwrite the values below dynamically :-)
+##############################################################################################################################
+#
+# MAIN CONFIG FILE:
+#
+# Please set the following variables to your needs, you can overwrite them dynamically
+# by placing a file with name "common.inc" in the calling directory or in "$HOME/.common.inc".
+# It will be sourced into this file automatically if present and can overwrite the values below dynamically :-)
+#
+##############################################################################################################################
 
+
+#--------- Set the Path to your node socket file and to your genesis files here ---------
 socket="db-mainnet/node.socket" #Path to your cardano-node socket for machines in online-mode. Another example would be "$HOME/cnode/sockets/node.socket"
-
 genesisfile="configuration-mainnet/mainnet-shelley-genesis.json"           #Shelley-Genesis path, you can also use the placeholder $HOME to specify your home directory
 genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byron-Genesis path, you can also use the placeholder $HOME to specify your home directory
+
 
 #--------- Set the Path to your main binaries here ---------
 cardanocli="./cardano-cli"	#Path to your cardano-cli binary you wanna use. If your binary is present in the Path just set it to "cardano-cli" without the "./"
 cardanonode="./cardano-node"	#Path to your cardano-node binary you wanna use. If your binary is present in the Path just set it to "cardano-node" without the "./"
 bech32_bin="./bech32"		#Path to your bech32 binary you wanna use. If your binary is present in the Path just set it to "bech32" without the "./"
 
-magicparam="--mainnet"		#choose "--mainnet" for mainnet or "--testnet-magic 1097911063" for the public testnet
-addrformat="--mainnet" 		#choose "--mainnet" for mainnet address format or "--testnet-magic 1097911063" for the testnet address format
 
-itn_jcli="./jcli" 		#only needed if you wanna include your itn witness for your pool-ticker
-
-#--------- NEW --- you can now use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
-cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli you wanna use
+#--------- You can work in offline mode too, please read the instructions on the github repo README :-)
+offlineMode="no" 			#change this to "yes" if you run these scripts on a cold machine, it need a counterpart with set to "no" on a hot machine
+offlineFile="./offlineTransfer.json" 	#path to the filename (JSON) that will be used to transfer the data between a hot and a cold machine
 
 
-#--------- NEW --- you can work in offline mode now too, please read the instructions on the github repo README :-)
-offlineMode="no" 		#change this to "yes" if you run theses scripts on a cold machine, it need a counterpart with set to "no" on a hot machine
-offlineFile="./offlineTransfer.json" #path to the filename (JSON) that will be used to transfer the data between a hot and a cold machine
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-#--------- leave this next value until you have to change it for a testnet
-byronToShelleyEpochs=208 #208 for the mainnet, 74 for the public testnet
+#--------- Only needed if you wanna use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
+cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna use
 
 
-#--------- only needed for automated kes/opcert update and upload via scp -----
+#--------- Only needed if you wanna generate the right format for the NativeAsset Metadata Registry
+cardanometa="./cardano-metadata-submitter" #Path to your cardano-metadata-submitter binary you wanna use. If present in the Path just set it to "cardano-metadata-submitter" without the "./"
+
+
+#--------- Only needed for automated kes/opcert update and upload via scp -----
 remoteServerAddr="remoteserver address or ip"                   #RemoteServer ip or dns name
 remoteServerUser="remoteuser"                             	#RemoteServer userlogin via ssh keys
 remoteServerSSHport="22"                                	#RemoteServer SSH port number
@@ -40,9 +47,15 @@ remoteServerDestDir="~/remoteuser/core-###NODENAME###/."        #Destination dir
 remoteServerPostCommand="~/remoteuser/restartCore.sh"      	#Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
 
 
-#--------- some other stuff -----
-showVersionInfo="yes"	#yes/no to show the version info and script mode on every script call
+#--------- Only needed if you wanna change the BlockChain from the Mainnet to a Testnet Chain Setup
+byronToShelleyEpochs=208 	#choose 208 for the mainnet, 74 for the public testnet
+magicparam="--mainnet"          #choose "--mainnet" for mainnet or "--testnet-magic 1097911063" for the public testnet
+addrformat="--mainnet"          #choose "--mainnet" for mainnet address format or "--testnet-magic 1097911063" for the testnet address format
 
+
+#--------- some other stuff -----
+showVersionInfo="yes"		#yes/no to show the version info and script mode on every script call
+itn_jcli="./jcli"               #only needed if you wanna include your itn witness for your pool-ticker
 
 
 
@@ -54,15 +67,15 @@ showVersionInfo="yes"	#yes/no to show the version info and script mode on every 
 
 ##############################################################################################################################
 #
-# DONT EDIT BELOW THIS LINE
+# 'DONT EDIT BELOW THIS LINE !!!'
 #
 ##############################################################################################################################
 
 minNodeVersion="1.25.1"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="2.1.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
-minTrezorCardanoAppVersion="2.3.5"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.1.3" #minimum version for the cardano-hw-cli
+minLedgerCardanoAppVersion="2.2.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
+minHardwareCliVersion="1.2.0" #minimum version for the cardano-hw-cli
 
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
