@@ -19,7 +19,7 @@ case $# in
       assetMintAmount="$2";;
 
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName> [optional Metadata.json to send along]
+Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName> [optional Transaction-Metadata.json to send along]
 
 EOF
   exit 1;; esac
@@ -39,7 +39,7 @@ policyID=$(cat ${policyName}.policy.id)
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 
-#Check if there is also an optional metadata file present
+#Check if there is also an optional trasaction metadata file present
 metafileParameter=""
 if [[ $# -eq 4 ]]; then
 			metafile="$(dirname $4)/$(basename $4 .json).json"; metafile=${metafile//.\//}
@@ -55,7 +55,10 @@ fi
 #Sending ALL lovelaces, so only 1 receiver addresses
 rxcnt="1"
 
-echo -e "\e[0mMinting Asset \e[32m${assetMintAmount} '${assetMintName}'\e[0m with Policy \e[32m'${policyName}'\e[0m:"
+assetMintBech=$(convert_tokenName2BECH ${policyID} ${assetMintName})
+assetMintSubject="${policyID}$(convert_assetNameASCII2HEX ${assetMintName})"
+
+echo -e "\e[0mMinting Asset \e[32m${assetMintAmount} '${assetMintName}'\e[0m with Policy \e[32m'${policyName}'\e[0m: ${assetMintBech}"
 
 #get live values
 currentTip=$(get_currentTip)
@@ -103,7 +106,8 @@ echo
 
 	if [[ "${assetMintName}" == "" ]]; then point=""; else point="."; fi
 
-	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetMintName}\":{amount: \"${assetMintAmount}\", name: \"${assetMintName}\"}}" <<< "{}")
+	assetBech=$(convert_tokenName2BECH ${policyID} ${assetMintName})
+	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetMintName}\":{amount: \"${assetMintAmount}\", name: \"${assetMintName}\", bech: \"${assetBech}\"}}" <<< "{}")
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 	totalPolicyIDsJSON=$( jq ". += {\"${policyID}\": 1}" <<< ${totalPolicyIDsJSON})
 
@@ -130,13 +134,15 @@ echo
                                 do
                                 assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
-				oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
+                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
+                                if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
-                                echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
+                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
                                 done
-                         done
+
+                        done
         fi
 	txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
@@ -146,13 +152,14 @@ echo
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} Policy-IDs \e[0m - PREVIEW after minting\n"
-                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
+                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Bech-Name (ASCII):"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
                         assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-                        printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
+                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
+                        printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech} (${assetName})"
 			if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
@@ -230,12 +237,35 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
 
-			        #Updating the ${policyName}.${assetMintName}.token json
+			        #Updating the ${policyName}.${assetMintName}.asset json
 			        assetFileName="${policyName}.${assetMintName}.asset"
-			        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
-			        oldValue=$(jq -r ".minted" ${assetFileName})
+
+				#If there is no assetFileName file, than build up the skeleton and add the recent data to it
+			        if [ -f "${assetFileName}" ]; then
+								assetFileJSON=$(cat ${assetFileName}) #Reading in the assetFileJSON
+							      else
+								assetFileJSON="{}"
+								assetFileJSON=$(jq ". += {metaName: \"${assetMintName}\",
+											  metaDescription: \"\",
+											  \"---\": \"--- Optional additional info ---\",
+											  metaTicker: \"\",
+											  metaUrl: \"\",
+											  metaSubUnitDecimals: 0,
+											  metaSubUnitName: \"\",
+											  metaLogoPNG: \"\",
+											  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
+											  minted: \"0\"}" <<< ${assetFileJSON})
+				fi
+			        oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
 			        newValue=$(bc <<< "${oldValue} + ${assetMintAmount}")
-			        assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetMintName}\", policyID: \"${policyID}\", policyValidBeforeSlot: \"${ttlFromScript}\", lastUpdate: \"$(date -R)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
+			        assetFileJSON=$( jq ". += {minted: \"${newValue}\",
+                                                           name: \"${assetMintName}\",
+                                                           bechName: \"${assetMintBech}\",
+                                                           policyID: \"${policyID}\",
+                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
+                                                           subject: \"${assetMintSubject}\",
+                                                           lastUpdate: \"$(date -R)\",
+                                                           lastAction: \"mint ${assetMintAmount}\"}" <<< ${assetFileJSON})
 
 			        file_unlock ${assetFileName}
 			        echo -e "${assetFileJSON}" > ${assetFileName}
@@ -263,12 +293,36 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 #Readback the tx content and compare it to the current one
                                 readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
                                 if [[ "${txFileJSON}" == "${readback}" ]]; then
-			                                #Updating the ${policyName}.${assetMintName}.token json
+
+			                                #Updating the ${policyName}.${assetMintName}.asset json
 			                                assetFileName="${policyName}.${assetMintName}.asset"
-			                                if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
-			                                oldValue=$(jq -r ".minted" ${assetFileName})
-			                                newValue=$(bc << "${oldValue} + ${assetMintAmount}")
-			                                assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetMintName}\", policyID: \"${policyID}\", policyValidBeforeSlot: \"${ttlFromScript}\", lastUpdate: \"$(date -R)\", lastAction: \"mint ${assetMintAmount}\"}" < ${assetFileName})
+
+			                                #If there is no assetFileName file, than build up the skeleton and add the recent data to it
+			                                if [ -f "${assetFileName}" ]; then
+                                                                assetFileJSON=$(cat ${assetFileName}) #Reading in the assetFileJSON
+                                                              else
+                                                                assetFileJSON="{}"
+                                                                assetFileJSON=$(jq ". += {metaName: \"${assetMintName}\",
+                                                                                          metaDescription: \"\",
+                                                                                          \"---\": \"--- Optional additional info ---\",
+                                                                                          metaTicker: \"\",
+                                                                                          metaUrl: \"\",
+                                                                                          metaSubUnitDecimals: 0,
+                                                                                          metaSubUnitName: \"\",
+                                                                                          metaLogoPNG: \"\",
+                                                                                          \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
+											  minted: \"0\"}" <<< ${assetFileJSON})
+			                                fi
+			                                oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
+			                                newValue=$(bc <<< "${oldValue} + ${assetMintAmount}")
+			                                assetFileJSON=$( jq ". += {minted: \"${newValue}\",
+			                                                           name: \"${assetMintName}\",
+			                                                           bechName: \"${assetMintBech}\",
+			                                                           policyID: \"${policyID}\",
+			                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
+			                                                           subject: \"${assetMintSubject}\",
+			                                                           lastUpdate: \"$(date -R)\",
+			                                                           lastAction: \"mint ${assetMintAmount} (only Offline proof)\"}" <<< ${assetFileJSON})
 
 			                                file_unlock ${assetFileName}
 			                                echo -e "${assetFileJSON}" > ${assetFileName}

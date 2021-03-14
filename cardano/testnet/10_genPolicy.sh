@@ -51,6 +51,7 @@ cat ${policyName}.policy.skey | jq
 echo
 
 policyKeyHASH=$(${cardanocli} address key-hash --payment-verification-key-file ${policyName}.policy.vkey)
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 currentTip=$(get_currentTip)
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m"

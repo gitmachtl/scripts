@@ -56,7 +56,10 @@ fi
 #Sending ALL lovelaces, so only 1 receiver addresses
 rxcnt="1"
 
-echo -e "\e[0mBurning Asset \e[32m${assetBurnAmount} '${assetBurnName}'\e[0m with Policy \e[32m'${policyName}'\e[0m:"
+assetBurnBech=$(convert_tokenName2BECH ${policyID} ${assetBurnName})
+assetBurnSubject="${policyID}$(convert_assetNameASCII2HEX ${assetBurnName})"
+
+echo -e "\e[0mBurning Asset \e[32m${assetBurnAmount} '${assetBurnName}'\e[0m with Policy \e[32m'${policyName}'\e[0m: ${assetBurnBech}"
 
 #get live values
 currentTip=$(get_currentTip)
@@ -102,7 +105,8 @@ echo
         #totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
 	#Preload the new Asset to burn in the totalAssetsJSON with the negative number of assets to burn, will sum up later
 	if [[ "${assetBurnName}" == "" ]]; then point=""; else point="."; fi
-	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetBurnName}\":{amount: \"-${assetBurnAmount}\", name: \"${assetBurnName}\"}}" <<< "{}")
+        assetBech=$(convert_tokenName2BECH ${policyID} ${assetBurnName})
+	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetBurnName}\":{amount: \"-${assetBurnAmount}\", name: \"${assetBurnName}\", bech: \"${assetBech}\"}}" <<< "{}")
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
@@ -128,12 +132,14 @@ echo
                                 do
                                 assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
+                                if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
-                                echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
+                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
                                 done
+
                          done
         fi
 	txInString="${txInString} --tx-in ${utxoHashIndex}"
@@ -144,14 +150,15 @@ echo
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s)\e[0m - PREVIEW after the burn\n"
-                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
+                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Bech-Name (ASCII):"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
                         assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
+                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
 			if [[ $(bc <<< "${assetAmount}>=0") -eq 1 ]]; then
-                        	printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
+	                        printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech} (${assetName})"
 				assetsOutString+="+${assetAmount} ${assetHashName}"; #only include in the sendout if more than zero
 			fi
                         done
@@ -171,7 +178,7 @@ minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${t
 if [[ "${assetBurnName}" == "" ]]; then point=""; else point="."; fi
 
 #Check amount of assets after the burn
-assetAmountAfterBurn=$(jq -r ".\"${policyID}.${assetBurnName}\".amount" <<< ${totalAssetsJSON})
+assetAmountAfterBurn=$(jq -r ".\"${policyID}${point}${assetBurnName}\".amount" <<< ${totalAssetsJSON})
 if [[ $(bc <<< "${assetAmountAfterBurn}<0") -eq 1 ]]; then echo -e "\n\e[35mYou can't burn ${assetBurnAmount} ${assetBurnName} Assets with that policy, you can only burn $(bc <<< "${assetBurnAmount}+${assetAmountAfterBurn}") Assets!\e[0m"; exit; fi
 
 #Generate Dummy-TxBody file for fee calculation
@@ -232,12 +239,37 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
 
-			        #Updating the ${policyName}.${assetBurnName}.asset json
-			        assetFileName="${policyName}.${assetBurnName}.asset"
-			        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
-			        oldValue=$(jq -r ".minted" ${assetFileName})
-			        newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
-			        assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetBurnName}\", policyID: \"${policyID}\", lastUpdate: \"$(date -R)\", lastAction: \"burn ${assetBurnAmount}\"}" < ${assetFileName})
+
+                                #Updating the ${policyName}.${assetBurnName}.asset json
+                                assetFileName="${policyName}.${assetBurnName}.asset"
+
+                                #If there is no assetFileName file, than build up the skeleton and add the recent data to it
+                                if [ -f "${assetFileName}" ]; then
+                                                                assetFileJSON=$(cat ${assetFileName}) #Reading in the assetFileJSON
+                                                              else
+                                                                assetFileJSON="{}"
+                                                                assetFileJSON=$(jq ". += {metaName: \"${assetBurnName}\",
+                                                                                          metaDescription: \"\",
+                                                                                          \"---\": \"--- Optional additional info ---\",
+                                                                                          metaTicker: \"\",
+                                                                                          metaUrl: \"\",
+                                                                                          metaSubUnitDecimals: 0,
+                                                                                          metaSubUnitName: \"\",
+                                                                                          metaLogoPNG: \"\",
+                                                                                          \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
+											  minted: \"0\"}" <<< ${assetFileJSON})
+                                fi
+                                oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
+                                newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
+                                assetFileJSON=$( jq ". += {minted: \"${newValue}\",
+                                                           name: \"${assetBurnName}\",
+                                                           bechName: \"${assetBurnBech}\",
+                                                           policyID: \"${policyID}\",
+                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
+                                                           subject: \"${assetBurnSubject}\",
+                                                           lastUpdate: \"$(date -R)\",
+                                                           lastAction: \"burn ${assetBurnAmount}\"}" <<< ${assetFileJSON})
+
 
 			        file_unlock ${assetFileName}
 			        echo -e "${assetFileJSON}" > ${assetFileName}
@@ -265,12 +297,37 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 #Readback the tx content and compare it to the current one
                                 readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
                                 if [[ "${txFileJSON}" == "${readback}" ]]; then
-						        #Updating the ${policyName}.${assetBurnName}.asset json
-						        assetFileName="${policyName}.${assetBurnName}.asset"
-						        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
-						        oldValue=$(jq -r ".minted" ${assetFileName})
-						        newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
-						        assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetBurnName}\", policyID: \"${policyID}\", lastUpdate: \"$(date -R)\", lastAction: \"burn ${assetBurnAmount}\"}" < ${assetFileName})
+
+
+                                #Updating the ${policyName}.${assetBurnName}.asset json
+                                assetFileName="${policyName}.${assetBurnName}.asset"
+
+			                                #If there is no assetFileName file, than build up the skeleton and add the recent data to it
+			                                if [ -f "${assetFileName}" ]; then
+			                                                                assetFileJSON=$(cat ${assetFileName}) #Reading in the assetFileJSON
+			                                                              else
+			                                                                assetFileJSON="{}"
+			                                                                assetFileJSON=$(jq ". += {metaName: \"${assetBurnName}\",
+			                                                                                          metaDescription: \"\",
+			                                                                                          \"---\": \"--- Optional additional info ---\",
+			                                                                                          metaTicker: \"\",
+			                                                                                          metaUrl: \"\",
+			                                                                                          metaSubUnitDecimals: 0,
+			                                                                                          metaSubUnitName: \"\",
+			                                                                                          metaLogoPNG: \"\",
+			                                                                                          \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
+														  minted: \"0\"}" <<< ${assetFileJSON})
+			                                fi
+			                                oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
+			                                newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
+			                                assetFileJSON=$( jq ". += {minted: \"${newValue}\",
+			                                                           name: \"${assetBurnName}\",
+			                                                           bechName: \"${assetBurnBech}\",
+			                                                           policyID: \"${policyID}\",
+			                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
+			                                                           subject: \"${assetBurnSubject}\",
+			                                                           lastUpdate: \"$(date -R)\",
+			                                                           lastAction: \"burn ${assetBurnAmount} (only Offline proof)\"}" <<< ${assetFileJSON})
 
 						        file_unlock ${assetFileName}
 						        echo -e "${assetFileJSON}" > ${assetFileName}
