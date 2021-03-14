@@ -136,7 +136,7 @@ submitterString="--init ${assetSubject}"
 #Check metaName
 echo -ne "Adding 'metaName'        ... "
 metaName=$(jq -r ".metaName" <<< ${assetFileJSON})
-if [[ ! "${metaName//[[:space:]]}" == "${metaName}" ]]; then echo -e "\e[35mERROR - The metaName '${metaName}' contains spaces, not allowed !\e[0m\n"; exit 1; fi
+#if [[ ! "${metaName//[[:space:]]}" == "${metaName}" ]]; then echo -e "\e[35mERROR - The metaName '${metaName}' contains spaces, not allowed !\e[0m\n"; exit 1; fi
 if [[ ${#metaName} -lt 1 || ${#metaName} -gt 50 ]]; then echo -e "\e[35mERROR - The metaName '${metaName}' is too short or too long. Max. 50chars allowed !\e[0m\n"; exit 1; fi
 submitterString="${submitterString} --name \"${metaName}\""
 echo -e "\e[32mOK\e[0m"
