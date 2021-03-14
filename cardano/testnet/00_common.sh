@@ -4,19 +4,20 @@
 #by placing a file with name "common.inc" in the calling directory or in "$HOME/.common.inc".
 #It will be sourced into this file automatically if present and can overwrite the values below dynamically :-)
 
-socket="db-mainnet/node.socket"
+socket="db-mainnet/node.socket" #Path to your cardano-node socket for machines in online-mode. Another example would be "$HOME/cnode/sockets/node.socket"
 
-genesisfile="configuration-mainnet/mainnet-shelley-genesis.json"           #Shelley-Genesis path
-genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byron-Genesis path
+genesisfile="configuration-mainnet/mainnet-shelley-genesis.json"           #Shelley-Genesis path, you can also use the placeholder $HOME to specify your home directory
+genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byron-Genesis path, you can also use the placeholder $HOME to specify your home directory
 
-cardanocli="./cardano-cli"	#Path to your cardano-cli you wanna use
-cardanonode="./cardano-node"	#Path to your cardano-node you wanna use
+#--------- Set the Path to your main binaries here ---------
+cardanocli="./cardano-cli"	#Path to your cardano-cli binary you wanna use. If your binary is present in the Path just set it to "cardano-cli" without the "./"
+cardanonode="./cardano-node"	#Path to your cardano-node binary you wanna use. If your binary is present in the Path just set it to "cardano-node" without the "./"
+bech32_bin="./bech32"		#Path to your bech32 binary you wanna use. If your binary is present in the Path just set it to "bech32" without the "./"
 
-magicparam="--mainnet"		#choose "--mainnet" for mainnet or for example "--testnet-magic 1097911063" for a testnet, 12 for allegra
-addrformat="--mainnet" 		#choose "--mainnet" for mainnet address format or like "--testnet-magic 1097911063" for testnet address format, 12 for allegra
+magicparam="--mainnet"		#choose "--mainnet" for mainnet or "--testnet-magic 1097911063" for the public testnet
+addrformat="--mainnet" 		#choose "--mainnet" for mainnet address format or "--testnet-magic 1097911063" for the testnet address format
 
 itn_jcli="./jcli" 		#only needed if you wanna include your itn witness for your pool-ticker
-
 
 #--------- NEW --- you can now use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
 cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli you wanna use
@@ -28,10 +29,10 @@ offlineFile="./offlineTransfer.json" #path to the filename (JSON) that will be u
 
 
 #--------- leave this next value until you have to change it for a testnet
-byronToShelleyEpochs=208 #208 for the mainnet, 74 for the testnet, 1 for allegra-testnet
+byronToShelleyEpochs=208 #208 for the mainnet, 74 for the public testnet
 
 
-#--------- only for kes/opcert update and upload via scp -----
+#--------- only needed for automated kes/opcert update and upload via scp -----
 remoteServerAddr="remoteserver address or ip"                   #RemoteServer ip or dns name
 remoteServerUser="remoteuser"                             	#RemoteServer userlogin via ssh keys
 remoteServerSSHport="22"                                	#RemoteServer SSH port number
@@ -72,7 +73,11 @@ if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
+#Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
+
+#Set the bc linebreak to a big number so we can work with really biiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiig numbers
+export BC_LINE_LENGTH=1000
 
 #Setting online/offline variables and offlineFile default value, versionInfo
 if [[ "${offlineMode^^}" == "YES" ]]; then offlineMode=true; onlineMode=false; else offlineMode=false; onlineMode=true; fi
@@ -97,7 +102,7 @@ exists() {
 }
 
 #Check cardano-cli
-if ! exists "${cardanocli}"; then majorError "Path ERROR - Path to cardano-cli is not correct or cardano-cli binaryfile is missing!"; exit 1; fi
+if ! exists "${cardanocli}"; then majorError "Path ERROR - Path to cardano-cli is not correct or cardano-cli binaryfile is missing!\nYour current set path is: ${cardanocli}"; exit 1; fi
 versionCLI=$(${cardanocli} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
 versionCheck "${minNodeVersion}" "${versionCLI}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
@@ -107,7 +112,7 @@ if ${showVersionInfo}; then echo -ne "\n\e[0mVersion-Info: \e[32mcli ${versionCL
 
 #Check cardano-node only in online mode
 if ${onlineMode}; then
-	if ! exists "${cardanonode}"; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!"; exit 1; fi
+	if ! exists "${cardanonode}"; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!\nYour current set path is: ${cardanocli}"; exit 1; fi
 	versionNODE=$(${cardanonode} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
 	versionCheck "${minNodeVersion}" "${versionNODE}"
 	if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-node/cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
@@ -116,9 +121,21 @@ if ${onlineMode}; then
 	if ${showVersionInfo}; then echo -ne " / \e[32mnode ${versionNODE}\e[0m"; fi
 fi
 
+#Check bech32 tool if given path is ok, if not try to use the one in the scripts folder
+if ! exists "${bech32_bin}"; then
+				#Try the one in the scripts folder
+				if [[ -f "${scriptDir}/bech32" ]]; then bech32_bin="${scriptDir}/bech32";
+				else majorError "Path ERROR - Path to the 'bech32' binary is not correct or 'bech32' binaryfile is missing!\nYou can find it here: https://github.com/input-output-hk/bech32/releases/latest\nThis is needed to show the correct Bech32-Assetformat like 'asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs'."; exit 1; fi
+fi
+
 #Display current Mode (online or offline)
 if ${showVersionInfo}; then
-				if ${offlineMode}; then echo -e "\t\tScripts-Mode: \e[32moffline\e[0m\n"; else echo -e "\t\tScripts-Mode: \e[36monline\e[0m\n"; fi
+				if ${offlineMode}; then
+							echo -e "\t\tScripts-Mode: \e[32moffline\e[0m\n";
+						   else
+							echo -e "\t\tScripts-Mode: \e[36monline\e[0m\n";
+							if [ ! -e "${socket}" ]; then echo -e "\e[35mWarning: Node-Socket does not exist !\e[0m\n"; fi
+				fi
 fi
 
 #Check path to genesis files
@@ -128,7 +145,7 @@ if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the 
 #-------------------------------------------------------------
 
 
-#Check if curl, jq and bc is installed
+#Check if curl, jq, bc and xxd is installed
 if ! exists curl; then
           echo -e "\nYou need the little tool 'curl' !\n"
           echo -e "Install it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install curl\e[0m\n"
@@ -146,6 +163,13 @@ fi
 if ! exists bc; then
           echo -e "\nYou need the little tool 'bc' !\n"
           echo -e "Install it On Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install bc\e[0m\n"
+          echo -e "Thx! :-)\n"
+          exit 2
+fi
+
+if ! exists xxd; then
+          echo -e "\nYou need the little tool 'xxd' !\n"
+          echo -e "Install it On Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install xxd\e[0m\n"
           echo -e "Thx! :-)\n"
           exit 2
 fi
@@ -321,16 +345,16 @@ function trimString
 #Return the era the online node is in
 get_NodeEra() {
 #CheckEra
+tmp=$(${cardanocli} query protocol-parameters --alonzo-era ${magicparam} 2> /dev/null)
+if [[ "$?" == 0 ]]; then echo "alonzo"; return 0; fi
 tmp=$(${cardanocli} query protocol-parameters --allegra-era ${magicparam} 2> /dev/null)
 if [[ "$?" == 0 ]]; then echo "allegra"; return 0; fi
 tmp=$(${cardanocli} query protocol-parameters --mary-era ${magicparam} 2> /dev/null)
 if [[ "$?" == 0 ]]; then echo "mary"; return 0; fi
 tmp=$(${cardanocli} query protocol-parameters --shelley-era ${magicparam} 2> /dev/null)
 if [[ "$?" == 0 ]]; then echo "shelley"; return 0; fi
-tmp=$(${cardanocli} query protocol-parameters --byron-era ${magicparam} 2> /dev/null)
-if [[ "$?" == 0 ]]; then echo "byron"; return 0; fi
-#None of the above
-return 1
+#None of the above (Byron query would fail anyways)
+echo "byron"; return 0;
 }
 #Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
@@ -471,6 +495,39 @@ local minUTXOvalue=$(jq -r .minUTxOValue <<< ${1})
 echo $(( ${minUTXOvalue} + (${2}*${minUTXOvalue}) ))	#poor calculation currently
 }
 #-------------------------------------------------------
+
+
+#-------------------------------------------------------
+#Convert PolicyID|assetName TokenName into Bech32 format "token1....."
+convert_tokenName2BECH() {
+        #${1} = policyID | assetName as a HEX String
+	#${2} = assetName in ASCII or empty
+local tmp_policyID=$(trimString "${1}") #make sure there are not spaces before and after
+local tmp_assetName=$(trimString "${2}")
+if [[ ! "${tmp_assetName}" == "" ]]; then local tmp_assetName=$(echo -n "${tmp_assetName}" | xxd -b -ps -c 80 | tr -d '\n'); fi
+
+echo -n "${tmp_policyID}${tmp_assetName}" | xxd -r -ps | b2sum -l 160 -b | cut -d' ' -f 1 | ${bech32_bin} asset
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Convert ASCII assetName into HEX assetName
+convert_assetNameASCII2HEX() {
+echo -n "${1}" | xxd -b -ps -c 80 | tr -d '\n'
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Convert HEX assetName into ASCII assetName
+convert_assetNameHEX2ASCII() {
+echo -n "${1}" | xxd -r -ps
+}
+#-------------------------------------------------------
+
+
+
+
+
 
 #-------------------------------------------------------
 #Show Informations about the content in the offlineJSON

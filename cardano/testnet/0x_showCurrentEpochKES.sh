@@ -10,7 +10,6 @@ convertsecs() {
 }
 
 # Byron to Shelley Epoch Transition Length
-#byronToShelleyEpochs=208
 
 currentEpoch=$(get_currentEpoch)
 timeUntilNextEpoch=$(convertsecs $(get_timeUntilNextEpoch))
@@ -23,7 +22,6 @@ slotLength=$(cat ${genesisfile} | jq -r .slotLength) 			#In Secs
 epochLength=$(cat ${genesisfile} | jq -r .epochLength)			#In Secs
 slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)	#Number
 startTimeByron=$(cat ${genesisfile_byron} | jq -r .startTime) 		#In Secs(abs)
-#startTimeByron=1506203091
 startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)		#In Text
 startTimeSec=$(date --date=${startTimeGenesis} +%s) 			#In Secs(abs)
 transTimeEnd=$(( ${startTimeSec}+(${byronToShelleyEpochs}*${epochLength}) )) 			#In Secs(abs) End of the TransitionPhase
@@ -47,14 +45,13 @@ currentKESperiod=$(( (${currentSlot}-${byronSlots}) / (${slotsPerKESPeriod}*${sl
 #Calculating Expire KES Period and Date/Time
 maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
 expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
-#expireTimeSec=$(( ${transTimeEnd} + (${slotLength}*${expiresKESperiod}*${slotsPerKESPeriod}) ))
 expireTimeSec=$(( ${currentTimeSec} + (${slotLength}*${maxKESEvolutions}*${slotsPerKESPeriod}) ))
 expireDate=$(date --date=@${expireTimeSec})
 
 echo -e "Current KES Period: ${currentKESperiod}"
 echo -e "KES Keys expire after Period: ${expiresKESperiod} (${expireDate})"
 
-echo -e "Current Slot: ${currentSlot}      (byronSlots=${byronSlots}  transSlots=${transSlots})"
+#echo -e "Current Slot: ${currentSlot}      (byronSlots=${byronSlots}  transSlots=${transSlots})"
 #echo -e "Current Slot 00_common.sh: $(get_currentTip)"
 #echo -e "ByronStartTime: ${startTimeByron}"
 #echo -e "ShelleyStartTime: ${startTimeSec}"

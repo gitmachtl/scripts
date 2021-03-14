@@ -46,12 +46,12 @@ if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tem
 
 #Check if the assetToSend is a file xxx.asset then read out the data from the file instead
 assetFile="$(dirname ${assetToSend})/$(basename "${assetToSend}" .asset).asset"
-
 if [ -f "${assetFile}" ]; then
 				tmpAssetPolicy="$(jq -r .policyID < ${assetFile})"
 				tmpAssetName="$(jq -r .name < ${assetFile})"
 				if [[ "${tmpAssetName}" == "" ]]; then assetToSend="${tmpAssetPolicy}"; else assetToSend="${tmpAssetPolicy}.${tmpAssetName}"; fi
 fi
+
 
 echo -e "\e[0mSending assets from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
 echo
@@ -126,13 +126,19 @@ echo
                                 do
                                 assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
+                                if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+
+				#Allow to give directly the bech name as inputParameter variable assetToSend.
+				#Convert it on the fly to the policyID.name scheme if found
+				if [[ "${assetBech}" == "${assetToSend}" ]]; then assetToSend="${assetHash}${point}${assetName}"; fi
+
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
-                                echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
+                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
                                 done
-                         done
+                          done
         fi
         txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
@@ -148,6 +154,7 @@ echo
 	#Currently on the source address
 	assetAmount=$(jq -r ".\"${assetToSend}\".amount" <<< ${totalAssetsJSON})
         assetName=$(jq -r ".\"${assetToSend}\".name" <<< ${totalAssetsJSON})
+	assetBech=$(jq -r ".\"${assetToSend}\".bech" <<< ${totalAssetsJSON})
 	#If there is no asset of that type, exit with an error
 	if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then
 			        echo -e "\e[0mAsset-Amount currently on ${fromAddr}.addr:\e[32m ${assetAmount} ${assetName} \e[0m"
@@ -171,20 +178,21 @@ echo
         fi
 
 	#Update the new value in the totalAssetsJSON
-	totalAssetsJSON=$( jq ". += {\"${assetToSend}\":{amount: \"${amountToReturn}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+	totalAssetsJSON=$( jq ". += {\"${assetToSend}\":{amount: \"${amountToReturn}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
 
 	echo
 
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} Policy-IDs \e[0m - Remaining assets on the source address\n"
-                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
+                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Bech-Name (ASCII):"
                          for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
                         assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-                        printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
+                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
+                        printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech} (${assetName})"
                         if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsReturnString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi

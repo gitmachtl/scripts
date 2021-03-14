@@ -80,11 +80,12 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	                        do
                         	assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
                         	assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
+				assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
 				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
 				oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
 				newValue=$(bc <<< "${oldValue}+${assetAmount}")
-				totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
-        	                echo -e "\e[90m               PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
+				totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
+        	                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
 				done
 			done
 
@@ -98,13 +99,14 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	totalAssetsCnt=$(jq length <<< ${totalAssetsJSON});
 	if [[ ${totalAssetsCnt} -gt 0 ]]; then
 			echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
-			printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
+			printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Bech-Name (ASCII):"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
 			assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
 			assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-			printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
+			assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
+			printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech} (${assetName})"
 			done
         fi
 	echo
