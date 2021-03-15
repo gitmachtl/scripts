@@ -2431,7 +2431,7 @@ There are more options available to select the amount of the Tokens. You can fin
 
 ## How to register Metadata for your Native Tokens in Offline-Mode
 
-It is totally the same procedure like doing it in Online-Mode. Please check out the example [here](#xxx).
+It is totally the same procedure like doing it in Online-Mode. Please check out the example **[here](#how-to-register-metadata-for-your-native-tokens)**.
 
 &nbsp;<br>
 
