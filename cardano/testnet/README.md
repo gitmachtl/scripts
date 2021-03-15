@@ -624,6 +624,51 @@ The **poolname.pool.json** file is your Config-Json to manage your individual Po
 </details>
 
 
+### NativeAsset-Information-File (policyName.assetName.asset) - for your own NativeAssets
+
+The **policyName.assetName.asset** file is your Config- and Information Json for your own NativeAssets you minted. In addition to the basic information this also holds your Metadata you wanna provide to the TokenRegistry Server. This file will be automatically created by **the scripts 11a, 11b or 12a** ...<br>
+   
+<details>
+   <summary><b>Checkout how the AssetFile-Json looks like and the parameters ... </b>:bookmark_tabs:<br></summary>
+
+<br>**Sample wakandaPolicy.mySuperToken.asset**
+  ```console
+  {
+  "metaName": "SUPER Token",
+  "metaDescription": "This is the description of the Wakanda SUPERTOKEN",
+  "---": "--- Optional additional info ---",
+  "metaTicker": "SUPER",
+  "metaUrl": "https://wakandaforever.io",
+  "metaSubUnitDecimals": 6,
+  "metaSubUnitName": "vibraniums",
+  "metaLogoPNG": "supertoken.png",
+  "===": "--- DO NOT EDIT BELOW THIS LINE !!! ---",
+  "minted": "0",
+  "name": "mySuperToken",
+  "bechName": "asset1qv84q4cxq5lglvpt22lwjnp2flfe6r8zk72zpd",
+  "policyID": "aeaab6fa86997512b4f850049148610d662b5a7a971d6e132a094062",
+  "policyValidBeforeSlot": "unlimited",
+  "subject": "aeaab6fa86997512b4f850049148610d662b5a7a971d6e132a0940626d795375706572546f6b656e",
+  "lastUpdate": "Mon, 15 Mar 2021 17:46:46 +0100",
+  "lastAction": "created Asset-File"
+  }
+  ```
+
+| Parameter | State | Description | Example |
+| :---      | :---: |    :---     | :---    |
+| metaName | **required** | Name of your NativeAsset (1-50chars) | SUPER Token |
+| metaDescription | optional | Description of your NativeAsset (max. 500chars) | This is the SUPER Token, once upon... |
+| metaTicker | optional | ShortTicker Name (3-5chars) | MAX, SUPER, Yeah |
+| metaUrl | optional | Secure Weblink, must start with https:// (max. 250chars) | https://wakandaforever.io |
+| metaSubUnitDecimals | optional | You can provide the amount of decimals here (0-19 decimals)<br>If you set it to more than 0, you also have to provide the Name for it. 0 means no decimals, just full amount of Tokens. | 250 Tokens:<br>**0** -> 250 SUPER<br>**2** -> 2,50 SUPER<br>**6** -> 0,000250 SUPER |
+| metaSubUnitName | optional | Needed parameter if you set the above parameter to 1-19. With Cardano as an example you would have "ADA" as the metaName, "lovelaces" as the metaSubUnitName and the metaSubUnitDecimals would be 6 | lovelaces, cents |
+| metaLogoPNG | optional | Path to a valid PNG Image File for your NativeAsset (max. 64kB) | supertoken.png |
+
+Please don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line. The scripts will store information about your minting and burning process in there together with additional information like lastAction. 
+
+</details>
+
+
 ### Filenames used
 
 <details>
