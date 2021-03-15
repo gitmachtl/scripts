@@ -29,12 +29,12 @@ Usage:  $(basename $0) <PolicyName.AssetName>
 EOF
   exit 1;; esac
 
-#Check assetMintName for alphanummeric only, 32 chars max
+#Check assetName for alphanummeric only, 32 chars max
 if [[ "${assetName}" == ".asset" ]]; then assetName="";
 elif [[ ! "${assetName}" == "${assetName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetName}' should only contain alphanummeric chars!\e[0m"; exit 1; fi
 if [[ ${#assetName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit 1; fi
 
-# Check for needed input files - missing - work to do :-)
+# Check for needed input files
 if [ ! -f "${policyName}.policy.id" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.id\" id-file does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
 if [ ! -f "${policyName}.policy.script" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.script\" scriptfile does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
 if [ ! -f "${policyName}.policy.skey" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.skey\" signing key does not exist! Please create it first with script 10.\e[0m"; exit 1; fi

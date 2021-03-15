@@ -30,7 +30,6 @@ EOF
 if [[ "${assetName}" == ".asset" ]]; then assetName=""; fi
 assetFileName="${policyName}.${assetName}.asset"
 
-
 #Check if the assetFile exists, if yes, read out the parameters. Otherwise check if the provided parameter is a subject(policyID|assetName) hex string
 if [ -f "${assetFileName}" ]; then
 				#Read in the current file
