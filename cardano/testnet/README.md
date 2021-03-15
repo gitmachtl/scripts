@@ -645,7 +645,7 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
   "metaSubUnitName": "vibraniums",
   "metaLogoPNG": "supertoken.png",
   "===": "--- DO NOT EDIT BELOW THIS LINE !!! ---",
-  "minted": "0",
+  "minted": "10000",
   "name": "mySuperToken",
   "bechName": "asset1qv84q4cxq5lglvpt22lwjnp2flfe6r8zk72zpd",
   "policyID": "aeaab6fa86997512b4f850049148610d662b5a7a971d6e132a094062",
@@ -667,7 +667,7 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
 | metaSubUnitName | optional | Needed parameter if you set the above parameter to 1-19. With Cardano as an example you would have "ADA" as the metaName, "lovelaces" as the metaSubUnitName and the metaSubUnitDecimals would be 6 | lovelaces, cents |
 | metaLogoPNG | optional | Path to a valid PNG Image File for your NativeAsset (max. 64kB) | supertoken.png |
 
-> *:bulb: Please don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line. The scripts will store information about your minting and burning process in there together with additional information like lastAction.*
+> *:warning: Don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line. The scripts will store information about your minting and burning process in there together with additional information like lastAction.*
 
 ### Only informational Parameters - Do not edit them !!!
 
@@ -682,7 +682,7 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
 | lastUpdate | This shows the date when the assetFile was updated the last time by generation Metadata or Minting/Burning Tokens | *Date* |
 | lastAction | Short descrition of the process that happend at the date show in the entry lastUpdate | *Action* |
 
-> *:bulb: Please don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line. The scripts will store information about your minting and burning process in there together with additional information like lastAction.*
+> *:warning: Don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line. The scripts will store information about your minting and burning process in there together with additional information like lastAction.*
 
 &nbsp;<br>
 &nbsp;<br>
@@ -1558,9 +1558,79 @@ Done. :smiley:
 
 There are more options available to select the amount of the Tokens. You can find all the syntax for this 01_sendAssets.sh script [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
 
-&nbsp;<br>
+&nbsp;<br>&nbsp;<br>
+
 </details>
 
+## How to register Metadata for your Native Tokens
+
+Here you can find the steps to add Metadata (Name, Decimals, an Url, a Picture ...) of your Native Tokens to the TokenRegistryServer.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+### Generate the special formatted and signed JSON File for the GitHub PullRequest
+
+How does it work: The TokenRegistryServer (currently maintained by the CardanoFoundation) is fed via a special GitHub Repository https://github.com/cardano-foundation/cardano-token-registry .
+The script 12a provides you with a method that is using the **cardano-metadata-submitter** binary from IOHK to form and sign the needed JSON file for the registration of your Metadata on this GitHub Repo. You can find the binary here (https://github.com/input-output-hk/cardano-metadata-submitter) or you can simply use the one that is provided within these scripts. After you have created that special JSON file, you can then browse to GitHub and clone the cardano-token-registry Repo into your own repo. After that, upload the special JSON file into the 'mappings' folder and generate a PullRequest to merge it back with the Master-Branch of the CardanoFoundation Repo.
+
+So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN** under the policy **mypolicy** we minted before using the 'assets' directory.
+
+<br><b>Steps:</b>
+1. Make sure that the path-setting in the `00_common.sh` config file is correct for the `cardanometa="./cardano-metadata-submitter"` entry. The script will automatically try to find it also in the scripts directory.
+
+1. Run ```./12a_genAssetMeta.sh assets/mypolicy.SUPERTOKEN``` to make sure that the AssetFile is automatically filled with all the needed entries.
+
+1. Open the AssetFile `assets/mypolicy.SUPERTOKEN.asset` in an editor and modify the upper part so it fits your needs, here is an example:
+   ```console
+   {
+   "metaName": "SUPER Token",
+   "metaDescription": "This is the description of the Wakanda SUPERTOKEN",
+   "---": "--- Optional additional info ---",
+   "metaTicker": "SUPER",
+   "metaUrl": "https://wakandaforever.io",
+   "metaSubUnitDecimals": 6,
+   "metaSubUnitName": "vibraniums",
+   "metaLogoPNG": "supertoken.png",
+   "===": "--- DO NOT EDIT BELOW THIS LINE !!! ---",
+   "minted": "10000",
+   "name": "SUPERTOKEN",
+   "bechName": "asset1qv84q4cxq5lglvpt22lwjnp2flfe6r8zk72zpd",
+   "policyID": "aeaab6fa86997512b4f850049148610d662b5a7a971d6e132a094062",
+   "policyValidBeforeSlot": "unlimited",
+   "subject": "aeaab6fa86997512b4f850049148610d662b5a7a971d6e132a0940626d795375706572546f6b656e",
+   "lastUpdate": "Mon, 15 Mar 2021 17:46:46 +0100",
+   "lastAction": "created Asset-File"
+   }
+   ```
+   > **You can find more details about the parameters [here](#nativeasset-information-file-policynameassetnameasset---for-your-own-nativeassets)**<br>*:warning: Don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line.*
+
+1. Save the AssetFile.
+
+1. Run ```./12a_genAssetMeta.sh assets/mypolicy.SUPERTOKEN``` again to produce the special JSON file for the Registration
+
+1. The special file was created, in this example it would be a file with the name<br>**aeaab6fa86997512b4f850049148610d662b5a7a971d6e132a0940626d795375706572546f6b656e.json**<br>:warning: Do not rename the file!
+
+1. Go to https://github.com/cardano-foundation/cardano-token-registry and clone the Repo into your own Repo
+
+1. Upload the special file now in your own Repo into the **mappings directory**. Or you can replace an old file if you already did this step before to update your metadata.
+
+1. Create a pull-request to merge it back with the Master-Branch of the CardanoFoundation/cardano-token-registry Repo
+
+Done - You have uploaded your Metadata for your own NativeAsset/Token. Now you have to wait a bit until it is approved by the CardanoFoundation.
+
+### Check the registered Metadata on the TokenRegistry Server
+
+It is possible to check the currently stored data on the TokenRegistry Server, the script 12b can query that for you. Lets say if we wanna check back if the recently uploaded (pull-request) Metadata is already stored in the Server.
+
+<br><b>Steps:</b>
+1. Run ```./12b_checkAssetMetaServer.sh assets/mypolicy.SUPERTOKEN``` to check the latest data on the TokenRegistryServer
+
+You will get a feedback on the data that is stored on the server, this check is only available in Online-Mode. The script will automatically choose the Mainnet or the Testnet Server depending on your magicparameter set in the config file.
+
+&nbsp;<br>&nbsp;<br>
+
+</details>
 
 
 ## Using multiple relays in your poolname.pool.json
@@ -2358,6 +2428,12 @@ There are more options available to select the amount of the Tokens. You can fin
 
 &nbsp;<br>
 </details>
+
+## How to register Metadata for your Native Tokens in Offline-Mode
+
+It is totally the same procedure like doing it in Online-Mode. Please check out the example [here](#xxx).
+
+&nbsp;<br>
 
 # Conclusion
 
