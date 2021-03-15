@@ -620,13 +620,15 @@ The **poolname.pool.json** file is your Config-Json to manage your individual Po
   "deregSubmitted": "Di Jun  2 17:14:38 CEST 2020"
 }
 ```
+&nbsp;<br>
+&nbsp;<br>
 
 </details>
 
 
 ### NativeAsset-Information-File (policyName.assetName.asset) - for your own NativeAssets
 
-The **policyName.assetName.asset** file is your Config- and Information Json for your own NativeAssets you minted. In addition to the basic information this also holds your Metadata you wanna provide to the TokenRegistry Server. This file will be automatically created by **the scripts 11a, 11b or 12a** ...<br>
+The **policyName.assetName.asset** file is your Config- and Information Json for your own NativeAssets you minted. In addition to the basic information this also holds your Metadata you wanna provide to the TokenRegistry Server.<br>**This file will be automatically created by the scripts 11a, 11b or 12a** ...<br>
    
 <details>
    <summary><b>Checkout how the AssetFile-Json looks like and the parameters ... </b>:bookmark_tabs:<br></summary>
@@ -653,6 +655,7 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
   "lastAction": "created Asset-File"
   }
   ```
+### User editable Parameters
 
 | Parameter | State | Description | Example |
 | :---      | :---: |    :---     | :---    |
@@ -664,7 +667,26 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
 | metaSubUnitName | optional | Needed parameter if you set the above parameter to 1-19. With Cardano as an example you would have "ADA" as the metaName, "lovelaces" as the metaSubUnitName and the metaSubUnitDecimals would be 6 | lovelaces, cents |
 | metaLogoPNG | optional | Path to a valid PNG Image File for your NativeAsset (max. 64kB) | supertoken.png |
 
-Please don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line. The scripts will store information about your minting and burning process in there together with additional information like lastAction. 
+> *:bulb: Please don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line. The scripts will store information about your minting and burning process in there together with additional information like lastAction.*
+
+### Only informational Parameters - Do not edit them !!!
+
+| Parameter | Description | Example |
+| :---      |    :---     | :---    |
+| minted | Amount of Assets you have minted in total. This accumulates, if you burn some this number will decrease. | 10000 |
+| name | This is the ASCII FileName you have used to create the Token. It also represents the ASCII readable AssetName | mySuperToken |
+| bechName | This is the bech32 representation of your NatikeAsset/Token. It starts with 'asset' and is also called fingerprint. | asset1qv...2zpd |
+| policyID | Thats the unique policyID in hex format, generated from your policyScript and your Keys. | aeaab6fa8699....751294062 |
+| policyValidBeforeSlot | This will show your policy-Status. You can generate unlimited policies and SlotTime limited policies with the script 10. | unlimited |
+| subject | This it the unique hex representation of your unique policyID combined with the hex encoded ASCII-Name. Thats your reference in the Token Registry that will be used by the wallet to query your Metadata! | aeaab6fa8699....6f6b656e |
+| lastUpdate | This shows the date when the assetFile was updated the last time by generation Metadata or Minting/Burning Tokens | *Date* |
+| lastAction | Short descrition of the process that happend at the date show in the entry lastUpdate | *Action* |
+
+> *:bulb: Please don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line. The scripts will store information about your minting and burning process in there together with additional information like lastAction.*
+
+&nbsp;<br>
+&nbsp;<br>
+
 
 </details>
 
