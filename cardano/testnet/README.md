@@ -480,13 +480,13 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   
   ```./11b_burnAsset.sh assets/mypolicy2.HYPERTOKEN 5 owner.payment```<br>this will burn 5 HYPERTOKEN with policy 'mypolicy2' from the subdirectory assets on the payment address owner.payment.addr, also it will send along the mymetadata.json in the Burning-Transaction
 
-It generally depends on the Policy-Type (made by the script 10) if you can burn unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be less.
+  It generally depends on the Policy-Type (made by the script 10) if you can burn unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be less.
 
 &nbsp;<br>
-* **12a_genAssetMeta.sh:** is used to generate and sign the special JSON format which is used to register your Token Metadata on the Token-Registry-Server
+* **12a_genAssetMeta.sh:** is used to generate and sign the special JSON format which is used to register your Token Metadata on the Token-Registry-Server. This script needs the tool **cardano-metadata-submitter** from IOHK (https://github.com/input-output-hk/cardano-metadata-submitter). I uploaded a version of it into the scripts directory so you have a faster start.
   <br>```./12a_genAssetMeta.sh <PolicyName.AssetName>```
   
-  ```./11a_genAssetMeta.sh mypolicy.SUPERTOKEN```<br>this will generate the MetadataRegistration-JSON for the SUPERTOKEN and policy 'mypolicy'
+  ```./12a_genAssetMeta.sh mypolicy.SUPERTOKEN```<br>this will generate the MetadataRegistration-JSON for the SUPERTOKEN and policy 'mypolicy'
   
   It will use the information stored in the <PolicyName.AssetName>.asset file to generate the Registration Data. You can edit this file before you run this command to your needs. Please only edit the entries starting with "meta". If the AssetFile is an older type, just run 12a once with that file and it will automatically add all the needed and available Entry-Fields for you! Please check the examples to learn more about the needed informations. :smiley:
 
@@ -494,9 +494,12 @@ It generally depends on the Policy-Type (made by the script 10) if you can burn 
 * **12b_checkAssetMetaServer.sh:** will check the currently stored information about the given Asset from the TokenRegistryServer (only in Onine-Mode)
   <br>```./12b_checkAssetMetaServer.sh <PolicyName.AssetName OR assetSubject(Hex-Code)>```
   
-  ```./11b_checkAssetMetaServer.sh mypolicy.SUPERTOKEN```<br>this will check the Registered Metadata for the the SUPERTOKEN (policy mypolicy)
+  ```./12b_checkAssetMetaServer.sh mypolicy.SUPERTOKEN```<br>this will check the Registered Metadata for the the SUPERTOKEN (policy mypolicy)
   
   You can run a query by that command against the Cardano Token Registry Server (https://github.com/cardano-foundation/cardano-token-registry). Wallets like Daedalus will use this information to show MetaContent about the NativeAsset(Token). Please check the examples to learn more about the needed informations.
+
+&nbsp;<br>
+&nbsp;<br>
 
 </details>
 
