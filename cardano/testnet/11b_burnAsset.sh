@@ -253,8 +253,6 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                                                                           \"---\": \"--- Optional additional info ---\",
                                                                                           metaTicker: \"\",
                                                                                           metaUrl: \"\",
-                                                                                          metaSubUnitDecimals: 0,
-                                                                                          metaSubUnitName: \"\",
                                                                                           metaLogoPNG: \"\",
                                                                                           \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
 											  minted: \"0\"}" <<< ${assetFileJSON})
@@ -313,8 +311,6 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 			                                                                                          metaTicker: \"\",
 			                                                                                          metaUrl: \"\",
 			                                                                                          metaSubUnitDecimals: 0,
-			                                                                                          metaSubUnitName: \"\",
-			                                                                                          metaLogoPNG: \"\",
 			                                                                                          \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
 														  minted: \"0\"}" <<< ${assetFileJSON})
 			                                fi

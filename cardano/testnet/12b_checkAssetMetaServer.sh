@@ -54,7 +54,7 @@ fi
 if [[ "${magicparam}" == *"mainnet"* ]]; then
 					  echo -e "\e[0mChecking Mainnet-Token-Registry for Asset-Subject: \e[32m${assetSubject}\e[0m\n"
 					  metaResponse=$(curl -sL "https://tokens.cardano.org/metadata/${assetSubject}")
-					 else
+ 					 else
 					  echo -e "\e[0mChecking \e[33mTestnet-\e[0mToken-Registry for Asset-Subject: \e[32m${assetSubject}\e[0m\n"
 					  metaResponse=$(curl -sL "https://metadata.cardano-testnet.iohkdev.io/metadata/${assetSubject}")
 fi
@@ -74,14 +74,14 @@ echo -ne "\e[90m           Name: \e[32m"; ret=$(jq -r ".name.value | select (.!=
 echo -ne "\e[90m    Description: \e[32m"; ret=$(jq -r ".description.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
 echo -ne "\e[90m         Ticker: \e[32m"; ret=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
 echo -ne "\e[90m            Url: \e[32m"; ret=$(jq -r ".url.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
-echo -ne "\e[90m    SubUnitName: \e[32m"; ret=$(jq -r ".unit.value.name | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
-echo -ne "\e[90m SubUnitDecimal: \e[32m"; ret=$(jq -r ".unit.value.decimals | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
+#echo -ne "\e[90m    SubUnitName: \e[32m"; ret=$(jq -r ".unit.value.name | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
+#echo -ne "\e[90m SubUnitDecimal: \e[32m"; ret=$(jq -r ".unit.value.decimals | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
 
 echo -ne "\e[90m        LogoPNG: \e[32m"; ret=$(jq -r ".logo.value" 2> /dev/null <<< ${metaResponse});
 	if [[ ! "${ret}" == null ]]; then
 					tmpPNG="${tempDir}/tmp.png"
 					base64 --decode <(echo "${ret}") 2> /dev/null > ${tmpPNG}
-					echo -e "present with $(du -b ${tmpPNG} | cut -f1) bytes \e[90m(downloaded to ${tmpPNG})\e[0m";
+					echo -e "present with $(du -b ${tmpPNG} | cut -f1) bytes \e[90m(extracted to ${tmpPNG} if you wanna check it)\e[0m";
 				     else
 					echo -e "\e[0m";
 	fi

@@ -250,12 +250,18 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 											  \"---\": \"--- Optional additional info ---\",
 											  metaTicker: \"\",
 											  metaUrl: \"\",
-											  metaSubUnitDecimals: 0,
-											  metaSubUnitName: \"\",
 											  metaLogoPNG: \"\",
 											  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
 											  minted: \"0\"}" <<< ${assetFileJSON})
 				fi
+
+
+#Currently disabled by IOHK
+#                                                                                         metaSubUnitDecimals: 0,
+#                                                                                         metaSubUnitName: \"\",
+
+
+
 			        oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
 			        newValue=$(bc <<< "${oldValue} + ${assetMintAmount}")
 			        assetFileJSON=$( jq ". += {minted: \"${newValue}\",
@@ -307,8 +313,6 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                                                                           \"---\": \"--- Optional additional info ---\",
                                                                                           metaTicker: \"\",
                                                                                           metaUrl: \"\",
-                                                                                          metaSubUnitDecimals: 0,
-                                                                                          metaSubUnitName: \"\",
                                                                                           metaLogoPNG: \"\",
                                                                                           \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
 											  minted: \"0\"}" <<< ${assetFileJSON})

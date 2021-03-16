@@ -62,8 +62,6 @@ if [ ! -f "${assetFileName}" ]; then
 							  \"---\": \"--- Optional additional info ---\",
 							  metaTicker: \"\",
 							  metaUrl: \"\",
-							  metaSubUnitDecimals: 0,
-							  metaSubUnitName: \"\",
 							  metaLogoPNG: \"\",
 							  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
 			        			  minted: \"0\",
@@ -96,8 +94,6 @@ assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetName}\",
                                   \"---\": \"--- Optional additional info ---\",
                                   metaTicker: \"\",
                                   metaUrl: \"\",
-                                  metaSubUnitDecimals: 0,
-                                  metaSubUnitName: \"\",
                                   metaLogoPNG: \"\",
                                   \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
                                   minted: \"0\",
@@ -175,16 +171,16 @@ fi
 
 
 #Check metaSubUnitDecimals - optional
-metaSubUnitDecimals=$(jq -r ".metaSubUnitDecimals" <<< ${assetFileJSON})
-if [[ ${metaSubUnitDecimals} -gt 0 ]]; then
-	echo -ne "Adding 'metaSubUnit'     ... "
-	if [[ ${metaSubUnitDecimals} -gt 19 ]]; then echo -e "\e[35mERROR - The metaSubUnitDecimals '${metaSubUnitDecimals}' is too big. Max. value is 19 decimals !\e[0m\n"; exit 1; fi
-	metaSubUnitName=$(jq -r ".metaSubUnitName" <<< ${assetFileJSON})
-	if [[ ! "${metaSubUnitName//[[:space:]]}" == "${metaSubUnitName}" ]]; then echo -e "\e[35mERROR - The metaSubUnitName '${metaSubUnitName}' contains spaces, not allowed !\e[0m\n"; exit 1; fi
-	if [[ ${#metaSubUnitName} -lt 1 || ${#metaSubUnitName} -gt 30 ]]; then echo -e "\e[35mERROR - The metaSubUnitName '${metaSubUnitName}' is too too long. Max. 30chars allowed !\e[0m\n"; exit 1; fi
-	submitterArray+=("--unit" "${metaSubUnitDecimals},${metaSubUnitName}")
-	echo -e "\e[32mOK\e[0m"
-fi
+#metaSubUnitDecimals=$(jq -r ".metaSubUnitDecimals" <<< ${assetFileJSON})
+#if [[ ${metaSubUnitDecimals} -gt 0 ]]; then
+#	echo -ne "Adding 'metaSubUnit'     ... "
+#	if [[ ${metaSubUnitDecimals} -gt 19 ]]; then echo -e "\e[35mERROR - The metaSubUnitDecimals '${metaSubUnitDecimals}' is too big. Max. value is 19 decimals !\e[0m\n"; exit 1; fi
+#	metaSubUnitName=$(jq -r ".metaSubUnitName" <<< ${assetFileJSON})
+#	if [[ ! "${metaSubUnitName//[[:space:]]}" == "${metaSubUnitName}" ]]; then echo -e "\e[35mERROR - The metaSubUnitName '${metaSubUnitName}' contains spaces, not allowed !\e[0m\n"; exit 1; fi
+#	if [[ ${#metaSubUnitName} -lt 1 || ${#metaSubUnitName} -gt 30 ]]; then echo -e "\e[35mERROR - The metaSubUnitName '${metaSubUnitName}' is too too long. Max. 30chars allowed !\e[0m\n"; exit 1; fi
+#	submitterArray+=("--unit" "${metaSubUnitDecimals},${metaSubUnitName}")
+#	echo -e "\e[32mOK\e[0m"
+#fi
 
 #Check metaPNG - optional
 metaLogoPNG=$(jq -r ".metaLogoPNG" <<< ${assetFileJSON})
