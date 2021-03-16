@@ -641,8 +641,6 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
   "---": "--- Optional additional info ---",
   "metaTicker": "SUPER",
   "metaUrl": "https://wakandaforever.io",
-  "metaSubUnitDecimals": 6,
-  "metaSubUnitName": "vibraniums",
   "metaLogoPNG": "supertoken.png",
   "===": "--- DO NOT EDIT BELOW THIS LINE !!! ---",
   "minted": "10000",
@@ -663,11 +661,12 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
 | metaDescription | optional | Description of your NativeAsset (max. 500chars) | This is the SUPER Token, once upon... |
 | metaTicker | optional | ShortTicker Name (3-5chars) | MAX, SUPER, Yeah |
 | metaUrl | optional | Secure Weblink, must start with https:// (max. 250chars) | https://wakandaforever.io |
-| metaSubUnitDecimals | optional | You can provide the amount of decimals here (0-19 decimals)<br>If you set it to more than 0, you also have to provide the Name for it. 0 means no decimals, just full amount of Tokens. | 250 Tokens:<br>**0** -> 250 SUPER<br>**2** -> 2,50 SUPER<br>**6** -> 0,000250 SUPER |
-| metaSubUnitName | optional | Needed parameter if you set the above parameter to 1-19. With Cardano as an example you would have "ADA" as the metaName, "lovelaces" as the metaSubUnitName and the metaSubUnitDecimals would be 6 | lovelaces, cents |
 | metaLogoPNG | optional | Path to a valid PNG Image File for your NativeAsset (max. 64kB) | supertoken.png |
 
 > *:warning: Don't edit the file below the **--- DO NOT EDIT BELOW THIS LINE !!! ---** line. The scripts will store information about your minting and burning process in there together with additional information like lastAction.*
+
+<!-- | metaSubUnitDecimals | optional | You can provide the amount of decimals here (0-19 decimals)<br>If you set it to more than 0, you also have to provide the Name for it. 0 means no decimals, just full amount of Tokens. | 250 Tokens:<br>**0** -> 250 SUPER<br>**2** -> 2,50 SUPER<br>**6** -> 0,000250 SUPER |
+| metaSubUnitName | optional | Needed parameter if you set the above parameter to 1-19. With Cardano as an example you would have "ADA" as the metaName, "lovelaces" as the metaSubUnitName and the metaSubUnitDecimals would be 6 | lovelaces, cents | -->
 
 ### Only informational Parameters - Do not edit them !!!
 
@@ -1589,8 +1588,6 @@ So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN*
    "---": "--- Optional additional info ---",
    "metaTicker": "SUPER",
    "metaUrl": "https://wakandaforever.io",
-   "metaSubUnitDecimals": 6,
-   "metaSubUnitName": "vibraniums",
    "metaLogoPNG": "supertoken.png",
    "===": "--- DO NOT EDIT BELOW THIS LINE !!! ---",
    "minted": "10000",
