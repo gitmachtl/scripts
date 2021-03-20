@@ -1,13 +1,18 @@
 # OVERWRITE FOR THE PUBLIC TESTNET
 
-socket="db-testnet/node.socket"
+#Path to your cardano-node socket for machines in online-mode. Another example would be "$HOME/cnode/sockets/node.socket"
+socket="db-testnet/node.socket" 
 
-genesisfile="configuration-testnet/testnet-shelley-genesis.json"           #Shelley-Genesis path
-genesisfile_byron="configuration-testnet/testnet-byron-genesis.json"       #Byron-Genesis path
+#Shelley-Genesis path, you can also use the placeholder $HOME to specify your home directory
+genesisfile="configuration-testnet/testnet-shelley-genesis.json"
 
-magicparam="--testnet-magic 1097911063" #choose "--mainnet" for mainnet or for example "--testnet-magic 42" for a testnet
-addrformat="--testnet-magic 1097911063"  #choose "--mainnet" for mainnet address format or like "--testnet-magic 42" for testnet address format
+#Byron-Genesis path, you can also use the placeholder $HOME to specify your home directory
+genesisfile_byron="configuration-testnet/testnet-byron-genesis.json"
 
-byronToShelleyEpochs=74 #208 for the mainnet, 74 for the public testnet
+#Public-Testnet Magic and Address format
+magicparam="--testnet-magic 1097911063"
+addrformat="--testnet-magic 1097911063"
 
-minNodeVersion="1.25.1"
+byronToShelleyEpochs=74 #74 for the public testnet
+
+minNodeVersion="1.26.0"

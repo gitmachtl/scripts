@@ -194,9 +194,6 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
 	echo
 
-	#Convert UTXO into mary style if UTXO is shelley/allegra style
-	if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
-
 	#Calculating the total amount of lovelaces in all utxos on this address
 	#totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
 	totalLovelaces=0
@@ -204,35 +201,38 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
 	totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 
-	#For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
-	#LEVEL 1 - different UTXOs
-	for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
-	do
-	utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
-	utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
-        totalLovelaces=$(( ${totalLovelaces} + ${utxoAmount} ))
-	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
-	assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
-	assetsEntryCnt=$(jq length <<< ${assetsJSON})
-	if [[ ${assetsEntryCnt} -gt 0 ]]; then
-			#LEVEL 2 - different policyIDs
-			for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
-		        do
-		        assetHash=$(jq -r ".[${tmpCnt2}][0]" <<< ${assetsJSON})  #assetHash = policyID
-			assetsNameCnt=$(jq ".[${tmpCnt2}][1] | length" <<< ${assetsJSON})
-			totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
+        #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
+        #LEVEL 1 - different UTXOs
+        for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
+        do
+        utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
+        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".value.lovelace" <<< ${utxoJSON})   #Lovelaces
+        totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
+        echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
+        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".value | del (.lovelace)" <<< ${utxoJSON}) #All values without the lovelaces entry
+        assetsEntryCnt=$(jq length <<< ${assetsJSON})
 
-				#LEVEL 3 - different names under the same policyID
-				for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
-	                        do
-                        	assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
-                        	assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
-				oldValue=$(jq -r ".\"${assetHash}.${assetName}\".amount" <<< ${totalAssetsJSON})
-				newValue=$((${oldValue}+${assetAmount}))
-				totalAssetsJSON=$( jq ". += {\"${assetHash}.${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
-        	                echo -e "\e[90m               PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
-				done
-			done
+        if [[ ${assetsEntryCnt} -gt 0 ]]; then
+                        #LEVEL 2 - different policyIDs
+                        for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
+                        do
+                        assetHash=$(jq -r "keys_unsorted[${tmpCnt2}]" <<< ${assetsJSON})  #assetHash = policyID
+                        assetsNameCnt=$(jq ".\"${assetHash}\" | length" <<< ${assetsJSON})
+                        totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
+
+                                #LEVEL 3 - different names under the same policyID
+                                for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
+                                do
+                                assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
+                                assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
+                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
+                                if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
+                                newValue=$(bc <<< "${oldValue}+${assetAmount}")
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
+                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
+                                done
+                        done
 
 	fi
 	done
@@ -415,8 +415,6 @@ case ${transactionType} in
 			utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
 			#utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-			#Convert UTXO into mary style if UTXO is shelley/allegra style
-			if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoLiveJSON})" == "array" ]]; then utxoLiveJSON=$(convert_UTXO "${utxoLiveJSON}"); fi
 			utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
 			utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
 		if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
@@ -454,8 +452,6 @@ case ${transactionType} in
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
                         #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-                        #Convert UTXO into mary style if UTXO is shelley/allegra style
-                        if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoLiveJSON})" == "array" ]]; then utxoLiveJSON=$(convert_UTXO "${utxoLiveJSON}"); fi
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
 			if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
@@ -498,8 +494,6 @@ case ${transactionType} in
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
                         #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-                        #Convert UTXO into mary style if UTXO is shelley/allegra style
-                        if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoLiveJSON})" == "array" ]]; then utxoLiveJSON=$(convert_UTXO "${utxoLiveJSON}"); fi
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
  		if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
@@ -537,8 +531,6 @@ case ${transactionType} in
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
                         #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-                        #Convert UTXO into mary style if UTXO is shelley/allegra style
-                        if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoLiveJSON})" == "array" ]]; then utxoLiveJSON=$(convert_UTXO "${utxoLiveJSON}"); fi
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
 	             	if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
@@ -579,8 +571,6 @@ case ${transactionType} in
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
                         #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-                        #Convert UTXO into mary style if UTXO is shelley/allegra style
-                        if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoLiveJSON})" == "array" ]]; then utxoLiveJSON=$(convert_UTXO "${utxoLiveJSON}"); fi
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
          	if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
@@ -658,8 +648,6 @@ case ${transactionType} in
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
                         #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-                        #Convert UTXO into mary style if UTXO is shelley/allegra style
-                        if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoLiveJSON})" == "array" ]]; then utxoLiveJSON=$(convert_UTXO "${utxoLiveJSON}"); fi
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
 	                if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi

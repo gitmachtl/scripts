@@ -71,7 +71,7 @@ itn_jcli="./jcli"               #only needed if you wanna include your itn witne
 #
 ##############################################################################################################################
 
-minNodeVersion="1.25.1"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.26.0"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="2.2.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
@@ -144,11 +144,15 @@ fi
 #Display current Mode (online or offline)
 if ${showVersionInfo}; then
 				if ${offlineMode}; then
-							echo -e "\t\tScripts-Mode: \e[32moffline\e[0m\n";
+							echo -ne "\t\tScripts-Mode: \e[32moffline\e[0m";
 						   else
-							echo -e "\t\tScripts-Mode: \e[36monline\e[0m\n";
-							if [ ! -e "${socket}" ]; then echo -e "\e[35mWarning: Node-Socket does not exist !\e[0m\n"; fi
+							echo -ne "\t\tScripts-Mode: \e[36monline\e[0m";
+							if [ ! -e "${socket}" ]; then echo -ne "\n\n\e[35mWarning: Node-Socket does not exist !\e[0m"; fi
 				fi
+
+				if [[ "${magicparam}" == *"testnet"* ]]; then echo -e "\t\t\e[33mTestnet-Magic: $(echo ${magicparam} | cut -d' ' -f 2) \e[0m"; fi
+
+echo
 fi
 
 #Check path to genesis files
@@ -300,7 +304,7 @@ echo ${timeUntilNextEpoch}
 get_currentTip()
 {
 if ${onlineMode}; then
-			local currentTip=$(${cardanocli} ${subCommand} query tip ${magicparam} | jq -r .slotNo);
+			local currentTip=$(${cardanocli} ${subCommand} query tip ${magicparam} | jq -r .slot);
 		  else
 			#Static
 			local slotLength=$(cat ${genesisfile} | jq -r .slotLength)                    #In Secs
@@ -376,12 +380,14 @@ if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraP
 
 
 #-------------------------------------------------------
-#Converts a raw UTXO query output into a Allegra style UTXO JSON with stringnumbers
+#Converts a raw UTXO query output into the new UTXO JSON style since 1.26.0, but with stringnumbers
 generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 {
 
-local utxoJSON="{}" #start with a blank JSON skeleton
-local utxoAddress=${2}
+  #Convert given bech32 address into a base16(hex) address, not needed in theses scripts, but to make a true 1:1 copy of the normal UTXO JSON output
+  local utxoAddress=$(${cardanocli} ${subCommand} address info --address ${2} 2> /dev/null | jq -r .base16); if [[ $? -ne 0 ]]; then local utxoAddress=${2}; fi
+
+  local utxoJSON="{}" #start with a blank JSON skeleton
 
   while IFS= read -r line; do
   IFS=' ' read -ra utxo_entry <<< "${line}" # utxo_entry array holds entire utxo string
@@ -389,7 +395,7 @@ local utxoAddress=${2}
   local utxoAmountLovelaces=${utxo_entry[2]}
 
   #Build the entry for each UtxoHashIndex
-  local utxoJSON=$( jq ".\"${utxoHashIndex}\".amount = [ \"${utxoAmountLovelaces}\", [] ]" <<< ${utxoJSON})
+  local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.lovelace = \"${utxoAmountLovelaces}\"" <<< ${utxoJSON})
   local utxoJSON=$( jq ".\"${utxoHashIndex}\".address = \"${utxoAddress}\"" <<< ${utxoJSON})
 
   #Add the Token entries if tokens available
@@ -401,15 +407,8 @@ local utxoAddress=${2}
       IFS='.' read -ra asset <<< "${asset_hash_name}"
       local asset_policy=${asset[0]}
       local asset_name=${asset[1]}
-
       #Add the Entry of the Token
-      local policyArrayIndex=$( jq ".\"${utxoHashIndex}\".amount[1][0] | index(\"${asset_policy}\")" <<< ${utxoJSON});
-      if [[ "${policyArrayIndex}" == null ]]; then #If policy does not exist, generate first entry
-	 local utxoJSON=$( jq ".\"${utxoHashIndex}\".amount[1] += [ [ \"${asset_policy}\", [ [ \"${asset_name}\",\"${asset_amount}\" ] ] ] ]" <<< ${utxoJSON})
-                			      else
-         local utxoJSON=$( jq ".\"${utxoHashIndex}\".amount[1][${policyArrayIndex}][1] += [ [ \"${asset_name}\",\"${asset_amount}\" ] ]" <<< ${utxoJSON})
-      fi
-
+      local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.\"${asset_policy}\" += { \"${asset_name}\": \"${asset_amount}\" }" <<< ${utxoJSON})
       idx=$(( idx + 3 ))
     done
   fi
@@ -419,62 +418,6 @@ echo "${utxoJSON}"
 }
 #-------------------------------------------------------
 
-
-#-------------------------------------------------------
-#Converts a Shelley/Allegra style UTXO JSON into a Mary style JSON
-convert_UTXO()
-{
-local inJSON=${1}
-local outJSON=${inJSON}
-local utxoEntryCnt=$(jq length <<< ${inJSON})
-local tmpCnt=0
-for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
-do
-local utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${inJSON})
-local utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount" <<< ${inJSON})
-local outJSON=$( jq ".\"${utxoHashIndex}\".amount = [ ${utxoAmount}, [] ]" <<< ${outJSON})
-done
-echo "${outJSON}"
-}
-#-------------------------------------------------------
-
-#-------------------------------------------------------
-#Cuts out all UTXOs in a mary style UTXO JSON that contains Assets
-onlyLovelaces_UTXO()
-{
-local inJSON=${1}
-local outJSON=${inJSON}
-local utxoEntryCnt=$(jq length <<< ${inJSON})
-local tmpCnt=0
-for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
-do
-local utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${inJSON})
-local utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${inJSON})
-local assetCnt=$(jq -r ".\"${utxoHashIndex}\".amount[1] | length" <<< ${inJSON})
-if [[ ${assetCnt} -gt 0 ]]; then local outJSON=$( jq "del (.\"${utxoHashIndex}\")" <<< ${outJSON}); fi
-done
-echo "${outJSON}"
-}
-#-------------------------------------------------------
-
-#-------------------------------------------------------
-#Cuts out all UTXOs in a mary style UTXO JSON that does not contains Assets
-onlyAssets_UTXO()
-{
-local inJSON=${1}
-local outJSON=${inJSON}
-local utxoEntryCnt=$(jq length <<< ${inJSON})
-local tmpCnt=0
-for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
-do
-local utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${inJSON})
-local utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${inJSON})
-local assetCnt=$(jq -r ".\"${utxoHashIndex}\".amount[1] | length" <<< ${inJSON})
-if [[ ${assetCnt} -eq 0 ]]; then local outJSON=$( jq "del (.\"${utxoHashIndex}\")" <<< ${outJSON}); fi
-done
-echo "${outJSON}"
-}
-#-------------------------------------------------------
 
 #-------------------------------------------------------
 #Cuts out all UTXOs in a mary style UTXO JSON that are not the given UTXO hash ($2)

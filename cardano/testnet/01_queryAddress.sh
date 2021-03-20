@@ -39,15 +39,6 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
                                 if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
 	fi
 
-	#Convert UTXO into mary style if UTXO is shelley/allegra style
-	if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
-
-	#onlyLovelaces=true
-	#if ${onlyLovelaces}; then utxoJSON=$(onlyLovelaces_UTXO "${utxoJSON}"); fi
-
-        #onlyAssets=true
-        #if ${onlyAssets}; then utxoJSON=$(onlyAssets_UTXO "${utxoJSON}"); fi
-
         utxoEntryCnt=$(jq length <<< ${utxoJSON})
         if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit 1; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
         echo
@@ -61,25 +52,25 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	for (( tmpCnt=0; tmpCnt<${utxoEntryCnt}; tmpCnt++ ))
 	do
 	utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
-	utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
+	utxoAmount=$(jq -r ".\"${utxoHashIndex}\".value.lovelace" <<< ${utxoJSON})   #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
 	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
-	assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
+	assetsJSON=$(jq -r ".\"${utxoHashIndex}\".value | del (.lovelace)" <<< ${utxoJSON}) #All values without the lovelaces entry
 	assetsEntryCnt=$(jq length <<< ${assetsJSON})
 
 	if [[ ${assetsEntryCnt} -gt 0 ]]; then
 			#LEVEL 2 - different policyIDs
 			for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
 		        do
-		        assetHash=$(jq -r ".[${tmpCnt2}][0]" <<< ${assetsJSON})  #assetHash = policyID
-			assetsNameCnt=$(jq ".[${tmpCnt2}][1] | length" <<< ${assetsJSON})
+		        assetHash=$(jq -r "keys_unsorted[${tmpCnt2}]" <<< ${assetsJSON})  #assetHash = policyID
+			assetsNameCnt=$(jq ".\"${assetHash}\" | length" <<< ${assetsJSON})
 			totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
 
 				#LEVEL 3 - different names under the same policyID
 				for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
 	                        do
-                        	assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
-                        	assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
+                        	assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
+				assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
 				assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
 				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
 				oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})

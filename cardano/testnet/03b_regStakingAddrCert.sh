@@ -22,15 +22,46 @@ EOF
 #Check about required files: Registration Certificate, Signing Key and Address of the payment Account
 #For StakeKeyRegistration
 if [ ! -f "${stakeAddr}.cert" ]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.cert\" Registration Certificate does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
+if [ ! -f "${stakeAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.addr\" Stake Address file does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
 if ! [[ -f "${stakeAddr}.skey" || -f "${stakeAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.skey/hwsfile\" Staking Signing Key or HardwareFile does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
 
 #For payment
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 
+
 echo
 echo -e "\e[0mRegister Staking Address\e[32m ${stakeAddr}.addr\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
 echo
+
+
+checkAddr=$(cat ${stakeAddr}.addr)
+typeOfAddr=$(get_addressType "${checkAddr}")
+
+#Do a check that the given address is really a Stake Address
+if [[ ! ${typeOfAddr} == ${addrTypeStake} ]]; then echo -e "\e[35mERROR: Given Staking Address (${checkAddr}) is not a valid Stake Address !\e[0m\n"; exit 2; fi
+
+#If in online mode, do a check it the StakeKey is already registered on the chain
+if ${onlineMode}; then
+
+        echo -e "\e[0mChecking current ChainStatus of Stake-Address: ${checkAddr}"
+        echo
+
+        rewardsAmount=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -r "flatten | .[0].rewardAccountBalance")
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        delegationPoolID=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -r "flatten | .[0].delegation")
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #Checking about the content
+        if [[ ${rewardsAmount} == null ]]; then echo -e "\e[0mStaking Address is NOT on the chain, we will continue to register it ...\e[0m\n";
+				           else echo -e "\e[33mStaking Address is already registered on the chain !\e[0m\n"
+					        #If delegated to a pool, show the current pool ID
+					        if [[ ! ${delegationPoolID} == null ]]; then echo -e "Account is currenty delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m\n"; fi
+						exit
+        fi
+
+fi
+
 
 #get values to register the staking address on the blockchain
 #get live values
@@ -68,9 +99,6 @@ echo
 	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit 1; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
-        #Convert UTXO into mary style if UTXO is shelley/allegra style
-        if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
-
 	#Calculating the total amount of lovelaces in all utxos on this address
         #totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
         totalLovelaces=0
@@ -85,24 +113,25 @@ echo
         for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
         do
         utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
-        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
-	totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}")
+        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".value.lovelace" <<< ${utxoJSON})   #Lovelaces
+        totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
-        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
+        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".value | del (.lovelace)" <<< ${utxoJSON}) #All values without the lovelaces entry
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
+
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
-                        #LEVEL 2 - different policyID/assetHASH
+                        #LEVEL 2 - different policyIDs
                         for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
                         do
-                        assetHash=$(jq -r ".[${tmpCnt2}][0]" <<< ${assetsJSON})  #assetHash = policyID
-                        assetsNameCnt=$(jq ".[${tmpCnt2}][1] | length" <<< ${assetsJSON})
+                        assetHash=$(jq -r "keys_unsorted[${tmpCnt2}]" <<< ${assetsJSON})  #assetHash = policyID
+                        assetsNameCnt=$(jq ".\"${assetHash}\" | length" <<< ${assetsJSON})
                         totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
 
                                 #LEVEL 3 - different names under the same policyID
                                 for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
                                 do
-                                assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
-                                assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
+                                assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
+                                assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
                                 assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
                                 if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
@@ -110,7 +139,8 @@ echo
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
                                 done
-                          done
+                        done
+
         fi
         txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
@@ -157,9 +187,9 @@ fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file $
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
-keyDepositFee=$(jq -r .keyDeposit <<< ${protocolParametersJSON})
-echo -e "\e[0mKey Deposit Fee: \e[32m ${keyDepositFee} lovelaces \e[90m"
-minRegistrationFund=$(( ${keyDepositFee}+${fee} ))
+stakeAddressDepositFee=$(jq -r .stakeAddressDeposit <<< ${protocolParametersJSON})
+echo -e "\e[0mStake Address Deposit Fee: \e[32m ${stakeAddressDepositFee} lovelaces \e[90m"
+minRegistrationFund=$(( ${stakeAddressDepositFee}+${fee} ))
 
 echo
 echo -e "\e[0mMimimum funds required for registration (Sum of fees): \e[32m ${minRegistrationFund} lovelaces \e[90m"
