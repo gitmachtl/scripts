@@ -9,7 +9,7 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-poolImportAPI="https://api.crypto2099.io/pool/"
+poolImportAPI="https://api.crypto2099.io/v1/pool/"
 
 case $# in
 
@@ -129,6 +129,7 @@ poolMetaDescription=$(readJSONparam "metadata.description"); if [[ ! $? == 0 ]];
 poolMetaTicker=$(readJSONparam "metadata.ticker"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaHomepage=$(readJSONparam "metadata.homepage"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaExtendedMetaUrl=$(jq -r ".metadata.extended" <<< ${importJSON}); if [[ "${poolMetaExtendedMetaUrl}" == null ]]; then poolMetaExtendedMetaUrl=""; fi
+poolNodeCounter=$(readJSONparam "counter"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Build the Skeleton
 poolJSON=$(echo "
@@ -197,20 +198,25 @@ importNodeSkey() {
         echo
         echo -ne "\n\e[0mCopying the file '\e[32m$1\e[0m' to new destination '\e[32m${poolName}/${poolName}.node.skey\e[0m' ... " >&2;
         cp "$1" "${poolName}/${poolName}.node.skey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        file_lock ${poolName}/${poolName}.node.skey
+        file_lock "${poolName}/${poolName}.node.skey"
         echo -e "\e[32mOK\e[0m" >&2;
 
         #Generate the pairing Vkey file from the Skey file
         echo -ne "\e[0mGenerating file '\e[32m${poolName}/${poolName}.node.vkey\e[0m' ... " >&2;
         ${cardanocli} key verification-key --signing-key-file "${poolName}/${poolName}.node.skey" --verification-key-file "${poolName}/${poolName}.node.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        file_lock ${poolName}/${poolName}.node.vkey
+        file_lock "${poolName}/${poolName}.node.vkey"
         echo -e "\e[32mOK\e[0m" >&2;
 
         #Generate the node counter file
         echo -ne "\e[0mGenerating file '\e[32m${poolName}/${poolName}.node.counter\e[0m' ... " >&2;
-	${cardanocli} ${subCommand} node new-counter --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --counter-value 0 --operational-certificate-issue-counter-file "${poolName}/${poolName}.node.counter"
+	${cardanocli} ${subCommand} node new-counter --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --counter-value $((${poolNodeCounter}+1)) --operational-certificate-issue-counter-file "${poolName}/${poolName}.node.counter"
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        file_lock ${poolName}/${poolName}.node.counter
+        #NodeCounter file was written, now add the description in the file to reflect the next node counter number
+        newCounterJSON=$(jq ".description = \"Next certificate issue number: $((${poolNodeCounter}+1))\"" < "${poolName}/${poolName}.node.counter")
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        echo "${newCounterJSON}" > "${poolName}/${poolName}.node.counter"
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        file_lock "${poolName}/${poolName}.node.counter"
         echo -e "\e[32mOK\e[0m" >&2;
 
 exit 0
