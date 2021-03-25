@@ -51,17 +51,11 @@ fi
 
 
 #Checking Mainnet or Testnet Metadata Registry Server
-if [[ "${magicparam}" == *"mainnet"* ]]; then
-					  echo -e "\e[0mChecking Mainnet-Token-Registry for Asset-Subject: \e[32m${assetSubject}\e[0m\n"
-					  metaResponse=$(curl -sL "https://tokens.cardano.org/metadata/${assetSubject}")
- 					 else
-					  echo -e "\e[0mChecking \e[33mTestnet-\e[0mToken-Registry for Asset-Subject: \e[32m${assetSubject}\e[0m\n"
-					  metaResponse=$(curl -sL "https://metadata.cardano-testnet.iohkdev.io/metadata/${assetSubject}")
-fi
+echo -e "\e[0mChecking Token-Registry (${tokenMetaServer} for Asset-Subject: \e[32m${assetSubject}\e[0m\n"
+metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetSubject}")  #20 seconds timeout
 
 echo -ne "\e[0mServer Response: "
-
-#Display Error-Message is no valid JSON returned
+#Display Error-Message if no valid JSON returned
 tmp=$(jq . 2> /dev/null <<< ${metaResponse} )
 if [ $? -ne 0 ]; then
 			echo -e "\e[35mInvalid JSON\n\n${metaResponse}\e[0m\n"; exit 1

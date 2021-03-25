@@ -53,8 +53,10 @@ magicparam="--mainnet"          #choose "--mainnet" for mainnet or "--testnet-ma
 addrformat="--mainnet"          #choose "--mainnet" for mainnet address format or "--testnet-magic 1097911063" for the testnet address format
 
 
+
 #--------- some other stuff -----
 showVersionInfo="yes"		#yes/no to show the version info and script mode on every script call
+queryTokenRegistry="yes"	#yes/no to query each native asset/token on the token registry server
 itn_jcli="./jcli"               #only needed if you wanna include your itn witness for your pool-ticker
 
 
@@ -77,6 +79,10 @@ minLedgerCardanoAppVersion="2.2.0"  #minimum version for the cardano-app on the 
 minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
 minHardwareCliVersion="1.2.0" #minimum version for the cardano-hw-cli
 
+#Token Metadata API URLs  (will be autoresolved into the tokenMetaServer variable)
+tokenMetaServer_mainnet="https://tokens.cardano.org/metadata/" #mainnet
+tokenMetaServer_testnet="https://metadata.cardano-testnet.iohkdev.io/metadata/"	#public testnet
+
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
 
@@ -96,6 +102,8 @@ export BC_LINE_LENGTH=1000
 if [[ "${offlineMode^^}" == "YES" ]]; then offlineMode=true; onlineMode=false; else offlineMode=false; onlineMode=true; fi
 if [[ "${offlineFile}" == "" ]]; then offlineFile="./offlineTransfer.json"; fi
 if [[ "${showVersionInfo^^}" == "NO" ]]; then showVersionInfo=false; else showVersionInfo=true; fi
+if [[ "${queryTokenRegistry^^}" == "NO" ]]; then queryTokenRegistry=false; else queryTokenRegistry=true; fi
+
 
 #-------------------------------------------------------
 #DisplayMajorErrorMessage
@@ -150,7 +158,7 @@ if ${showVersionInfo}; then
 							if [ ! -e "${socket}" ]; then echo -ne "\n\n\e[35mWarning: Node-Socket does not exist !\e[0m"; fi
 				fi
 
-				if [[ "${magicparam}" == *"testnet"* ]]; then echo -e "\t\t\e[33mTestnet-Magic: $(echo ${magicparam} | cut -d' ' -f 2) \e[0m"; fi
+				if [[ "${magicparam}" == *"testnet"* ]]; then echo -e "\t\t\e[0mTestnet-Magic: \e[91m$(echo ${magicparam} | cut -d' ' -f 2) \e[0m"; fi
 
 echo
 fi
@@ -199,6 +207,12 @@ tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 
 #Dummy Shelley Payment_Addr
 dummyShelleyAddr="addr1vyde3cg6cccdzxf4szzpswgz53p8m3r4hu76j3zw0tagyvgdy3s4p"
+
+#-------------------------------------------------------------
+#Setting Mainnet or Testnet Metadata Registry Server
+if [[ "${magicparam}" == *"mainnet"* ]]; then tokenMetaServer=${tokenMetaServer_mainnet}; else tokenMetaServer=${tokenMetaServer_testnet}; fi
+if [[ ! "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer="${tokenMetaServer}/"; fi #make sure the last char is a /
+
 
 #-------------------------------------------------------
 #AddressType check
@@ -376,6 +390,11 @@ echo "byron"; return 0;
 #Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
 if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
+
+
+#buggy testing workaround with an empty era
+nodeEraParam=""
+
 #-------------------------------------------------------
 
 
@@ -395,8 +414,8 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
   local utxoAmountLovelaces=${utxo_entry[2]}
 
   #Build the entry for each UtxoHashIndex
-  local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.lovelace = \"${utxoAmountLovelaces}\"" <<< ${utxoJSON})
   local utxoJSON=$( jq ".\"${utxoHashIndex}\".address = \"${utxoAddress}\"" <<< ${utxoJSON})
+  local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.lovelace = \"${utxoAmountLovelaces}\"" <<< ${utxoJSON})
 
   #Add the Token entries if tokens available
   if [[ ${#utxo_entry[@]} -gt 4 ]]; then # contains tokens
@@ -498,19 +517,24 @@ if [[ ! "$(jq -r ".protocol.era" <<< ${offlineJSON})" == null ]]; then echo -e "
 
 local historyCnt=$(jq -r ".history | length" <<< ${offlineJSON})
 echo -e "\e[0m    History-Entries:\e[32m ${historyCnt}\e[0m";
+
 if [[ ${historyCnt} -gt 0 ]]; then echo -e "\e[0m        Last-Action:\e[32m $(jq -r ".history[-1].action" <<< ${offlineJSON}) \e[90m($(jq -r ".history[-1].date" <<< ${offlineJSON}))\e[0m"; fi
+
+local tokenMetaCnt=$(jq -r ".tokenMetaServer | length" <<< ${offlineJSON})
+if [[ ${tokenMetaCnt} -gt 0 ]]; then echo -e "\e[0m  TokenMeta-Entries:\e[32m ${tokenMetaCnt}\e[0m"; fi
 
 if ${offlineMode}; then
 			echo -ne "\e[0m    Online Versions:"
 			local versionTmp=$(jq -r ".general.onlineCLI" <<< ${offlineJSON}); if [[ "${versionTmp}" == null ]]; then versionTmp="-.--.-"; fi; echo -ne "\e[32m cli ${versionTmp}\e[0m"
 			local versionTmp=$(jq -r ".general.onlineNODE" <<< ${offlineJSON}); if [[ "${versionTmp}" == null ]]; then versionTmp="-.--.-"; fi; echo -e " /\e[32m node ${versionTmp}\e[0m"
 		   else
-			echo -ne "\e[0m   Offline Versions:"
+			echo -ne "\e[0m    Offline Version:"
 			local versionTmp=$(jq -r ".general.offlineCLI" <<< ${offlineJSON}); if [[ "${versionTmp}" == null ]]; then versionTmp="-.--.-"; fi; echo -e "\e[32m cli ${versionTmp}\e[0m"
 fi
 echo
 local addressCnt=$(jq -r ".address | length" <<< ${offlineJSON})
-echo -e "\e[0m    Address-Entries:\e[32m ${addressCnt}\e[0m";
+echo -e "\e[0m    Address-Entries:\e[32m ${addressCnt}\e[0m\t";
+
 for (( tmpCnt=0; tmpCnt<${addressCnt}; tmpCnt++ ))
 do
   local addressKey=$(jq -r ".address | keys[${tmpCnt}]" <<< ${offlineJSON})

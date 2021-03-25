@@ -34,7 +34,7 @@ case ${1} in
 		action="${1}"
 		;;
 
-  new|execute )
+  new|execute|clear )
 		action="${1}";
 		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; fi
                 if [[ $# -eq 2 ]]; then executeCue=${2}; else executeCue=1; fi
@@ -102,7 +102,7 @@ case ${action} in
                 exit;
                 ;;
 
-  new )
+  new|clear )
 		#Build a fresh new offlineJSON with the current protocolParameters in it
 		offlineJSON="{}";
 		protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam})
@@ -242,19 +242,34 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
 	totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
 
-	totalAssetsCnt=$(jq length <<< ${totalAssetsJSON});
-	if [[ ${totalAssetsCnt} -gt 0 ]]; then
-			echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
-			printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
+        totalAssetsCnt=$(jq length <<< ${totalAssetsJSON});
+        if [[ ${totalAssetsCnt} -gt 0 ]]; then
+                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
+                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "ASCII-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
-			assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
+                        assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
-			assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-			printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
-			done
+                        assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
+                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
+                        assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+
+        		if $queryTokenRegistry; then
+				metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}")  #20seconds timeout
+				#Check if the response is a valid JSON and also remove all unwanted entries
+				#metaResponse=$(jq 'del(.["subject", "logo", "description", "url", "policy", "unit"])' 2> /dev/null <<< ${metaResponse} )
+				metaResponse=$(jq "del(.logo)" 2> /dev/null <<< ${metaResponse} )
+				if [ $? -eq 0 ]; then  #Looks like a valid JSON, so add the data to the offline.json file
+					offlineJSON=$( jq ".tokenMetaServer.\"${assetHashHex}\" += ${metaResponse}" <<< ${offlineJSON})
+				fi
+		                        metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
+					metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
+		        fi
+
+                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
+                        done
         fi
-	echo
+        echo
 
 	#Add this address to the offline.json file
 	offlineJSON=$( jq ".address.\"${checkAddr}\" += {name: \"${addrName}\" }" <<< ${offlineJSON})
