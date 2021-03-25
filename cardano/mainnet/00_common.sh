@@ -57,12 +57,6 @@ showVersionInfo="yes"	#yes/no to show the version info and script mode on every 
 #
 ##############################################################################################################################
 
-minNodeVersion="1.25.1"  #minimum allowed node version for this script-collection version
-maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="2.2.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
-minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.2.0" #minimum version for the cardano-hw-cli
-
 #Placeholder for a fixed subCommand
 subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
 
@@ -71,6 +65,13 @@ scriptDir=$(dirname "$0" 2> /dev/null)
 if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
+
+#Do now allow Version Overwriting
+minNodeVersion="1.25.1"  #minimum allowed node version for this script-collection version
+maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
+minLedgerCardanoAppVersion="2.2.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
+minHardwareCliVersion="1.2.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
