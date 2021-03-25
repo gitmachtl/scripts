@@ -147,19 +147,19 @@ There is a handy little tool called **vit-kedqr** available for that, you can fi
 
 Extract the downloaded archive for your operating system and copy out the binary to your prefered folder. We use again ~/cardano/ in our example:
 ``` console
-wget https://github.com/input-output-hk/vit-kedqr/releases/download/v0.0.1/vit-kedqr_Linux_x86_64.tar.gz
-tar -xf vit-kedqr_Linux_x86_64.tar.gz
+wget https://github.com/input-output-hk/vit-kedqr/releases/download/v0.1.0/vit-kedqr-0.1.0-x86_64-unknown-linux-gnu-generic.tar.gz
+tar -xf vit-kedqr-0.1.0-x86_64-unknown-linux-gnu-generic.tar.gz
 cp $(find . -name vit-kedqr -executable -type f) ~/cardano/.
 ```
 
 Now we have the tool to generate the qr code, and thats pretty simple. You have a few parameters:
 ```console
 Usage of ./vit-kedqr:
-  -input string
+  --input string
         path to file containing ed25519extended bech32 value
-  -output string
+  --output string
         path to file to save qr code output, if not provided console output will be attempted
-  -pin string
+  --pin string
         Pin code. 4-digit number is used on Catalyst
 ```
 
@@ -167,14 +167,14 @@ In our example here we have generated the secret voting key as file called **cat
 pincode *1234*. You can choose that and you will have to input it when using the Catalyst App to scan the QR code:
 
 ```console
-./vit-kedqr -pin 1234 -input catalyst-vote.skey
+./vit-kedqr --pin 1234 --input catalyst-vote.skey
 ```
 
 This will show you the QR code on screen and you can use it with the Catalyst Voting App. :-)
 
 If you wanna save the QR code for later, you can save it as a PNG image too using the -output parameter like:
 ```console
-./vit-kedqr -pin 1234 -input catalyst-vote.skey -output catalyst-qrcode.png
+./vit-kedqr --pin 1234 --input catalyst-vote.skey --output catalyst-qrcode.png
 ```
 
 This will generate the QR code as the file **catalyst-qrcode.png**
