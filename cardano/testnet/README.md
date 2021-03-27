@@ -136,7 +136,7 @@ cp cardano/testnet/* bin/
 <details>
    <summary><b>How to verify the SHA256 checksum for Mainnet-Scripts ... </b>:bookmark_tabs:<br></summary>
    
-<br>In addition to the `sha256sum_sposcripts.txt` file that is stored in the GitHub Repository, you can do an additional check with a file that is hosted on a different secury webserver:
+<br>In addition to the `sha256sum_sposcripts.txt` file that is stored in the GitHub Repository, you can do an additional check with a file that is hosted on a different secure webserver:
 
 **Change into the Directory of the Mainnet-Scripts(bin) and Verify the SHA256 checksum**
 ```console
@@ -1570,7 +1570,9 @@ Here you can find the steps to add Metadata (Name, Decimals, an Url, a Picture .
 
 ### Generate the special formatted and signed JSON File for the GitHub PullRequest
 
-How does it work: The TokenRegistryServer (currently maintained by the CardanoFoundation) is fed via a special GitHub Repository https://github.com/cardano-foundation/cardano-token-registry .
+How does it work: The **Mainnet** TokenRegistryServer (currently maintained by the CardanoFoundation) is fed via a special GitHub Repository https://github.com/cardano-foundation/cardano-token-registry .
+> The TokenRegistryServer for the Public-Testnet is: https://github.com/input-output-hk/metadata-registry-testnet
+
 The script 12a provides you with a method that is using the **cardano-metadata-submitter** binary from IOHK to form and sign the needed JSON file for the registration of your Metadata on this GitHub Repo. You can find the binary here (https://github.com/input-output-hk/cardano-metadata-submitter) or you can simply use the one that is provided within these scripts. After you have created that special JSON file, you can then browse to GitHub and clone the cardano-token-registry Repo into your own repo. After that, upload the special JSON file into the 'mappings' folder and generate a PullRequest to merge it back with the Master-Branch of the CardanoFoundation Repo.
 
 So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN** under the policy **mypolicy** we minted before using the 'assets' directory.
@@ -1609,6 +1611,7 @@ So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN*
 1. The special file was created, in this example it would be a file with the name<br>**aeaab6fa86997512b4f850049148610d662b5a7a971d6e132a0940626d795375706572546f6b656e.json**<br>:warning: Do not rename the file!
 
 1. Go to https://github.com/cardano-foundation/cardano-token-registry and clone the Repo into your own Repo
+   > The TokenRegistryServer for the Public-Testnet is: https://github.com/input-output-hk/metadata-registry-testnet
 
 1. Upload the special file now in your own Repo into the **mappings directory**. Or you can replace an old file if you already did this step before to update your metadata.
 
