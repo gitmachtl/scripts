@@ -10,4 +10,4 @@ addrformat="--mainnet"  #choose "--mainnet" for mainnet address format or like "
 
 byronToShelleyEpochs=208 #208 for the mainnet(or staging), 74 for the public testnet, 1 for allegra testnet
 
-minNodeVersion="1.25.1"
+minNodeVersion="1.26.0"
