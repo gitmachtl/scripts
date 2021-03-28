@@ -105,7 +105,7 @@ case ${action} in
   new|clear )
 		#Build a fresh new offlineJSON with the current protocolParameters in it
 		offlineJSON="{}";
-		protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam})
+		protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} )
 		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		offlineJSON=$( jq ".general += {onlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
 		offlineJSON=$( jq ".general += {onlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
@@ -121,7 +121,7 @@ case ${action} in
 
   add )
 		#Updating the current protocolParameters before doing other stuff later on
-                protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam})
+                protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} )
                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                 offlineJSON=$( jq ".general += {onlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
                 offlineJSON=$( jq ".general += {onlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
@@ -187,9 +187,9 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	echo
 
 	#Get UTX0 Data for the address
-        utxo=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+        utxo=$(${cardanocli} query utxo --address ${checkAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
         utxoJSON=$(generate_UTXO "${utxo}" "${checkAddr}")
- 	#utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+ 	#utxoJSON=$(${cardanocli} query utxo --address ${checkAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 	utxoEntryCnt=$(jq length <<< ${utxoJSON})
 	if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
 	echo
@@ -304,7 +304,7 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
         echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"
         echo
 
-        rewardsJSON=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -rc .)
+        rewardsJSON=$(${cardanocli} query stake-address-info --address ${checkAddr} ${magicparam} | jq -rc .)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
@@ -426,9 +426,9 @@ case ${transactionType} in
                         #Normal UTXO Transaction (lovelaces and/or tokens)
 
 			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-			utxo=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+			utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 			utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
-			#utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			#utxoLiveJSON=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 			utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
 			utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -436,11 +436,11 @@ case ${transactionType} in
 
 			echo -e "\e[32m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] from '${transactionFromName}' to '${transactionToName}' \e[90m(${transactionDate})\n\t   \t\e[90mfrom ${transactionFromAddr}\n\t   \t\e[90mto ${transactionToAddr}\e[0m"
 			echo
-			txID=$(${cardanocli} ${subCommand} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+			txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
 			echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
 			if ask "\e[33mDoes this look good for you, continue ?" N; then
-	                        ${cardanocli} ${subCommand} transaction submit --tx-file <(echo ${transactionTxJSON}) --cardano-mode ${magicparam}
+	                        ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
 	                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
 				if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -463,27 +463,27 @@ case ${transactionType} in
                         transactionStakeAddr=$(jq -r ".transactions[${transactionIdx}].stakingAddr" <<< ${offlineJSON})
 
                         #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        utxo=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
-                        #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        #utxoLiveJSON=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
 			if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
 
 			#Check that the RewardsState of the StakeAddress (transactionStakeAddr) has not changed
-			rewardsLiveJSON=$(${cardanocli} ${subCommand} query stake-address-info --address ${transactionStakeAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq .); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+			rewardsLiveJSON=$(${cardanocli} query stake-address-info --address ${transactionStakeAddr} ${magicparam} | jq .); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                         rewardsOfflineJSON=$(jq -r ".address.\"${transactionStakeAddr}\".rewardsJSON" <<< ${offlineJSON})
 			if [[ ! "${rewardsLiveJSON}" == "${rewardsOfflineJSON}" ]]; then echo -e "\e[35mERROR - The rewards state between the offline capture and now has changed for the stake address '${transactionStakeName}' !\e[0m\n"; exit 1; fi
 
                         echo -e "\e[32m\t[${transactionCue}]\t\e[0mRewards-Withdrawal[${transactionEra}] from '${transactionStakeName}' to '${transactionToName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mfrom ${transactionStakeAddr}\n\t   \t\e[90mto ${transactionToAddr}\n\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} ${subCommand} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} ${subCommand} transaction submit --tx-file <(echo ${transactionTxJSON}) --cardano-mode ${magicparam}
+                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -505,9 +505,9 @@ case ${transactionType} in
                         transactionStakeName=$(jq -r ".transactions[${transactionIdx}].stakeAddr" <<< ${offlineJSON})
 
                         #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        utxo=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
-                        #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        #utxoLiveJSON=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -517,11 +517,11 @@ case ${transactionType} in
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for '${transactionStakeName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} ${subCommand} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} ${subCommand} transaction submit --tx-file <(echo ${transactionTxJSON}) --cardano-mode ${magicparam}
+                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -542,9 +542,9 @@ case ${transactionType} in
                         transactionDelegName=$(jq -r ".transactions[${transactionIdx}].delegName" <<< ${offlineJSON})
 
                         #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        utxo=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
-                        #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        #utxoLiveJSON=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -554,11 +554,11 @@ case ${transactionType} in
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for '${transactionDelegName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} ${subCommand} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} ${subCommand} transaction submit --tx-file <(echo ${transactionTxJSON}) --cardano-mode ${magicparam}
+                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -582,9 +582,9 @@ case ${transactionType} in
                         regProtectionKey=$(jq -r ".transactions[${transactionIdx}].regProtectionKey" <<< ${offlineJSON})
 
                         #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        utxo=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
-                        #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        #utxoLiveJSON=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -620,7 +620,7 @@ case ${transactionType} in
 			tmpCheckJSON=$(jq . "${tmpMetadataJSON}" 2> /dev/null)
 		        if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Not a valid JSON file on the webserver!\e[0m\n"; exit 1; fi
 		        #Ok, downloaded file is a valid JSON file. So now look into the HASH
-			onlineMetaHash=$(${cardanocli} ${subCommand} stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
+			onlineMetaHash=$(${cardanocli} stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
 		        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		        #Compare the HASH now, if they don't match up, output an ERROR message and exit
 		        if [[ ! "${poolMetaHash}" == "${onlineMetaHash}" ]]; then
@@ -634,11 +634,11 @@ case ${transactionType} in
 		        else echo -e "\e[32mOK\e[0m\n"; fi
 		        #Ok, HASH is the same, continue
 
-                        txID=$(${cardanocli} ${subCommand} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} ${subCommand} transaction submit --tx-file <(echo ${transactionTxJSON}) --cardano-mode ${magicparam}
+                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -659,9 +659,9 @@ case ${transactionType} in
                         poolMetaTicker=$(jq -r ".transactions[${transactionIdx}].poolMetaTicker" <<< ${offlineJSON})
 
                         #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        utxo=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}")
-                        #utxoLiveJSON=$(${cardanocli} ${subCommand} query utxo --address ${transactionFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        #utxoLiveJSON=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
                         utxoLiveJSON=$(jq . <<< ${utxoLiveJSON})
                         utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -670,11 +670,11 @@ case ${transactionType} in
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for Pool '${poolMetaTicker}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} ${subCommand} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} ${subCommand} transaction submit --tx-file <(echo ${transactionTxJSON}) --cardano-mode ${magicparam}
+                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi

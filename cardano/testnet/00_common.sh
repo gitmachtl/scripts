@@ -77,9 +77,6 @@ itn_jcli="./jcli"               #only needed if you wanna include your itn witne
 tokenMetaServer_mainnet="https://tokens.cardano.org/metadata/" #mainnet
 tokenMetaServer_testnet="https://metadata.cardano-testnet.iohkdev.io/metadata/"	#public testnet
 
-#Placeholder for a fixed subCommand
-subCommand=""	#empty since 1.24.0, because the "shelley" subcommand moved to the mainlevel
-
 #Overwrite variables via env file if present
 scriptDir=$(dirname "$0" 2> /dev/null)
 if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
@@ -206,9 +203,6 @@ fi
 tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 
 
-#Dummy Shelley Payment_Addr
-dummyShelleyAddr="addr1vyde3cg6cccdzxf4szzpswgz53p8m3r4hu76j3zw0tagyvgdy3s4p"
-
 #-------------------------------------------------------------
 #Setting Mainnet or Testnet Metadata Registry Server
 if [[ "${magicparam}" == *"mainnet"* ]]; then tokenMetaServer=${tokenMetaServer_mainnet}; else tokenMetaServer=${tokenMetaServer_testnet}; fi
@@ -218,16 +212,16 @@ if [[ ! "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer="${tokenMetaSer
 #-------------------------------------------------------
 #AddressType check
 check_address() {
-tmp=$(${cardanocli} ${subCommand} address info --address $1 2> /dev/null)
+tmp=$(${cardanocli} address info --address $1 2> /dev/null)
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Unknown address format for address: $1 !\e[0m"; exit 1; fi
 }
 
 get_addressType() {
-${cardanocli} ${subCommand} address info --address $1 2> /dev/null | jq -r .type
+${cardanocli} address info --address $1 2> /dev/null | jq -r .type
 }
 
 get_addressEra() {
-${cardanocli} ${subCommand} address info --address $1 2> /dev/null | jq -r .era
+${cardanocli} address info --address $1 2> /dev/null | jq -r .era
 }
 
 addrTypePayment="payment"
@@ -319,7 +313,7 @@ echo ${timeUntilNextEpoch}
 get_currentTip()
 {
 if ${onlineMode}; then
-			local currentTip=$(${cardanocli} ${subCommand} query tip ${magicparam} | jq -r .slot);
+			local currentTip=$(${cardanocli} query tip ${magicparam} | jq -r .slot);  #only "slot" instead of "slotNo" since 1.26.0
 		  else
 			#Static
 			local slotLength=$(cat ${genesisfile} | jq -r .slotLength)                    #In Secs
@@ -376,25 +370,26 @@ function trimString
 #-------------------------------------------------------
 #Return the era the online node is in
 get_NodeEra() {
-#CheckEra
-tmp=$(${cardanocli} query protocol-parameters --alonzo-era ${magicparam} 2> /dev/null)
-if [[ "$?" == 0 ]]; then echo "alonzo"; return 0; fi
-tmp=$(${cardanocli} query protocol-parameters --allegra-era ${magicparam} 2> /dev/null)
-if [[ "$?" == 0 ]]; then echo "allegra"; return 0; fi
-tmp=$(${cardanocli} query protocol-parameters --mary-era ${magicparam} 2> /dev/null)
-if [[ "$?" == 0 ]]; then echo "mary"; return 0; fi
-tmp=$(${cardanocli} query protocol-parameters --shelley-era ${magicparam} 2> /dev/null)
-if [[ "$?" == 0 ]]; then echo "shelley"; return 0; fi
-#None of the above (Byron query would fail anyways)
-echo "byron"; return 0;
+##CheckEra
+#tmp=$(${cardanocli} query protocol-parameters --alonzo-era ${magicparam} 2> /dev/null)
+#if [[ "$?" == 0 ]]; then echo "alonzo"; return 0; fi
+#tmp=$(${cardanocli} query protocol-parameters --allegra-era ${magicparam} 2> /dev/null)
+#if [[ "$?" == 0 ]]; then echo "allegra"; return 0; fi
+#tmp=$(${cardanocli} query protocol-parameters --mary-era ${magicparam} 2> /dev/null)
+#if [[ "$?" == 0 ]]; then echo "mary"; return 0; fi
+#tmp=$(${cardanocli} query protocol-parameters --shelley-era ${magicparam} 2> /dev/null)
+#if [[ "$?" == 0 ]]; then echo "shelley"; return 0; fi
+##None of the above (Byron query would fail anyways)
+#echo "byron"; return 0;
+
+echo "default-era (mary)"; return 0; #current setup until we can query the current era again
+
 }
-#Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
+##Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
-if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
+#if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 
-
-#buggy testing workaround with an empty era
-nodeEraParam=""
+nodeEraParam="" #current setup until we can query the current era again
 
 #-------------------------------------------------------
 
@@ -405,7 +400,7 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 {
 
   #Convert given bech32 address into a base16(hex) address, not needed in theses scripts, but to make a true 1:1 copy of the normal UTXO JSON output
-  local utxoAddress=$(${cardanocli} ${subCommand} address info --address ${2} 2> /dev/null | jq -r .base16); if [[ $? -ne 0 ]]; then local utxoAddress=${2}; fi
+  local utxoAddress=$(${cardanocli} address info --address ${2} 2> /dev/null | jq -r .base16); if [[ $? -ne 0 ]]; then local utxoAddress=${2}; fi
 
   local utxoJSON="{}" #start with a blank JSON skeleton
 

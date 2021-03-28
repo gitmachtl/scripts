@@ -74,7 +74,7 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Read ProtocolParameters
 if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
+                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
                   else
 			readOfflineFile;
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
@@ -172,7 +172,7 @@ if [[ ${#poolMetaDescription} -gt 250 ]]; then echo -e "\e[35mERROR - The poolMe
 
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
-poolID=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)     #New method since 1.23.0
+poolID=$(${cardanocli} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)     #New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_unlock ${poolFile}.pool.json
 newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
@@ -184,7 +184,7 @@ file_unlock ${poolFile}.pool.id
 echo "${poolID}" > ${poolFile}.pool.id
 file_lock ${poolFile}.pool.id
 
-poolIDbech=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)     #New method since 1.23.0
+poolIDbech=$(${cardanocli} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)     #New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 #Save out the POOL-ID also in the xxx.id-bech file
 file_unlock ${poolFile}.pool.id-bech
@@ -296,7 +296,7 @@ if [[ ${metaFileSize} -gt 512 ]]; then echo -e "\e[35mERROR - The total filesize
 
 
 #Generate HASH for the <poolFile>.metadata.json
-poolMetaHash=$(${cardanocli} ${subCommand} stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
+poolMetaHash=$(${cardanocli} stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #Add the HASH to the <poolFile>.pool.json info file
@@ -375,7 +375,7 @@ echo
 #  Create a stake pool registration certificate
 
 file_unlock ${poolName}.pool.cert
-${cardanocli} ${subCommand} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
+${cardanocli} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created

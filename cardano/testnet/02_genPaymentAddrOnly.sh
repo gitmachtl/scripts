@@ -46,7 +46,7 @@ if [ -f "${addrName}.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.addr alr
 
 if [[ ${keyType^^} == "CLI" ]]; then #Building it from the cli
 
-	${cardanocli} ${subCommand} address key-gen --verification-key-file ${addrName}.vkey --signing-key-file ${addrName}.skey
+	${cardanocli} address key-gen --verification-key-file ${addrName}.vkey --signing-key-file ${addrName}.skey
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.vkey
 	file_lock ${addrName}.skey
@@ -59,7 +59,7 @@ if [[ ${keyType^^} == "CLI" ]]; then #Building it from the cli
 	echo
 
 	#Building a Payment Address
-	${cardanocli} ${subCommand} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
+	${cardanocli} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.addr
 
@@ -93,7 +93,7 @@ if [[ ${keyType^^} == "CLI" ]]; then #Building it from the cli
         echo
 
         #Building a Payment Address
-        ${cardanocli} ${subCommand} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
+        ${cardanocli} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${addrName}.addr
 

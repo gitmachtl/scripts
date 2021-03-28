@@ -27,7 +27,7 @@ echo
 
 file_unlock ${delegateStakeAddr}.deleg.cert
 
-${cardanocli} ${subCommand} stake-address delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --cold-verification-key-file ${toPoolNodeName}.node.vkey --out-file ${delegateStakeAddr}.deleg.cert
+${cardanocli} stake-address delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --cold-verification-key-file ${toPoolNodeName}.node.vkey --out-file ${delegateStakeAddr}.deleg.cert
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 file_lock ${delegateStakeAddr}.deleg.cert

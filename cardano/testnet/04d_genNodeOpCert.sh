@@ -21,7 +21,7 @@ if [ ! -f "${nodeName}.node.counter" ]; then
 					#echo -e "\e[0mERROR - Please generate Node Keys with ${nodeName}.node.counter first with script 04a ...\e[0m"; exit 2;
 					if ask "\e[33mCannot find '${nodeName}.node.counter', do you wanna create a new one?" N; then
 							if [ ! -f "${nodeName}.node.vkey" ]; then echo -e "\n\e[35mERROR - Cannot find '${nodeName}.node.vkey', please generate Node Keys first with script 04a ...\e[0m\n"; exit 2; fi
-							${cardanocli} ${subCommand} node new-counter --cold-verification-key-file ${nodeName}.node.vkey --counter-value 0 --operational-certificate-issue-counter-file ${nodeName}.node.counter
+							${cardanocli} node new-counter --cold-verification-key-file ${nodeName}.node.vkey --counter-value 0 --operational-certificate-issue-counter-file ${nodeName}.node.counter
 					else
 					echo -e "\n\e[35mERROR - Cannot create new OperationalCertificate (opcert) without a '${nodeName}.node.counter' file!\n\e[0m"; exit 2;
 					fi
@@ -83,7 +83,7 @@ echo
 file_unlock ${nodeName}.node-${latestKESnumber}.opcert
 file_unlock ${nodeName}.node.counter
 
-${cardanocli} ${subCommand} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
+${cardanocli} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 file_lock ${nodeName}.node-${latestKESnumber}.opcert

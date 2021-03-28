@@ -209,7 +209,7 @@ importNodeSkey() {
 
         #Generate the node counter file
         echo -ne "\e[0mGenerating file '\e[32m${poolName}/${poolName}.node.counter\e[0m' ... " >&2;
-	${cardanocli} ${subCommand} node new-counter --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --counter-value $((${poolNodeCounter}+1)) --operational-certificate-issue-counter-file "${poolName}/${poolName}.node.counter"
+	${cardanocli} node new-counter --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --counter-value $((${poolNodeCounter}+1)) --operational-certificate-issue-counter-file "${poolName}/${poolName}.node.counter"
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         #NodeCounter file was written, now add the description in the file to reflect the next node counter number
         newCounterJSON=$(jq ".description = \"Next certificate issue number: $((${poolNodeCounter}+1))\"" < "${poolName}/${poolName}.node.counter")
@@ -402,21 +402,21 @@ while [[ ! "${ownerName}" == "" ]]; do
 
 			#Building a Payment Address
 		        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.payment.addr\e[0m' ... ";
-			${cardanocli} ${subCommand} address build --payment-verification-key-file "${poolName}/${ownerName}.payment.vkey" --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.payment.addr"
+			${cardanocli} address build --payment-verification-key-file "${poolName}/${ownerName}.payment.vkey" --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.payment.addr"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			file_lock "${poolName}/${ownerName}.payment.addr"
 		        echo -e "\e[32mOK\e[0m";
 
 			#Building a Staking Address
 		        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.staking.addr\e[0m' ... ";
-			${cardanocli} ${subCommand} stake-address build --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.staking.addr"
+			${cardanocli} stake-address build --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.staking.addr"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			file_lock "${poolName}/${ownerName}.staking.addr"
 		        echo -e "\e[32mOK\e[0m";
 
 			#Create an address registration certificate
 		        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.staking.cert\e[0m' ... ";
-			${cardanocli} ${subCommand} stake-address registration-certificate --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" --out-file "${poolName}/${ownerName}.staking.cert"
+			${cardanocli} stake-address registration-certificate --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" --out-file "${poolName}/${ownerName}.staking.cert"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			file_lock "${poolName}/${ownerName}.staking.cert"
 		        echo -e "\e[32mOK\e[0m";
@@ -424,7 +424,7 @@ while [[ ! "${ownerName}" == "" ]]; do
                         #Create the delegation certificate to this pool
 			if [ -f "${poolName}/${poolName}.node.vkey" ] && [ -f "${poolName}/${ownerName}.staking.vkey" ]; then
 	                        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.deleg.cert\e[0m' ... ";
-	 			${cardanocli} ${subCommand} stake-address delegation-certificate --stake-verification-key-file "${poolName}/${ownerName}.staking.vkey" --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --out-file "${poolName}/${ownerName}.deleg.cert"
+	 			${cardanocli} stake-address delegation-certificate --stake-verification-key-file "${poolName}/${ownerName}.staking.vkey" --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --out-file "${poolName}/${ownerName}.deleg.cert"
 				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 				file_lock "${poolName}/${ownerName}.deleg.cert"
 			        echo -e "\e[32mOK\e[0m";

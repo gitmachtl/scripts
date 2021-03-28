@@ -30,8 +30,9 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	echo
 
 	#Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
+	#${nodeEraParam} not needed anymore
 	if ${onlineMode}; then
-				utxo=$(${cardanocli} ${subCommand} query utxo --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+				utxo=$(${cardanocli} query utxo --address ${checkAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 				utxoJSON=$(generate_UTXO "${utxo}" "${checkAddr}")
 			  else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
@@ -120,7 +121,7 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
         #Get rewards state data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-				rewardsJSON=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -rc .)
+				rewardsJSON=$(${cardanocli} query stake-address-info --address ${checkAddr} ${magicparam} | jq -rc .)
                           else
                                 rewardsJSON=$(cat ${offlineFile} | jq -r ".address.\"${checkAddr}\".rewardsJSON" 2> /dev/null)
                                 if [[ "${rewardsJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi

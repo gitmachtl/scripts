@@ -50,7 +50,7 @@ if [ -f "${addrName}.staking.cert" ]; then echo -e "\e[35mWARNING - ${addrName}.
 if [[ ${keyType^^} == "CLI" ]]; then
 
 	#We need a normal payment(base) keypair with vkey and skey, so let's create that one
-	${cardanocli} ${subCommand} address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
+	${cardanocli} address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.payment.vkey
 	file_lock ${addrName}.payment.skey
@@ -89,7 +89,7 @@ echo
 if [[ ${keyType^^} == "CLI" || ${keyType^^} == "HYBRID" ]]; then
 
 	#Building the StakeAddress Keys from CLI for the normal CLI type or when HWPAYONLY was choosen
-	${cardanocli} ${subCommand} stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
+	${cardanocli} stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.staking.vkey
 	file_lock ${addrName}.staking.skey
@@ -126,7 +126,7 @@ if [[ ${keyType^^} == "CLI" || ${keyType^^} == "HYBRID" ]]; then
 fi
 
 #Building a Payment Address
-${cardanocli} ${subCommand} address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.payment.addr
+${cardanocli} address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.payment.addr
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${addrName}.payment.addr
 
@@ -135,7 +135,7 @@ cat ${addrName}.payment.addr
 echo
 
 #Building a Staking Address
-${cardanocli} ${subCommand} stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.staking.addr
+${cardanocli} stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.staking.addr
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${addrName}.staking.addr
 
@@ -144,7 +144,7 @@ cat ${addrName}.staking.addr
 echo
 
 #create an address registration certificate
-${cardanocli} ${subCommand} stake-address registration-certificate --staking-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.cert
+${cardanocli} stake-address registration-certificate --staking-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.cert
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${addrName}.staking.cert
 
