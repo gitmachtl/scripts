@@ -21,6 +21,8 @@ case $# in
   * ) cat >&2 <<EOF
 Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName> [optional Transaction-Metadata.json to send along]
 
+Note: If you wanna register your NativeAsset/Token on the TokenRegitry, use the scripts 12!
+
 EOF
   exit 1;; esac
 
@@ -151,17 +153,25 @@ echo
         echo -e "Total ADA on the Address:\e[32m  $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
         totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
+
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
-                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} Policy-IDs \e[0m - PREVIEW after minting\n"
-                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Bech-Name (ASCII):"
+                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs - \e[91m PREVIEW after minting!\e[0m\n"
+                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "ASCII-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
                         assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
                         assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-                        printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech} (${assetName})"
-			if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
+                        assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+
+                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
+                                metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
+                                metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
+                        fi
+
+                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
+                        if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
 
@@ -227,7 +237,7 @@ echo
 if ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         if ${onlineMode}; then  #onlinesubmit
-                                echo -ne "\e[0mSubmitting the transaction via the node..."
+                                echo -ne "\e[0mSubmitting the transaction via the node... "
                                 ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\e[32mDONE\n"
@@ -239,26 +249,30 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 			        #Updating the ${policyName}.${assetMintName}.asset json
 			        assetFileName="${policyName}.${assetMintName}.asset"
 
-				#If there is no assetFileName file, than build up the skeleton and add the recent data to it
-			        if [ -f "${assetFileName}" ]; then
-								assetFileJSON=$(cat ${assetFileName}) #Reading in the assetFileJSON
-							      else
-								assetFileJSON="{}"
-								assetFileJSON=$(jq ". += {metaName: \"${assetMintName}\",
-											  metaDescription: \"\",
-											  \"---\": \"--- Optional additional info ---\",
-											  metaTicker: \"\",
-											  metaUrl: \"\",
-											  metaLogoPNG: \"\",
-											  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
-											  minted: \"0\"}" <<< ${assetFileJSON})
-				fi
+				#Make assetFileSkeleton
+                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetMintName}\",
+                                                                  metaDescription: \"\",
+                                                                  \"---\": \"--- Optional additional info ---\",
+                                                                  metaTicker: \"\",
+                                                                  metaUrl: \"\",
+                                                                  metaLogoPNG: \"\",
+                                                                  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
+                                                                  minted: \"0\"}" <<< "{}")
+
+
+				#If there is no assetFileName file, create one
+			        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi
+
+				#Read in the current file
+				assetFileJSON=$(cat ${assetFileName})
+
+				#Combine the Skeleton with the real one
+				assetFileJSON=$(echo "${assetFileSkeletonJSON} ${assetFileJSON}" | jq -rs 'reduce .[] as $item ({}; . * $item)')
 
 
 #Currently disabled by IOHK
 #                                                                                         metaSubUnitDecimals: 0,
 #                                                                                         metaSubUnitName: \"\",
-
 
 
 			        oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
@@ -302,20 +316,25 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 			                                #Updating the ${policyName}.${assetMintName}.asset json
 			                                assetFileName="${policyName}.${assetMintName}.asset"
 
-			                                #If there is no assetFileName file, than build up the skeleton and add the recent data to it
-			                                if [ -f "${assetFileName}" ]; then
-                                                                assetFileJSON=$(cat ${assetFileName}) #Reading in the assetFileJSON
-                                                              else
-                                                                assetFileJSON="{}"
-                                                                assetFileJSON=$(jq ". += {metaName: \"${assetMintName}\",
-                                                                                          metaDescription: \"\",
-                                                                                          \"---\": \"--- Optional additional info ---\",
-                                                                                          metaTicker: \"\",
-                                                                                          metaUrl: \"\",
-                                                                                          metaLogoPNG: \"\",
-                                                                                          \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
-											  minted: \"0\"}" <<< ${assetFileJSON})
-			                                fi
+			                                #Make assetFileSkeleton
+			                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetMintName}\",
+			                                                                  metaDescription: \"\",
+			                                                                  \"---\": \"--- Optional additional info ---\",
+			                                                                  metaTicker: \"\",
+			                                                                  metaUrl: \"\",
+			                                                                  metaLogoPNG: \"\",
+			                                                                  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
+			                                                                  minted: \"0\"}" <<< "{}")
+
+			                                #If there is no assetFileName file, create one
+			                                if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi
+
+			                                #Read in the current file
+			                                assetFileJSON=$(cat ${assetFileName})
+
+			                                #Combine the Skeleton with the real one
+			                                assetFileJSON=$(echo "${assetFileSkeletonJSON} ${assetFileJSON}" | jq -rs 'reduce .[] as $item ({}; . * $item)')
+
 			                                oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
 			                                newValue=$(bc <<< "${oldValue} + ${assetMintAmount}")
 			                                assetFileJSON=$( jq ". += {minted: \"${newValue}\",
