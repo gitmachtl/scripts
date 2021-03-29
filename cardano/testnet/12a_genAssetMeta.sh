@@ -212,6 +212,14 @@ echo -ne "Finalizing the draft file ... "
 tmp=$(${cardanometa} entry ${assetSubject} --finalize)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[32mOK\e[90m (${tmp})\e[0m"
+metaFile=${tmp}
+
+#Validating the metadata registry submission json file
+echo -ne "Validating the final file ... "
+tmp=$(${cardanometa} validate ${metaFile})
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+echo -e "\e[32mOK\e[0m"
+
 assetFileJSON=$(cat ${assetFileName})
 assetFileJSON=$(jq ". += {lastUpdate: \"$(date -R)\", lastAction: \"created Metadata-Submitter-File\"}" <<< ${assetFileJSON})
 file_unlock ${assetFileName}
@@ -223,7 +231,7 @@ file_lock ${assetFileName}
 assetDir=$(dirname ${assetFileName})
 if [[ ! "${assetDir}" == "." ]]; then
 	echo -ne "Moving final JSON into '${assetDir}' Directory ... "
-	mv "${assetSubject}.json" "${assetDir}"
+	mv "${metaFile}" "${assetDir}"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	echo -e "\e[32mOK\e[0m"
 fi
