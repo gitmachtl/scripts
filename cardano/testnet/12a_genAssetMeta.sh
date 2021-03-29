@@ -127,7 +127,7 @@ assetSubject=$(jq -r ".subject" <<< ${assetFileJSON})
 
 echo -e "\e[0mGenerating Registry-Submitter-JSON:\e[32m ${assetSubject}.json \e[0m\n"
 
-submitterArray=("--init" "${assetSubject}")
+submitterArray=("entry" "${assetSubject}" "--init")
 
 #Check metaName
 echo -ne "Adding 'metaName'        ... "
@@ -203,13 +203,13 @@ echo -e "\e[32mOK\e[90m (${tmp})\e[0m"
 
 #Sign the metadata registry submission json draft file
 echo -ne "Signing with '${policyName}.policy.skey' ... "
-tmp=$(${cardanometa} ${assetSubject} -a "${policyName}.policy.skey")
+tmp=$(${cardanometa} entry ${assetSubject} -a "${policyName}.policy.skey")
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[32mOK\e[0m"
 
 #Finanlize the metadata registry submission json draft file
 echo -ne "Finalizing the draft file ... "
-tmp=$(${cardanometa} ${assetSubject} --finalize)
+tmp=$(${cardanometa} entry ${assetSubject} --finalize)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[32mOK\e[90m (${tmp})\e[0m"
 assetFileJSON=$(cat ${assetFileName})
