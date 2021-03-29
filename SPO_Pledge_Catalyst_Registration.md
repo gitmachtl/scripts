@@ -49,7 +49,7 @@ compile your cardano-node.<p>
 The tool is written in haskell, you compile it the same way as you do with your cardano node, should be
 something similar to this:
 
-:bulb: **Repo Link below was updated for Catalyst Fund3 !**
+:bulb: **Links below was updated for Catalyst Fund4 !**
 
 ``` console
 git clone https://github.com/input-output-hk/voting-tools
@@ -57,6 +57,12 @@ cd voting-tools
 echo -e "package cardano-crypto-praos\n  flags: -external-libsodium-vrf\n" > cabal.project.local
 cabal update
 cabal build all
+```
+
+If you just want to use a precompiled linux version, you can download it via:
+``` console
+wget https://hydra.iohk.io/job/Cardano/voting-tools/native.voterRegistrationTarball.x86_64-linux/latest-finished/download/1/voter-registration.tar.gz
+tar -xf voter-registration.tar.gz
 ```
 
 To copy out the **voter-registration** binary you can use this command after the build to copy it to your
