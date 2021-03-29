@@ -6,6 +6,9 @@ I put this together, should work for you, it did for me. But of course, use the 
 
 Best regards, Martin (ATADA/ATAD2 Stakepool Austria)
 
+:bulb: **Links below were updated for Catalyst Fund4 !**
+
+
 ## First - Lets talk about security
 
 Make sure you don't have any rewards sitting on your pledge staking key,
@@ -44,12 +47,10 @@ Thats an important one, before (Fund2) the voting rewards were distributed back 
 ## Generate the signed voting registration
 
 You need the **voter-registration** tool for this, you have to compile it like you 
-compile your cardano-node.<p>
+compile your cardano-node OR you can use a *precompiled version*.<p>
 
-The tool is written in haskell, you compile it the same way as you do with your cardano node, should be
+The tool is written in haskell, you **compile** it the same way as you do with your cardano node, should be
 something similar to this:
-
-:bulb: **Links below were updated for Catalyst Fund4 !**
 
 ``` console
 git clone https://github.com/input-output-hk/voting-tools
@@ -59,7 +60,7 @@ cabal update
 cabal build all
 ```
 
-If you just want to use a precompiled linux version, you can download it via:
+If you just want to use a **precompiled** linux version, you can download it via:
 ``` console
 wget https://hydra.iohk.io/job/Cardano/voting-tools/native.voterRegistrationTarball.x86_64-linux/latest-finished/download/1/voter-registration.tar.gz
 tar -xf voter-registration.tar.gz
