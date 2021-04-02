@@ -68,7 +68,7 @@ if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Do now allow Version Overwriting
 minNodeVersion="1.25.1"  #minimum allowed node version for this script-collection version
-maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
+maxNodeVersion="1.25.1"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="2.2.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
 minHardwareCliVersion="1.2.0" #minimum version for the cardano-hw-cli
