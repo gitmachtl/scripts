@@ -56,7 +56,7 @@ addrformat="--mainnet"          #choose "--mainnet" for mainnet address format o
 
 #--------- some other stuff -----
 showVersionInfo="yes"		#yes/no to show the version info and script mode on every script call
-queryTokenRegistry="yes"	#yes/no to query each native asset/token on the token registry server
+queryTokenRegistry="yes"	#yes/no to query each native asset/token on the token registry server live
 itn_jcli="./jcli"               #only needed if you wanna include your itn witness for your pool-ticker
 
 
@@ -370,27 +370,13 @@ function trimString
 #-------------------------------------------------------
 #Return the era the online node is in
 get_NodeEra() {
-##CheckEra
-#tmp=$(${cardanocli} query protocol-parameters --alonzo-era ${magicparam} 2> /dev/null)
-#if [[ "$?" == 0 ]]; then echo "alonzo"; return 0; fi
-#tmp=$(${cardanocli} query protocol-parameters --allegra-era ${magicparam} 2> /dev/null)
-#if [[ "$?" == 0 ]]; then echo "allegra"; return 0; fi
-#tmp=$(${cardanocli} query protocol-parameters --mary-era ${magicparam} 2> /dev/null)
-#if [[ "$?" == 0 ]]; then echo "mary"; return 0; fi
-#tmp=$(${cardanocli} query protocol-parameters --shelley-era ${magicparam} 2> /dev/null)
-#if [[ "$?" == 0 ]]; then echo "shelley"; return 0; fi
-##None of the above (Byron query would fail anyways)
-#echo "byron"; return 0;
-
-echo "default-era (mary)"; return 0; #current setup until we can query the current era again
-
+local tmpEra=$(${cardanocli} query tip ${magicparam} | jq -r ".era | select (.!=null)" 2> /dev/null)
+if [[ ! "${tmpEra}" == "" ]]; then tmpEra=${tmpEra,,}; else tmpEra="auto"; fi
+echo "${tmpEra}"; return 0; #return era in lowercase
 }
 ##Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
-#if [[ ! "${tmpEra}" == "" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
-
-nodeEraParam="" #current setup until we can query the current era again
-
+if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 #-------------------------------------------------------
 
 
@@ -628,7 +614,11 @@ if [ -f "${offlineFile}" ]; then
                                 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - '$(basename ${offlineFile})' is not a valid JSON file, please generate a valid offlineJSON first in onlinemode.\e[0m\n"; exit 1; fi
                                 if [[ $(trimString "${offlineJSON}") == "" ]]; then echo -e "\e[35mERROR - '$(basename ${offlineFile})' is not a valid JSON file, please generate a valid offlineJSON first in onlinemode.\e[0m\n"; exit 1; fi #nothing in the file
 				if [[ ! $(jq ".protocol.parameters | length" <<< ${offlineJSON}) -gt 0 ]]; then echo -e "\e[35mERROR - '$(basename ${offlineFile})' contains no protocol parameters. Please generate a valid offlineJSON first in onlinemode.\e[0m\n"; exit 1; fi
-                            fi
+                            else
+                                offileJSON=null
+                                echo -e "\e[35mERROR - '$(basename ${offlineFile})' is not present, please generate a valid offlineJSON first in onlinemode.\e[0m\n"; exit 1;
+
+fi
 }
 #-------------------------------------------------------
 

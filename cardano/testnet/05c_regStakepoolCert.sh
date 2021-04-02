@@ -63,7 +63,7 @@ regProtectionKey=$(jq -r .regProtectionKey <<< ${poolJSON} 2> /dev/null); if [[ 
 #Checks for needed local files
 if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[35mERROR - \"${regCertFile}\" StakePool (Re)registration-Certificate does not exist or was already submitted before!\n\nPlease create it by running script:\e[0m 05a_genStakepoolCert.sh ${poolFile}\n"; exit 1; fi
 if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
-if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
+if ! [[ -f "${poolName}.node.skey" || -f "${poolName}.node.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey/hwsfile\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
 if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a or 02. No hardware-wallet allowed for poolRegistration payments! :-(\e[0m\n"; exit 1; fi
 
@@ -96,8 +96,10 @@ fi
 ownerCnt=$(jq -r '.poolOwner | length' <<< ${poolJSON})
 certCnt=$(( ${ownerCnt} + 1 ))	#Total number of needed certificates: poolRegistrationCertificate and every poolOwnerDelegationCertificate
 registrationCerts="--certificate ${regCertFile}" #list of all needed certificates: poolRegistrationCertificat and every poolOwnerDelegationCertificate
-witnessCount=2	#Total number of needed witnesses: poolnode skey, registration payment skey/hwsfile + each owner witness + maybe rewards account witness
-hardwareWalletIncluded="no"
+witnessCount=2	#Total number of needed witnesses: poolnode skey/hwsfile, registration payment skey/hwsfile + each owner witness + maybe rewards account witness
+
+#Preload the hardwareWalletIncluded variable, if we provide the node cold key via a hw-wallet, than set the hardwareWalletIncluded=yes. Otherwise pretend no until a hw-owner is found.
+if [ -f "${poolName}.node.hwsfile" ]; then hardwareWalletIncluded="yes"; else hardwareWalletIncluded="no"; fi
 
 #Lets first count all needed witnesses and check about the delegation certificates
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
@@ -391,11 +393,28 @@ poolJSON=$(jq ".regWitness.type = \"${registrationType}\"" <<< ${poolJSON})
 poolJSON=$(jq ".regWitness.hardwareWalletIncluded = \"${hardwareWalletIncluded}\"" <<< ${poolJSON})
 
 #Fill the witness count with the node-coldkey witness
-echo -ne "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ... "
-tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${poolName}.node.skey ${magicparam} --out-file /dev/stdout)
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-echo -e "\e[32mOK\n"
-poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
+if [ -f "${poolName}.node.skey" ]; then #key is a normal one
+	echo -ne "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ... "
+	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${poolName}.node.skey ${magicparam} --out-file /dev/stdout)
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	echo -e "\e[32mOK\n"
+	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
+
+elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
+
+        if ! ask "\e[0mAdding the pool node witness from a local Hardware-Wallet key '\e[33m${poolName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
+
+		tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
+                start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
+                if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                tmpWitness=$(cat ${tmpWitnessFile})
+		poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
+
+else
+	echo -e "\e[35mError - Node Cold Signing Key for \"${poolName}\" not found. No ${poolName}.node.skey/hwsfile found !\e[0m\n"; exit 1;
+fi
 
 #Fill the witnesses with the local payment witness, must be a normal cli skey
 echo -ne "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ... "
@@ -441,7 +460,7 @@ do
 	        poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON
 
 	else
-	echo -e "\e[35mError - Owner Signing Key for \"${ownerName}\" not found. No ${ownerName}.staking.skey/hwsfile found !${tmp}\e[0m\n"; exit 1;
+	echo -e "\e[35mError - Owner Signing Key for \"${ownerName}\" not found. No ${ownerName}.staking.skey/hwsfile found !\e[0m\n"; exit 1;
 	fi
     fi
 
@@ -546,7 +565,7 @@ fi
 
 txFile="${tempDir}/$(basename ${poolName}).tx"
 
-echo -e "\e[0mAssemble the Transaction with the payment \e[32m${regPayName}.skey\e[0m, node\e[32m ${poolName}.node.skey\e[0m and all PoolOwner Witnesses: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mAssemble the Transaction with the payment \e[32m${regPayName}.skey\e[0m, node\e[32m ${poolName}.node.skey/hwsfile\e[0m and all PoolOwner Witnesses: \e[32m ${txFile} \e[90m"
 echo
 
 witnessString=; witnessContent="";

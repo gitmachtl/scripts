@@ -199,7 +199,7 @@ rm ${txFile} 2> /dev/null
 #If stakeaddress and payment address are from the same hardware files
 paymentName=$(basename ${regPayName} .payment) #contains the name before the .payment.addr extension
 
-if [[ -f "${regPayName}.hwsfile" && -f "${delegName}.staking.hwsfile" && "${paymentName}" == "${delegName}" ]]; then
+if [[ -f "${regPayName}.hwsfile" && -f "${delegName}.staking.hwsfile" && "${paymentName}" == "$(basename ${delegName} .staking)" ]]; then
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${delegName}.staking.hwsfile --hw-signing-file ${regPayName}.hwsfile --change-output-key-file ${delegName}.staking.hwsfile --change-output-key-file ${regPayName}.hwsfile ${magicparam} --out-file ${txFile} 2> /dev/stdout)
         if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
