@@ -4,7 +4,7 @@
 
 | | [cardano-cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-node](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |   :---:     |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.26.0</b><br><sub>**git checkout tags/1.26.0**</sub> | <b>1.26.0</b><br><sub>**git checkout tags/1.26.0**</sub> | <b>1.2.0</b><br><sub>**if you use hw-wallets** | <b>2.2.0</b><br><sub>**if you use hw-wallets** | <b>2.3.6</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.26.1</b><br><sub>**git checkout tags/1.26.1**</sub> | <b>1.26.1</b><br><sub>**git checkout tags/1.26.1**</sub> | <b>1.2.0</b><br><sub>**if you use hw-wallets** | <b>2.2.0</b><br><sub>**if you use hw-wallets** | <b>2.3.6</b><br><sub>**if you use hw-wallets** |
 
 > *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet, launchpad or staging*. 
 
@@ -149,7 +149,7 @@ This will fetch the checksum file from an external webserver and it will compare
 01_claimRewards.sh: OK
 01_queryAddress.sh: OK
 01_sendLovelaces.sh: OK
-01_sendVoteMeta.sh: OK
+01_sendAssets.sh: OK
 01_workOffline.sh: OK
 02_genPaymentAddrOnly.sh: OK
 03a_genStakingPaymentAddr.sh: OK
@@ -255,17 +255,18 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
 &nbsp;<br>
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: selected UTXOs]```**&sup1;** (you can send to an HASH address too)
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: metadata.json] [Opt: selected UTXOs]```**&sup1;** (you can send to an HASH address too)
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send **ALL lovelaces** from addr1.addr to addr2.addr, Tokens on addr1.addr are preserved
 <br>```./01_sendLovelaces.sh addr1 addr2 ALLFUNDS``` to send **ALL funds** from addr1.addr to addr2.addr **including Tokens** if present
 <br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL lovelaces from addr1.addr to the given Bech32 address
+<br>```./01_sendLovelaces.sh addr1 addr2 5000000 mymetadata.json``` to send 5 ADA from addr1.addr to addr2.addr and attach the metadata-file mymetadata.json
 
   :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 
 &nbsp;<br>
 * **01_sendAssets.sh:** sends Assets(Tokens) and optional a given amount of lovelaces from one address to another
-<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset> <AmountOfAssets|ALL> [Opt: Amount of lovelaces to attach] [Opt: selected UTXOs]```**&sup1;**
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL> [Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: selected UTXOs]```**&sup1;**
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
 <br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. 
@@ -286,11 +287,9 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
 
 &nbsp;<br>
-* **01_sendMeta.sh:** modified sendLoveLaces script to simply send a metadata file
-* **01_sendVoteMeta.sh:** modified sendLoveLaces script to simply send a voting json metadata file
-<br>```./01_sendLovelaces.sh <fromAddr> <VoteFileName/MetaFileName>```
-<br>```./01_sendLovelaces.sh addr1 myvote``` to just send the myvote.json votingfile from funds on addr1.addr
-<br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process)
+* **01_sendMeta.sh:** 
+* **01_sendVoteMeta.sh:** 
+<br>Scripts retired, because the normal 01_sendLovelaces.sh can also easily send metadata within a transaction. If you just wanna post metadata on the chain, make a transaction back to yourself and add the transaction-metadata-json as a parameter.<br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process) for the voting metadata sending.
 
 
 &nbsp;<br>
@@ -329,9 +328,10 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <br>```./03c_checkStakingAddrOnChain.sh owner``` will check if the address in owner.staking.addr is currently registered on the blockchain
 
 &nbsp;<br>
-* **04a_genNodeKeys.sh:** generates the poolname.node.vkey and poolname.node.skey cold keys and resets the poolname.node.counter file
-<br>```./04a_genNodeKeys.sh <poolname>```
-<br>```./04a_genNodeKeys.sh mypool```
+* **04a_genNodeKeys.sh:** generates the poolname.node.vkey and poolname.node.skey/hwsfile cold keys and resets the poolname.node.counter file
+<br>```./04a_genNodeKeys.sh <poolname> <keytype: CLI or HW>```
+<br>```./04a_genNodeKeys.sh mypool cli``` to generate your pool/node cold keys via the cli [default]
+<br>```./04a_genNodeKeys.sh mypool hw``` to generate your pool/node cold keys via a Hardware-Wallet. The secure key stay in the Hardware-Wallet ! 
 
 &nbsp;<br>
 * **04b_genVRFKeys.sh:** generates the poolname.vrf.vkey/skey files
@@ -1146,7 +1146,7 @@ We want to make ourself a pool owner stake address with the nickname owner, we w
 1. Wait a minute so the transaction and stake key registration is completed
 1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh owner``` if you don't see it, wait a little and retry
 1. Generate the keys for your coreNode
-   1. ```./04a_genNodeKeys.sh mypool```
+   1. ```./04a_genNodeKeys.sh mypool cli``` ! Soon possible to also use the HW-Wallet for this via option hw !
    1. ```./04b_genVRFKeys.sh mypool```
    1. ```./04c_genKESKeys.sh mypool```
    1. ```./04d_genNodeOpCert.sh mypool```
@@ -1211,7 +1211,7 @@ We want to make ourself a pool owner stake address with the nickname ledgerowner
 1. Wait a minute so the transaction and stake key registration is completed
 1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it, wait a little and retry
 1. Generate the keys for your coreNode
-   1. ```./04a_genNodeKeys.sh mypool```
+   1. ```./04a_genNodeKeys.sh mypool cli```
    1. ```./04b_genVRFKeys.sh mypool```
    1. ```./04c_genKESKeys.sh mypool```
    1. ```./04d_genNodeOpCert.sh mypool```
@@ -1773,7 +1773,7 @@ So if you hold a file ```<poolname>.additional-metadata.json``` with additional 
    <summary><b>Explore how to vote for SPOCRA </b>:bookmark_tabs:<br></summary>
    
 We have created a simplified script to transmit a voting.json file on-chain. This version will currently be used to submit your vote on-chain for the SPOCRA voting.<br>A Step-by-Step Instruction on how to create the voting.json file can be found on Adam Dean's website -> [Step-by-Step Instruction](https://vote.crypto2099.io/SPOCRA-voting/).<br>
-After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendVoteMeta.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet myvote```<br>This will for example transmit the myvote.json file (you name it without the .json) with funds from your wallet with the name mywallet.<br>
+After you have generated your voting.json file you simply transmit it in a transaction on-chain with the script ```01_sendLovelaces.sh``` like:<br> ```./01_sendVoteMeta.sh mywallet mywallet 1000000 myvote.json```<br>This will for example transmit the myvote.json file onto the chain. You just make a small transaction back to yourself (1 ADA minimum) and include the Metadata.json file.<br>
 Thats it. :-)
 
 </details>
@@ -1860,7 +1860,7 @@ We want to make a pool owner stake address the nickname owner, also we want to r
 1. Attach the newly created payment and staking address into your offlineTransfer.json for later usage on the Online-Machine<br>```./01_workOffline.sh attach owner.payment.addr```<br>```./01_workOffline.sh attach owner.staking.addr```
 1. Generate the owner stakeaddress registration transaction and pay the fees with smallwallet1<br>```./03b_regStakingAddrCert.sh owner.staking smallwallet1```
 1. Generate the keys for your coreNode
-   1. ```./04a_genNodeKeys.sh mypool```
+   1. ```./04a_genNodeKeys.sh mypool cli```
    1. ```./04b_genVRFKeys.sh mypool```
    1. ```./04c_genKESKeys.sh mypool```
    1. ```./04d_genNodeOpCert.sh mypool```
