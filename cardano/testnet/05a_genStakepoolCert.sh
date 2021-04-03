@@ -71,6 +71,8 @@ poolPledge=$(readJSONparam "poolPledge"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolCost=$(readJSONparam "poolCost"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 
+#Check if the poolFile entry is the same as the calling one
+if [[ ! "${poolName}" == "${poolFile}" ]]; then echo -e "\n\e[35mERROR - The entry for the 'poolName' in your ${poolFile}.pool.json is '${poolName}' and does not match the current path '${poolFile}'. Do you have imported it?\e[0m\n"; exit 1; fi
 
 #Read ProtocolParameters
 if ${onlineMode}; then

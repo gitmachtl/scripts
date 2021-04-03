@@ -77,6 +77,13 @@ itn_jcli="./jcli"               #only needed if you wanna include your itn witne
 tokenMetaServer_mainnet="https://tokens.cardano.org/metadata/" #mainnet
 tokenMetaServer_testnet="https://metadata.cardano-testnet.iohkdev.io/metadata/"	#public testnet
 
+#URLS for the Transaction-Explorers
+transactionExplorer_mainnet="https://cardanoscan.io/transaction/"
+transactionExplorer_testnet="https://explorer.cardano-testnet.iohkdev.io/en/transaction?id="
+
+#Pool-Importhelper Live-API-Helper
+poolImportAPI="https://api.crypto2099.io/v1/pool/"
+
 #Overwrite variables via env file if present
 scriptDir=$(dirname "$0" 2> /dev/null)
 if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
@@ -204,8 +211,14 @@ tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 
 
 #-------------------------------------------------------------
-#Setting Mainnet or Testnet Metadata Registry Server
-if [[ "${magicparam}" == *"mainnet"* ]]; then tokenMetaServer=${tokenMetaServer_mainnet}; else tokenMetaServer=${tokenMetaServer_testnet}; fi
+#Setting Mainnet or Testnet Metadata Registry Server & transactionExplorer
+if [[ "${magicparam}" == *"mainnet"* ]]; then #mainnet
+					   	tokenMetaServer=${tokenMetaServer_mainnet};
+						transactionExplorer=${transactionExplorer_mainnet};
+					 else #testnet
+						tokenMetaServer=${tokenMetaServer_testnet};
+						transactionExplorer=${transactionExplorer_testnet};
+fi
 if [[ ! "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer="${tokenMetaServer}/"; fi #make sure the last char is a /
 
 
