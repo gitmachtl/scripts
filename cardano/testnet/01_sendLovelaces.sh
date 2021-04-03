@@ -11,16 +11,54 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  3|4 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//};
+  3|4|5 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//}
       lovelacesToSend="$3";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets> [Opt: list of UTXOs to use]
+Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets> [Opt: Transaction-Metadata.json] [Opt: list of UTXOs to use]
+
+
+Optional parameters:
+
+- If you wanna attach a transaction-Metadata JSON:
+   You can add a Transaction-Metadata.json filename as a parameter to send it alone with the transaction.
+   There will be a simple basic check that the transaction-metadata.json file is valid. 
+
+- In rare cases you wanna define the exact UTXOs that should be used for sending Funds out:
+   "UTXO1#Index" ... to specify one UTXO, must be in quotes "..."
+   "UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in quotes "..."
+
 EOF
   exit 1;; esac
 
-#Check if a specific UTXO#IDX was set
-if [[ $# -eq 4 ]]; then filterForUTXO="$4"; else filterForUTXO=""; fi
+#Check all optional parameters about there types and set the corresponding variables
+#Starting with the 4th parameter (index3) up to the last parameter
+metafileParameter=""; metafile=""; filterForUTXO=""; #Setting defaults
+
+paramCnt=$#;
+IFS=' ' read -ra allParameters <<< "${@}"
+for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
+ do
+        paramValue=${allParameters[$tmpCnt]}
+        #echo -n "${tmpCnt}: ${paramValue} -> "
+
+        #Check if an additional metadata.json was set as parameter (not containing a #, not empty, not beeing a number)
+        if [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+
+                        metafile="$(dirname ${paramValue})/$(basename ${paramValue} .json).json"; metafile=${metafile//.\//}
+                        if [ ! -f "${metafile}" ]; then echo -e "The specified Metadata JSON-File '${metafile}' does not exist. Please try again."; exit 1; fi
+                        #Do a simple basic check if the metadatum is in the 0..65535 range
+                        metadatum=$(jq -r "keys_unsorted[0]" ${metafile} 2> /dev/null)
+                        if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
+                        #Check if it is null, a number, lower then zero, higher then 65535
+                        if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
+                        metafileParameter="--metadata-json-file ${metafile}"
+                #Check if an additional UTXO#IDX filter was set as parameter (must contain a #)
+        elif [[ "${paramValue}" == *"#"* ]]; then filterForUTXO="${paramValue}";
+        fi
+
+ done
+
 
 #Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
@@ -30,6 +68,7 @@ if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e
 
 echo -e "\e[0mSending lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
 echo
+
 
 #get live values
 currentTip=$(get_currentTip)
@@ -143,6 +182,8 @@ echo
 
 echo
 
+if [[ ! "${metafile}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafile}\e[0m\n"; fi
+
 #Read ProtocolParameters
 if ${onlineMode}; then
 			protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
@@ -179,10 +220,10 @@ minUTXOvalue=$(jq -r .minUTxOValue <<< ${protocolParametersJSON})      #This val
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 --out-file ${txBodyFile}
+                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 --out-file ${txBodyFile}
+                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
@@ -251,10 +292,10 @@ echo
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}
+			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			else  #Sending chosen amount (rxcnt=2), return the rest(incl. assets)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}
+			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 			#echo -e "\n\n\n${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out \"${sendFromAddr}+${lovelacesToReturn}${assetsOutString}\" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}\n\n\n"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
@@ -285,7 +326,7 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
 				fi
 
         tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 else
 	${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}
@@ -305,9 +346,11 @@ if ask "\n\e[33mDoes this look good for you, continue ?" N; then
 				echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n\e[0m";
+                                elif [[ ${magicparam} == *"1097911063"* ]]; then echo -e "\e[0mTracking: \e[32mhttps://explorer.cardano-testnet.iohkdev.io/en/transaction?id=${txID}\n\e[0m";
+                                fi
 
 			  else	#offlinestore
 				txFileJSON=$(cat ${txFile} | jq .)

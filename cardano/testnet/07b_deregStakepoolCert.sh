@@ -20,7 +20,7 @@ EOF
   exit 1;; esac
 
 #Check if referenced JSON file exists
-if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[34mERROR - ${poolFile}.pool.json does not exist! Please create a minimal first with script 07a.\e[0m"; exit 2; fi
+if [ ! -f "${poolFile}.pool.json" ]; then echo -e "\n\e[35mERROR - ${poolFile}.pool.json does not exist! Please create a minimal first with script 07a.\e[0m"; exit 2; fi
 
 #Small subroutine to read the value of the JSON and output an error if parameter is empty/missing
 function readJSONparam() {
@@ -38,10 +38,10 @@ deregCertFile=$(readJSONparam "deregCertFile"); if [[ ! $? == 0 ]]; then exit 1;
 poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi #only used to write out an description of this action in offline mode
 
 #Checks for needed files
-if [ ! -f "${deregCertFile}" ]; then echo -e "\n\e[34mERROR - \"${deregCertFile}\" does not exist! Please create it first with script 05d.\e[0m"; exit 2; fi
-if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[34mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 2; fi
+if [ ! -f "${deregCertFile}" ]; then echo -e "\n\e[35mERROR - \"${deregCertFile}\" does not exist! Please create it first with script 05d.\e[0m"; exit 2; fi
+if ! [[ -f "${poolName}.node.skey" || -f "${poolName}.node.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey/hwsfile\" does not exist! Please create it first with script 04a.\e[0m"; exit 2; fi
 if [ ! -f "${deregPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${deregPayName}.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
-if [ ! -f "${deregPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${deregPayName}.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
+if ! [[ -f "${deregPayName}.skey" || -f "${deregPayName}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${deregPayName}.skey/hwsfile\" does not exist! Please create it first with script 02/03a.\e[0m"; exit 1; fi
 
 #-------------------------------------------------------------------------
 
@@ -166,7 +166,6 @@ minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${t
 #----------------------------------------------------------------
 
 #Make a variable for all signing keys
-signingKeys="--signing-key-file ${deregPayName}.skey --signing-key-file ${poolName}.node.skey"
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
@@ -207,13 +206,22 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txBodyFile}
 echo
 echo
-echo -e "\e[0mSign the unsigned transaction body with the payment \e[32m${deregPayName}.skey\e[0m & node \e[32m${poolName}.node.skey\e[0m: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mSign the unsigned transaction body with the payment \e[32m${deregPayName}.skey/hwsfile\e[0m & node \e[32m${poolName}.node.skey/hwsfile\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
-#Sign the unsigned transaction body with the SecureKey
-rm ${txFile} 2> /dev/null
-${cardanocli} transaction sign --tx-body-file ${txBodyFile} ${signingKeys} ${magicparam} --out-file ${txFile}
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+if [[ -f "${deregPayName}.hwsfile" && -f "${poolName}.node.hwsfile" ]]; then #with hardware keys
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${deregPayName}.hwsfile --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${txFile})
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+elif [[ -f "${deregPayName}.skey" && -f "${poolName}.node.skey" ]]; then #with the normal cli skeys
+        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${deregPayName}.skey --signing-key-file ${poolName}.node.skey ${magicparam} --out-file ${txFile}
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+else
+echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet-Node-Pool can only be retired by paying also with the same Hardware-Wallet.\nSo if you don't have a payment account on your Hardware-Wallet yet, create one first with Scripts 02/03a and\nfund them with some ADA to pay for the PoolRetirement-Transaction.\e[0m\n"; exit 1;
+fi
+echo -ne "\e[90m"
 cat ${txFile}
 echo
 
@@ -232,9 +240,11 @@ if ask "\e[33mDoes this look good for you? Continue ?" N; then
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
-				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
+                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n\e[0m";
+                                elif [[ ${magicparam} == *"1097911063"* ]]; then echo -e "\e[0mTracking: \e[32mhttps://explorer.cardano-testnet.iohkdev.io/en/transaction?id=${txID}\n\e[0m";
+                                fi
 
                                 else
                                 echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;

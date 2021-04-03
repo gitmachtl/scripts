@@ -19,7 +19,7 @@ case $# in
       assetBurnAmount="$2";;
 
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName> [optional Transaction-Metadata.json to send along]
+Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName> [Opt: Transaction-Metadata.json - This is not the TokenRegistryServer Metadata!]
 
 Note: If you wanna register your NativeAsset/Token on the TokenRegitry, use the scripts 12!
 
@@ -40,10 +40,11 @@ if [ ! -f "${policyName}.policy.skey" ]; then echo -e "\n\e[35mERROR - \"${polic
 policyID=$(cat ${policyName}.policy.id)
 
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02. It's not possible to mint on a hw-wallet for now!\e[0m"; exit 1; fi
+#if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 
 #Check if there is also an optional metadata file present
-metafileParameter=""
+metafileParameter=""; metafile=""
 if [[ $# -eq 4 ]]; then
                         metafile="$(dirname $4)/$(basename $4 .json).json"; metafile=${metafile//.\//}
                         if [ ! -f "${metafile}" ]; then echo -e "The specified Metadata JSON-File '${metafile}' does not exist. Please try again."; exit 1; fi
@@ -77,6 +78,7 @@ echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[invalid
 echo
 if [[ ${ttl} -le ${currentTip} ]]; then echo -e "\e[35mError - Your given Policy has expired, you cannot use it anymore!\e[0m\n"; exit 2; fi
 
+if [[ ! "${metafile}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafile}\e[0m\n"; fi
 
 sendFromAddr=$(cat ${fromAddr}.addr)
 sendToAddr=${sendFromAddr}
@@ -176,6 +178,8 @@ echo
 
 echo
 
+if [[ ! "${metafile}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafile}\e[0m\n"; fi
+
 #Read ProtocolParameters
 if ${onlineMode}; then
                         protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
@@ -246,9 +250,11 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
-
+                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n\e[0m";
+                                elif [[ ${magicparam} == *"1097911063"* ]]; then echo -e "\e[0mTracking: \e[32mhttps://explorer.cardano-testnet.iohkdev.io/en/transaction?id=${txID}\n\e[0m";
+                                fi
 
                                 #Updating the ${policyName}.${assetBurnName}.asset json
                                 assetFileName="${policyName}.${assetBurnName}.asset"

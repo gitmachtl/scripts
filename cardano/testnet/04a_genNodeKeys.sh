@@ -61,7 +61,7 @@ else #Building it from HW-Keys
 
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} node key-gen --path 1853H/1815H/0H/0H --cold-verification-key-file ${nodeName}.node.vkey --hw-signing-file ${nodeName}.node.hwsfile --operational-certificate-issue-counter-file ${nodeName}.node.counter 2> /dev/stdout)
-        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${nodeName}.node.vkey
         file_lock ${nodeName}.node.hwsfile

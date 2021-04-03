@@ -51,8 +51,8 @@ expireDate=$(date --date=@${expireTimeSec})
 echo -e "Current KES Period: ${currentKESperiod}"
 echo -e "KES Keys expire after Period: ${expiresKESperiod} (${expireDate})"
 
-#echo -e "Current Slot: ${currentSlot}      (byronSlots=${byronSlots}  transSlots=${transSlots})"
-#echo -e "Current Slot 00_common.sh: $(get_currentTip)"
+#echo -e "Current Slot (calc): ${currentSlot}"
+#echo -e "Current Slot (live): $(get_currentTip)"
 #echo -e "ByronStartTime: ${startTimeByron}"
 #echo -e "ShelleyStartTime: ${startTimeSec}"
 #echo -e "TransTimeEnd: ${transTimeEnd}"

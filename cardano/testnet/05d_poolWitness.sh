@@ -386,7 +386,7 @@ case ${action} in
 			if [ ! -f "${signingKey}.hwsfile" ]; then echo -e "\n\e[35mError - \"${signingKey}.hwsfile\" file not found !\e[0m"; exit 1; fi
 	                start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			tmp=$(${cardanohwcli} transaction witness --tx-body-file <(echo ${witnessTxBody}) --hw-signing-file ${signingKey}.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
-			if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+			if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 	                tmpWitness=$(cat ${tmpWitnessFile})

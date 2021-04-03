@@ -11,32 +11,58 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  4|5|6 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//}
+  4|5|6|7 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//}
       toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//}
       assetToSend="$3";
       amountToSend="$4";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL> [Opt: Amount of lovelaces to include] [Opt: list of UTXOs to use]
+Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR asset1-name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL> [Opt: Amount of lovelaces to include] [Opt: Transaction-Metadata.json] [Opt: list of UTXOs to use]
 
 
 Optional parameters:
 
-Normally you don't need to specify an Amount of lovelaces to include, the script will calculcate the minimum Amount that is needed by its own.
+- Normally you don't need to specify an Amount of lovelaces to include, the script will calculcate the minimum Amount that is needed by its own.
 
-In rare cases you wanna define the exact UTXOs that should be used for sending Assets out, you can do that as a 6th parameter in the scheme:
-"UTXO1#Index" ... to specify one UTXO, must be in "..."
-"UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in "..."
+- You can attach a transaction-metadata.json by adding the filename of the json file to the parameters
+
+- In rare cases you wanna define the exact UTXOs that should be used for sending Assets out:
+    "UTXO1#Index" ... to specify one UTXO, must be in "..."
+    "UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in "..."
 
 EOF
   exit 1;; esac
 
-#Check if an additional amount of lovelaces was set
-if [ $# -ge 5 ] && [[ ! "${5^^}" == *"#"* ]] && [[ ! ${5} == "" ]]; then lovelacesToSend="$5"; else lovelacesToSend=0; fi
 
-#Check if a specific UTXO#IDX was set as last parameter
-lastCallParam=${@: -1};
-if [ $# -ge 5 ] && [[ "${lastCallParam}" == *"#"* ]]; then filterForUTXO="${lastCallParam}"; else filterForUTXO=""; fi
+#Check all optional parameters about there types and set the corresponding variables
+#Starting with the 5th parameter (index4) up to the last parameter
+metafileParameter=""; metafile=""; lovelacesToSend=0; filterForUTXO=""; #Setting defaults
 
+paramCnt=$#;
+IFS=' ' read -ra allParameters <<< "${@}"
+for (( tmpCnt=4; tmpCnt<${paramCnt}; tmpCnt++ ))
+ do
+	paramValue=${allParameters[$tmpCnt]}
+	#echo -n "${tmpCnt}: ${paramValue} -> "
+
+        #Check if an additional amount of lovelaces was set as parameter (not containing a #, not empty, beeing a number)
+	if [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ ! -z "${paramValue##*[!0-9]*}" ]; then lovelacesToSend=${paramValue};
+
+	#Check if an additional metadata.json was set as parameter (not containing a #, not empty, not beeing a number)
+	elif [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+
+                        metafile="$(dirname ${paramValue})/$(basename ${paramValue} .json).json"; metafile=${metafile//.\//}
+                        if [ ! -f "${metafile}" ]; then echo -e "The specified Metadata JSON-File '${metafile}' does not exist. Please try again."; exit 1; fi
+                        #Do a simple basic check if the metadatum is in the 0..65535 range
+                        metadatum=$(jq -r "keys_unsorted[0]" ${metafile} 2> /dev/null)
+                        if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
+                        #Check if it is null, a number, lower then zero, higher then 65535
+                        if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
+                        metafileParameter="--metadata-json-file ${metafile}"
+		#Check if an additional UTXO#IDX filter was set as parameter (must contain a #)
+	elif [[ "${paramValue}" == *"#"* ]]; then filterForUTXO="${paramValue}";
+	fi
+
+ done
 
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
@@ -212,6 +238,8 @@ echo
 
 echo
 
+if [[ ! "${metafile}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafile}\e[0m\n"; fi
+
 #
 # Set the right rxcnt, in this case its always 2. One external destination address, one return address (sourceAddress)
 #
@@ -236,7 +264,7 @@ fi
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsSendString}" --tx-out "${sendToAddr}+0${assetsReturnString}" --invalid-hereafter ${ttl} --fee 0 --out-file ${txBodyFile}
+${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsSendString}" --tx-out "${sendToAddr}+0${assetsReturnString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -265,7 +293,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsSendString}" --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsReturnString}" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}
+${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsSendString}" --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsReturnString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 cat ${txBodyFile}
@@ -293,7 +321,7 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
                                 fi
 
         tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 else
         ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}
@@ -313,9 +341,11 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n\e[0m";
+                                elif [[ ${magicparam} == *"1097911063"* ]]; then echo -e "\e[0mTracking: \e[32mhttps://explorer.cardano-testnet.iohkdev.io/en/transaction?id=${txID}\n\e[0m";
+                                fi
 
                           else  #offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)

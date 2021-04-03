@@ -231,7 +231,7 @@ stakingName=$(basename ${stakeAddr} .staking) #contains the name before the .sta
 if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" == "${stakingName}" ]]; then
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile  --change-output-key-file ${fromAddr}.hwsfile  --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 elif [[ -f "${stakeAddr}.skey" && -f "${fromAddr}.skey" ]]; then #with the normal cli skey
@@ -253,9 +253,11 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
-				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
+                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n\e[0m";
+                                elif [[ ${magicparam} == *"1097911063"* ]]; then echo -e "\e[0mTracking: \e[32mhttps://explorer.cardano-testnet.iohkdev.io/en/transaction?id=${txID}\n\e[0m";
+                                fi
 
                           else  #offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)

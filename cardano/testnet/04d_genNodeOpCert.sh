@@ -119,7 +119,7 @@ elif [ -f "${nodeName}.node.hwsfile" ]; then #key is a hardware wallet
 		file_unlock ${nodeName}.node-${latestKESnumber}.opcert
 		file_unlock ${nodeName}.node.counter
                 tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --kes-period ${currentKESperiod} --operational-certificate-issue-counter ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${nodeName}.node-${latestKESnumber}.opcert 2> /dev/stdout)
-                if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; file_lock ${nodeName}.node-${latestKESnumber}.opcert; file_lock ${nodeName}.node.counter; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+                if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; file_lock ${nodeName}.node-${latestKESnumber}.opcert; file_lock ${nodeName}.node.counter; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
 		file_lock ${nodeName}.node-${latestKESnumber}.opcert
 		file_lock ${nodeName}.node.counter
                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

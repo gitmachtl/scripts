@@ -407,7 +407,7 @@ elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
 		tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
                 start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                 tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
-                if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+                if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                 tmpWitness=$(cat ${tmpWitnessFile})
 		poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
@@ -449,7 +449,7 @@ do
 		start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${ownerName}.staking.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
 
-	        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+	        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
 	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 		tmpWitness=$(cat ${tmpWitnessFile})
@@ -637,9 +637,11 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                 echo
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n\e[0m";
+                                elif [[ ${magicparam} == *"1097911063"* ]]; then echo -e "\e[0mTracking: \e[32mhttps://explorer.cardano-testnet.iohkdev.io/en/transaction?id=${txID}\n\e[0m";
+                                fi
 
 				#Display information to manually register the OwnerDelegationCertificates on the chain if a hardware-wallet is involved. With only cli based staking keys, we can include all the delegation certificates in one transaction
 				if [[ "${regWitnessHardwareWalletIncluded}" == "yes" ]]; then

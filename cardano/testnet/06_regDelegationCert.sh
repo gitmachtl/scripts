@@ -202,13 +202,13 @@ paymentName=$(basename ${regPayName} .payment) #contains the name before the .pa
 if [[ -f "${regPayName}.hwsfile" && -f "${delegName}.staking.hwsfile" && "${paymentName}" == "$(basename ${delegName} .staking)" ]]; then
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${delegName}.staking.hwsfile --hw-signing-file ${regPayName}.hwsfile --change-output-key-file ${delegName}.staking.hwsfile --change-output-key-file ${regPayName}.hwsfile ${magicparam} --out-file ${txFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 elif [[ -f "${delegName}.staking.skey" && -f "${regPayName}.skey" ]]; then #with the normal cli skey
         ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey --signing-key-file ${delegName}.staking.skey ${magicparam} --out-file ${txFile}
 else
-echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet can only be used to register its own staking key on the chain.\e[0m\n"; exit 1;
+echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet can only (must) be used to register its own staking key on the chain.\e[0m\n"; exit 1;
 fi
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -ne "\e[90m"
@@ -224,9 +224,11 @@ if ask "\e[33mDoes this look good for you ?" N; then
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
-                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
+                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n\e[0m";
+                                elif [[ ${magicparam} == *"1097911063"* ]]; then echo -e "\e[0mTracking: \e[32mhttps://explorer.cardano-testnet.iohkdev.io/en/transaction?id=${txID}\n\e[0m";
+                                fi
 
                           else  #offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)
