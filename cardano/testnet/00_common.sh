@@ -432,7 +432,6 @@ echo "${utxoJSON}"
 }
 #-------------------------------------------------------
 
-
 #-------------------------------------------------------
 #Cuts out all UTXOs in a mary style UTXO JSON that are not the given UTXO hash ($2)
 #The given UTXO hash can be multiple UTXO hashes with the or separator | for egrep
@@ -451,21 +450,6 @@ done
 echo "${outJSON}"
 }
 #-------------------------------------------------------
-
-
-#-------------------------------------------------------
-#Calculate the minimum UTXO level that has to be sent depending on the assets and the minUTXO protocol-parameters
-get_minOutUTXO() {
-	#${1} = protocol-parameters(json format) content
-	#${2} = total number of different assets
-	#${3} = total number of different policyIDs
-
-local minUTXOvalue=$(jq -r .minUTxOValue <<< ${1})
-
-echo $(( ${minUTXOvalue} + (${2}*${minUTXOvalue}) ))	#poor calculation currently
-}
-#-------------------------------------------------------
-
 
 #-------------------------------------------------------
 #Convert PolicyID|assetName TokenName into Bech32 format "token1....."
@@ -494,6 +478,71 @@ echo -n "${1}" | xxd -r -ps
 }
 #-------------------------------------------------------
 
+
+#-------------------------------------------------------
+#Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
+calc_minOutUTXO() {
+        #${1} = protocol-parameters(json format) content
+        #${2} = tx-out string
+
+local minUTXOValue=$(jq -r .minUTxOValue <<< ${1})
+local minOutUTXO=${minUTXOValue} #preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
+
+#chain constants
+local coinSize=0        		#will be changed to 2 in the next fork
+local pidSize=28			#currenty, also in the next era
+local utxoEntrySizeWithoutVal=27 	#6+txOutLenNoVal(14)+txInLen(7)
+local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${coinSize}))
+
+#split the tx-out string into the assets
+IFS='+' read -ra asset_entry <<< "${2}"
+
+if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. otherwise leave it at the default value
+        local idx=2
+	local pidCollector=""    #holds the list of individual policyIDs
+	local assetsCollector="" #holds the list of individual assetNumbers
+	local nameCollector=""   #holde the list of individual assetNames(hex format)
+
+        while [[ ${#asset_entry[@]} -gt ${idx} ]]; do
+
+          #separate assetamount from asset_hash(policyID.assetName)
+          IFS=' ' read -ra asset <<< "${asset_entry[${idx}]}"
+          local asset_hash=${asset[1]}
+
+          #split asset_hash_name into policyID and assetName(hex)
+          #later when we change the tx-out format to full hex format
+          #this can be simplified into a stringsplit
+          IFS='.' read -ra asset_split <<< "${asset_hash}"
+          local asset_hash_policy=${asset_split[0]}
+          local asset_hash_hexname=$(echo -n "${asset_split[1]}" | xxd -b -ps -c 80 | tr -d '\n')
+
+	  #collect the entries in individual lists to sort them later
+	  local pidCollector="${pidCollector}${asset_hash_policy}\n"
+	  local assetsCollector="${assetsCollector}${asset_hash_policy}${asset_hash_hexname}\n"
+	  if [[ ! "${asset_hash_hexname}" == "" ]]; then local nameCollector="${nameCollector}${asset_hash_hexname}\n"; fi
+
+          local idx=$((idx+1))
+        done
+
+       #get uniq entries
+       local numPIDs=$(echo -ne "${pidCollector}" | sort | uniq | wc -l)
+       local numAssets=$(echo -ne "${assetsCollector}" | sort | uniq | wc -l)
+
+       #get sumAssetNameLengths
+       local sumAssetNameLengths=$(( $(echo -ne "${nameCollector}" | sort | uniq | tr -d '\n' | wc -c) / 2 )) #divide consolidated hexstringlength by 2 because 2 hex chars -> 1 byte
+
+       #calc the utxoWords
+       local roundupBytesToWords=$(bc <<< "scale=0; ( ${numAssets}*12 + ${sumAssetNameLengths} + ${numPIDs}*${pidSize} + 7 ) / 8")
+       local tokenBundleSize=$(( 6 + ${roundupBytesToWords} ))
+
+       #calc minAda needed with assets
+       local minAda=$(( $(bc <<< "scale=0; ${minUTXOValue} / ${adaOnlyUTxOSize}") * ( ${utxoEntrySizeWithoutVal} + ${tokenBundleSize} ) ))
+       if [[ ${minAda} -gt ${minUTXOValue} ]]; then minOutUTXO=${minAda}; fi #if minAda is heigher than the bottom minUTXOValue, set the output to the higher value (max function)
+fi
+
+echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or without assets
+}
+#-------------------------------------------------------
 
 
 
@@ -688,3 +737,5 @@ echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m found on yo
 convertToADA() {
 echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and add a leading zero if below 1 ada
 }
+
+

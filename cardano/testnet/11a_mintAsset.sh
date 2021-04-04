@@ -186,7 +186,8 @@ if ${onlineMode}; then
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
+
+minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
 
 if [[ "${assetMintName}" == "" ]]; then point=""; else point="."; fi
 

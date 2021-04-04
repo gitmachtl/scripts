@@ -253,12 +253,22 @@ if ${onlineMode}; then
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "1" "1")  #one asset will be sent out, so total assetcount=1 and policyidcount=1
-if [[ ${amountToReturn} -gt 0 ]]; then
- 					minReturnUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}") #restamount of the sending asset still on the source so full number of assets to return
-                                        else
-					minReturnUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "$(( ${totalAssetsCnt} - 1 ))" "${totalPolicyIDsCnt}") #the choosen asset is transfered completly, so total number - 1
-fi
+
+minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsSendString}")
+
+#echo "send:"
+#echo "${sendToAddr}+0${assetsSendString}"
+#echo
+#testtmp=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0")
+#echo ${testtmp}
+
+#echo
+#echo "return:"
+#echo "${sendToAddr}+0${assetsReturnString}"
+#echo
+minReturnUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsReturnString}")
+#echo ${minOutUTXO}
+#exit
 
 
 #Generate Dummy-TxBody file for fee calculation

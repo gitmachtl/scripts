@@ -322,7 +322,7 @@ if [[ "${regWitnessID}" == "" ]]; then
 
 echo
 
-minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
+minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
 
 #------------------------------------------------------------------
 
