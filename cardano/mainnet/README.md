@@ -1,4 +1,4 @@
-# StakePool Operator Scripts (SPOS) for MainNe
+# StakePool Operator Scripts (SPOS) for MainNet
 
 *Examples on how to use the scripts **ONLINE** and/or **OFFLINE**, with or without a **Ledger/Trezor-Wallet** can be found on this page :smiley:*
 
