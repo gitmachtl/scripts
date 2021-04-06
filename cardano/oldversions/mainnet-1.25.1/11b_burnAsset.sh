@@ -19,10 +19,7 @@ case $# in
       assetBurnAmount="$2";;
 
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName> [Opt: Transaction-Metadata.json - This is not the TokenRegistryServer Metadata!]
-
-Note: If you wanna register your NativeAsset/Token on the TokenRegitry, use the scripts 12!
-
+Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName> [optional Metadata.json to send along]
 EOF
   exit 1;; esac
 
@@ -40,11 +37,10 @@ if [ ! -f "${policyName}.policy.skey" ]; then echo -e "\n\e[35mERROR - \"${polic
 policyID=$(cat ${policyName}.policy.id)
 
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02. It's not possible to mint on a hw-wallet for now!\e[0m"; exit 1; fi
-#if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 
 #Check if there is also an optional metadata file present
-metafileParameter=""; metafile=""
+metafileParameter=""
 if [[ $# -eq 4 ]]; then
                         metafile="$(dirname $4)/$(basename $4 .json).json"; metafile=${metafile//.\//}
                         if [ ! -f "${metafile}" ]; then echo -e "The specified Metadata JSON-File '${metafile}' does not exist. Please try again."; exit 1; fi
@@ -60,10 +56,7 @@ fi
 #Sending ALL lovelaces, so only 1 receiver addresses
 rxcnt="1"
 
-assetBurnBech=$(convert_tokenName2BECH ${policyID} ${assetBurnName})
-assetBurnSubject="${policyID}$(convert_assetNameASCII2HEX ${assetBurnName})"
-
-echo -e "\e[0mBurning Asset \e[32m${assetBurnAmount} '${assetBurnName}'\e[0m with Policy \e[32m'${policyName}'\e[0m: ${assetBurnBech}"
+echo -e "\e[0mBurning Asset \e[32m${assetBurnAmount} '${assetBurnName}'\e[0m with Policy \e[32m'${policyName}'\e[0m:"
 
 #get live values
 currentTip=$(get_currentTip)
@@ -78,7 +71,6 @@ echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[invalid
 echo
 if [[ ${ttl} -le ${currentTip} ]]; then echo -e "\e[35mError - Your given Policy has expired, you cannot use it anymore!\e[0m\n"; exit 2; fi
 
-if [[ ! "${metafile}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafile}\e[0m\n"; fi
 
 sendFromAddr=$(cat ${fromAddr}.addr)
 sendToAddr=${sendFromAddr}
@@ -93,7 +85,7 @@ echo
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 				utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}")
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
@@ -110,43 +102,39 @@ echo
         #totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
 	#Preload the new Asset to burn in the totalAssetsJSON with the negative number of assets to burn, will sum up later
 	if [[ "${assetBurnName}" == "" ]]; then point=""; else point="."; fi
-        assetBech=$(convert_tokenName2BECH ${policyID} ${assetBurnName})
-	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetBurnName}\":{amount: \"-${assetBurnAmount}\", name: \"${assetBurnName}\", bech: \"${assetBech}\"}}" <<< "{}")
+	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetBurnName}\":{amount: \"-${assetBurnAmount}\", name: \"${assetBurnName}\"}}" <<< "{}")
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
-        #LEVEL 1 - different UTXOs
+	#LEVEL 1 - different UTXOs
         for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
         do
         utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
-        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".value.lovelace" <<< ${utxoJSON})   #Lovelaces
-        totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
+        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
+	totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}")
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
-        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".value | del (.lovelace)" <<< ${utxoJSON}) #All values without the lovelaces entry
+        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
-
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
-                        #LEVEL 2 - different policyIDs
+			#LEVEL 2 - different policyID/assetHASH
                         for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
                         do
-                        assetHash=$(jq -r "keys_unsorted[${tmpCnt2}]" <<< ${assetsJSON})  #assetHash = policyID
-                        assetsNameCnt=$(jq ".\"${assetHash}\" | length" <<< ${assetsJSON})
+                        assetHash=$(jq -r ".[${tmpCnt2}][0]" <<< ${assetsJSON})  #assetHash = policyID
+                        assetsNameCnt=$(jq ".[${tmpCnt2}][1] | length" <<< ${assetsJSON})
                         totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
 
                                 #LEVEL 3 - different names under the same policyID
                                 for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
                                 do
-                                assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
-                                assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
-                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
-                                if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
+                                assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
+				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
-                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
-                        done
-
+                         done
         fi
 	txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
@@ -154,53 +142,44 @@ echo
         echo -e "Total ADA on the Address:\e[32m  $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
         totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
-
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
-                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs - \e[91m PREVIEW after burning!\e[0m\n"
-                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "ASCII-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
+                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s)\e[0m - PREVIEW after the burn\n"
+                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
                         assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-                        assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
-
-                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
-                                metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
-                                metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
-                        fi
-
-                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
-                        if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
+			if [[ $(bc <<< "${assetAmount}>=0") -eq 1 ]]; then
+                        	printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
+				assetsOutString+="+${assetAmount} ${assetHashName}"; #only include in the sendout if more than zero
+			fi
                         done
         fi
 
 echo
 
-if [[ ! "${metafile}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafile}\e[0m\n"; fi
-
 #Read ProtocolParameters
 if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
+                        protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
                   else
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
+minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
 
 if [[ "${assetBurnName}" == "" ]]; then point=""; else point="."; fi
 
 #Check amount of assets after the burn
-assetAmountAfterBurn=$(jq -r ".\"${policyID}${point}${assetBurnName}\".amount" <<< ${totalAssetsJSON})
+assetAmountAfterBurn=$(jq -r ".\"${policyID}.${assetBurnName}\".amount" <<< ${totalAssetsJSON})
 if [[ $(bc <<< "${assetAmountAfterBurn}<0") -eq 1 ]]; then echo -e "\n\e[35mYou can't burn ${assetBurnAmount} ${assetBurnName} Assets with that policy, you can only burn $(bc <<< "${assetBurnAmount}+${assetAmountAfterBurn}") Assets!\e[0m"; exit; fi
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
@@ -222,9 +201,9 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-#echo "${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out \"${sendToAddr}+${lovelacesToSend}${assetsOutString}\" --mint \"${assetBurnAmount} ${policyID}.${assetBurnName}\" --invalid-hereafter ${ttl}  --out-file ${txBodyFile}"
+#echo "${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out \"${sendToAddr}+${lovelacesToSend}${assetsOutString}\" --mint \"${assetBurnAmount} ${policyID}.${assetBurnName}\" --invalid-hereafter ${ttl}  --out-file ${txBodyFile}"
 
 cat ${txBodyFile}
 echo
@@ -234,9 +213,9 @@ echo
 
 #Sign the unsigned transaction body with the SecureKey
 rm ${txFile} 2> /dev/null
-${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${policyName}.policy.skey --script-file ${policyName}.policy.script ${magicparam} --out-file ${txFile}
+${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${policyName}.policy.skey --script-file ${policyName}.policy.script ${magicparam} --out-file ${txFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-#echo "${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${policyName}.policy.skey --script-file ${policyName}.policy.script ${magicparam} --out-file ${txFile}"
+#echo "${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${policyName}.policy.skey --script-file ${policyName}.policy.script ${magicparam} --out-file ${txFile}"
 
 cat ${txFile}
 echo
@@ -244,51 +223,21 @@ echo
 if ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         if ${onlineMode}; then  #onlinesubmit
-                                echo -ne "\e[0mSubmitting the transaction via the node... "
-                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
+                                echo -ne "\e[0mSubmitting the transaction via the node..."
+                                ${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
-                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam^^} =~ (MAINNET|1097911063) ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}${txID}\n\e[0m"; fi
+                                txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
 
-
-                                #Updating the ${policyName}.${assetBurnName}.asset json
-                                assetFileName="${policyName}.${assetBurnName}.asset"
-
-                                #Make assetFileSkeleton
-                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetBurnName}\",
-                                                                  metaDescription: \"\",
-                                                                  \"---\": \"--- Optional additional info ---\",
-                                                                  metaTicker: \"\",
-                                                                  metaUrl: \"\",
-                                                                  metaLogoPNG: \"\",
-                                                                  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
-                                                                  minted: \"0\"}" <<< "{}")
-
-
-                                #If there is no assetFileName file, create one
-                                if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi
-
-                                #Read in the current file
-                                assetFileJSON=$(cat ${assetFileName})
-
-                                #Combine the Skeleton with the real one
-                                assetFileJSON=$(echo "${assetFileSkeletonJSON} ${assetFileJSON}" | jq -rs 'reduce .[] as $item ({}; . * $item)')
-
-                                oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
-                                newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
-                                assetFileJSON=$( jq ". += {minted: \"${newValue}\",
-                                                           name: \"${assetBurnName}\",
-                                                           bechName: \"${assetBurnBech}\",
-                                                           policyID: \"${policyID}\",
-                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
-                                                           subject: \"${assetBurnSubject}\",
-                                                           lastUpdate: \"$(date -R)\",
-                                                           lastAction: \"burn ${assetBurnAmount}\"}" <<< ${assetFileJSON})
-
+			        #Updating the ${policyName}.${assetBurnName}.asset json
+			        assetFileName="${policyName}.${assetBurnName}.asset"
+			        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
+			        oldValue=$(jq -r ".minted" ${assetFileName})
+			        newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
+			        assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetBurnName}\", policyID: \"${policyID}\", lastUpdate: \"$(date -R)\", lastAction: \"burn ${assetBurnAmount}\"}" < ${assetFileName})
 
 			        file_unlock ${assetFileName}
 			        echo -e "${assetFileJSON}" > ${assetFileName}
@@ -316,41 +265,12 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 #Readback the tx content and compare it to the current one
                                 readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
                                 if [[ "${txFileJSON}" == "${readback}" ]]; then
-
-
-			                                #Updating the ${policyName}.${assetBurnName}.asset json
-			                                assetFileName="${policyName}.${assetBurnName}.asset"
-
-
-			                                #Make assetFileSkeleton
-			                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetBurnName}\",
-			                                                                  metaDescription: \"\",
-			                                                                  \"---\": \"--- Optional additional info ---\",
-			                                                                  metaTicker: \"\",
-			                                                                  metaUrl: \"\",
-			                                                                  metaLogoPNG: \"\",
-			                                                                  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
-			                                                                  minted: \"0\"}" <<< "{}")
-
-			                                #If there is no assetFileName file, create one
-			                                if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi
-
-			                                #Read in the current file
-			                                assetFileJSON=$(cat ${assetFileName})
-
-			                                #Combine the Skeleton with the real one
-			                                assetFileJSON=$(echo "${assetFileSkeletonJSON} ${assetFileJSON}" | jq -rs 'reduce .[] as $item ({}; . * $item)')
-
-			                                oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
-			                                newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
-			                                assetFileJSON=$( jq ". += {minted: \"${newValue}\",
-			                                                           name: \"${assetBurnName}\",
-			                                                           bechName: \"${assetBurnBech}\",
-			                                                           policyID: \"${policyID}\",
-			                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
-			                                                           subject: \"${assetBurnSubject}\",
-			                                                           lastUpdate: \"$(date -R)\",
-			                                                           lastAction: \"burn ${assetBurnAmount} (only Offline proof)\"}" <<< ${assetFileJSON})
+						        #Updating the ${policyName}.${assetBurnName}.asset json
+						        assetFileName="${policyName}.${assetBurnName}.asset"
+						        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi #generate an empty json if no file present
+						        oldValue=$(jq -r ".minted" ${assetFileName})
+						        newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
+						        assetFileJSON=$( jq ". += {minted: \"${newValue}\", name: \"${assetBurnName}\", policyID: \"${policyID}\", lastUpdate: \"$(date -R)\", lastAction: \"burn ${assetBurnAmount}\"}" < ${assetFileName})
 
 						        file_unlock ${assetFileName}
 						        echo -e "${assetFileJSON}" > ${assetFileName}

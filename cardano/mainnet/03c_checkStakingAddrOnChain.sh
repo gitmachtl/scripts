@@ -29,9 +29,9 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 	echo -e "\e[0mChecking ChainStatus of Stake-Address-File\e[32m ${addrName}.staking.addr\e[0m: ${checkAddr}"
 	echo
 
-        rewardsAmount=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -r "flatten | .[0].rewardAccountBalance")
+        rewardsAmount=$(${cardanocli} query stake-address-info --address ${checkAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-	delegationPoolID=$(${cardanocli} ${subCommand} query stake-address-info --address ${checkAddr} --cardano-mode ${magicparam} ${nodeEraParam} | jq -r "flatten | .[0].delegation")
+	delegationPoolID=$(${cardanocli} query stake-address-info --address ${checkAddr} ${magicparam} | jq -r "flatten | .[0].delegation")
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 	#Checking about the content

@@ -63,7 +63,7 @@ regProtectionKey=$(jq -r .regProtectionKey <<< ${poolJSON} 2> /dev/null); if [[ 
 #Checks for needed local files
 if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[35mERROR - \"${regCertFile}\" StakePool (Re)registration-Certificate does not exist or was already submitted before!\n\nPlease create it by running script:\e[0m 05a_genStakepoolCert.sh ${poolFile}\n"; exit 1; fi
 if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
-if ! [[ -f "${poolName}.node.skey" || -f "${poolName}.node.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey/hwsfile\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
+if [ ! -f "${poolName}.node.skey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
 if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a or 02. No hardware-wallet allowed for poolRegistration payments! :-(\e[0m\n"; exit 1; fi
 
@@ -96,10 +96,8 @@ fi
 ownerCnt=$(jq -r '.poolOwner | length' <<< ${poolJSON})
 certCnt=$(( ${ownerCnt} + 1 ))	#Total number of needed certificates: poolRegistrationCertificate and every poolOwnerDelegationCertificate
 registrationCerts="--certificate ${regCertFile}" #list of all needed certificates: poolRegistrationCertificat and every poolOwnerDelegationCertificate
-witnessCount=2	#Total number of needed witnesses: poolnode skey/hwsfile, registration payment skey/hwsfile + each owner witness + maybe rewards account witness
-
-#Preload the hardwareWalletIncluded variable, if we provide the node cold key via a hw-wallet, than set the hardwareWalletIncluded=yes. Otherwise pretend no until a hw-owner is found.
-if [ -f "${poolName}.node.hwsfile" ]; then hardwareWalletIncluded="yes"; else hardwareWalletIncluded="no"; fi
+witnessCount=2	#Total number of needed witnesses: poolnode skey, registration payment skey/hwsfile + each owner witness + maybe rewards account witness
+hardwareWalletIncluded="no"
 
 #Lets first count all needed witnesses and check about the delegation certificates
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
@@ -171,7 +169,7 @@ if ${onlineMode}; then
 	tmpCheckJSON=$(jq . "${tmpMetadataJSON}" 2> /dev/null)
 	if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR - Not a valid JSON file on the webserver!\e[0m\n"; exit 1; fi
 	#Ok, downloaded file is a valid JSON file. So now look into the HASH
-	onlineMetaHash=$(${cardanocli} stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
+	onlineMetaHash=$(${cardanocli} ${subCommand} stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	#Compare the HASH now, if they don't match up, output an ERROR message and exit
 	if [[ ! "${poolMetaHash}" == "${onlineMetaHash}" ]]; then
@@ -194,7 +192,7 @@ fi; #onlinemode
 
 #Read ProtocolParameters
 if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
+                        protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
                   else
 			readOfflineFile;
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
@@ -238,9 +236,9 @@ if [[ "${regWitnessID}" == "" ]]; then
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}")
-                                #utxoJSON=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                #utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -248,6 +246,9 @@ if [[ "${regWitnessID}" == "" ]]; then
         fi
   	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
+
+        #Convert UTXO into mary style if UTXO is shelley/allegra style
+        if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
 
 	#Calculating the total amount of lovelaces in all utxos on this address
         #totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
@@ -263,34 +264,31 @@ if [[ "${regWitnessID}" == "" ]]; then
         for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
         do
         utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
-        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".value.lovelace" <<< ${utxoJSON})   #Lovelaces
-        totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
+        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
+        totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}")
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
-        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".value | del (.lovelace)" <<< ${utxoJSON}) #All values without the lovelaces entry
+        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
-
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
-                        #LEVEL 2 - different policyIDs
+                        #LEVEL 2 - different policyID/assetHASH
                         for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
                         do
-                        assetHash=$(jq -r "keys_unsorted[${tmpCnt2}]" <<< ${assetsJSON})  #assetHash = policyID
-                        assetsNameCnt=$(jq ".\"${assetHash}\" | length" <<< ${assetsJSON})
+                        assetHash=$(jq -r ".[${tmpCnt2}][0]" <<< ${assetsJSON})  #assetHash = policyID
+                        assetsNameCnt=$(jq ".[${tmpCnt2}][1] | length" <<< ${assetsJSON})
                         totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
 
                                 #LEVEL 3 - different names under the same policyID
                                 for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
                                 do
-                                assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
-                                assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
-                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
-                                if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
+                                assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
+				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
-                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
-                        done
-
+                         done
         fi
         txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
@@ -298,46 +296,36 @@ if [[ "${regWitnessID}" == "" ]]; then
         echo -e "Total ADA on the Address:\e[32m $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
         totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
-
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
-                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "ASCII-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
+                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
-                        assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
+                        assetHashName=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-                        assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
-
-                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
-                                metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
-                                metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
-                        fi
-
-                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
+                        printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
                         if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
-
 echo
 
-minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
+minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
 
 #------------------------------------------------------------------
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
 #Check if pool was registered before and calculate Fee for registration or set it to zero for re-registration
 if [[ "${regSubmitted}" == "" ]]; then   #pool not registered before
-				  poolDepositFee=$(jq -r .stakePoolDeposit <<< ${protocolParametersJSON})
+				  poolDepositFee=$(jq -r .poolDeposit <<< ${protocolParametersJSON})
 				  echo -e "\e[0mPool Deposit Fee: \e[32m ${poolDepositFee} lovelaces \e[90m"
 				  minRegistrationFees=$(( ${poolDepositFee}+${fee} ))
 				  registrationType="PoolRegistration"
@@ -369,11 +357,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
-
-#Debug output
-#echo "${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}"
-
+${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txBodyFile} | head -n 6   #only show first 6 lines
 echo
@@ -393,28 +377,11 @@ poolJSON=$(jq ".regWitness.type = \"${registrationType}\"" <<< ${poolJSON})
 poolJSON=$(jq ".regWitness.hardwareWalletIncluded = \"${hardwareWalletIncluded}\"" <<< ${poolJSON})
 
 #Fill the witness count with the node-coldkey witness
-if [ -f "${poolName}.node.skey" ]; then #key is a normal one
-	echo -ne "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ... "
-	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${poolName}.node.skey ${magicparam} --out-file /dev/stdout)
-	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-	echo -e "\e[32mOK\n"
-	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
-
-elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
-
-        if ! ask "\e[0mAdding the pool node witness from a local Hardware-Wallet key '\e[33m${poolName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
-
-		tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
-                start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
-                if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
-                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                tmpWitness=$(cat ${tmpWitnessFile})
-		poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
-
-else
-	echo -e "\e[35mError - Node Cold Signing Key for \"${poolName}\" not found. No ${poolName}.node.skey/hwsfile found !\e[0m\n"; exit 1;
-fi
+echo -ne "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ... "
+tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${poolName}.node.skey ${magicparam} --out-file /dev/stdout)
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+echo -e "\e[32mOK\n"
+poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
 
 #Fill the witnesses with the local payment witness, must be a normal cli skey
 echo -ne "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ... "
@@ -448,8 +415,7 @@ do
 
 		start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${ownerName}.staking.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
-
-	        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+	        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
 	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 		tmpWitness=$(cat ${tmpWitnessFile})
@@ -460,7 +426,7 @@ do
 	        poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON
 
 	else
-	echo -e "\e[35mError - Owner Signing Key for \"${ownerName}\" not found. No ${ownerName}.staking.skey/hwsfile found !\e[0m\n"; exit 1;
+	echo -e "\e[35mError - Owner Signing Key for \"${ownerName}\" not found. No ${ownerName}.staking.skey/hwsfile found !${tmp}\e[0m\n"; exit 1;
 	fi
     fi
 
@@ -565,7 +531,7 @@ fi
 
 txFile="${tempDir}/$(basename ${poolName}).tx"
 
-echo -e "\e[0mAssemble the Transaction with the payment \e[32m${regPayName}.skey\e[0m, node\e[32m ${poolName}.node.skey/hwsfile\e[0m and all PoolOwner Witnesses: \e[32m ${txFile} \e[90m"
+echo -e "\e[0mAssemble the Transaction with the payment \e[32m${regPayName}.skey\e[0m, node\e[32m ${poolName}.node.skey\e[0m and all PoolOwner Witnesses: \e[32m ${txFile} \e[90m"
 echo
 
 witnessString=; witnessContent="";
@@ -581,7 +547,7 @@ done
 
 #Assemble the transaction
 rm ${txFile} 2> /dev/null
-${cardanocli} transaction assemble --tx-body-file <(echo ${regWitnessTxBody}) ${witnessString} --out-file ${txFile}
+${cardanocli} ${subCommand} transaction assemble --tx-body-file <(echo ${regWitnessTxBody}) ${witnessString} --out-file ${txFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txFile} | head -n 6   #only show first 6 lines
 echo
@@ -594,10 +560,10 @@ do
 done
 
 #Read out the POOL-ID
-poolIDhex=$(${cardanocli} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)	#New method since 1.23.0
+poolIDhex=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)	#New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-poolIDbech=$(${cardanocli} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)      #New method since 1.23.0
+poolIDbech=$(${cardanocli} ${subCommand} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)      #New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0mPool-ID:\e[32m ${poolIDhex} / ${poolIDbech} \e[90m"
@@ -614,8 +580,8 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
         echo
 
         if ${onlineMode}; then  #onlinesubmit
-			        echo -ne "\e[0mSubmitting the transaction via the node... "
-			        ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
+			        echo -ne "\e[0mSubmitting the transaction via the node..."
+			        ${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
 			        #No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
 			        if [[ $? -eq 0 ]]; then
 			        file_unlock ${poolFile}.pool.json
@@ -637,10 +603,9 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                 echo
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam^^} =~ (MAINNET|1097911063) ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}${txID}\n\e[0m"; fi
-
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
 
 				#Display information to manually register the OwnerDelegationCertificates on the chain if a hardware-wallet is involved. With only cli based staking keys, we can include all the delegation certificates in one transaction
 				if [[ "${regWitnessHardwareWalletIncluded}" == "yes" ]]; then

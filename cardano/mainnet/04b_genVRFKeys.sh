@@ -18,7 +18,7 @@ if [ -f "${nodeName}.vrf.skey" ]; then echo -e "\e[35mWARNING - ${nodeName}.vrf.
 echo -e "\e[0mCreating VRF operational Keypairs"
 echo
 
-${cardanocli} ${subCommand} node key-gen-VRF --verification-key-file ${nodeName}.vrf.vkey --signing-key-file ${nodeName}.vrf.skey
+${cardanocli} node key-gen-VRF --verification-key-file ${nodeName}.vrf.vkey --signing-key-file ${nodeName}.vrf.skey
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${nodeName}.vrf.vkey
 file_lock ${nodeName}.vrf.skey

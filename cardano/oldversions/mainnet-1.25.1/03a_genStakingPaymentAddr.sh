@@ -50,7 +50,7 @@ if [ -f "${addrName}.staking.cert" ]; then echo -e "\e[35mWARNING - ${addrName}.
 if [[ ${keyType^^} == "CLI" ]]; then
 
 	#We need a normal payment(base) keypair with vkey and skey, so let's create that one
-	${cardanocli} address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
+	${cardanocli} ${subCommand} address key-gen --verification-key-file ${addrName}.payment.vkey --signing-key-file ${addrName}.payment.skey
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.payment.vkey
 	file_lock ${addrName}.payment.skey
@@ -66,7 +66,7 @@ if [[ ${keyType^^} == "CLI" ]]; then
 	#We need a payment(base) keypair with vkey and hwsfile from a Hardware-Key, sol lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
   	tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/${accountNo}H/0/0 --verification-key-file ${addrName}.payment.vkey --hw-signing-file ${addrName}.payment.hwsfile 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 	#Edit the description in the vkey file to mark this as a hardware verification key
@@ -89,7 +89,7 @@ echo
 if [[ ${keyType^^} == "CLI" || ${keyType^^} == "HYBRID" ]]; then
 
 	#Building the StakeAddress Keys from CLI for the normal CLI type or when HWPAYONLY was choosen
-	${cardanocli} stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
+	${cardanocli} ${subCommand} stake-address key-gen --verification-key-file ${addrName}.staking.vkey --signing-key-file ${addrName}.staking.skey
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.staking.vkey
 	file_lock ${addrName}.staking.skey
@@ -106,7 +106,7 @@ if [[ ${keyType^^} == "CLI" || ${keyType^^} == "HYBRID" ]]; then
         #We need the staking keypair with vkey and hwsfile from a Hardware-Key, sol lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/${accountNo}H/2/0 --verification-key-file ${addrName}.staking.vkey --hw-signing-file ${addrName}.staking.hwsfile 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         #Edit the description in the vkey file to mark this as a hardware verification key
@@ -126,7 +126,7 @@ if [[ ${keyType^^} == "CLI" || ${keyType^^} == "HYBRID" ]]; then
 fi
 
 #Building a Payment Address
-${cardanocli} address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.payment.addr
+${cardanocli} ${subCommand} address build --payment-verification-key-file ${addrName}.payment.vkey --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.payment.addr
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${addrName}.payment.addr
 
@@ -135,7 +135,7 @@ cat ${addrName}.payment.addr
 echo
 
 #Building a Staking Address
-${cardanocli} stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.staking.addr
+${cardanocli} ${subCommand} stake-address build --staking-verification-key-file ${addrName}.staking.vkey ${addrformat} > ${addrName}.staking.addr
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${addrName}.staking.addr
 
@@ -144,7 +144,7 @@ cat ${addrName}.staking.addr
 echo
 
 #create an address registration certificate
-${cardanocli} stake-address registration-certificate --staking-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.cert
+${cardanocli} ${subCommand} stake-address registration-certificate --staking-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.cert
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${addrName}.staking.cert
 

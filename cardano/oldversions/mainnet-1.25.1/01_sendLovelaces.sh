@@ -11,54 +11,16 @@
 . "$(dirname "$0")"/00_common.sh
 
 case $# in
-  3|4|5 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//};
+  3|4 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//}
       lovelacesToSend="$3";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets> [Opt: Transaction-Metadata.json] [Opt: list of UTXOs to use]
-
-
-Optional parameters:
-
-- If you wanna attach a transaction-Metadata JSON:
-   You can add a Transaction-Metadata.json filename as a parameter to send it alone with the transaction.
-   There will be a simple basic check that the transaction-metadata.json file is valid. 
-
-- In rare cases you wanna define the exact UTXOs that should be used for sending Funds out:
-   "UTXO1#Index" ... to specify one UTXO, must be in quotes "..."
-   "UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in quotes "..."
-
+Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets> [Opt: list of UTXOs to use]
 EOF
   exit 1;; esac
 
-#Check all optional parameters about there types and set the corresponding variables
-#Starting with the 4th parameter (index3) up to the last parameter
-metafileParameter=""; metafile=""; filterForUTXO=""; #Setting defaults
-
-paramCnt=$#;
-IFS=' ' read -ra allParameters <<< "${@}"
-for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
- do
-        paramValue=${allParameters[$tmpCnt]}
-        #echo -n "${tmpCnt}: ${paramValue} -> "
-
-        #Check if an additional metadata.json was set as parameter (not containing a #, not empty, not beeing a number)
-        if [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
-
-                        metafile="$(dirname ${paramValue})/$(basename ${paramValue} .json).json"; metafile=${metafile//.\//}
-                        if [ ! -f "${metafile}" ]; then echo -e "The specified Metadata JSON-File '${metafile}' does not exist. Please try again."; exit 1; fi
-                        #Do a simple basic check if the metadatum is in the 0..65535 range
-                        metadatum=$(jq -r "keys_unsorted[0]" ${metafile} 2> /dev/null)
-                        if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
-                        #Check if it is null, a number, lower then zero, higher then 65535
-                        if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
-                        metafileParameter="--metadata-json-file ${metafile}"
-                #Check if an additional UTXO#IDX filter was set as parameter (must contain a #)
-        elif [[ "${paramValue}" == *"#"* ]]; then filterForUTXO="${paramValue}";
-        fi
-
- done
-
+#Check if a specific UTXO#IDX was set
+if [[ $# -eq 4 ]]; then filterForUTXO="$4"; else filterForUTXO=""; fi
 
 #Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
@@ -68,7 +30,6 @@ if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e
 
 echo -e "\e[0mSending lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
 echo
-
 
 #get live values
 currentTip=$(get_currentTip)
@@ -94,9 +55,9 @@ echo
 
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam}); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}")
-                                #utxoJSON=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                #utxoJSON=$(${cardanocli} ${subCommand} query utxo --address ${sendFromAddr} --cardano-mode ${magicparam} ${nodeEraParam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
 				readOfflineFile;	#Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -108,6 +69,9 @@ echo
 
 	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
+
+        #Convert UTXO into mary style if UTXO is shelley/allegra style
+        if [[ ! "$(jq -r '[.[]][0].amount | type' <<< ${utxoJSON})" == "array" ]]; then utxoJSON=$(convert_UTXO "${utxoJSON}"); fi
 
 	#Calculating the total amount of lovelaces in all utxos on this address
         #totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
@@ -122,35 +86,32 @@ echo
         #LEVEL 1 - different UTXOs
         for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
         do
-        utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
-        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".value.lovelace" <<< ${utxoJSON})   #Lovelaces
-        totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
+        utxoHashIndex=$(jq -r "keys[${tmpCnt}]" <<< ${utxoJSON})
+        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".amount[0]" <<< ${utxoJSON})   #Lovelaces
+	totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}")
         echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
-        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".value | del (.lovelace)" <<< ${utxoJSON}) #All values without the lovelaces entry
+        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".amount[1]" <<< ${utxoJSON})
         assetsEntryCnt=$(jq length <<< ${assetsJSON})
-
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
-                        #LEVEL 2 - different policyIDs
+                        #LEVEL 2 - different policyID/assetHASH
                         for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
                         do
-                        assetHash=$(jq -r "keys_unsorted[${tmpCnt2}]" <<< ${assetsJSON})  #assetHash = policyID
-                        assetsNameCnt=$(jq ".\"${assetHash}\" | length" <<< ${assetsJSON})
+                        assetHash=$(jq -r ".[${tmpCnt2}][0]" <<< ${assetsJSON})  #assetHash = policyID
+                        assetsNameCnt=$(jq ".[${tmpCnt2}][1] | length" <<< ${assetsJSON})
                         totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
 
                                 #LEVEL 3 - different names under the same policyID
                                 for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
                                 do
-                                assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
-                                assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
-                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
-                                if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
+                                assetName=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][0]" <<< ${assetsJSON})
+                                assetAmount=$(jq -r ".[${tmpCnt2}][1][${tmpCnt3}][1]" <<< ${assetsJSON})
+				if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
-                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\"}}" <<< ${totalAssetsJSON})
+                                echo -e "\e[90m            PolID: ${assetHash}\tAmount: ${assetAmount} ${assetName}\e[0m"
                                 done
-                        done
-
+                         done
         fi
         txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
@@ -158,39 +119,29 @@ echo
         echo -e "Total ADA on the Address:\e[32m  $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
         totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
-
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
-                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "ASCII-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
+                        printf "\e[0m%-70s %16s %s\n" "PolicyID.Name:" "Total-Amount:" "Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
                         assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-                        assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
-
-                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
-                                metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
-                                metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
-                        fi
-
-                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
+                        printf "\e[90m%-70s \e[32m%16s %s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetName}"
                         if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
 
 echo
 
-if [[ ! "${metafile}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafile}\e[0m\n"; fi
-
 #Read ProtocolParameters
 if ${onlineMode}; then
-			protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
+			protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
 		  else
 			protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
 		  fi
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+minOutUTXO=$(get_minOutUTXO "${protocolParametersJSON}" "${totalAssetsCnt}" "${totalPolicyIDsCnt}")
 
 #
 # Depending on the input of lovelaces / keyword, set the right rxcnt (one receiver or two receivers)
@@ -219,16 +170,14 @@ minUTXOvalue=$(jq -r .minUTxOValue <<< ${protocolParametersJSON})      #This val
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+                        ${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${dummyShelleyAddr}+0${assetsOutString}" --tx-out ${dummyShelleyAddr}+0 --invalid-hereafter ${ttl} --fee 0 --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
-fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${subCommand} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
-minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
 
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 echo -e "\e[0mMinimum UTXO value for a Transaction: \e[32m ${minUTXOvalue} lovelaces \e[90m"
@@ -277,8 +226,7 @@ case "${lovelacesToSend^^}" in
                         if [[ ${lovelacesToSend} -lt ${minUTXOvalue} ]]; then echo -e "\e[35mNot enough lovelaces to send to the destination! Minimum UTXO value is ${minUTXOvalue} lovelaces.\e[0m"; exit; fi
 			lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
                         echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m"
-			minReturnUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}")
-                        if [[ ${lovelacesToReturn} -lt ${minReturnUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr to return the rest! Minimum UTXO value needed is ${minReturnUTXO} lovelaces.\e[0m";
+                        if [[ ${lovelacesToReturn} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr to return the rest! Minimum UTXO value is ${minUTXOvalue} lovelaces.\e[0m";
 										if [[ ${lovelacesToSend} -ge ${totalLovelaces} ]]; then echo -e "\e[35mIf you wanna send out ALL your lovelaces, use the keyword ALL instead of the amount.\e[0m";fi
 										exit; fi
 			;;
@@ -294,11 +242,11 @@ echo
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			else  #Sending chosen amount (rxcnt=2), return the rest(incl. assets)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
-			#echo -e "\n\n\n${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out \"${sendFromAddr}+${lovelacesToReturn}${assetsOutString}\" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}\n\n\n"
+			${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}
+			#echo -e "\n\n\n${cardanocli} ${subCommand} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out \"${sendFromAddr}+${lovelacesToReturn}${assetsOutString}\" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}\n\n\n"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
 
@@ -328,10 +276,10 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
 				fi
 
         tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        if [[ "${tmp^^}" == *"ERROR"* ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 else
-	${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}
+	${cardanocli} ${subCommand} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
 
@@ -342,15 +290,15 @@ echo
 if ask "\n\e[33mDoes this look good for you, continue ?" N; then
 	echo
 	if ${onlineMode}; then	#onlinesubmit
-				echo -ne "\e[0mSubmitting the transaction via the node... "
-				${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
+				echo -ne "\e[0mSubmitting the transaction via the node..."
+				${cardanocli} ${subCommand} transaction submit --tx-file ${txFile} --cardano-mode ${magicparam}
 				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 				echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} ${subCommand} transaction txid --tx-file ${txFile}); echo -e "\e[0mTxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam^^} =~ (MAINNET|1097911063) ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}${txID}\n\e[0m"; fi
+                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
 
 			  else	#offlinestore
 				txFileJSON=$(cat ${txFile} | jq .)

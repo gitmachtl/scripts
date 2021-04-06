@@ -12,20 +12,41 @@
 
 if [[ $# -eq 1 && ! $1 == "" ]]; then nodeName=$1; else echo "ERROR - Usage: $0 <name>"; exit 2; fi
 
-#check that *.kes.counter and *.node.skey is present
-if [ ! -f "${nodeName}.kes.counter" ]; then echo -e "\e[0mERROR - Please generate new KES Keys with ${nodeName}.kes.counter first with script 04c ...\e[0m"; exit 2; fi
-if [ ! -f "${nodeName}.node.skey" ]; then echo -e "\e[0mERROR - Cannot find '${nodeName}.node.skey', please generate Node Keys with ${nodeName}.node.counter first with script 04a ...\e[0m"; exit 2; fi
+#check that *.node.skey/hwsfile is present
+if ! [[ -f "${nodeName}.node.skey" || -f "${nodeName}.node.hwsfile" ]]; then echo -e "\e[0mERROR - Cannot find '${nodeName}.node.skey/hwsfile', please generate Node Keys with ${nodeName}.node.counter first with script 04a ...\e[0m"; exit 2; fi
 
 #check if there is a node.counter file, if not, ask about generating a new one
 if [ ! -f "${nodeName}.node.counter" ]; then
 					#echo -e "\e[0mERROR - Please generate Node Keys with ${nodeName}.node.counter first with script 04a ...\e[0m"; exit 2;
 					if ask "\e[33mCannot find '${nodeName}.node.counter', do you wanna create a new one?" N; then
+
+							poolNodeCounter=1; #set to zero for now, can be improved
+
 							if [ ! -f "${nodeName}.node.vkey" ]; then echo -e "\n\e[35mERROR - Cannot find '${nodeName}.node.vkey', please generate Node Keys first with script 04a ...\e[0m\n"; exit 2; fi
-							${cardanocli} ${subCommand} node new-counter --cold-verification-key-file ${nodeName}.node.vkey --counter-value 0 --operational-certificate-issue-counter-file ${nodeName}.node.counter
+							${cardanocli} node new-counter --cold-verification-key-file ${nodeName}.node.vkey --counter-value ${poolNodeCounter} --operational-certificate-issue-counter-file ${nodeName}.node.counter
+							checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+							#NodeCounter file was written, now add the description in the file to reflect the next node counter number
+							newCounterJSON=$(jq ".description = \"Next certificate issue number: $((${poolNodeCounter}+0))\"" < "${nodeName}.node.counter")
+							checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+							echo "${newCounterJSON}" > "${nodeName}.node.counter"
+							checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+							file_lock "${nodeName}.node.counter"
+							#file_unlock "${nodeName}.kes.counter"
+							#nextKESnumber=$(printf "%03d" ${poolNodeCounter})
+							#echo "${nextKESnumber}" > "${nodeName}.kes.counter"
+							#file_lock "${nodeName}.kes.counter"
+
+							echo -e "\n\e[0mAn new ${nodeName}.node.counter File was created with index ${poolNodeCounter}. You can now rerun this script 04d again to generate the opcert.\n\n\e[33mBE AWARE - we don't know how many opcerts you created before for this node on the chain.\nYou have to generate a higher number than you used the last time before you lost your opcert file. To do this\nyou have to run 04c & 04d multiple times until you feel good about the opcert index number.\n\n\e[0m"; exit 1;
+
 					else
+
 					echo -e "\n\e[35mERROR - Cannot create new OperationalCertificate (opcert) without a '${nodeName}.node.counter' file!\n\e[0m"; exit 2;
+
 					fi
 fi
+
+#Check that there is a kes.counter file present
+if [ ! -f "${nodeName}.kes.counter" ]; then echo -e "\e[0mERROR - Please generate new KES Keys with ${nodeName}.kes.counter first with script 04c ...\e[0m"; exit 2; fi
 
 #grab the next issue number from the counter file
 nextKESnumber=$(cat ${nodeName}.node.counter | jq -r .description | awk 'match($0,/Next certificate issue number: [0-9]+/) {print substr($0, RSTART+31,RLENGTH-31)}')
@@ -80,14 +101,34 @@ file_lock ${nodeName}.kes-expire.json
 echo -e "\e[0mCurrent KES period:\e[32m ${currentKESperiod}\e[90m"
 echo
 
-file_unlock ${nodeName}.node-${latestKESnumber}.opcert
-file_unlock ${nodeName}.node.counter
 
-${cardanocli} ${subCommand} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+#Generate the opcert form a classic cli node skey or from a hwsfile (hw-wallet)
+if [ -f "${nodeName}.node.skey" ]; then #key is a normal one
+                echo -ne "\e[0mGenerating a new opcert from a cli signing key '\e[33m${nodeName}.node.skey\e[0m' ... "
+		file_unlock ${nodeName}.node-${latestKESnumber}.opcert
+		file_unlock ${nodeName}.node.counter
+		${cardanocli} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
+		checkError "$?"; if [ $? -ne 0 ]; then file_lock ${nodeName}.node-${latestKESnumber}.opcert; file_lock ${nodeName}.node.counter; exit $?; fi
+		file_lock ${nodeName}.node-${latestKESnumber}.opcert
+		file_lock ${nodeName}.node.counter
 
-file_lock ${nodeName}.node-${latestKESnumber}.opcert
-file_lock ${nodeName}.node.counter
+elif [ -f "${nodeName}.node.hwsfile" ]; then #key is a hardware wallet
+                if ! ask "\e[0mGenerating the new opcert from a local Hardware-Wallet keyfile '\e[33m${nodeName}.node.hwsfile\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Opcert Generation aborted...\e[0m"; echo; exit 2; fi
+
+                start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		file_unlock ${nodeName}.node-${latestKESnumber}.opcert
+		file_unlock ${nodeName}.node.counter
+                tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --kes-period ${currentKESperiod} --operational-certificate-issue-counter ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${nodeName}.node-${latestKESnumber}.opcert 2> /dev/stdout)
+                if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; file_lock ${nodeName}.node-${latestKESnumber}.opcert; file_lock ${nodeName}.node.counter; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+		file_lock ${nodeName}.node-${latestKESnumber}.opcert
+		file_lock ${nodeName}.node.counter
+                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+else
+     		echo -e "\e[35mError - Node Cold Signing Key for \"${nodeName}\" not found. No ${nodeName}.node.skey/hwsfile found !\e[0m\n"; exit 1;
+fi
+
+
+
 
 echo -e "\e[0mNode operational certificate:\e[32m ${nodeName}.node-${latestKESnumber}.opcert \e[90m"
 cat ${nodeName}.node-${latestKESnumber}.opcert

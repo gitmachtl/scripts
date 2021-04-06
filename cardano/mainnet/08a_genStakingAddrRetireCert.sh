@@ -17,7 +17,7 @@ if [ ! -f "${addrName}.staking.vkey" ]; then echo -e "\n\e[35mERROR - \"${addrNa
 
 #create a stake-address de-registration certificate
 file_unlock ${addrName}.staking.dereg-cert
-${cardanocli} ${subCommand} stake-address deregistration-certificate --stake-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.dereg-cert
+${cardanocli} stake-address deregistration-certificate --stake-verification-key-file ${addrName}.staking.vkey --out-file ${addrName}.staking.dereg-cert
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock ${addrName}.staking.dereg-cert
 

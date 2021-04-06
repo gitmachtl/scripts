@@ -55,17 +55,17 @@ echo
 
 #Read ProtocolParameters
 if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} ${subCommand} query protocol-parameters --cardano-mode ${magicparam} ${nodeEraParam}); #onlinemode
+                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
                   else
 			readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
                   fi
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-eMax=$(jq -r .eMax <<< ${protocolParametersJSON})
+poolRetireMaxEpoch=$(jq -r .poolRetireMaxEpoch <<< ${protocolParametersJSON})
 
 currentEPOCH=$(get_currentEpoch)
 minRetireEpoch=$(( ${currentEPOCH} + 1 ))	#earliest one
-maxRetireEpoch=$(( ${currentEPOCH} + ${eMax} ))	#latest one
+maxRetireEpoch=$(( ${currentEPOCH} + ${poolRetireMaxEpoch} ))	#latest one
 
 if [[ "${retireEPOCH}" == "" ]]; then retireEPOCH=${minRetireEpoch}; #use the earliest retirement epoch
 elif [[ ${retireEPOCH} -lt ${minRetireEpoch} ]]; then retireEPOCH=${minRetireEpoch}; #set it to the earliest possible retirement epoch
@@ -73,7 +73,7 @@ elif [[ ${retireEPOCH} -gt ${maxRetireEpoch} ]]; then retireEPOCH=${maxRetireEpo
 
 echo -e "      Current EPOCH:\e[32m ${currentEPOCH}\e[0m"
 echo -e "   Min Retire EPOCH:\e[32m ${minRetireEpoch}\e[0m (current + 1)"
-echo -e "   Max Retire EPOCH:\e[32m ${maxRetireEpoch}\e[0m (current + ${eMax})"
+echo -e "   Max Retire EPOCH:\e[32m ${maxRetireEpoch}\e[0m (current + ${poolRetireMaxEpoch})"
 echo
 echo -e "Retire EPOCH set to:\e[32m ${retireEPOCH}\e[0m"
 
@@ -85,7 +85,7 @@ echo -e "Retire EPOCH set to:\e[32m ${retireEPOCH}\e[0m"
 
 file_unlock ${poolName}.pool.dereg-cert
 
-${cardanocli} ${subCommand} stake-pool deregistration-certificate --cold-verification-key-file ${poolName}.node.vkey --epoch ${retireEPOCH} --out-file ${poolName}.pool.dereg-cert
+${cardanocli} stake-pool deregistration-certificate --cold-verification-key-file ${poolName}.node.vkey --epoch ${retireEPOCH} --out-file ${poolName}.pool.dereg-cert
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
