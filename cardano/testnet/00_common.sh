@@ -414,7 +414,7 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 
   #Add the Token entries if tokens available
   if [[ ${#utxo_entry[@]} -gt 4 ]]; then # contains tokens
-    idx=5
+    local idx=5
     while [[ ${#utxo_entry[@]} -gt ${idx} ]]; do
       local asset_amount=${utxo_entry[${idx}]}
       local asset_hash_name="${utxo_entry[$((idx+1))]}"
@@ -423,7 +423,7 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
       local asset_name=${asset[1]}
       #Add the Entry of the Token
       local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.\"${asset_policy}\" += { \"${asset_name}\": \"${asset_amount}\" }" <<< ${utxoJSON})
-      idx=$(( idx + 3 ))
+      local idx=$(( ${idx} + 3 ))
     done
   fi
   echo
@@ -488,11 +488,14 @@ calc_minOutUTXO() {
 local minUTXOValue=$(jq -r .minUTxOValue <<< ${1})
 local minOutUTXO=${minUTXOValue} #preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
 
-#chain constants
-local coinSize=0        		#will be changed to 2 in the next fork
-local pidSize=28			#currenty, also in the next era
+#chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
+local k0=0				#CoinSize=0 in mary-era, 2 in alonzo-era
+local k1=6
+local k2=12				#assetSize=12
+local k3=28				#pidSize=28
+local k4=8				#word=8 bytes
 local utxoEntrySizeWithoutVal=27 	#6+txOutLenNoVal(14)+txInLen(7)
-local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${coinSize}))
+local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
 
 #split the tx-out string into the assets
 IFS='+' read -ra asset_entry <<< "${2}"
@@ -501,7 +504,7 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
         local idx=2
 	local pidCollector=""    #holds the list of individual policyIDs
 	local assetsCollector="" #holds the list of individual assetNumbers
-	local nameCollector=""   #holde the list of individual assetNames(hex format)
+	local nameCollector=""   #holds the list of individual assetNames(hex format)
 
         while [[ ${#asset_entry[@]} -gt ${idx} ]]; do
 
@@ -521,7 +524,7 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
 	  local assetsCollector="${assetsCollector}${asset_hash_policy}${asset_hash_hexname}\n"
 	  if [[ ! "${asset_hash_hexname}" == "" ]]; then local nameCollector="${nameCollector}${asset_hash_hexname}\n"; fi
 
-          local idx=$((idx+1))
+          local idx=$(( ${idx} + 1 ))
         done
 
        #get uniq entries
@@ -532,12 +535,14 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
        local sumAssetNameLengths=$(( $(echo -ne "${nameCollector}" | sort | uniq | tr -d '\n' | wc -c) / 2 )) #divide consolidated hexstringlength by 2 because 2 hex chars -> 1 byte
 
        #calc the utxoWords
-       local roundupBytesToWords=$(bc <<< "scale=0; ( ${numAssets}*12 + ${sumAssetNameLengths} + ${numPIDs}*${pidSize} + 7 ) / 8")
-       local tokenBundleSize=$(( 6 + ${roundupBytesToWords} ))
+       local roundupBytesToWords=$(bc <<< "scale=0; ( ${numAssets}*${k2} + ${sumAssetNameLengths} + ${numPIDs}*${k3} + (${k4}-1) ) / ${k4}")
+       local tokenBundleSize=$(( ${k1} + ${roundupBytesToWords} ))
 
        #calc minAda needed with assets
        local minAda=$(( $(bc <<< "scale=0; ${minUTXOValue} / ${adaOnlyUTxOSize}") * ( ${utxoEntrySizeWithoutVal} + ${tokenBundleSize} ) ))
-       if [[ ${minAda} -gt ${minUTXOValue} ]]; then minOutUTXO=${minAda}; fi #if minAda is heigher than the bottom minUTXOValue, set the output to the higher value (max function)
+
+       #if minAda is higher than the bottom minUTXOValue, set the output to the higher value (max function)
+       if [[ ${minAda} -gt ${minUTXOValue} ]]; then minOutUTXO=${minAda}; fi
 fi
 
 echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or without assets
