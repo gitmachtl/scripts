@@ -36,7 +36,7 @@ cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna
 
 
 #--------- Only needed if you wanna generate the right format for the NativeAsset Metadata Registry
-cardanometa="./cardano-metadata-submitter" #Path to your cardano-metadata-submitter binary you wanna use. If present in the Path just set it to "cardano-metadata-submitter" without the "./"
+cardanometa="./token-metadata-creator" #Path to your token-metadata-creator binary you wanna use. If present in the Path just set it to "token-metadata-creator" without the "./"
 
 
 #--------- Only needed for automated kes/opcert update and upload via scp -----
@@ -489,7 +489,7 @@ local minUTXOValue=$(jq -r .minUTxOValue <<< ${1})
 local minOutUTXO=${minUTXOValue} #preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
 
 #chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
-local k0=0				#CoinSize=0 in mary-era, 2 in alonzo-era
+local k0=0				#coinSize=0 in mary-era, 2 in alonzo-era
 local k1=6
 local k2=12				#assetSize=12
 local k3=28				#pidSize=28
@@ -503,7 +503,7 @@ IFS='+' read -ra asset_entry <<< "${2}"
 if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. otherwise leave it at the default value
         local idx=2
 	local pidCollector=""    #holds the list of individual policyIDs
-	local assetsCollector="" #holds the list of individual assetNumbers
+	local assetsCollector="" #holds the list of individual assetHases (policyID+assetName)
 	local nameCollector=""   #holds the list of individual assetNames(hex format)
 
         while [[ ${#asset_entry[@]} -gt ${idx} ]]; do
