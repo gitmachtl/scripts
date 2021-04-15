@@ -36,7 +36,7 @@ cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna
 
 
 #--------- Only needed if you wanna generate the right format for the NativeAsset Metadata Registry
-cardanometa="./cardano-metadata-submitter" #Path to your cardano-metadata-submitter binary you wanna use. If present in the Path just set it to "cardano-metadata-submitter" without the "./"
+cardanometa="./token-metadata-creator" #Path to your token-metadata-creator binary you wanna use. If present in the Path just set it to "token-metadata-creator" without the "./"
 
 
 #--------- Only needed for automated kes/opcert update and upload via scp -----
