@@ -483,7 +483,7 @@ Also you can force the script to do a re-registration by adding the keyword RERE
   It generally depends on the Policy-Type (made by the script 10) if you can burn unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be less.
 
 &nbsp;<br>
-* **12a_genAssetMeta.sh:** is used to generate and sign the special JSON format which is used to register your Token Metadata on the Token-Registry-Server. This script needs the tool **cardano-metadata-submitter** from IOHK (https://github.com/input-output-hk/cardano-metadata-submitter). I uploaded a version of it into the scripts directory so you have a faster start.
+* **12a_genAssetMeta.sh:** is used to generate and sign the special JSON format which is used to register your Token Metadata on the Token-Registry-Server. This script needs the tool **token-metadata-creator** from IOHK (https://github.com/input-output-hk/offchain-metadata-tools). I uploaded a version of it into the scripts directory so you have a faster start.
   <br>```./12a_genAssetMeta.sh <PolicyName.AssetName>```
   
   ```./12a_genAssetMeta.sh mypolicy.SUPERTOKEN```<br>this will generate the MetadataRegistration-JSON for the SUPERTOKEN and policy 'mypolicy'
@@ -1573,12 +1573,12 @@ Here you can find the steps to add Metadata (Name, Decimals, an Url, a Picture .
 How does it work: The **Mainnet** TokenRegistryServer (currently maintained by the CardanoFoundation) is fed via a special GitHub Repository https://github.com/cardano-foundation/cardano-token-registry .
 > The TokenRegistryServer for the Public-Testnet is: https://github.com/input-output-hk/metadata-registry-testnet
 
-The script 12a provides you with a method that is using the **cardano-metadata-submitter** binary from IOHK to form and sign the needed JSON file for the registration of your Metadata on this GitHub Repo. You can find the binary here (https://github.com/input-output-hk/cardano-metadata-submitter) or you can simply use the one that is provided within these scripts. After you have created that special JSON file, you can then browse to GitHub and clone the cardano-token-registry Repo into your own repo. After that, upload the special JSON file into the 'mappings' folder and generate a PullRequest to merge it back with the Master-Branch of the CardanoFoundation Repo.
+The script 12a provides you with a method that is using the **token-metadata-creatorr** binary from IOHK to form and sign the needed JSON file for the registration of your Metadata on this GitHub Repo. You can find the binary here (https://github.com/input-output-hk/offchain-metadata-tools) or you can simply use the one that is provided within these scripts. After you have created that special JSON file, you can then browse to GitHub and clone the cardano-token-registry Repo into your own repo. After that, upload the special JSON file into the 'mappings' folder and generate a PullRequest to merge it back with the Master-Branch of the CardanoFoundation Repo.
 
 So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN** under the policy **mypolicy** we minted before using the 'assets' directory.
 
 <br><b>Steps:</b>
-1. Make sure that the path-setting in the `00_common.sh` config file is correct for the `cardanometa="./cardano-metadata-submitter"` entry. The script will automatically try to find it also in the scripts directory.
+1. Make sure that the path-setting in the `00_common.sh` config file is correct for the `cardanometa="./token-metadata-creator"` entry. The script will automatically try to find it also in the scripts directory.
 
 1. Run ```./12a_genAssetMeta.sh assets/mypolicy.SUPERTOKEN``` to make sure that the AssetFile is automatically filled with all the needed entries.
 
