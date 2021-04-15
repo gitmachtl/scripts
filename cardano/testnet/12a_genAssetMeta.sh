@@ -224,6 +224,12 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[32mOK\e[90m (${tmp})\e[0m"
 metaFile=${tmp}
 
+#Adding Creator-Credits
+tmpJSON=$(cat ${metaFile})
+tmpJSON=$(jq ". += {tool: {description: \"StakePoolOperator Scripts\", url: \"https://github.com/gitmachtl/scripts\"} } " <<< ${tmpJSON})
+echo -e "${tmpJSON}" > ${metaFile}
+
+
 #Validating the metadata registry submission json file
 echo -ne "Validating the final file ... "
 tmp=$(${cardanometa} validate ${metaFile})
