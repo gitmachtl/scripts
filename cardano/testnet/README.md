@@ -1191,6 +1191,8 @@ We want to make ourself a pool owner stake address with the nickname owner, we w
 
 :warning: Make sure you transfer enough ADA to your new **owner.payment.addr** so you respect the registered Pledge amount, otherwise you will not get any rewards for you or your delegators!
 
+:warning: Don't forget to register your Rewards-Account on the Chain via script 03b if its different from an Owner-Account!
+
 Done. :smiley:
 </details>
 
@@ -1259,6 +1261,8 @@ ledgerowner as owner and also as rewards-account. We do the signing on the machi
 1. Verify that your owner delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it instantly, wait a little and retry the same command
 
 :warning: Make sure you transfer enough ADA to your new **ledgerowner.payment.addr** so you respect the registered Pledge amount, otherwise you will not get any rewards for you or your delegators!
+
+:warning: Don't forget to register your Rewards-Account on the Chain via script 03b if its different from an Owner-Account!
 
 Done. :smiley:
 </details>
@@ -1470,6 +1474,8 @@ It's similar to a single owner stake pool registration (example above). All owne
 <br>```./05b_genDelegationCert.sh mypool owner-2``` this will generate the owner-2.deleg.cert
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool smallwallet1```    
 1. Optionally you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner-1``` and ```./03c_checkStakingAddrOnChain.sh owner-2``` if you don't see it instantly, wait a little and retry the same command
+
+:warning: Don't forget to register your Rewards-Account on the Chain via script 03b if its different from an Owner-Account!
 
 Done.
 </details>
@@ -1915,7 +1921,10 @@ We want to make a pool owner stake address the nickname owner, also we want to r
 
 You can check the balance of your owner.payment and the rewards of owner.staking with the ```./01_queryAddress.sh``` script. Make sure to transfer enough ADA to your owner.payment account so you respect the registered pledge amount.
 
+:warning: Don't forget to register your Rewards-Account on the Chain via script 03b if its different from an Owner-Account!
+
 Done.
+
 </details>
 
 ## Create the StakePool offline with HW-Wallet-Owner-Keys (Ledger/Trezor)
@@ -2033,6 +2042,8 @@ ledgerowner as owner and also as rewards-account. We do the signing on the machi
 :warning: Transfer enough ADA to your new **ledgerowner.payment.addr** so you respect the registered Pledge amount, otherwise you will not get any rewards for you or your delegators!<br>You can always check the balance of your ledgerowner.payment by running ```./01_queryAddress.sh ledgerowner.payment``` on the Online-Machine.<br>You can check about rewards on the ledgerowner.staking by running ```./01_queryAddress.sh ledgerowner.staking```
 
 **Done**, yes this is more work to do when you wanna do this in offline mode, but it is how it is. :smiley:
+
+:warning: Don't forget to register your Rewards-Account on the Chain via script 03b if its different from an Owner-Account!
 
 </details>
 
@@ -2175,6 +2186,8 @@ Why waiting again? Well, **we** also **changed the rewards-account** when we add
 
 > Optional: If you wanna get rid of your old owner entry (you can leave it in there) in your stakepool registration - do the following:
   <br>Do it like the steps above, re-edit your mypool.pool.json file and remove the entry of the old owner from the poolOwner list. Save the file, generate a new certificate by running script 05a. Register it on the chain again like above or like the example below "Update stakepool parameters on the blockchain in Offline-Mode". Now you have only your new ledgerowner in your pool registration. 
+
+:warning: Don't forget to register your Rewards-Account on the Chain via script 03b if its different from an Owner-Account!
 
 </details>
 
