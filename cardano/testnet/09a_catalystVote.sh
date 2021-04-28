@@ -8,18 +8,22 @@
 #Display usage instructions
 showUsage() {
 cat >&2 <<EOF
-Usage: $(basename $0) new <name>                       ... Generates a new VotingKeyPair with the given name
-       $(basename $0) new myvote                       ... Generates a new VotingKeyPair myvote.voting.skey/pkey
+Usage: $(basename $0) new <voteKeyName>                       ... Generates a new VotingKeyPair with the given name
+       $(basename $0) new myvote                              ... Generates a new VotingKeyPair myvote.voting.skey/pkey
 
-       $(basename $0) qrcode <name> <4-Digit-PinCode>  ... Shows the QR code for the Catalyst-App with the given 4-digit PinCode
-       $(basename $0) qrcode myvote 1234               ... Shows the QR code for the VotingKey 'myvote' and protects it with the PinCode '1234'
+       $(basename $0) qrcode <voteKeyName> <4-Digit-PinCode>  ... Shows the QR code for the Catalyst-App with the given 4-digit PinCode
+       $(basename $0) qrcode myvote 1234                      ... Shows the QR code for the VotingKey 'myvote' and protects it with the PinCode '1234'
 
-       $(basename $0) genmeta <name> <stakeName-to-register> <rewardsPayoutAddr>
-	  ... Generates the Catalyst-Registration-Metadata(cbor) for the given name, stakeAccountName and rewardsPayoutAddr
+       $(basename $0) genmeta <voteKeyName> <stakeName-to-register> [Optional: <rewardsPayoutStakeAddr>]
+	  ... Generates the Catalyst-Registration-Metadata(cbor) for the given name, stakeAccountName and optional different rewardsPayoutStakeAddr
 
-       $(basename $0) genmeta myvote owner owner.payment
+       $(basename $0) genmeta myvote owner
 	  ... Generates the Catalyst-Registration-Metadata(cbor) for the myvote VotingKey, amountToRegister via owner.staking,
-	      RewardsPayout to the Address owner.payment.addr. With HW-Wallets, the RewardsPayout-Addr must be one of the HW-Wallet itself!
+	      RewardsPayout to the Address owner.staking.addr. With HW-Wallets, the RewardsPayout-Addr must be one of the HW-Wallet itself!
+
+       $(basename $0) genmeta myvote owner myrewards
+	  ... Generates the Catalyst-Registration-Metadata(cbor) for the myvote VotingKey, amountToRegister via owner.staking,
+	      RewardsPayout to the Address myrewards.payment.addr. With HW-Wallets, the RewardsPayout-Addr must be one of the HW-Wallet itself!
 
 EOF
 }
@@ -105,19 +109,27 @@ case ${1} in
   genmeta )
                 action="${1}";
 		#Read the parameters
-                if [[ $# -eq 4 ]]; then
+                if [[ $# -eq 3 ]]; then  #rewardsAccount is the same as the voting account
 				voteKeyName="${2}"; voteKeyName=${voteKeyName/#.\//};
-				stakeAddr="$(dirname $3)/$(basename $3 .staking).staking"; stakeAddr=${stakeAddr/#.\//};
-				rewardsAddr="$(dirname $4)/$(basename $4 .addr)"; rewardsAddr=${rewardsAddr/#.\//};
+				stakeAddr="$(dirname $3)/$(basename $(basename $3 .addr) .staking).staking"; stakeAddr=${stakeAddr/#.\//};
+				rewardsAddr=${stakeAddr}
+                elif [[ $# -eq 4 ]]; then #rewardsAccount is a separate one account
+				voteKeyName="${2}"; voteKeyName=${voteKeyName/#.\//};
+				stakeAddr="$(dirname $3)/$(basename $(basename $3 .addr) .staking).staking"; stakeAddr=${stakeAddr/#.\//};
+				rewardsAddr="$(dirname $4)/$(basename $(basename $4 .addr) .staking).staking"; rewardsAddr=${rewardsAddr/#.\//};
 		else echo -e "\e[35mMissing parameters!\e[0m\n"; showUsage; exit 1; fi
 
                 if [ ! -f "${voteKeyName}.voting.pkey" ]; then echo -e "\e[35mError - ${voteKeyName}.voting.pkey is missing, please generate it first with the subcommand 'new' !\e[0m\n"; showUsage; exit 1; fi
                 if [ ! -f "${voteKeyName}.voting.skey" ]; then echo -e "\e[35mError - ${voteKeyName}.voting.skey is missing, please generate it first with the subcommand 'new' !\e[0m\n"; showUsage; exit 1; fi
 		if ! [[ -f "${stakeAddr}.skey" || -f "${stakeAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.skey(hwsfile)\" Staking Signing Key or HardwareFile does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
 		if ! [[ -f "${rewardsAddr}.skey" || -f "${rewardsAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${rewardsAddr}.skey(hwsfile)\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-		if [ ! -f "${rewardsAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${rewardsAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+		if [ ! -f "${rewardsAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${rewardsAddr}.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
 
 		rewardsPayoutAddr=$(cat "${rewardsAddr}.addr" 2> /dev/null); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+		#Check that the rewardsPayoutAddr is a valid StakeAddress
+		typeOfAddr=$(get_addressType "${rewardsPayoutAddr}"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+		if [[ ! ${typeOfAddr} == ${addrTypeStake} ]]; then echo -e "\n\e[35mERROR - \"${rewardsAddr}.addr\" - ${rewardsPayoutAddr} is not a valid Stake-Address!\e[0m"; exit 1; fi
 
 		stakingName=$(basename ${stakeAddr} .staking) #contains the name before the .staking.addr extension
 
@@ -130,22 +142,19 @@ case ${1} in
 		#If the StakeAccount is a HW-Wallet, do it all via cardano-hw-cli
 		if [ -f "${stakeAddr}.hwsfile" ]; then
 
-			auxiliaryPaymentFile="${rewardsAddr}.hwsfile"
-
+			auxiliaryStakingFile="${rewardsAddr}.hwsfile"
 			#Check that the rewardsPayout is done to a HW-Wallet key and not a CLI one
-			if [ ! -f "${auxiliaryPaymentFile}" ]; then echo -e "\n\e[35mERROR - Registering a HW-StakingKey must also have a RewardsAccount on the same HW-Wallet, not a CLI-Payout-Address for the rewards.\e[0m"; exit 1; fi
+			if [ ! -f "${auxiliaryStakingFile}" ]; then echo -e "\n\e[35mERROR - Registering a HW-StakingKey must also have a RewardsStakeAccount on the same HW-Wallet, not a CLI-Stake-Address for the rewards.\e[0m"; exit 1; fi
+			auxiliaryParameter="--auxiliary-signing-key ${auxiliaryStakingFile}"
 
-			auxiliaryParameter="--auxiliary-signing-key ${auxiliaryPaymentFile}"
+			#Change to using the stake-address again as rewards address, so the next few lines are not needed in the code. Still in there for reference
+#			#Add the payment part for the rewards
+#			rewardsExt=${rewardsAddr##*.} #should be staking "normally"
+#			auxiliaryPaymentFile="$(dirname ${rewardsAddr})/$(basename ${rewardsAddr} .${rewardsExt}).payment.hwsfile"
+#			if [ ! -f "${auxiliaryPaymentFile}" ]; then echo -e "\n\e[35mERROR - \"${auxiliaryPaymentFile}\" does not exist, but is needed! Please create it first with script 03a.\e[0m"; exit 1; fi
+#			auxiliaryParameter="${auxiliaryParameter} --auxiliary-signing-key ${auxiliaryPaymentFile}"
 
-			#Check the type of the rewardsPayoutAddr. If longer than 63 then it is a base address, and we also need the staking.hwsfile for that
-			if [[ ${#rewardsPayoutAddr} -gt 100 ]]; then
-								rewardsExt=${rewardsAddr##*.} #should be payment "normally"
-								auxiliaryStakingFile="$(dirname ${rewardsAddr})/$(basename ${rewardsAddr} .${rewardsExt}).staking.hwsfile"
-								if [ ! -f "${auxiliaryStakingFile}" ]; then echo -e "\n\e[35mERROR - \"${auxiliaryStakingFile}\" does not exist, but is needed! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 
-								#The staking.hwsfile to the rewardsPayout.payment one is present so lets extend the auxiliary parameter
-								auxiliaryParameter="${auxiliaryParameter} --auxiliary-signing-key ${auxiliaryStakingFile}"
-			fi
 	                echo -e "\e[0mGenerating the Catalyst-Registration-MetadataFile(cbor): \e[32m${votingMetaFile}\e[0m"
 	                echo
 	                echo -e "\e[0mMetadata will be generated for the Voting-Key with the name: \e[32m${voteKeyName}\e[90m.voting.pkey\e[0m"
@@ -153,7 +162,7 @@ case ${1} in
 			echo
 	                echo -e "\e[0mHW-Wallet-StakeKey that will be used: \e[32m${stakeAddr}\e[90m.hwsfile\e[0m"
 			echo
-	                echo -e "\e[0mRewards will be paid out to : \e[32m${rewardsAddr}\e[90m.addr\e[0m"
+	                echo -e "\e[0mRewards will be paid out to Stake-Account: \e[32m${rewardsAddr}\e[90m.addr\e[0m"
 	                echo -e "\e[0mwhich is address: \e[32m${rewardsPayoutAddr}\e[0m"
 			echo
 			echo -e "\e[0mNonce (current slotHeight): \e[32m${currentTip}\e[0m"
