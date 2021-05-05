@@ -16,7 +16,7 @@ case $# in
       assetToSend="$3";
       amountToSend="$4";;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR asset1-name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL> [Opt: Amount of lovelaces to include] [Opt: Transaction-Metadata.json] [Opt: list of UTXOs to use]
+Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR asset1-name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL> [Opt: Amount of lovelaces to include] [Opt: Transaction-Metadata.json/.cbor] [Opt: list of UTXOs to use]
 
 
 Optional parameters:
@@ -24,6 +24,8 @@ Optional parameters:
 - Normally you don't need to specify an Amount of lovelaces to include, the script will calculcate the minimum Amount that is needed by its own.
 
 - You can attach a transaction-metadata.json by adding the filename of the json file to the parameters
+
+- You can attach a transaction-metadata.cbor by adding the filename of the json file to the parameters (catalystvoting f.e.)
 
 - In rare cases you wanna define the exact UTXOs that should be used for sending Assets out:
     "UTXO1#Index" ... to specify one UTXO, must be in "..."
@@ -47,18 +49,23 @@ for (( tmpCnt=4; tmpCnt<${paramCnt}; tmpCnt++ ))
         #Check if an additional amount of lovelaces was set as parameter (not containing a #, not empty, beeing a number)
 	if [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ ! -z "${paramValue##*[!0-9]*}" ]; then lovelacesToSend=${paramValue};
 
-	#Check if an additional metadata.json was set as parameter (not containing a #, not empty, not beeing a number)
-	elif [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+        #Check if an additional metadata.json/.cbor was set as parameter (not containing a #, not empty, not beeing a number)
+        elif [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
-                        metafile="$(dirname ${paramValue})/$(basename ${paramValue} .json).json"; metafile=${metafile//.\//}
-                        if [ ! -f "${metafile}" ]; then echo -e "The specified Metadata JSON-File '${metafile}' does not exist. Please try again."; exit 1; fi
-                        #Do a simple basic check if the metadatum is in the 0..65535 range
-                        metadatum=$(jq -r "keys_unsorted[0]" ${metafile} 2> /dev/null)
-                        if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
-                        #Check if it is null, a number, lower then zero, higher then 65535
-                        if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
-                        metafileParameter="--metadata-json-file ${metafile}"
-		#Check if an additional UTXO#IDX filter was set as parameter (must contain a #)
+             metafile="$(dirname ${paramValue})/$(basename $(basename ${paramValue} .json) .cbor)"; metafile=${metafile//.\//}
+             if [ -f "${metafile}.json" ]; then metafile="${metafile}.json"
+                #Do a simple basic check if the metadatum is in the 0..65535 range
+                metadatum=$(jq -r "keys_unsorted[0]" ${metafile} 2> /dev/null)
+                if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
+                #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
+                if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
+                metafileParameter="--metadata-json-file ${metafile}"
+             elif [ -f "${metafile}.cbor" ]; then metafile="${metafile}.cbor"
+                metafileParameter="--metadata-cbor-file ${metafile}"
+             else echo -e "The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again."; exit 1;
+             fi
+
+	#Check if an additional UTXO#IDX filter was set as parameter (must contain a #)
 	elif [[ "${paramValue}" == *"#"* ]]; then filterForUTXO="${paramValue}";
 	fi
 

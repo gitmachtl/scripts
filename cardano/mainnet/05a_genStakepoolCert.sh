@@ -265,10 +265,10 @@ echo "
 		then #Ok, itn secret and public key files are present
 
 		#JCLI check
-		jcliCheck=$(${itn_jcli} --version)
+		jcliCheck=$(${jcli_bin} --version)
 		if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your 'jcli' binary is not present with the right path (00_common.sh) !\e[0m\n\n"; exit 1; fi
 
-		itnWitnessSign=$(${itn_jcli} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+		itnWitnessSign=$(${jcli_bin} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 		itnWitnessOwner=$(cat ${poolFile}.itn.vkey)
                 itnJSON=$(echo "{}" | jq ".itn += {owner: \"${itnWitnessOwner}\"}|.itn += {witness: \"${itnWitnessSign}\"}")
 		extendedMetaEntry=",\n  \"extended\": \"${poolExtendedMetaUrl}\""

@@ -167,8 +167,9 @@ if ${showVersionInfo}; then
 							if [ ! -e "${socket}" ]; then echo -ne "\n\n\e[35mWarning: Node-Socket does not exist !\e[0m"; fi
 				fi
 
-				if [[ "${magicparam}" == *"testnet"* ]]; then echo -e "\t\t\e[0mTestnet-Magic: \e[91m$(echo ${magicparam} | cut -d' ' -f 2) \e[0m"; fi
+				if [[ "${magicparam}" == *"testnet"* ]]; then echo -ne "\t\t\e[0mTestnet-Magic: \e[91m$(echo ${magicparam} | cut -d' ' -f 2) \e[0m"; fi
 
+echo
 echo
 fi
 
@@ -485,6 +486,21 @@ echo -n "${1}" | xxd -r -ps
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
+calc_minOutUTXOnew() {
+        #${1} = protocol-parameters(json format) content
+        #${2} = tx-out string
+
+local protocolParam=${1}
+local multiAsset=$(echo ${2} | cut -d'+' -f 2-) #split at the + marks and only keep lovelaces+assets
+tmp=$(${cardanocli} transaction calculate-min-value --protocol-params-file <(echo ${protocolParam}) --multi-asset "${multiAsset}" 2> /dev/null)
+if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Can't calculate minValue for the given tx-out string: ${2} !\e[0m"; exit 1; fi
+echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second part
+}
+
+
+
+#-------------------------------------------------------
+#Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
 calc_minOutUTXO() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
@@ -552,6 +568,13 @@ fi
 echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or without assets
 }
 #-------------------------------------------------------
+
+
+
+
+
+
+
 
 
 
