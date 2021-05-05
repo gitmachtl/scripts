@@ -10,26 +10,34 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-case $# in
-  3|4|5 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//};
-      toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//}
-      lovelacesToSend="$3";;
-  * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets> [Opt: Transaction-Metadata.json] [Opt: list of UTXOs to use]
+if [ $# -ge 3 ]; then
+			fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//};
+			toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//};
+			lovelacesToSend="$3";
+		 else
+		 cat >&2 <<EOF
+Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets> [Opt: metadata.json/.cbor] [Opt: list of UTXOs to use]
 
 
 Optional parameters:
 
-- If you wanna attach a transaction-Metadata JSON:
-   You can add a Transaction-Metadata.json filename as a parameter to send it alone with the transaction.
-   There will be a simple basic check that the transaction-metadata.json file is valid. 
+- If you wanna attach a Metadata JSON:
+   You can add a Metadata.json (Auxilierydata) filename as a parameter to send it alone with the transaction.
+   There will be a simple basic check that the transaction-metadata.json file is valid.
+
+- If you wanna attach a Metadata CBOR:
+   You can add a Metadata.cbor (Auxilierydata) filename as a parameter to send it along with the transaction.
+   Catalyst-Voting for example is done via the voting_metadata.cbor file.
 
 - In rare cases you wanna define the exact UTXOs that should be used for sending Funds out:
    "UTXO1#Index" ... to specify one UTXO, must be in quotes "..."
    "UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in quotes "..."
 
 EOF
-  exit 1;; esac
+  exit 1; fi
+
+#Check if Parameter 3 is a number or the keywords ALL or ALLFUNDS
+if [[ ! "${lovelacesToSend^^}" == "ALL"  && ! "${lovelacesToSend^^}" == "ALLFUNDS"  && -z "${lovelacesToSend##*[!0-9]*}" ]]; then echo -e "\n\e[35mERROR - No amount of lovecase (or keyword ALL/ALLFUNDS) specified.\n\e[0m"; exit 1; fi
 
 #Check all optional parameters about there types and set the corresponding variables
 #Starting with the 4th parameter (index3) up to the last parameter
@@ -42,18 +50,23 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
         paramValue=${allParameters[$tmpCnt]}
         #echo -n "${tmpCnt}: ${paramValue} -> "
 
-        #Check if an additional metadata.json was set as parameter (not containing a #, not empty, not beeing a number)
+        #Check if an additional metadata.json/.cbor was set as parameter (not containing a #, not empty, not beeing a number)
         if [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
-                        metafile="$(dirname ${paramValue})/$(basename ${paramValue} .json).json"; metafile=${metafile//.\//}
-                        if [ ! -f "${metafile}" ]; then echo -e "The specified Metadata JSON-File '${metafile}' does not exist. Please try again."; exit 1; fi
-                        #Do a simple basic check if the metadatum is in the 0..65535 range
-                        metadatum=$(jq -r "keys_unsorted[0]" ${metafile} 2> /dev/null)
-                        if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
-                        #Check if it is null, a number, lower then zero, higher then 65535
-                        if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
-                        metafileParameter="--metadata-json-file ${metafile}"
-                #Check if an additional UTXO#IDX filter was set as parameter (must contain a #)
+             metafile="$(dirname ${paramValue})/$(basename $(basename ${paramValue} .json) .cbor)"; metafile=${metafile//.\//}
+             if [ -f "${metafile}.json" ]; then metafile="${metafile}.json"
+                #Do a simple basic check if the metadatum is in the 0..65535 range
+                metadatum=$(jq -r "keys_unsorted[0]" ${metafile} 2> /dev/null)
+                if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
+                #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
+   		if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
+                metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}${metafile} "
+             elif [ -f "${metafile}.cbor" ]; then metafile="${metafile}.cbor"
+                metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}${metafile} "
+	     else echo -e "The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again."; exit 1;
+             fi
+
+        #Check if an additional UTXO#IDX filter was set as parameter (must contain a #)
         elif [[ "${paramValue}" == *"#"* ]]; then filterForUTXO="${paramValue}";
         fi
 
@@ -182,7 +195,7 @@ echo
 
 echo
 
-if [[ ! "${metafile}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafile}\e[0m\n"; fi
+if [[ ! "${metafileList}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafileList}\e[0m\n"; fi
 
 #Read ProtocolParameters
 if ${onlineMode}; then
