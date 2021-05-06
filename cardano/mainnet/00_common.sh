@@ -97,9 +97,9 @@ if [[ -f "common.inc" ]]; then source "common.inc"; fi
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
 minNodeVersion="1.26.2"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="2.2.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minLedgerCardanoAppVersion="2.3.1"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.2.0" #minimum version for the cardano-hw-cli
+minHardwareCliVersion="1.3.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -724,7 +724,7 @@ if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano
 
 versionHWCLI=$(${cardanohwcli} version 2> /dev/null |& head -n 1 |& awk {'print $6'})
 versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
-if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nYour version ${versionHWCLI} is no longer supported for security reasons or features, please upgrade - thx."; exit 1; fi
 
 echo -ne "\e[33mPlease connect & unlock your Hardware-Wallet, open the Cardano-App on Ledger-Devices (abort with CTRL+C)\e[0m\n\n\033[2A\n"
 local tmp=$(${cardanohwcli} device version 2> /dev/stdout)
