@@ -1,3 +1,4 @@
+
 # How to register your operator pledge staking key for Catalyst Voting
 
 <a href="https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet"><img src="https://www.stakepool.at/pics/stakepool_operator_scripts.png" border=0></img></a><br>
@@ -8,6 +9,15 @@ Best regards, Martin (ATADA/ATAD2 Stakepool Austria)
 
 :bulb: **Links below were updated for Catalyst Fund4 !**
 
+&nbsp;<br>
+
+# How to vote with Funds (also Pledge) on Hardware-Wallets :new:
+
+Please use the 09a_catalystVote.sh script from the MainNet Repo to do so, you can find a description of the 4 simple steps [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#catalyst-voting-with-your-hw-wallet)
+
+&nbsp;<br>
+
+# How to vote with Funds (also Pledge) on CLI-Keys
 
 ## First - Lets talk about security
 
@@ -42,7 +52,7 @@ You have generated the secret- and the public-voting key, we use them now in the
 
 ## Where will the voting rewards distributed to?
 
-Thats an important one, before (Fund2) the voting rewards were distributed back onto the stake address as rewards. Now they will be returned on the payment address you use in the next step below !
+Thats an important one, the voting rewards will be distributed back onto a stake address as rewards. Like staking rewards !
 
 ## Generate the signed voting registration
 
@@ -85,7 +95,8 @@ The registration tool needs some parameters to call:
 
 ``` console
 ./voter-registration  --payment-signing-key FILE 
-                      --payment-address STRING 
+                      --payment-address STRING
+                      --rewards-address STRING
                       --vote-public-key FILE 
                       --stake-signing-key FILE 
                       (--mainnet | --testnet-magic NATURAL)
@@ -100,9 +111,9 @@ The registration tool needs some parameters to call:
 ```                      
 
 So in our case we need a payment address, this should **NOT BE YOUR PLEDGE ADDRESS**! Just a simple
-payment address to pay for the transaction, we call it **somepayment**. Also, this **payment address will receive the voting rewards** ! So we need the somepayment.skey,
+payment address to pay for the transaction, we call it **somepayment**. So we need the somepayment.skey,
 also we need the somepayment address as text, or in the example below we read it out from the somepayment.addr 
-file directly. Than you need of course your pledge.staking.skey you wanna register for Catalyst Voting.
+file directly. You need the rewards receiving address, **this must be a stake-address!**. Lets use the same account as our pledge-account for that. The address is stored in the *pledge.staking.addr* file. Than you need of course your pledge.staking.skey you wanna register for Catalyst Voting.
 Then we need the public voting key we generated in the steps above with jcli. You have to choose the network,
 in this case we are on mainnet. The Time-To-Live parameter is not needed, but make sure to submit the signed 
 transaction file as soon as possible after the creation. The last thing we need is the
@@ -111,6 +122,7 @@ path to the signed transaction output file, lets call it **vote-catalyst.tx**. S
 ```console
 ./voter-registration  --payment-signing-key somepayment.skey \
                       --payment-address $(cat somepayment.addr) \
+                      --rewards-address $(cat pledge.staking.addr) \
                       --vote-public-key catalyst-vote.pkey \
                       --stake-signing-key pledge.staking.skey \
                       --mainnet \
