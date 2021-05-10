@@ -96,7 +96,7 @@ The registration tool needs some parameters to call:
 ``` console
 ./voter-registration  --payment-signing-key FILE 
                       --payment-address STRING
-                      --rewards-address STRING
+                      --reward-address STRING
                       --vote-public-key FILE 
                       --stake-signing-key FILE 
                       (--mainnet | --testnet-magic NATURAL)
@@ -122,7 +122,7 @@ path to the signed transaction output file, lets call it **vote-catalyst.tx**. S
 ```console
 ./voter-registration  --payment-signing-key somepayment.skey \
                       --payment-address $(cat somepayment.addr) \
-                      --rewards-address $(cat pledge.staking.addr) \
+                      --reward-address $(cat pledge.staking.addr) \
                       --vote-public-key catalyst-vote.pkey \
                       --stake-signing-key pledge.staking.skey \
                       --mainnet \
