@@ -95,8 +95,8 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.26.2"  #minimum allowed node version for this script-collection version
-maxNodeVersion="1.26.2"  #maximum allowed node version, 9.99.9 = no limit so far
+minNodeVersion="1.27.0"  #minimum allowed node version for this script-collection version
+maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="2.3.2"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
 minHardwareCliVersion="1.3.0" #minimum version for the cardano-hw-cli
@@ -486,7 +486,7 @@ echo -n "${1}" | xxd -r -ps
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
-calc_minOutUTXOnew() {
+calc_minOutUTXO() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
@@ -501,7 +501,7 @@ echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second 
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
-calc_minOutUTXO() {
+calc_minOutUTXOold() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 

@@ -212,7 +212,7 @@ echo
 
 if [[ -f "${deregPayName}.hwsfile" && -f "${poolName}.node.hwsfile" ]]; then #with hardware keys
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${deregPayName}.hwsfile --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${txFile})
+        tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${deregPayName}.hwsfile --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${txFile} 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
