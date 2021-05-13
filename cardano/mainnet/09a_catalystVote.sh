@@ -142,26 +142,30 @@ case ${1} in
 		#If the StakeAccount is a HW-Wallet, do it all via cardano-hw-cli
 		if [ -f "${stakeAddr}.hwsfile" ]; then
 
-			auxiliaryStakingFile="${rewardsAddr}.hwsfile"
+			rewardsHwStakingFile="${rewardsAddr}.hwsfile"
 			#Check that the rewardsPayout is done to a HW-Wallet key and not a CLI one
-			if [ ! -f "${auxiliaryStakingFile}" ]; then echo -e "\n\e[35mERROR - Registering a HW-StakingKey must also have a RewardsStakeAccount on the same HW-Wallet, not a CLI-Stake-Address for the rewards.\e[0m"; exit 1; fi
-			auxiliaryParameter="--auxiliary-signing-key ${auxiliaryStakingFile}"
-
-			#Change to using the stake-address again as rewards address, so the next few lines are not needed in the code. Still in there for reference
-#			#Add the payment part for the rewards
-#			rewardsExt=${rewardsAddr##*.} #should be staking "normally"
-#			auxiliaryPaymentFile="$(dirname ${rewardsAddr})/$(basename ${rewardsAddr} .${rewardsExt}).payment.hwsfile"
-#			if [ ! -f "${auxiliaryPaymentFile}" ]; then echo -e "\n\e[35mERROR - \"${auxiliaryPaymentFile}\" does not exist, but is needed! Please create it first with script 03a.\e[0m"; exit 1; fi
-#			auxiliaryParameter="${auxiliaryParameter} --auxiliary-signing-key ${auxiliaryPaymentFile}"
-
+			if [ ! -f "${rewardsHwStakingFile}" ]; then echo -e "\n\e[35mERROR - Registering a HW-StakingKey must also have a RewardsStakeAccount on the same HW-Wallet, not a CLI-Stake-Address for the rewards.\e[0m"; exit 1; fi
+#			auxiliaryParameter="--auxiliary-signing-key ${rewardsHwStakingFile}" #hw-cli v1.3.0
 
 	                echo -e "\e[0mGenerating the Catalyst-Registration-MetadataFile(cbor): \e[32m${votingMetaFile}\e[0m"
 	                echo
 	                echo -e "\e[0mMetadata will be generated for the Voting-Key with the name: \e[32m${voteKeyName}\e[90m.voting.pkey\e[0m"
 	                echo -e "\e[0mand the Public-Key: \e[32m$(cat ${voteKeyName}.voting.pkey)\e[0m"
 			echo
-	                echo -e "\e[0mHW-Wallet-StakeKey that will be used: \e[32m${stakeAddr}\e[90m.hwsfile\e[0m"
+	                echo -e "\e[0mHW-Wallet-StakeKey (Voting-Power) that will be used: \e[32m${stakeAddr}\e[90m.hwsfile\e[0m"
 			echo
+
+			#If in online mode, do a check it the Rewards-Address is registered on the chain
+			if ${onlineMode}; then
+			        echo -ne "\e[0mChecking current Chain-Status of the Rewards-Account: "
+
+				rewardsAmount=$(${cardanocli} query stake-address-info --address ${rewardsPayoutAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
+				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			        if [[ ${rewardsAmount} == null ]]; then echo -e "\e[33mNOT REGISTERED\n\n\e[35mERROR - Staking Address is NOT registered on the chain, please register it first to use it as Rewards-Account for the Voting-Rewards !\e[0m\n"; exit 1;
+								   else echo -e "\e[32mok\e[0m\n";
+				fi
+			fi
+
 	                echo -e "\e[0mRewards will be paid out to Stake-Account: \e[32m${rewardsAddr}\e[90m.addr\e[0m"
 	                echo -e "\e[0mwhich is address: \e[32m${rewardsPayoutAddr}\e[0m"
 			echo
@@ -169,13 +173,13 @@ case ${1} in
 			echo
 
 			start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-			tmp=$(${cardanohwcli} catalyst voting-key-registration-metadata ${magicparam} --vote-public-key ${voteKeyName}.voting.pkey --payment-address ${rewardsPayoutAddr} --stake-signing-key ${stakeAddr}.hwsfile --nonce ${currentTip} ${auxiliaryParameter} --metadata-cbor-out-file ${votingMetaFile})
+			tmp=$(${cardanohwcli} catalyst voting-key-registration-metadata ${magicparam} --vote-public-key ${voteKeyName}.voting.pkey --reward-address ${rewardsPayoutAddr} --stake-signing-key ${stakeAddr}.hwsfile --reward-address-signing-key ${rewardsHwStakingFile} --nonce ${currentTip} --metadata-cbor-out-file ${votingMetaFile} 2> /dev/stdout)
 			if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 			echo
-	                if [ -f "${votingMetaFile}" ]; then echo -e "\e[0mThe Metadata-Registration-CBOR File \"\e[32m${votingMetaFile}\e[0m\" was generated. :-)\n\nYou can now submit it on the chain by including it in a transaction with Script: 01_sendLovelaces.sh\nExample:\e[33m 01_sendLovelaces.sh ${rewardsAddr} ${rewardsAddr} 1000000 ${votingMetaFile}\n\n\e[0m"
-						       else echo -e "\e[35mError - Something went wrong while writting the \"${votingMetaFile}\" metadata file !\e[0m\n"; exit 1; fi
+	                if [ -f "${votingMetaFile}" ]; then echo -e "\e[0mThe Metadata-Registration-CBOR File \"\e[32m${votingMetaFile}\e[0m\" was generated. :-)\n\nYou can now submit it on the chain by including it in a transaction with Script: 01_sendLovelaces.sh\nExample:\e[33m 01_sendLovelaces.sh mywallet mywallet 1000000 ${votingMetaFile}\n\n\e[0m"
+						       else echo -e "\e[35mError - Something went wrong while writing the \"${votingMetaFile}\" metadata file !\e[0m\n"; exit 1; fi
 
 
 		else #Voting via voter-registration tool

@@ -258,6 +258,7 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                                                   \"---\": \"--- Optional additional info ---\",
                                                                   metaTicker: \"\",
                                                                   metaUrl: \"\",
+                                                                  metaDecimals: \"0\",
                                                                   metaLogoPNG: \"\",
                                                                   \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
                                                                   minted: \"0\"}" <<< "{}")

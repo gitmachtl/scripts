@@ -60,6 +60,7 @@ if [ ! -f "${assetFileName}" ]; then
 				assetFileJSON=$(jq ". += {metaName: \"${assetName}\",
 							  metaDescription: \"\",
 							  \"---\": \"--- Optional additional info ---\",
+							  metaDecimals: \"\",
 							  metaTicker: \"\",
 							  metaUrl: \"\",
 							  metaLogoPNG: \"\",
@@ -93,6 +94,7 @@ fi
 assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetName}\",
                                   metaDescription: \"\",
                                   \"---\": \"--- Optional additional info ---\",
+                                  metaDecimals: \"0\",
                                   metaTicker: \"\",
                                   metaUrl: \"\",
                                   metaLogoPNG: \"\",
@@ -174,17 +176,17 @@ if [[ ! "${metaUrl}" == "" ]]; then
 fi
 
 
-#Check metaSubUnitDecimals - optional
-#metaSubUnitDecimals=$(jq -r ".metaSubUnitDecimals" <<< ${assetFileJSON})
-#if [[ ${metaSubUnitDecimals} -gt 0 ]]; then
-#	echo -ne "Adding 'metaSubUnit'     ... "
-#	if [[ ${metaSubUnitDecimals} -gt 19 ]]; then echo -e "\e[35mERROR - The metaSubUnitDecimals '${metaSubUnitDecimals}' is too big. Max. value is 19 decimals !\e[0m\n"; exit 1; fi
+#Check metaDecimals - optional
+metaDecimals=$(jq -r ".metaDecimals" <<< ${assetFileJSON})
+if [[ ${metaDecimals} -gt -1 ]]; then
+	echo -ne "Adding 'metaDecimals'    ... "
+	if [[ ${metaDecimals} -gt 255 ]]; then echo -e "\e[35mERROR - The metaDecimals '${metaDecimals}' is too big. Max. value is 255 decimals !\e[0m\n"; exit 1; fi
 #	metaSubUnitName=$(jq -r ".metaSubUnitName" <<< ${assetFileJSON})
 #	if [[ ! "${metaSubUnitName//[[:space:]]}" == "${metaSubUnitName}" ]]; then echo -e "\e[35mERROR - The metaSubUnitName '${metaSubUnitName}' contains spaces, not allowed !\e[0m\n"; exit 1; fi
 #	if [[ ${#metaSubUnitName} -lt 1 || ${#metaSubUnitName} -gt 30 ]]; then echo -e "\e[35mERROR - The metaSubUnitName '${metaSubUnitName}' is too too long. Max. 30chars allowed !\e[0m\n"; exit 1; fi
-#	creatorArray+=("--unit" "${metaSubUnitDecimals},${metaSubUnitName}")
-#	echo -e "\e[32mOK\e[0m"
-#fi
+	creatorArray+=("--decimals" "${metaDecimals}")
+	echo -e "\e[32mOK\e[0m"
+fi
 
 #Check metaPNG - optional
 metaLogoPNG=$(jq -r ".metaLogoPNG" <<< ${assetFileJSON})

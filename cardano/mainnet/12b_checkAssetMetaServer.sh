@@ -69,7 +69,7 @@ echo -ne "\e[90m    Description: \e[32m"; ret=$(jq -r ".description.value | sele
 echo -ne "\e[90m         Ticker: \e[32m"; ret=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
 echo -ne "\e[90m            Url: \e[32m"; ret=$(jq -r ".url.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
 #echo -ne "\e[90m    SubUnitName: \e[32m"; ret=$(jq -r ".unit.value.name | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
-#echo -ne "\e[90m SubUnitDecimal: \e[32m"; ret=$(jq -r ".unit.value.decimals | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
+echo -ne "\e[90m       Decimals: \e[32m"; ret=$(jq -r ".decimals.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); echo -e "${ret}\e[0m"
 
 echo -ne "\e[90m        LogoPNG: \e[32m"; ret=$(jq -r ".logo.value" 2> /dev/null <<< ${metaResponse});
 	if [[ ! "${ret}" == null ]]; then
