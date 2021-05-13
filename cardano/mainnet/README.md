@@ -2,9 +2,9 @@
 
 *Examples on how to use the scripts **ONLINE** and/or **OFFLINE**, with or without a **Ledger/Trezor-Wallet** can be found on this page :smiley:*
 
-| | [cardano-cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-node](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
-| :---  |   :---:     |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.26.2</b><br><sub>**git checkout tags/1.26.2**</sub> | <b>1.26.2</b><br><sub>**git checkout tags/1.26.2**</sub> | <b>1.3.0</b><br><sub>**if you use hw-wallets** | <b>2.3.1</b><br><sub>**if you use hw-wallets** | <b>2.3.6</b><br><sub>**if you use hw-wallets** |
+| | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
+| :---  |    :---:     |     :---:      |     :---:      |     :---:      |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.27.0</b><br><sub>**git checkout tags/1.27.0**</sub> | <b>1.3.0</b><br><sub>**if you use hw-wallets** | <b>2.3.1</b><br><sub>**if you use hw-wallets** | <b>2.3.6</b><br><sub>**if you use hw-wallets** |
 
 > *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose mainnet*. 
 
@@ -462,7 +462,7 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
   <br>```09a_catalystVote.sh genmeta myvote owner myrewards``` generates the Catalyst-Registration-Metadata(cbor) for the myvote VotingKey, amountToRegister via owner.staking,
               RewardsPayout to the Address myrewards.payment.addr. With HW-Wallets, the RewardsPayout-Addr must be one of the HW-Wallet itself!
-
+  
 &nbsp;<br>
 * **10_genPolicy.sh:** generate policy keys, signing script and id as files **name.policy.skey/vkey/script/id**. You need a policy for Token minting.
   <br>```./10_genPolicy.sh <PolicyName> [Optional valid xxx Slots (default=unlimited)]```
