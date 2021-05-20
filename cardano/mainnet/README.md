@@ -4,7 +4,7 @@
 
 | | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.27.0</b><br><sub>**git checkout tags/1.27.0**</sub> | <b>1.4.0</b><br><sub>**if you use hw-wallets** | <b>2.3.2</b><br><sub>**if you use hw-wallets** | <b>2.3.6</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.27.0</b><br><sub>**git checkout tags/1.27.0**</sub> | <b>1.2.0</b><br>([1.4.0 for voting](#catalyst-voting-with-your-hw-wallet))<br><sub>**if you use hw-wallets** | <b>2.3.2</b><br><sub>**if you use hw-wallets** | <b>2.3.6</b><br><sub>**if you use hw-wallets** |
 
 > *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose mainnet*. 
 
@@ -13,7 +13,7 @@
 
 <img src="https://www.stakepool.at/pics/stakepool_operator_scripts.png" align="right" border=0>
 
-Theses scripts here should help you to manage your StakePool via the CLI. As always use them at your own risk, but they should be errorfree. Scripts were made to make things easier while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently.<br>&nbsp;<br>
+Theses scripts here should help you to manage your StakePool via the CLI. As always use them at your own risk, but they should be errorfree. Scripts were made to make things easier while learning all the commands and steps to bring up the stakepool node. So, don't be mad at me if something is not working. CLI calls are different almost daily currently. As always, use them at your own risk.<br>&nbsp;<br>
 Some scripts are using **jq, curl, bc & xxd** so make sure you have it installed with a command like<br>```$ sudo apt update && sudo apt install -y jq curl bc xxd```
 
 &nbsp;<br>
@@ -1053,6 +1053,8 @@ Yep, it was that simple.
 ## Catalyst-Voting with your HW-Wallet
 
 It is possible to also vote with funds on HW-Wallets, like your SPO-Pledge funds or any other funds your have stored on a secure HW-Wallet. Starting with Fund4-Catalyst-Voting you can do this with a stake-account on a HW-Wallet. **IMPORTANT**, the rewards-account (stake-address) for the voting-rewards must also be on **THE SAME** HW-Wallet. But more about that later.
+   
+> You need the `cardano-hw-cli` with version **1.4.0** for that. Vaccumlabs removed that version because IOHK does not officially support Hardware-Wallet-Voting for Fund4 :disappointed:. But, like *power to the people* we play **power to the SPOs** here :stuck_out_tongue_winking_eye:. If you wanna use your voting rights with your full Hardware-Wallet-Setup you can find the [cardano-hw-cli 1.4.0](https://at-ada.net/bin/cardano-hw-cli-1.4.0_linux-x64.tar.gz) on our backup-server [here](https://at-ada.net/bin/cardano-hw-cli-1.4.0_linux-x64.tar.gz).<br>*SHA256: d0d15d25afc911a40c5ab6d51e6b0a4546ee047032ce3a2b21b48dfe676b5299*
 
 <details>
    <Summary><b>See the 4 simple Steps needed to generate the Voting-Registration-Data and QR-Code ... </b>:bookmark_tabs:<br></summary>
