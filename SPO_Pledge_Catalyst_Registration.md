@@ -13,7 +13,9 @@ Best regards, Martin (ATADA/ATAD2 Stakepool Austria)
 
 # How to vote with Funds (also Pledge) on Hardware-Wallets :new:
 
-Please use the 09a_catalystVote.sh script from the MainNet Repo to do so, you can find a description of the 4 simple steps [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#catalyst-voting-with-your-hw-wallet)
+You need the `cardano-hw-cli` with version **1.4.0** for that. Vaccumlabs removed that version because IOHK does not officially support Hardware-Wallet-Voting for Fund4 :disappointed:. But, like *power to the people* we play **power to the SPOs** here :stuck_out_tongue_winking_eye:. If you wanna use your voting rights with your full Hardware-Wallet-Setup you can find the [cardano-hw-cli 1.4.0](https://at-ada.net/bin/cardano-hw-cli-1.4.0_linux-x64.tar.gz) on our backup-server [here](https://at-ada.net/bin/cardano-hw-cli-1.4.0_linux-x64.tar.gz).<br>*SHA256: d0d15d25afc911a40c5ab6d51e6b0a4546ee047032ce3a2b21b48dfe676b5299*
+
+To **generate your Voting-Registration**, please use the **09a_catalystVote.sh script** from the MainNet Repo to do so, you can find a description of the 4 simple steps [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#catalyst-voting-with-your-hw-wallet)
 
 &nbsp;<br>
 
