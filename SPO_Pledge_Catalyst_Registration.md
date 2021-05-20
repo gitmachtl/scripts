@@ -58,8 +58,8 @@ Thats an important one, the voting rewards will be distributed back onto a stake
 
 ## Generate the signed voting registration
 
-You need the **voter-registration** tool for this, you have to compile it like you 
-compile your cardano-node OR you can use a *precompiled version*.<p>
+You need the **voter-registration** tool from Samuel ([link to repo](https://github.com/input-output-hk/voting-tools)) for this, you have to compile it like you 
+compile your cardano-node OR you can use a [*precompiled version*](https://hydra.iohk.io/job/Cardano/voting-tools/native.voterRegistrationTarball.x86_64-linux/latest-finished/download/1/voter-registration.tar.gz).<p>
 
 The tool is written in haskell, you **compile** it the same way as you do with your cardano node, should be
 something similar to this:
@@ -98,7 +98,7 @@ The registration tool needs some parameters to call:
 ``` console
 ./voter-registration  --payment-signing-key FILE 
                       --payment-address STRING
-                      --reward-address STRING
+                      --rewards-address STRING
                       --vote-public-key FILE 
                       --stake-signing-key FILE 
                       (--mainnet | --testnet-magic NATURAL)
@@ -124,7 +124,7 @@ path to the signed transaction output file, lets call it **vote-catalyst.tx**. S
 ```console
 ./voter-registration  --payment-signing-key somepayment.skey \
                       --payment-address $(cat somepayment.addr) \
-                      --reward-address $(cat pledge.staking.addr) \
+                      --rewards-address $(cat pledge.staking.addr) \
                       --vote-public-key catalyst-vote.pkey \
                       --stake-signing-key pledge.staking.skey \
                       --mainnet \
