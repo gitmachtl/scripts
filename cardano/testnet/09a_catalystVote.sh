@@ -172,6 +172,13 @@ case ${1} in
 			echo -e "\e[0mNonce (current slotHeight): \e[32m${currentTip}\e[0m"
 			echo
 
+
+			#Temporary Additional Version Check for Special-Release 1.5.0
+			minHardwareCliVersion="1.5.0"
+			versionHWCLI=$(${cardanohwcli} version 2> /dev/null |& head -n 1 |& awk {'print $6'})
+			versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
+			if [[ $? -ne 0 ]]; then majorError "Please use the special cardano-hw-cli version ${minHardwareCliVersion} !\nThis is a special version that supports Catalyst Voting, your current version ${versionHWCLI} does not support it!\nYou can find the Special Version via a link here: https://github.com/gitmachtl/scripts/blob/master/SPO_Pledge_Catalyst_Registration.md"; exit 1; fi
+
 			start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			tmp=$(${cardanohwcli} catalyst voting-key-registration-metadata ${magicparam} --vote-public-key ${voteKeyName}.voting.pkey --reward-address ${rewardsPayoutAddr} --stake-signing-key ${stakeAddr}.hwsfile --reward-address-signing-key ${rewardsHwStakingFile} --nonce ${currentTip} --metadata-cbor-out-file ${votingMetaFile} 2> /dev/stdout)
 			if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
