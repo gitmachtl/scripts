@@ -190,7 +190,7 @@ case ${1} in
 
 
 		else #Voting via voter-registration tool
-			echo "Currently this script only supports the voting-meta-cbor generation for HW-Wallets"
+			echo "Currently this script only supports the voting-meta-cbor generation for HW-Wallets.\n\nTo vote via CLI Keys, please visit this page for the How-To, thx:\nhttps://github.com/gitmachtl/scripts/blob/master/SPO_Pledge_Catalyst_Registration.md"
 		fi
 
                 exit 0;
