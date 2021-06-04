@@ -52,6 +52,8 @@ Now lets generate the two keyfiles:
 
 You have generated the secret- and the public-voting key, we use them now in the next steps.
 
+⚠️ Make sure, that you have generated the skey as an ed25519**extended** key !
+
 ## Where will the voting rewards distributed to?
 
 Thats an important one, the voting rewards will be distributed back onto a stake address as rewards. Like staking rewards !
@@ -200,4 +202,6 @@ If you wanna save the QR code for later, you can save it as a PNG image too usin
 
 This will generate the QR code as the file **catalyst-qrcode.png**
 
+> If you wanna be 1000% sure that your QR code is correct, you can validate it again with this little tool here: [https://github.com/input-output-hk/vit-testing/tree/main/iapyx#readme](https://github.com/input-output-hk/vit-testing/tree/main/iapyx#readme) ➡️ iapyx-qr
+  
 ## Happy voting !
