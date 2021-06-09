@@ -15,6 +15,10 @@ Best regards, Martin (ATADA/ATAD2 Stakepool Austria)
 
 Important - you need the `cardano-hw-cli` version **1.5.0** or above for that!
 
+Software needed on the Hardware-Wallet:
+* **Ledger NanoS or NanoX: Cardano-App 2.3.2**
+* **Trezor Model-T: Firmware 2.4.0**
+
 To **generate your Voting-Registration**, please use the **09a_catalystVote.sh script** from the MainNet Repo to do so, you can find a description of the 4 simple steps [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#catalyst-voting-with-your-hw-wallet)
 
 &nbsp;<br>
