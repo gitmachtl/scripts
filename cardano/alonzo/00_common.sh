@@ -397,7 +397,7 @@ echo "${tmpEra}"; return 0; #return era in lowercase
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
 if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 
-nodeEraParam="--mary-era"
+#nodeEraParam="--mary-era"
 
 #-------------------------------------------------------
 
@@ -419,10 +419,10 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 
   #There are lovelaces on the UTXO
   if [[ "${utxo_entry[3]}" == "lovelace" ]]; then
-						local idx=5;
+						local idx=5; #normal indexstart for the next checks
     						local utxoAmountLovelaces=${utxo_entry[2]};
 					      else
-						local idx=2;
+						local idx=2; #earlier indexstart, because no lovelaces present
 						local utxoAmountLovelaces=0;
   fi
 
@@ -432,18 +432,31 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 
   local idxCompare=$(( ${idx} - 1 ))
 
-  #Add the Token entries if tokens available
+  #Add the Token entries if tokens available, also check for data (script) entries
   if [[ ${#utxo_entry[@]} -gt ${idxCompare} ]]; then # contains tokens
-    #local idx=5
-    while [[ ${#utxo_entry[@]} -gt ${idx} ]]; do
-      local asset_amount=${utxo_entry[${idx}]}
-      local asset_hash_name="${utxo_entry[$((idx+1))]}"
-      IFS='.' read -ra asset <<< "${asset_hash_name}"
-      local asset_policy=${asset[0]}
-      local asset_name=${asset[1]}
-      #Add the Entry of the Token
-      local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.\"${asset_policy}\" += { \"${asset_name}\": \"${asset_amount}\" }" <<< ${utxoJSON})
-      local idx=$(( ${idx} + 3 ))
+
+    while [[ ${#utxo_entry[@]} -gt ${idx} ]]; do  #check if there are more entries, and the amount is a number
+      local next_entry=${utxo_entry[${idx}]}
+
+      #if the next entry is a number -> process asset/tokendata
+      if [[ "${next_entry}" =~ ^[0-9]+$ ]]; then
+	      local asset_amount=${next_entry}
+	      local asset_hash_name="${utxo_entry[$((idx+1))]}"
+	      IFS='.' read -ra asset <<< "${asset_hash_name}"
+	      local asset_policy=${asset[0]}
+	      local asset_name=${asset[1]}
+	      #Add the Entry of the Token
+	      local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.\"${asset_policy}\" += { \"${asset_name}\": \"${asset_amount}\" }" <<< ${utxoJSON})
+	      local idx=$(( ${idx} + 3 ))
+     #if its a data entry, add the data-key field to the json output
+     elif [[ "${next_entry}" == "TxOutDatumHash" ]] && [[ "${utxo_entry[$((idx+1))]}" == *"Data"* ]]; then
+	      local data_entry_hash=${utxo_entry[$((idx+2))]}
+	      local utxoJSON=$( jq ".\"${utxoHashIndex}\".data = \"${data_entry_hash//\"/}\"" <<< ${utxoJSON})
+	      local idx=$(( ${idx} + 4 ))
+     else
+	      local idx=$(( ${idx} + 1 ))
+     fi
+
     done
   fi
   echo
@@ -790,4 +803,9 @@ echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and 
 
 
 
+#-------------------------------------------------------
+#Get the real bytelength of a given string (for UTF-8 byte check)
+byteLength() {
+    echo -n "${1}" | wc --bytes
+}
 
