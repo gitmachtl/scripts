@@ -221,7 +221,7 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
   | genesisfile_byron | Path to your *BYRON* genesis file | ```config-mainnet/mainnet-byron-genesis.json``` |
     | magicparam<br>addrformat | Type of the Chain your using<br>and the Address-Format | ```--mainnet``` for mainnet<br>```--testnet-magic 1097911063``` for the testnet<br>```--testnet-magic 3``` for launchpad |
   | byronToShelleyEpochs | Number of Epochs between Byron<br>to Shelley Fork | ```208``` for mainnet (Default)<br>```74``` for the testnet<br>```2``` for launchpad |
-  | itn_jcli | Path to your *jcli* binary<br>(only for ITN ticker proof) | ```./jcli``` (Default) |
+  | jcli_bin | Path to your *jcli* binary<br>(only for ITN ticker proof) | ```./jcli``` (Default) |
    
     
   
@@ -255,8 +255,9 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
 &nbsp;<br>
 * **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: metadata.json] [Opt: selected UTXOs]```**&sup1;** (you can send to an HASH address too)
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;** (you can send to an HASH address too)
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
+<br>```./01_sendLovelaces.sh addr1 addr2 2000000 "msg: here is your money"``` to send 2000000 lovelaces from addr1.addr to addr2.addr and add the transaction message "here is your money"
 <br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send **ALL lovelaces** from addr1.addr to addr2.addr, Tokens on addr1.addr are preserved
 <br>```./01_sendLovelaces.sh addr1 addr2 ALLFUNDS``` to send **ALL funds** from addr1.addr to addr2.addr **including Tokens** if present
 <br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL lovelaces from addr1.addr to the given Bech32 address
@@ -266,8 +267,9 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
 &nbsp;<br>
 * **01_sendAssets.sh:** sends Assets(Tokens) and optional a given amount of lovelaces from one address to another
-<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL> [Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: selected UTXOs]```**&sup1;**
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL> [Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
+<br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 20 "msg: here are your tokens"```<br>to send 20 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached, also with the transaction message "here are your tokens"
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
 <br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. 
 <br>```./01_sendAssets.sh addr1 addr2 asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs 1000```<br>to send 1000 Assets with that Bech-AssetName asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs :smiley:
@@ -476,9 +478,11 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 &nbsp;<br>
 * **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyName generated before. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
-  <br>```./11a_mintAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [optional Metadata JSON to include]```
+  <br>```./11a_mintAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages]```
   
   ```./11a_mintAsset.sh mypolicy.SUPERTOKEN 1000 mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
+  
+  ```./11a_mintAsset.sh mypolicy.SUPERTOKEN 2000 mywallet "msg: minting is so cool"```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr, also it will attach the message "minting is so cool" to the transaction
   
   ```./11a_mintAsset.sh mypolicy.MEGATOKEN 30 owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
   
@@ -488,7 +492,7 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 &nbsp;<br>
 * **11b_burnAsset.sh:** burnes Assets(Token) on a given payment address with a policyName you own the keys for. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
-  <br>```./11b_burnAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [optional Metadata JSON to include]```
+  <br>```./11b_burnAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages]```
   
   ```./11b_burnAsset.sh mypolicy.SUPERTOKEN 22 mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
   
@@ -1211,6 +1215,33 @@ So first you should create yourself a few small wallets for the daily Operator w
 Theses are your **daily work** operator wallets, never ever use your pledge owner wallet for such works, don't do it, be safe.<br>
 If you wanna do a pool registration (next step) make sure that you have **at least 505 ADA** on your *smallwallet1* account!
 
+</details>
+
+## Send some ADA/Lovelaces and also attach a Transaction-Message
+
+If you just wanna send some lovelaces from your smallwallet1 to your smallwallet2 or to anybody else, you can do that via the script 01_sendLovelaces.sh.<br>This script can do much more, but please checkout the Example below for a simple Transaction also with a Transaction-Message-Text. 
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+   
+<br><b>Single Message and some ADA:</b>
+1. We want to send 10 ADA (10000000 lovelaces) from smallwallet1 to smallwallet2 and also the message "here is your money" with it, simply run:<br>
+   ```./01_sendLovelaces.sh smallwallet1 smallwallet2 10000000 "msg: here is your money"```
+
+Thats it, along with your 10 ADA, the script automatically creates a metadata.json for you that includes the message and includes it into the transaction.
+
+<br><b>Multiple Messages and some ADA:</b>
+1. We want to send 20 ADA (20000000 lovelaces) from smallwallet2 to the address `addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql` and also some text:
+   <br>   ```./01_sendLovelaces.sh smallwallet1 addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql 20000000 "msg: hi, my name is xxx|i love your scripts" "msg: let me send you a littel tip here|ciao :-)"```
+
+So as you can see, you can use the "msg: xxx" parameter multiple times. You can also use the | separator to create new lines. In this example the attached message would be:
+   ```
+   hi, my name is xxx
+   i love your scripts
+   let me send you a little tip here
+   ciao :-)
+   ```
+   
 </details>
 
 ## Create the StakePool with CLI-Owner-Keys
