@@ -55,7 +55,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
 	utxoAmount=$(jq -r ".\"${utxoHashIndex}\".value.lovelace" <<< ${utxoJSON})   #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
-	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
+	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"; utxoDataEntry=$(jq -r ".\"${utxoHashIndex}\".data" <<< ${utxoJSON}); if [[ ! "${utxoDataEntry}" == null ]]; then echo -e "  DataHash: ${utxoDataEntry}"; fi
 	assetsJSON=$(jq -r ".\"${utxoHashIndex}\".value | del (.lovelace)" <<< ${utxoJSON}) #All values without the lovelaces entry
 	assetsEntryCnt=$(jq length <<< ${assetsJSON})
 
@@ -88,6 +88,9 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
 	totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
 
+        #Get a sorted list of the AssetHashes into a separate Array
+        #totalAssetsHASHsorted=$(jq "keys | sort_by( split(\".\")[1]|length) | sort_by( split(\".\")[0])" 2> /dev/null <<< ${totalAssetsJSON})
+
 	totalAssetsCnt=$(jq length <<< ${totalAssetsJSON});
 	if [[ ${totalAssetsCnt} -gt 0 ]]; then
 			echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
@@ -95,6 +98,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
 			assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
+			#assetHashName=$(jq -r ".[${tmpCnt}]" <<< ${totalAssetsHASHsorted})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
 			assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
 			assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})

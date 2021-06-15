@@ -44,12 +44,6 @@ cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna
 cardanometa="./token-metadata-creator" #Path to your token-metadata-creator binary you wanna use. If present in the Path just set it to "token-metadata-creator" without the "./" infront
 
 
-#--------- Only needed for automated kes/opcert update and upload via scp -----
-remoteServerAddr="remoteserver address or ip"                   #RemoteServer ip or dns name
-remoteServerUser="remoteuser"                             	#RemoteServer userlogin via ssh keys
-remoteServerSSHport="22"                                	#RemoteServer SSH port number
-remoteServerDestDir="~/remoteuser/core-###NODENAME###/."        #Destination directory were to copy the files to
-remoteServerPostCommand="~/remoteuser/restartCore.sh"      	#Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
 
 
 #--------- Only needed if you wanna change the BlockChain from the Mainnet to a Testnet Chain Setup
@@ -770,4 +764,9 @@ convertToADA() {
 echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and add a leading zero if below 1 ada
 }
 
+#-------------------------------------------------------
+#Get the real bytelength of a given string (for UTF-8 byte check)
+byteLength() {
+    echo -n "${1}" | wc --bytes
+}
 

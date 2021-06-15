@@ -10,18 +10,28 @@
 #       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-case $# in
-  4|5|6|7 ) fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//}
+if [ $# -ge 4 ]; then
+      fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//}
       toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//}
       assetToSend="$3";
-      amountToSend="$4";;
-  * ) cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR asset1-name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL> [Opt: Amount of lovelaces to include] [Opt: Transaction-Metadata.json/.cbor] [Opt: list of UTXOs to use]
+      amountToSend="$4";
+      else
+      cat >&2 <<EOF
+Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR asset1-name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL> 
+        [Opt: Amount of lovelaces to include]
+        [Opt: Transaction-Metadata.json/.cbor]
+        [Opt: list of UTXOs to use, | is the separator]
+        [Opt: Message comment, starting with "msg: ...", | is the separator]
 
 
 Optional parameters:
 
 - Normally you don't need to specify an Amount of lovelaces to include, the script will calculcate the minimum Amount that is needed by its own.
+
+- If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
+   You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
+   "msg: This is a short comment for the transaction" ... that would be a one-liner comment
+   "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
 
 - You can attach a transaction-metadata.json by adding the filename of the json file to the parameters
 
@@ -32,25 +42,26 @@ Optional parameters:
     "UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in "..."
 
 EOF
-  exit 1;; esac
+  exit 1; fi
 
 
 #Check all optional parameters about there types and set the corresponding variables
 #Starting with the 5th parameter (index4) up to the last parameter
-metafileParameter=""; metafile=""; lovelacesToSend=0; filterForUTXO=""; #Setting defaults
+metafileParameter=""; metafile=""; lovelacesToSend=0; filterForUTXO=""; transactionMessage="{}"; #Setting defaults
 
 paramCnt=$#;
-IFS=' ' read -ra allParameters <<< "${@}"
+#IFS=' ' read -ra allParameters <<< "${@}"
+allParameters=( "$@" )
 for (( tmpCnt=4; tmpCnt<${paramCnt}; tmpCnt++ ))
  do
 	paramValue=${allParameters[$tmpCnt]}
 	#echo -n "${tmpCnt}: ${paramValue} -> "
 
-        #Check if an additional amount of lovelaces was set as parameter (not containing a #, not empty, beeing a number)
-	if [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ ! -z "${paramValue##*[!0-9]*}" ]; then lovelacesToSend=${paramValue};
+        #Check if an additional amount of lovelaces was set as parameter (not a message, not an UTXO#IDX, not empty, beeing a number)
+	if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ ! -z "${paramValue##*[!0-9]*}" ]; then lovelacesToSend=${paramValue};
 
-        #Check if an additional metadata.json/.cbor was set as parameter (not containing a #, not empty, not beeing a number)
-        elif [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+        #Check if an additional metadata.json/.cbor was set as parameter (not a message, not an UTXO#IDX, not empty, not beeing a number)
+        elif [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
              metafile="$(dirname ${paramValue})/$(basename $(basename ${paramValue} .json) .cbor)"; metafile=${metafile//.\//}
              if [ -f "${metafile}.json" ]; then metafile="${metafile}.json"
@@ -59,15 +70,34 @@ for (( tmpCnt=4; tmpCnt<${paramCnt}; tmpCnt++ ))
                 if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
                 #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
                 if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
-                metafileParameter="--metadata-json-file ${metafile}"
+                metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}${metafile} "
              elif [ -f "${metafile}.cbor" ]; then metafile="${metafile}.cbor"
-                metafileParameter="--metadata-cbor-file ${metafile}"
+                metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}${metafile} "
              else echo -e "The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again."; exit 1;
              fi
 
-	#Check if an additional UTXO#IDX filter was set as parameter (must contain a #)
-	elif [[ "${paramValue}" == *"#"* ]]; then filterForUTXO="${paramValue}";
-	fi
+        #Check if an additional UTXO#IDX filter was set as parameter "hex#num(|)" at least 1 time, but can be more often}
+        elif [[ "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]]; then filterForUTXO="${paramValue}";
+
+        #Check it its a MessageComment. Adding it to the JSON array if the length is <= 64 chars
+        elif [[ "${paramValue,,}" =~ ^msg:(.*)$ ]]; then #if the parameter starts with "msg:" then add it
+                msgString=$(trimString "${paramValue:4}");
+
+                #Split the messages within the parameter at the "|" char
+                IFS='|' read -ra allMessages <<< "${msgString}"
+
+                #Add each message to the transactionMessage JSON
+                for (( tmpCnt2=0; tmpCnt2<${#allMessages[@]}; tmpCnt2++ ))
+                do
+                        tmpMessage=${allMessages[tmpCnt2]}
+                        if [[ $(byteLength "${tmpMessage}") -le 64 ]]; then
+                                                transactionMessage=$( jq ".\"674\".msg += [ \"${tmpMessage}\" ]" <<< ${transactionMessage} 2> /dev/null);
+                                                if [ $? -ne 0 ]; then echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" contain invalid chars for a JSON!\n\e[0m"; exit 1; fi
+                        else echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" is too long, max. 64 bytes allowed, yours is $(byteLength "${tmpMessage}") bytes long!\n\e[0m"; exit 1;
+                        fi
+                done
+
+	fi #end of different parameters check
 
  done
 
@@ -83,6 +113,15 @@ if [ -f "${assetFile}" ]; then
 				tmpAssetPolicy="$(jq -r .policyID < ${assetFile})"
 				tmpAssetName="$(jq -r .name < ${assetFile})"
 				if [[ "${tmpAssetName}" == "" ]]; then assetToSend="${tmpAssetPolicy}"; else assetToSend="${tmpAssetPolicy}.${tmpAssetName}"; fi
+fi
+
+
+#Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list
+if [[ ! "${transactionMessage}" == "{}" ]]; then
+        transactionMessageMetadataFile="${tempDir}/$(basename ${fromAddr}).transactionMessage.json";
+        tmp=$( jq . <<< ${transactionMessage} 2> /dev/null)
+        if [ $? -eq 0 ]; then echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
+                         else echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1; fi
 fi
 
 
@@ -245,7 +284,13 @@ echo
 
 echo
 
-if [[ ! "${metafile}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafile}\e[0m\n"; fi
+
+#There are metadata file attached, list them:
+if [[ ! "${metafileList}" == "" ]]; then echo -e "\e[0mInclude Metadata-File(s):\e[32m ${metafileList}\e[0m\n"; fi
+
+#There are transactionMessages attached, show the metadatafile:
+if [[ ! "${transactionMessage}" == "{}" ]]; then echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m"; fi
+
 
 #
 # Set the right rxcnt, in this case its always 2. One external destination address, one return address (sourceAddress)

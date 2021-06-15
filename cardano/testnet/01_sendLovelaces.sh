@@ -16,10 +16,18 @@ if [ $# -ge 3 ]; then
 			lovelacesToSend="$3";
 		 else
 		 cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets> [Opt: metadata.json/.cbor] [Opt: list of UTXOs to use]
+Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets>
+        [Opt: metadata.json/.cbor]
+        [Opt: list of UTXOs to use, | is the separator]
+        [Opt: Message comment, starting with "msg: ...", | is the separator]
 
 
 Optional parameters:
+
+- If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
+   You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
+   "msg: This is a short comment for the transaction" ... that would be a one-liner comment
+   "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
 
 - If you wanna attach a Metadata JSON:
    You can add a Metadata.json (Auxilierydata) filename as a parameter to send it alone with the transaction.
@@ -41,17 +49,18 @@ if [[ ! "${lovelacesToSend^^}" == "ALL"  && ! "${lovelacesToSend^^}" == "ALLFUND
 
 #Check all optional parameters about there types and set the corresponding variables
 #Starting with the 4th parameter (index3) up to the last parameter
-metafileParameter=""; metafile=""; filterForUTXO=""; #Setting defaults
+metafileParameter=""; metafile=""; filterForUTXO=""; transactionMessage="{}" #Setting defaults
 
 paramCnt=$#;
-IFS=' ' read -ra allParameters <<< "${@}"
+#IFS=' ' read -ra allParameters <<< "${@}"   #old, because the split on spaces is not working with messages
+allParameters=( "$@" )
 for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
  do
         paramValue=${allParameters[$tmpCnt]}
         #echo -n "${tmpCnt}: ${paramValue} -> "
 
-        #Check if an additional metadata.json/.cbor was set as parameter (not containing a #, not empty, not beeing a number)
-        if [[ ! "${paramValue^^}" == *"#"* ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+        #Check if an additional metadata.json/.cbor was set as parameter (not a Message, not a UTXO#IDX, not empty, not a number)
+        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
              metafile="$(dirname ${paramValue})/$(basename $(basename ${paramValue} .json) .cbor)"; metafile=${metafile//.\//}
              if [ -f "${metafile}.json" ]; then metafile="${metafile}.json"
@@ -66,18 +75,46 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
 	     else echo -e "The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again."; exit 1;
              fi
 
-        #Check if an additional UTXO#IDX filter was set as parameter (must contain a #)
-        elif [[ "${paramValue}" == *"#"* ]]; then filterForUTXO="${paramValue}";
-        fi
+        #Check if an additional UTXO#IDX filter was set as parameter "hex#num(|)" at least 1 time, but can be more often}
+        elif [[ "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]]; then filterForUTXO="${paramValue}";
+
+	#Check it its a MessageComment. Adding it to the JSON array if the length is <= 64 chars
+	elif [[ "${paramValue,,}" =~ ^msg:(.*)$ ]]; then #if the parameter starts with "msg:" then add it
+		msgString=$(trimString "${paramValue:4}");
+
+		#Split the messages within the parameter at the "|" char
+		IFS='|' read -ra allMessages <<< "${msgString}"
+
+		#Add each message to the transactionMessage JSON
+		for (( tmpCnt2=0; tmpCnt2<${#allMessages[@]}; tmpCnt2++ ))
+		do
+			tmpMessage=${allMessages[tmpCnt2]}
+                        if [[ $(byteLength "${tmpMessage}") -le 64 ]]; then
+                                                transactionMessage=$( jq ".\"674\".msg += [ \"${tmpMessage}\" ]" <<< ${transactionMessage} 2> /dev/null);
+                                                if [ $? -ne 0 ]; then echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" contain invalid chars for a JSON!\n\e[0m"; exit 1; fi
+                        else echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" is too long, max. 64 bytes allowed, yours is $(byteLength "${tmpMessage}") bytes long!\n\e[0m"; exit 1;
+			fi
+		done
+
+
+        fi #end of different parameters check
 
  done
-
 
 #Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
 
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+
+
+#Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list
+if [[ ! "${transactionMessage}" == "{}" ]]; then
+        transactionMessageMetadataFile="${tempDir}/$(basename ${fromAddr}).transactionMessage.json";
+        tmp=$( jq . <<< ${transactionMessage} 2> /dev/null)
+        if [ $? -eq 0 ]; then echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
+                         else echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1; fi
+fi
 
 echo -e "\e[0mSending lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
 echo
@@ -172,12 +209,16 @@ echo
         totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
 
+	#Get a sorted list of the AssetHashes into a separate Array
+        #totalAssetsHASHsorted=$(jq "keys | sort_by( split(\".\")[1]|length) | sort_by( split(\".\")[0])" 2> /dev/null <<< ${totalAssetsJSON})
+
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
                         printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "ASCII-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
                         assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
+                        #assetHashName=$(jq -r ".[${tmpCnt}]" <<< ${totalAssetsHASHsorted})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
                         assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
@@ -195,7 +236,11 @@ echo
 
 echo
 
-if [[ ! "${metafileList}" == "" ]]; then echo -e "\e[0mInclude Metadata-File:\e[32m ${metafileList}\e[0m\n"; fi
+#There are metadata file attached, list them:
+if [[ ! "${metafileList}" == "" ]]; then echo -e "\e[0mInclude Metadata-File(s):\e[32m ${metafileList}\e[0m\n"; fi
+
+#There are transactionMessages attached, show the metadatafile:
+if [[ ! "${transactionMessage}" == "{}" ]]; then echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m"; fi
 
 #Read ProtocolParameters
 if ${onlineMode}; then
@@ -226,7 +271,7 @@ case "${lovelacesToSend^^}" in
 esac
 
 
-minUTXOvalue=$(jq -r .minUTxOValue <<< ${protocolParametersJSON})      #This value is the minimum value you have to send out in each --tx-out
+minUTXOvalue=$(jq -r .minUTxOValue <<< ${protocolParametersJSON}); if [[ "${minUTXOvalue}" == null ]]; then minUTXOvalue=1000000; fi      #This value is the minimum value you have to send out in each --tx-out
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
@@ -235,13 +280,15 @@ if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no 
                         ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+#                       echo -e "${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}"
+                        ${cardanocli} transaction build-raw --mary-era ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --tx-out ${sendToAddr}+0 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
+
 
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 echo -e "\e[0mMinimum UTXO value for a Transaction: \e[32m ${minUTXOvalue} lovelaces \e[90m"
@@ -352,7 +399,7 @@ echo -ne "\e[90m"
 cat ${txFile}
 echo
 
-if ask "\n\e[33mDoes this look good for you, continue ?" N; then
+if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you, continue ?" N; then
 	echo
 	if ${onlineMode}; then	#onlinesubmit
 				echo -ne "\e[0mSubmitting the transaction via the node... "

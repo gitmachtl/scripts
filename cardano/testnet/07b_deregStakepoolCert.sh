@@ -220,7 +220,7 @@ elif [[ -f "${deregPayName}.skey" && -f "${poolName}.node.skey" ]]; then #with t
         ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${deregPayName}.skey --signing-key-file ${poolName}.node.skey ${magicparam} --out-file ${txFile}
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 else
-echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet-Node-Pool can only be retired by paying also with the same Hardware-Wallet.\nSo if you don't have a payment account on your Hardware-Wallet yet, create one first with Scripts 02/03a and\nfund them with some ADA to pay for the PoolRetirement-Transaction.\e[0m\n"; exit 1;
+echo -e "\e[35mThis combination is not allowed! Only a Hardware-Wallet-Node-Pool can be retired by paying also with the same Hardware-Wallet.\nSo if you don't have a payment account on your Hardware-Wallet yet, create one first with Scripts 02/03a and\nfund them with some ADA to pay for the PoolRetirement-Transaction.\e[0m\n"; exit 1;
 fi
 echo -ne "\e[90m"
 cat ${txFile}
