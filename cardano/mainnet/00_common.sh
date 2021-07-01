@@ -44,6 +44,12 @@ cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna
 cardanometa="./token-metadata-creator" #Path to your token-metadata-creator binary you wanna use. If present in the Path just set it to "token-metadata-creator" without the "./" infront
 
 
+#--------- Only needed for automated kes/opcert update and upload via scp -----
+remoteServerAddr="remoteserver address or ip"                   #RemoteServer ip or dns name
+remoteServerUser="remoteuser"                             	#RemoteServer userlogin via ssh keys
+remoteServerSSHport="22"                                	#RemoteServer SSH port number
+remoteServerDestDir="~/remoteuser/core-###NODENAME###/."        #Destination directory were to copy the files to
+remoteServerPostCommand="~/remoteuser/restartCore.sh"      	#Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
 
 
 #--------- Only needed if you wanna change the BlockChain from the Mainnet to a Testnet Chain Setup
@@ -91,9 +97,9 @@ if [[ -f "common.inc" ]]; then source "common.inc"; fi
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
 minNodeVersion="1.27.0"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="2.3.2"  #minimum version for the cardano-app on the Ledger hardwarewallet
-minTrezorCardanoAppVersion="2.4.0"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.5.0" #minimum version for the cardano-hw-cli
+minLedgerCardanoAppVersion="2.4.1"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
+minHardwareCliVersion="1.6.2" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -385,6 +391,7 @@ get_NodeEra() {
 local tmpEra=$(${cardanocli} query tip ${magicparam} | jq -r ".era | select (.!=null)" 2> /dev/null)
 if [[ ! "${tmpEra}" == "" ]]; then tmpEra=${tmpEra,,}; else tmpEra="auto"; fi
 echo "${tmpEra}"; return 0; #return era in lowercase
+#echo "mary"; return 0;
 }
 ##Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
@@ -404,25 +411,49 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 
   while IFS= read -r line; do
   IFS=' ' read -ra utxo_entry <<< "${line}" # utxo_entry array holds entire utxo string
+
   local utxoHashIndex="${utxo_entry[0]}#${utxo_entry[1]}"
-  local utxoAmountLovelaces=${utxo_entry[2]}
+
+  #There are lovelaces on the UTXO
+  if [[ "${utxo_entry[3]}" == "lovelace" ]]; then
+						local idx=5; #normal indexstart for the next checks
+    						local utxoAmountLovelaces=${utxo_entry[2]};
+					      else
+						local idx=2; #earlier indexstart, because no lovelaces present
+						local utxoAmountLovelaces=0;
+  fi
 
   #Build the entry for each UtxoHashIndex
   local utxoJSON=$( jq ".\"${utxoHashIndex}\".address = \"${utxoAddress}\"" <<< ${utxoJSON})
   local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.lovelace = \"${utxoAmountLovelaces}\"" <<< ${utxoJSON})
 
-  #Add the Token entries if tokens available
-  if [[ ${#utxo_entry[@]} -gt 4 ]]; then # contains tokens
-    local idx=5
-    while [[ ${#utxo_entry[@]} -gt ${idx} ]]; do
-      local asset_amount=${utxo_entry[${idx}]}
-      local asset_hash_name="${utxo_entry[$((idx+1))]}"
-      IFS='.' read -ra asset <<< "${asset_hash_name}"
-      local asset_policy=${asset[0]}
-      local asset_name=${asset[1]}
-      #Add the Entry of the Token
-      local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.\"${asset_policy}\" += { \"${asset_name}\": \"${asset_amount}\" }" <<< ${utxoJSON})
-      local idx=$(( ${idx} + 3 ))
+  local idxCompare=$(( ${idx} - 1 ))
+
+  #Add the Token entries if tokens available, also check for data (script) entries
+  if [[ ${#utxo_entry[@]} -gt ${idxCompare} ]]; then # contains tokens
+
+    while [[ ${#utxo_entry[@]} -gt ${idx} ]]; do  #check if there are more entries, and the amount is a number
+      local next_entry=${utxo_entry[${idx}]}
+
+      #if the next entry is a number -> process asset/tokendata
+      if [[ "${next_entry}" =~ ^[0-9]+$ ]]; then
+	      local asset_amount=${next_entry}
+	      local asset_hash_name="${utxo_entry[$((idx+1))]}"
+	      IFS='.' read -ra asset <<< "${asset_hash_name}"
+	      local asset_policy=${asset[0]}
+	      local asset_name=${asset[1]}
+	      #Add the Entry of the Token
+	      local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.\"${asset_policy}\" += { \"${asset_name}\": \"${asset_amount}\" }" <<< ${utxoJSON})
+	      local idx=$(( ${idx} + 3 ))
+     #if its a data entry, add the data-key field to the json output
+     elif [[ "${next_entry}" == "TxOutDatumHash" ]] && [[ "${utxo_entry[$((idx+1))]}" == *"Data"* ]]; then
+	      local data_entry_hash=${utxo_entry[$((idx+2))]}
+	      local utxoJSON=$( jq ".\"${utxoHashIndex}\".data = \"${data_entry_hash//\"/}\"" <<< ${utxoJSON})
+	      local idx=$(( ${idx} + 4 ))
+     else
+	      local idx=$(( ${idx} + 1 ))
+     fi
+
     done
   fi
   echo
@@ -480,7 +511,7 @@ echo -n "${1}" | xxd -r -ps
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
-calc_minOutUTXO() {
+calc_minOutUTXOnew() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
@@ -492,15 +523,18 @@ echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second 
 }
 
 
-
 #-------------------------------------------------------
 #Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
-calc_minOutUTXOold() {
+calc_minOutUTXO() {
+
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
-local minUTXOValue=$(jq -r .minUTxOValue <<< ${1})
-local minOutUTXO=${minUTXOValue} #preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
+local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${1});
+if [[ "${minUTXOValue}" == "" ]]; then minUTXOValue=1000000; fi
+
+#preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
+local minOutUTXO=${minUTXOValue}
 
 #chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
 local k0=0				#coinSize=0 in mary-era, 2 in alonzo-era
@@ -764,9 +798,9 @@ convertToADA() {
 echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and add a leading zero if below 1 ada
 }
 
+
 #-------------------------------------------------------
 #Get the real bytelength of a given string (for UTF-8 byte check)
 byteLength() {
     echo -n "${1}" | wc --bytes
 }
-

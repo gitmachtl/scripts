@@ -14,8 +14,8 @@ case $# in
 	toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//};;
   * ) cat >&2 <<EOF
 Usage:  $(basename $0) <StakeAddressName> <To AddressName> [optional: <FeePaymentAddressName>] [optional: list of UTXOs to use]
-Ex.: $(basename $0) atada.staking atada.payment        (claims the rewards from atada.staking.addr and sends them to atada.payment.addr, atada.payment.addr pays the fees)
-Ex.: $(basename $0) atada.staking atada.payment funds  (claims the rewards from atada.staking.addr and sends them to atada.payment.addr, funds.addr pays the fees)
+Ex.: $(basename $0) owner.staking owner.payment        (claims the rewards from owner.staking.addr and sends them to owner.payment.addr, owner.payment.addr pays the fees)
+Ex.: $(basename $0) owner.staking owner.payment funds  (claims the rewards from owner.staking.addr and sends them to owner.payment.addr, funds.addr pays the fees)
 
 Optional parameter UTXO List:
 
