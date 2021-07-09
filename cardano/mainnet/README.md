@@ -49,7 +49,21 @@ On the Offline-Machine you have your signing keys, thats the ```*.skey``` files,
 You need the cardano-cli on the Offline-Machine, same version as on the Online-Machine! You don't need the cardano-node, because you will never be online with that Machine!
 
 You should keep your directory structure the same on both Machines.
+   
+The scripts need a few other helper tools: **curl, bc, xxd** and **jq**. To get them onto the Offline-Machine you can do the following:
+   
+**Online-Machine:**
 
+1. Make a temporary directory, change into that directory and run the following command:<br> ```sudo apt-get update && sudo apt-get download bc xxd jq curl```
+
+:floppy_disk: Transfer the *.deb files from that directory to the Offline-Machine.
+
+**Offline-Machine:**
+
+1. Make a temporary directory, copy in the *.deb files from the Online-Machine and run the following command:<br>```sudo dpkg -i *.deb```
+
+Done, you have successfully installed the few little tools now on your Offline-Machine. :smiley:
+   
 </details>
 
 <details>
@@ -2005,7 +2019,22 @@ The examples in here are for using the scripts in Offine-Mode. Please get yourse
 
 * Offline-Machine: Set the ```offlineMode="yes"``` parameter in the 00_common.sh, common.inc or ~/.common.inc config file.<br>You only need the cardano-cli on this Machine, no cardano-node binaries.
 
+> The scripts need a few other helper tools: **curl, bc, xxd** and **jq**. To get them onto the Offline-Machine you can do the following:
+>   
+> **Online-Machine:**
+>   
+> 1. Make a temporary directory, change into that directory and run the following command:<br> ```sudo apt-get update && sudo apt-get download bc xxd jq curl```
+>   
+> :floppy_disk: Transfer the *.deb files from that directory to the Offline-Machine.
+>  
+> **Offline-Machine:**
+>   
+> 1. Make a temporary directory, copy in the *.deb files from the Online-Machine and run the following command:<br>```sudo dpkg -i *.deb```
+>   
+> Done, you have successfully installed the few little tools now on your Offline-Machine. :smiley:
 
+   
+   
 ## Generate some wallets for the daily operator work
 
 So first you should create yourself a few small wallets for the daily Operator work, there is no need to use your big-owner-pledge-wallet for this every time. Lets say we wanna create three small wallets with the name smallwallet1, smallwallet2 and smallwallet3. And we wanna fund them via daedalus for example.
