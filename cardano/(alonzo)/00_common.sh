@@ -97,9 +97,9 @@ if [[ -f "common.inc" ]]; then source "common.inc"; fi
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
 minNodeVersion="1.27.0"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="2.3.2"  #minimum version for the cardano-app on the Ledger hardwarewallet
-minTrezorCardanoAppVersion="2.3.6"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.5.0" #minimum version for the cardano-hw-cli
+minLedgerCardanoAppVersion="2.4.1"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minTrezorCardanoAppVersion="2.4.0"  #minimum version for the cardano-app on the Trezor hardwarewallet
+minHardwareCliVersion="1.6.2" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -533,12 +533,6 @@ calc_minOutUTXO() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
-local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${1});
-if [[ "${minUTXOValue}" == "" ]]; then minUTXOValue=1000000; fi
-
-#preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
-local minOutUTXO=${minUTXOValue}
-
 #chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
 local k0=0				#coinSize=0 in mary-era, 2 in alonzo-era
 local k1=6
@@ -547,6 +541,18 @@ local k3=28				#pidSize=28
 local k4=8				#word=8 bytes
 local utxoEntrySizeWithoutVal=27 	#6+txOutLenNoVal(14)+txInLen(7)
 local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
+
+local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${1});
+
+#check for new parameter available in alonzo-era, if so, overwrite the minUTXOValue
+local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${1});
+if [[ ! "${utxoCostPerWord}" == "" ]]; then
+					    adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more than in mary era
+					    minUTXOValue=$(( ${utxoCostPerWord} * ${adaOnlyUTxOSize} ));
+fi
+
+#preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
+local minOutUTXO=${minUTXOValue}
 
 #split the tx-out string into the assets
 IFS='+' read -ra asset_entry <<< "${2}"
@@ -576,6 +582,7 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
 	  if [[ ! "${asset_hash_hexname}" == "" ]]; then local nameCollector="${nameCollector}${asset_hash_hexname}\n"; fi
 
           local idx=$(( ${idx} + 1 ))
+
         done
 
        #get uniq entries
@@ -594,6 +601,9 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
 
        #if minAda is higher than the bottom minUTXOValue, set the output to the higher value (max function)
        if [[ ${minAda} -gt ${minUTXOValue} ]]; then minOutUTXO=${minAda}; fi
+
+       minOutUTXO=${minAda};
+
 fi
 
 echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or without assets
@@ -802,10 +812,8 @@ echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and 
 }
 
 
-
 #-------------------------------------------------------
 #Get the real bytelength of a given string (for UTF-8 byte check)
 byteLength() {
     echo -n "${1}" | wc --bytes
 }
-
