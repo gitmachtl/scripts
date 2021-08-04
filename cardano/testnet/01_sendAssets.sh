@@ -110,8 +110,8 @@ if [ ${paramCnt} -ge 3 ]; then
 				fi
 
 			#Check if the assetToSend is a policyID.* string, if so, store it as a bulk entry
-			elif [[ "${assetToSend}" =~ ^[[:xdigit:]]{56}\.\*$ ]]; then
-				if [[ "${amountToSend}" == "ALL" ]]; then assetBechToSend="${assetToSend:0:56}-policyID-ALL";
+			elif [[ "${assetToSend}" =~ ^[[:xdigit:]]{56}\.(.{0,31})\*$ ]]; then
+				if [[ "${amountToSend}" == "ALL" ]]; then assetBechToSend="${assetToSend:0:-1}-policyID-ALL"; #cut of the last char * and store it in the sending list
 								     else echo -e "\n\e[35mError with Bulk-Selection of policyID: \e[0m${assetToSend}\n\n\e[35mPlease set the sending amount to \e[0mALL \e[35m!\e[0m\n"; exit 1; fi
 
 			#Check if the assetToSend is a file xxx.asset then read out the data from the file instead
@@ -285,9 +285,12 @@ echo
 
 				#special process to lookup if there is a bulk sending entry in the ${bechAssetsToSendJSON}, if so, add the current asset with amount ALL to that list
 				#this bulk sending is only processed for assets with an assetname like NFTs, not for nameless assets. they have to be sent separate
-				if [[ ! "${assetName}" == "" ]] && [[ ! $(grep "${assetHash}-policyID-ALL" <<< ${bechAssetsToSendJSON}) == "" ]]; then
+				if [[ ! "${assetName}" == "" ]] && [[ "${bechAssetsToSendJSON}" =~ ${assetHash}\.(.*)-policyID-ALL ]]; then
+					tmpFullKeyFound=${BASH_REMATCH[0]}; tmpCompareFound=${BASH_REMATCH[0]:0:-13};
+					if [[ ! $(grep "${tmpCompareFound}" <<< "${assetHash}.${assetName}") == "" ]]; then
 					bechAssetsToSendJSON=$( jq ". += {\"${assetBech}\":{amount: \"ALL\", input: \"* ${assetHash}.${assetName}\"}}" <<< ${bechAssetsToSendJSON}) #add the current asset to the sending list
-					bechAssetsToSendJSON=$( jq ".\"${assetHash}-policyID-ALL\".bulkfound = \"true\"" <<< ${bechAssetsToSendJSON}) #mark the bulksending entry itself as used by adding the key bulk=true to it for later filtering
+					bechAssetsToSendJSON=$( jq ".\"${tmpFullKeyFound}\".bulkfound = \"true\"" <<< ${bechAssetsToSendJSON}) #mark the bulksending entry itself as used by adding the key bulk=true to it for later filtering
+					fi
 				fi
 
                                 done
