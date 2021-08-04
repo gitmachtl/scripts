@@ -18,12 +18,17 @@ Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Nam
 
 Optional parameters:
 
-- If you wanna send multiple Assets at the same time, you can use the | as the separator, must be in "..." for the parameter:
+- If you wanna send multiple Assets at the same time, you can use the | as the separator, must be in "..." for the parameter 3:
    "myassets/mypolicy.mytoken 10" ... to send 10 tokens specified in the asset-file
    "myassets/mypolicy.mytoken 10|asset1hgxml0wxcw903pdsgzr8gyvwg8ch40v0fvnmjl 20" ... to send 10 mytoken and 20 tokens with bech asset1...
    "asset1hgxml0wxcw903pdsgzr8gyvwg8ch40v0fvnmjl all|asset1ra679n0pql7hc57qjlah3cjhaygywgccsufmpn all" ... to send all tokens of the given asset-names
 
+- You can also send all Assets with a specified policyID, or a policyID.name* with the * at the end for parameter 3:
+  "b43131f2c82825ee3d81705de0896c611f35ed38e48e33a3bdf298dc.* all" ... to send out all your CryptoMage NFTs
+  "34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.Coin* all" .. to send out all your Assets for that policyID starting with the name "Coin"
+
 - Normally you don't need to specify an Amount of lovelaces to include, the script will calculcate the minimum Amount that is needed by its own.
+  If you wanna send a specific amount, just provide the amount in lovelaces as one of the optional parameters.
 
 - If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
    You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
@@ -111,7 +116,7 @@ if [ ${paramCnt} -ge 3 ]; then
 
 			#Check if the assetToSend is a policyID.* string, if so, store it as a bulk entry
 			elif [[ "${assetToSend}" =~ ^[[:xdigit:]]{56}\.(.{0,31})\*$ ]]; then
-				if [[ "${amountToSend}" == "ALL" ]]; then assetBechToSend="${assetToSend:0:-1}-policyID-ALL"; #cut of the last char * and store it in the sending list
+				if [[ "${amountToSend}" == "ALL" ]]; then assetBechToSend="${assetToSend:0:-1}-BULK"; #cut of the last char * and store it in the sending list
 								     else echo -e "\n\e[35mError with Bulk-Selection of policyID: \e[0m${assetToSend}\n\n\e[35mPlease set the sending amount to \e[0mALL \e[35m!\e[0m\n"; exit 1; fi
 
 			#Check if the assetToSend is a file xxx.asset then read out the data from the file instead
@@ -285,8 +290,8 @@ echo
 
 				#special process to lookup if there is a bulk sending entry in the ${bechAssetsToSendJSON}, if so, add the current asset with amount ALL to that list
 				#this bulk sending is only processed for assets with an assetname like NFTs, not for nameless assets. they have to be sent separate
-				if [[ ! "${assetName}" == "" ]] && [[ "${bechAssetsToSendJSON}" =~ ${assetHash}\.(.*)-policyID-ALL ]]; then
-					tmpFullKeyFound=${BASH_REMATCH[0]}; tmpCompareFound=${BASH_REMATCH[0]:0:-13};
+				if [[ ! "${assetName}" == "" ]] && [[ "${bechAssetsToSendJSON}" =~ ${assetHash}\.(.*)-BULK ]]; then
+					tmpFullKeyFound=${BASH_REMATCH[0]}; tmpCompareFound=${BASH_REMATCH[0]:0:-5};
 					if [[ ! $(grep "${tmpCompareFound}" <<< "${assetHash}.${assetName}") == "" ]]; then
 					bechAssetsToSendJSON=$( jq ". += {\"${assetBech}\":{amount: \"ALL\", input: \"* ${assetHash}.${assetName}\"}}" <<< ${bechAssetsToSendJSON}) #add the current asset to the sending list
 					bechAssetsToSendJSON=$( jq ".\"${tmpFullKeyFound}\".bulkfound = \"true\"" <<< ${bechAssetsToSendJSON}) #mark the bulksending entry itself as used by adding the key bulk=true to it for later filtering
@@ -309,7 +314,7 @@ if [[ ${totalAssetsCnt} -gt 0 ]]; then  echo -e "\e[32m${totalAssetsCnt} Asset-T
 
 
 #Showing the assets given to the script to send them out, compose the assetsSendString and also check the available amounts
-printf "\e[33m%-80s %16s %-44s\e[0m\n" "Assets to send (given input reference, * means selected via policyID):" "Amount:" "Bech-Format:"
+printf "\e[33m%-80s %16s %-44s\e[0m\n" "Assets to send (given input reference, * means selected via bulk sending):" "Amount:" "Bech-Format:"
 
 assetsSendString=""
 
