@@ -155,7 +155,7 @@ fi
 if ! exists "${bech32_bin}"; then
 				#Try the one in the scripts folder
 				if [[ -f "${scriptDir}/bech32" ]]; then bech32_bin="${scriptDir}/bech32";
-				else majorError "Path ERROR - Path to the 'bech32' binary is not correct or 'bech32' binaryfile is missing!\nYou can find it here: https://github.com/input-output-hk/bech32/releases/latest\nThis is needed to show the correct Bech32-Assetformat like 'asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs'."; exit 1; fi
+				else majorError "Path ERROR - Path to the 'bech32' binary is not correct or 'bech32' binaryfile is missing!\nYou can find it here: https://github.com/input-output-hk/bech32/releases/latest\nThis is needed to calculate the correct Bech32-Assetformat like 'asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs'."; exit 1; fi
 fi
 
 #Display current Mode (online or offline)
@@ -331,7 +331,14 @@ echo ${timeUntilNextEpoch}
 get_currentTip()
 {
 if ${onlineMode}; then
-			local currentTip=$(${cardanocli} query tip ${magicparam} | jq -r .slot);  #only "slot" instead of "slotNo" since 1.26.0
+			local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);  #only "slot" instead of "slotNo" since 1.26.0
+
+			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
+			if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
+				if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
+					if [[ "${currentTip}" == "" ]]; then majorError "query tip return from cardano-cli failed"; exit 1; fi
+				fi
+			fi
 		  else
 			#Static
 			local slotLength=$(cat ${genesisfile} | jq -r .slotLength)                    #In Secs
@@ -388,7 +395,7 @@ function trimString
 #-------------------------------------------------------
 #Return the era the online node is in
 get_NodeEra() {
-local tmpEra=$(${cardanocli} query tip ${magicparam} | jq -r ".era | select (.!=null)" 2> /dev/null)
+local tmpEra=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r ".era | select (.!=null)" 2> /dev/null)
 if [[ ! "${tmpEra}" == "" ]]; then tmpEra=${tmpEra,,}; else tmpEra="auto"; fi
 echo "${tmpEra}"; return 0; #return era in lowercase
 #echo "mary"; return 0;
@@ -533,12 +540,6 @@ calc_minOutUTXO() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
-local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${1});
-if [[ "${minUTXOValue}" == "" ]]; then minUTXOValue=1000000; fi
-
-#preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
-local minOutUTXO=${minUTXOValue}
-
 #chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
 local k0=0				#coinSize=0 in mary-era, 2 in alonzo-era
 local k1=6
@@ -547,6 +548,18 @@ local k3=28				#pidSize=28
 local k4=8				#word=8 bytes
 local utxoEntrySizeWithoutVal=27 	#6+txOutLenNoVal(14)+txInLen(7)
 local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
+
+local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${1});
+
+#check for new parameter available in alonzo-era, if so, overwrite the minUTXOValue
+local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${1});
+if [[ ! "${utxoCostPerWord}" == "" ]]; then
+					    adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more than in mary era
+					    minUTXOValue=$(( ${utxoCostPerWord} * ${adaOnlyUTxOSize} ));
+fi
+
+#preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
+local minOutUTXO=${minUTXOValue}
 
 #split the tx-out string into the assets
 IFS='+' read -ra asset_entry <<< "${2}"
@@ -576,6 +589,7 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
 	  if [[ ! "${asset_hash_hexname}" == "" ]]; then local nameCollector="${nameCollector}${asset_hash_hexname}\n"; fi
 
           local idx=$(( ${idx} + 1 ))
+
         done
 
        #get uniq entries
@@ -594,6 +608,9 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
 
        #if minAda is higher than the bottom minUTXOValue, set the output to the higher value (max function)
        if [[ ${minAda} -gt ${minUTXOValue} ]]; then minOutUTXO=${minAda}; fi
+
+       minOutUTXO=${minAda};
+
 fi
 
 echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or without assets

@@ -15,7 +15,7 @@ case $# in
       toPoolNodeName="$(dirname $1)/$(basename $(basename $1 .json) .pool)"; toPoolNodeName=${toPoolNodeName/#.\//};
       toPoolID=${1,,};;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <PoolNodeName> <DelegatorStakeAddressName>
+Usage:  $(basename $0) <PoolNodeName or PoolID-Hex or PoolID-Bech "pool1..."> <DelegatorStakeAddressName>
 EOF
   exit 1;; esac
 

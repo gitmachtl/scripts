@@ -3,21 +3,13 @@
 # Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
 
 #load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
 . "$(dirname "$0")"/00_common.sh
 
-if [ $# -ge 4 ]; then
-      fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//}
-      toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//}
-      assetToSend="$3";
-      amountToSend="$4";
-      else
-      cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR asset1-name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL> 
+
+#ShowUsage
+showUsage() {
+cat >&2 <<EOF
+Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR asset1-name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL>
         [Opt: Amount of lovelaces to include]
         [Opt: Transaction-Metadata.json/.cbor]
         [Opt: list of UTXOs to use, | is the separator]
@@ -26,33 +18,144 @@ Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Nam
 
 Optional parameters:
 
+- If you wanna send multiple Assets at the same time, you can use the | as the separator, must be in "..." for the parameter 3:
+   "myassets/mypolicy.mytoken 10" ... to send 10 tokens specified in the asset-file
+   "myassets/mypolicy.mytoken 10|asset1hgxml0wxcw903pdsgzr8gyvwg8ch40v0fvnmjl 20" ... to send 10 mytoken and 20 tokens with bech asset1...
+   "asset1hgxml0wxcw903pdsgzr8gyvwg8ch40v0fvnmjl all|asset1ra679n0pql7hc57qjlah3cjhaygywgccsufmpn all" ... to send all tokens of the given asset-names
+
+- You can also send all Assets with a specified policyID, or a policyID.name* with the * at the end for parameter 3:
+  "b43131f2c82825ee3d81705de0896c611f35ed38e48e33a3bdf298dc.* all" ... to send out all your CryptoMage NFTs
+  "34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.Coin* all" .. to send out all your Assets for that policyID starting with the name "Coin"
+
 - Normally you don't need to specify an Amount of lovelaces to include, the script will calculcate the minimum Amount that is needed by its own.
+  If you wanna send a specific amount, just provide the amount in lovelaces as one of the optional parameters.
 
 - If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
    You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
    "msg: This is a short comment for the transaction" ... that would be a one-liner comment
    "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
 
-- You can attach a transaction-metadata.json by adding the filename of the json file to the parameters
+- You can attach a transaction-metadata.json by adding the filename of the .json file to the parameters
 
-- You can attach a transaction-metadata.cbor by adding the filename of the json file to the parameters (catalystvoting f.e.)
+- You can attach a transaction-metadata.cbor by adding the filename of the .cbor file to the parameters (catalystvoting f.e.)
 
 - In rare cases you wanna define the exact UTXOs that should be used for sending Assets out:
     "UTXO1#Index" ... to specify one UTXO, must be in "..."
     "UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in "..."
 
 EOF
-  exit 1; fi
+}
 
+
+
+#Read in all command line parameters, doing it that way preserves the  parameters in quotes ""
+paramCnt=$#; allParameters=( "$@" );
+
+optionalParameterIdxStart=4; #will be automatically reduced to 3 if assetToSend&amountToSend is within parameter 3
+
+fromAddr=""; toAddr=""; bechAssetsToSendJSON="{}";
+
+#Read in the fromAddr->sendFromAddr & toAddr->sendToAddr
+if [ ${paramCnt} -ge 2 ]; then
+	fromAddr="$(dirname $1)/$(basename ${allParameters[0]} .addr)"; fromAddr=${fromAddr/#.\//}
+	if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+	if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+	sendFromAddr=$(cat ${fromAddr}.addr)
+	check_address "${sendFromAddr}"
+
+	toAddr="$(dirname $2)/$(basename ${allParameters[1]} .addr)"; toAddr=${toAddr/#.\//}
+	#Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
+	if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
+	sendToAddr=$(cat ${toAddr}.addr)
+	check_address "${sendToAddr}"
+
+	else echo -e "\n\e[35mERROR - Missing parameters FromAddress/ToAddress.\n\e[0m"; showUsage; exit 1;
+fi
+
+#Read in the assetToSend/amountToSend and check if the parameter#3[index 2] is in the form "xxx yyy"
+#Also check about if the amount is a number or keyword ALL for each entry, etc...
+if [ ${paramCnt} -ge 3 ]; then
+        IFS='|' read -ra allAssetsToSend <<< "${allParameters[2]}" #split by the separator |
+	for (( tmpCnt=0; tmpCnt<${#allAssetsToSend[@]}; tmpCnt++ )) #go thru all entries
+                do
+		        IFS=' ' read -ra tmpEntry <<< "$(trimString "${allAssetsToSend[tmpCnt]}")" #split the entry by the separator ' '
+
+			assetToSend=${tmpEntry[0]}
+			amountToSend=${tmpEntry[1]^^} #use the uppercase value (easier to check for keyword ALL)
+
+			#If the total assetsEntryCombo amount is only one and the splitted entrycount is 1 (asset&amount) and the paramCnt >= 4 and the 4th parameter is a number or ALL, than use this as the amountToSend
+			if [[ ${#allAssetsToSend[@]} -eq 1 ]] && [[ ${#tmpEntry[@]} -eq 1 ]] && [[ ${paramCnt} -ge 4 ]]; then
+			fourthParameter=${allParameters[3]^^};
+				if [[ -z "${fourthParameter##*[!0-9]*}" ]] && [[ ! "${fourthParameter}" == "ALL" ]]; then echo -e "\n\e[35mERROR - missing AssetName/File or sending amount is not a number or keyword ALL.\n\e[0m"; showUsage; exit 1;
+				elif [[ $(bc <<< "${fourthParameter} < 1") -eq 1 ]]; then  echo -e "\n\e[35mError - Please input a positive sending amount !\e[0m\n"; exit 1; fi
+			amountToSend=${fourthParameter};
+
+			#If the splitted entry is not 2 (asset&amount), or if the amountToSend is not a number -> show usage and exit
+			elif [[ ${#tmpEntry[@]} -ne 2 ]]; then echo -e "\n\e[35mERROR - Two parameters needed per Asset to send: AssetName/File/Bech and the Amount to send.\nIssue is with \"${assetToSend}\".\n\e[0m"; showUsage; exit 1;
+
+			#If the splitted entry is 2 (what it should be), check about that the parameter is a number or keyword ALL
+			elif [[ ${#tmpEntry[@]} -eq 2 ]]; then
+				if [[ -z "${amountToSend##*[!0-9]*}" ]] && [[ ! "${amountToSend}" == "ALL" ]]; then echo -e "\n\e[35mERROR - Sending amount is not a number or keyword ALL, or below zero.\n\e[0m"; showUsage; exit 1;
+				elif [[ $(bc <<< "${amountToSend} < 1") -eq 1 ]]; then  echo -e "\n\e[35mError - Please input a positive sending amount !\e[0m\n"; exit 1; fi
+				optionalParameterIdxStart=3; #assetToSend and amountToSend was given within a single Parameter #3[index 2], so the optional parameters will start at index 3 in this case, normally at index 4
+			fi
+
+			#Collect all the given Assets in a JSON for easier access, also convert all the entries into the bech32 format
+
+			#Check if the assetToSend is a bech32 assetname (starts with "asset" and bech32 tool confirms a valid bech name)
+			if [[ "${assetToSend}" =~ ^asset(.*)$ ]] && [[ "${#assetToSend}" -eq 44 ]]; then
+		        	tmp=$(${bech32_bin} 2> /dev/null <<< "${assetToSend}") #will have returncode 0 if the bech was valid
+				if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - \"${assetToSend}\" is not a valid bech32 asset.\n\e[0m"; showUsage; exit 1; fi
+				assetBechToSend=${assetToSend}; #just copy it, already a valid bech32 asset
+
+			#Check if the assetToSend is a policyID.assetName string, if so, convert it bech32
+			elif [[ "${assetToSend}" =~ ^[[:xdigit:]]{56}(\.[[:alnum:]]{1,32})?$ ]]; then
+				if [[ "${assetToSend}" == *"."* ]]; then assetBechToSend=$(convert_tokenName2BECH $(echo ${assetToSend} | cut -d. -f 1) $(echo ${assetToSend} | cut -d. -f 2) )
+								    else assetBechToSend=$(convert_tokenName2BECH "${assetToSend}") #nameless token
+				fi
+
+			#Check if the assetToSend is a policyID.* string, if so, store it as a bulk entry
+			elif [[ "${assetToSend}" =~ ^[[:xdigit:]]{56}\.(.{0,31})\*$ ]]; then
+				if [[ "${amountToSend}" == "ALL" ]]; then assetBechToSend="${assetToSend:0:-1}-BULK"; #cut of the last char * and store it in the sending list
+								     else echo -e "\n\e[35mError with Bulk-Selection of policyID: \e[0m${assetToSend}\n\n\e[35mPlease set the sending amount to \e[0mALL \e[35m!\e[0m\n"; exit 1; fi
+
+			#Check if the assetToSend is a file xxx.asset then read out the data from the file instead
+			assetFile="$(dirname ${assetToSend})/$(basename "${assetToSend}" .asset).asset"
+			elif [ -f "${assetFile}" ]; then
+				tmpAssetPolicy="$(jq -r .policyID < ${assetFile})"
+				tmpAssetName="$(jq -r .name < ${assetFile})"
+				assetBechToSend=$(convert_tokenName2BECH ${tmpAssetPolicy} ${tmpAssetName} )
+
+			#Otherwise print an error message, that the given assetToSend couldnot be resolved
+			else
+				echo -e "\n\e[35mERROR - The given asset \"${assetToSend}\" could not be resolved from a valid asset-file, bech32 asset or policyID.assetName!\n\e[0m"; showUsage; exit 1;
+			fi
+
+			#Collect the amounts of assets to send in the specific JSON. Add them up if assets are referenced more than once
+			#The keyword ALL overwrites all other entries
+			oldValue=$(jq -r ".\"${assetBechToSend}\".amount" <<< ${bechAssetsToSendJSON})
+			sumUp=$(jq -r ".\"${assetBechToSend}\".sumup" <<< ${bechAssetsToSendJSON})
+			if [[ ! "${oldValue}" == null ]] && [[ ! "${sumUp}" == "true" ]]; then
+			   if ! ask "\e[33mYou specified the following asset more than once:\n\e[0m${assetToSend} (\e[32m${assetBechToSend}\e[0m)\n\e[33mDo you wanna sum the amount up for that specific asset?\e[0m" N; then echo; exit 1; else sumUp="true"; echo; fi
+			fi
+			if [[ "${amountToSend}" == "ALL" ]] || [[ "${oldValue}" == "ALL" ]]; then newValue="ALL"; else newValue=$(bc <<< "${oldValue}+${amountToSend}"); fi
+                        bechAssetsToSendJSON=$( jq ". += {\"${assetBechToSend}\":{amount: \"${newValue}\", input: \"${assetToSend}\", sumup: \"${sumUp}\"}}" <<< ${bechAssetsToSendJSON})
+
+			#echo -e "assetToSend: ${assetToSend}\namountToSend: ${amountToSend}\nassetBechTosend: ${assetBechToSend}\n"
+                done
+
+else echo -e "\n\e[35mERROR - Missing parameters AssetName/Amount.\n\e[0m"; showUsage; exit 1;
+
+fi
+
+#jq . <<< ${bechAssetsToSendJSON}; #debug output
+#exit
 
 #Check all optional parameters about there types and set the corresponding variables
-#Starting with the 5th parameter (index4) up to the last parameter
+#Starting with the 5th parameter (normally index4) up to the last parameter
 metafileParameter=""; metafile=""; lovelacesToSend=0; filterForUTXO=""; transactionMessage="{}"; #Setting defaults
 
-paramCnt=$#;
-#IFS=' ' read -ra allParameters <<< "${@}"
-allParameters=( "$@" )
-for (( tmpCnt=4; tmpCnt<${paramCnt}; tmpCnt++ ))
+for (( tmpCnt=${optionalParameterIdxStart}; tmpCnt<${paramCnt}; tmpCnt++ ))
  do
 	paramValue=${allParameters[$tmpCnt]}
 	#echo -n "${tmpCnt}: ${paramValue} -> "
@@ -99,22 +202,7 @@ for (( tmpCnt=4; tmpCnt<${paramCnt}; tmpCnt++ ))
 
 	fi #end of different parameters check
 
- done
-
-if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-
-#Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
-if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
-
-#Check if the assetToSend is a file xxx.asset then read out the data from the file instead
-assetFile="$(dirname ${assetToSend})/$(basename "${assetToSend}" .asset).asset"
-if [ -f "${assetFile}" ]; then
-				tmpAssetPolicy="$(jq -r .policyID < ${assetFile})"
-				tmpAssetName="$(jq -r .name < ${assetFile})"
-				if [[ "${tmpAssetName}" == "" ]]; then assetToSend="${tmpAssetPolicy}"; else assetToSend="${tmpAssetPolicy}.${tmpAssetName}"; fi
-fi
-
+done
 
 #Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list
 if [[ ! "${transactionMessage}" == "{}" ]]; then
@@ -123,7 +211,6 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
         if [ $? -eq 0 ]; then echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
                          else echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1; fi
 fi
-
 
 echo -e "\e[0mSending assets from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
 echo
@@ -135,12 +222,6 @@ currentEPOCH=$(get_currentEpoch)
 
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[invalid_hereafter] to ${ttl})"
 echo
-
-sendFromAddr=$(cat ${fromAddr}.addr)
-sendToAddr=$(cat ${toAddr}.addr)
-
-check_address "${sendFromAddr}"
-check_address "${sendToAddr}"
 
 echo -e "\e[0mSource Address ${fromAddr}.addr:\e[32m ${sendFromAddr} \e[90m"
 echo -e "\e[0mDestination Address ${toAddr}.addr:\e[32m ${sendToAddr} \e[90m"
@@ -157,15 +238,14 @@ echo
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
-                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
         fi
 
-
-        #Only use UTXOs specied in the extra parameter if present
+        #Only use UTXOs specified in the extra parameter if present
         if [[ ! "${filterForUTXO}" == "" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly using the UTXO with Hash ${filterForUTXO}\e[0m\n"; utxoJSON=$(filterFor_UTXO "${utxoJSON}" "${filterForUTXO}"); fi
 
 	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
-	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
+	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit 1; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
 	#Calculating the total amount of lovelaces in all utxos on this address
         totalLovelaces=0
@@ -203,14 +283,21 @@ echo
                                 assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
                                 if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
 
-                                #Allow to give directly the bech name as inputParameter variable assetToSend.
-                                #Convert it on the fly to the policyID.name scheme if found
-                                if [[ "${assetBech}" == "${assetToSend}" ]]; then assetToSend="${assetHash}${point}${assetName}"; fi
-
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
+
+				#special process to lookup if there is a bulk sending entry in the ${bechAssetsToSendJSON}, if so, add the current asset with amount ALL to that list
+				#this bulk sending is only processed for assets with an assetname like NFTs, not for nameless assets. they have to be sent separate
+				if [[ ! "${assetName}" == "" ]] && [[ "${bechAssetsToSendJSON}" =~ ${assetHash}\.(.*)-BULK ]]; then
+					tmpFullKeyFound=${BASH_REMATCH[0]}; tmpCompareFound=${BASH_REMATCH[0]:0:-5};
+					if [[ ! $(grep "${tmpCompareFound}" <<< "${assetHash}.${assetName}") == "" ]]; then
+					bechAssetsToSendJSON=$( jq ". += {\"${assetBech}\":{amount: \"ALL\", input: \"* ${assetHash}.${assetName}\"}}" <<< ${bechAssetsToSendJSON}) #add the current asset to the sending list
+					bechAssetsToSendJSON=$( jq ".\"${tmpFullKeyFound}\".bulkfound = \"true\"" <<< ${bechAssetsToSendJSON}) #mark the bulksending entry itself as used by adding the key bulk=true to it for later filtering
+					fi
+				fi
+
                                 done
                         done
 
@@ -221,67 +308,82 @@ echo
         echo -e "Total ADA on the Address:\e[32m  $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
 
 	totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
-
-	#Calculating the amount of the asset to send out, using the given amount of using all of the assets amount
-	echo -e "\e[0mAsset-Type to send to ${toAddr}.addr:\e[33m ${assetToSend} \e[0m"
-	echo
-
-	#Currently on the source address
-	assetAmount=$(jq -r ".\"${assetToSend}\".amount" <<< ${totalAssetsJSON})
-        assetName=$(jq -r ".\"${assetToSend}\".name" <<< ${totalAssetsJSON})
-	assetBech=$(jq -r ".\"${assetToSend}\".bech" <<< ${totalAssetsJSON})
-	#If there is no asset of that type, exit with an error
-	if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then
-			        echo -e "\e[0mAsset-Amount currently on ${fromAddr}.addr:\e[32m ${assetAmount} ${assetName} \e[0m"
-        				else
-				echo -e "\n\e[35mError - This asset is not available on the source address!\e[0m\n"; exit 2;
-	fi
-
-	#If keyword ALL was used, set the amountToSend to the available amount on the source address
-	if [[ "${amountToSend^^}" == "ALL" ]]; then amountToSend=${assetAmount}; fi
-
-        echo -e "\e[0mAsset-Amount to send to ${toAddr}.addr:\e[33m ${amountToSend} ${assetName} \e[0m"
-
-        if [[ $(bc <<< "${amountToSend} < 1") -eq 1 ]]; then  echo -e "\n\e[35mError - Please input a positive sending amount (integer)!\e[0m\n"; exit 2; fi
-
-	amountToReturn=$(bc <<< "${assetAmount} - ${amountToSend}");	#the rest amount of the asset that stays on the source address
-
-        if [[ $(bc <<< "${amountToReturn} >= 0") -eq 1 ]]; then
-                                echo -e "\e[0mAsset-Amount that stays on the source Address:\e[32m ${amountToReturn} ${assetName} \e[0m"
-                                        else
-                                echo -e "\n\e[35mError - You can't send out more amounts of this assets than it is available on the source address!\e[0m\n"; exit 2;
-        fi
-
-	#Update the new value in the totalAssetsJSON
-	totalAssetsJSON=$( jq ". += {\"${assetToSend}\":{amount: \"${amountToReturn}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
-
-	echo
-
         totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
 
-        if [[ ${totalAssetsCnt} -gt 0 ]]; then
-                        echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address (\e[91mPreview after Transaction\e[0m)!\n"
-                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "ASCII-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
-                        for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
-                        do
-                        assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
-                        assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
-                        assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-                        assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+if [[ ${totalAssetsCnt} -gt 0 ]]; then  echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n\n"; fi
 
-                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
-                                metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
-                                metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
-                        fi
 
-                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
-                        if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsReturnString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
-                        done
-        fi
+#Showing the assets given to the script to send them out, compose the assetsSendString and also check the available amounts
+printf "\e[33m%-80s %16s %-44s\e[0m\n" "Assets to send (given input reference, * means selected via bulk sending):" "Amount:" "Bech-Format:"
 
-	assetsSendString="+${amountToSend} ${assetToSend}"
+assetsSendString=""
 
+#Filter out all bulk policyID entries that have found assets, they are marked with the key "bulkfound"="true"
+bechAssetsToSendJSON=$(jq -r "with_entries(select(.value.bulkfound != \"true\"))" <<< ${bechAssetsToSendJSON})
+
+bechAssetsToSendCnt=$(jq length <<< ${bechAssetsToSendJSON})
+for (( tmpCnt=0; tmpCnt<${bechAssetsToSendCnt}; tmpCnt++ ))
+	do
+	assetBech=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${bechAssetsToSendJSON})
+	assetAmount=$(jq -r ".\"${assetBech}\".amount" <<< ${bechAssetsToSendJSON})
+	assetInput=$(jq -r ".\"${assetBech}\".input" <<< ${bechAssetsToSendJSON})
+
+	#Get Entry (policyID.assetName) for that Asset from the totalAssetsJSON
+	assetSearch=$(jq -r "with_entries(select(.value.bech==\"${assetBech}\"))" <<< ${totalAssetsJSON})
+	assetHash=$(jq -r "keys[0]" <<< ${assetSearch})
+	assetAvailableAmount=$(jq -r ".[].amount" <<< ${assetSearch})
+
+	#If asset is not present in the totalAssetsJSON, than exit with an error
+        if [[ "${assetHash}" == null ]]; then
+		printf "\e[90m%-80s \e[35m%16s %-44s\e[0m\n" "${assetInput:0:80}" "${assetAmount}" "-";
+		echo -e "\n\e[35mThis asset is not available on this address or on the selected UTXOs!\e[0m\n"; exit 1;
+	fi
+
+	#If given sending Amount is given as keyword ALL, replace the amount with the available one
+	if [[ "${assetAmount}" == "ALL" ]]; then assetAmount=${assetAvailableAmount}; fi
+
+	#If available assetAmount is not enough in the totalAssetsJSON, than exit with an error
+        if [[ $(bc <<< "(${assetAvailableAmount}-${assetAmount}) < 0") -eq 1 ]]; then
+		printf "\e[90m%-80s \e[35m%16s %-44s\e[0m\n" "${assetInput:0:80}" "${assetAmount}" "${assetBech}";
+		echo -e "\n\e[35mThe assetAmount on this address or on the selected UTXOs is not enough. A maximum of ${assetAvailableAmount} is available!\e[0m\n"; exit 1;
+	fi
+
+        printf "\e[90m%-80s \e[33m%16s %-44s\e[0m\n" "${assetInput:0:80}" "${assetAmount}" "${assetBech}"
+
+	#Compose the assetSendString, add the sending amount+hash
+	assetsSendString+="+${assetAmount} ${assetHash}"
+
+	#Update the totalAssetsJSON with the remaining amount of the asset
+	amountToReturn=$(bc <<< "${assetAvailableAmount}-${assetAmount}");	#the rest amount of the asset that stays on the source address
+	totalAssetsJSON=$( jq ".\"${assetHash}\".amount = \"${amountToReturn}\"" <<< ${totalAssetsJSON})
+done
+
+echo
+echo
+
+if [[ ${totalAssetsCnt} -gt 0 ]]; then
+	printf "\e[91m%s\e[0m - PolicyID:          %11s    %16s %-44s  %7s  %s\n" "Assets remaining after transaction" "ASCII-Name:" "Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
+	for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
+	do
+		assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
+		assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
+		assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
+		assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
+		assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+
+                if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
+			metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
+			metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
+		fi
+
+		printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
+
+		#Compose the assetsReturnString, add only assets with a amount greater than zero
+		if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsReturnString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
+        done
+fi
+
+echo
 echo
 
 
@@ -308,20 +410,7 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsSendString}")
 
-#echo "send:"
-#echo "${sendToAddr}+0${assetsSendString}"
-#echo
-#testtmp=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0")
-#echo ${testtmp}
-
-#echo
-#echo "return:"
-#echo "${sendToAddr}+0${assetsReturnString}"
-#echo
 minReturnUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsReturnString}")
-#echo ${minOutUTXO}
-#exit
-
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
@@ -334,7 +423,7 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
 #
-# Set the right amount of lovelacesToSend, lovelacesToReturn and also check about sendinglimits like minUTxOValue for returning assets if available
+# Set the right amount of lovelacesToSend, lovelacesToReturn and also check about sendinglimits like minOutUTXO for returning assets if available
 #
 
 echo -e "\e[0mMinimum UTXO value for sending the asset: \e[32m ${minOutUTXO} lovelaces \e[90m"
@@ -344,7 +433,7 @@ echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m $(convertToADA ${lovel
 
 lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
 echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m"
-if [[ ${lovelacesToReturn} -lt ${minReturnUTXO} ]]; then echo -e "\e[35mError - Not enough funds on the source Addr! Minimum UTXO value to return is ${minReturnUTXO} lovelaces.\e[0m"; exit; fi
+if [[ ${lovelacesToReturn} -lt ${minReturnUTXO} ]]; then echo -e "\n\e[35mError - Not enough funds on the source Addr! Minimum UTXO value to return is ${minReturnUTXO} lovelaces.\e[0m\n"; exit 1; fi
 
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
 txFile="${tempDir}/$(basename ${fromAddr}).tx"

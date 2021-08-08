@@ -6,7 +6,7 @@
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
 | *Required<br>version<br><sub>or higher</sub>* | <b>1.27.0</b><br><sub>**git checkout tags/1.27.0**</sub> | <b>1.6.2</b><br><sub>**if you use hw-wallets** | <b>2.4.1</b><br><sub>**if you use hw-wallets** | <b>2.4.0</b><br><sub>**if you use hw-wallets** |
 
-> *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose mainnet*. 
+> *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose mainnet!*. 
 
 &nbsp;<br>
 ### About
@@ -218,11 +218,11 @@ Please make yourself familiar on how to call each script with the required param
 
 Checkout the configuration parameters in your 00_common.sh Main-Configuration file and the ScriptFile Syntax for the Scripts themselfs.
 
-<details>
-   <summary><b>Show the Main Configuration parameters and the full Syntax details for each script ... </b>:bookmark_tabs:<br></summary>
+<b>Here are the Main Configuration parameters and the full Syntax details for each script:</b>
 
-* **00_common.sh:** main config file (:warning:) for the environment itself! Set your variables in there for your config, will be used by the scripts.<br>
-    
+<details><summary><b>00_common.sh:</b> main config file (:warning:) for the environment itself! Set your variables in there for your config, will be used by the scripts.:bookmark_tabs:</summary>
+  
+  <br>   
   | Important Parameters | Description | Example |
   | :---         |     :---      | :--- |
   | offlineMode | Switch for the scripts to work<br>in *Online*- or *Offline*-Mode | ```yes``` for Offline-Mode<br>```no``` for Online-Mode (Default) |
@@ -230,20 +230,23 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
   | cardanocli | Path to your *cardano-cli* binary | ```./cardano-cli``` (Default)<br>```cardano-cli``` if in the global PATH |
   | cardanonode | Path to your *cardano-node* binary<br>(only for Online-Mode) | ```./cardano-node``` (Default)<br>```cardano-node``` if in the global PATH |
   | socket | Path to your running passive node<br>(only for Online-Mode) | ```db-mainnet/node.socket``` |
+  | bech32_bin | Path to your *bech32* binary<br>(part of the scripts) |```./bech32``` (Default)<br>```bech32``` if in the global PATH|
   | cardanohwcli | Path to your *cardano-hw-cli* binary<br>(only for HW-Wallet support) | ```cardano-hw-cli``` if in the global PATH (Default)|
   | genesisfile | Path to your *SHELLEY* genesis file | ```config-mainnet/mainnet-shelley-genesis.json``` |
   | genesisfile_byron | Path to your *BYRON* genesis file | ```config-mainnet/mainnet-byron-genesis.json``` |
     | magicparam<br>addrformat | Type of the Chain your using<br>and the Address-Format | ```--mainnet``` for mainnet<br>```--testnet-magic 1097911063``` for the testnet<br>```--testnet-magic 3``` for launchpad |
-  | byronToShelleyEpochs | Number of Epochs between Byron<br>to Shelley Fork | ```208``` for mainnet (Default)<br>```74``` for the testnet<br>```2``` for launchpad |
+  | byronToShelleyEpochs | Number of Epochs between Byron<br>to Shelley Fork | ```208``` for mainnet (Default)<br>```74``` for the testnet<br>```8``` for alonzo-purple(light) |
   | jcli_bin | Path to your *jcli* binary<br>(only for ITN ticker proof) | ```./jcli``` (Default) |
-   
-    
+  | cardanometa | Path to your *token-metadata-creator* binary<br>(part of the scripts) |```./token-metadata-creator``` (Default)<br>```token-metadata-creator``` if in the global PATH|
   
   **Overwritting the default settings:** You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
   :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
 &nbsp;<br>
-* **01_workOffline.sh:** this is the script you're doing your **Online**->**Offline**->**Online**->**Offline** work with
+</details>
+   
+<details><summary><b>01_workOffline.sh:</b> this is the script you're doing your <b>Online-Offline-Online-Offline</b> work with:bookmark_tabs:</summary>
+      
 <br>```./01_workOffline.sh <command> [additional data]``` 
 <br>```./01_workOffline.sh new``` Resets the offlineTransfer.json with only the current protocol-parameters in it (OnlineMode only)
 <br>```./01_workOffline.sh info``` Displayes the Address and TX info in the offlineTransfer.json<br>
@@ -260,7 +263,10 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
   The scripts uses per default (configurable) the file **offlineTransfer.json** to store the data in between the Machines.
 
 &nbsp;<br>
-* **01_queryAddress.sh:** checks the amount of lovelaces and tokens on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses
+</details>
+      
+<details><summary><b>01_queryAddress.sh:</b> checks the amount of lovelaces and tokens on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses:bookmark_tabs:</summary>
+      
 <br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
 <br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
@@ -268,7 +274,10 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <br>```./01_queryAddress.sh stake1u9w60cpjg0xnp6uje8v3plcsmmrlv3vndcz0t2lgjma0segm2x9gk``` shows the rewards on this given Bech32 address
 
 &nbsp;<br>
-* **01_sendLovelaces.sh:** sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address
+</details>
+         
+<details><summary><b>01_sendLovelaces.sh:</b> sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address:bookmark_tabs:</summary>
+            
 <br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;** (you can send to an HASH address too)
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./01_sendLovelaces.sh addr1 addr2 2000000 "msg: here is your money"``` to send 2000000 lovelaces from addr1.addr to addr2.addr and add the transaction message "here is your money"
@@ -280,8 +289,11 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
   :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 
 &nbsp;<br>
-* **01_sendAssets.sh:** sends Assets(Tokens) and optional a given amount of lovelaces from one address to another
-<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL> [Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**
+</details>            
+
+<details><summary><b>01_sendAssets.sh:</b> sends Assets(Tokens) and optional a given amount of lovelaces from one address to another:bookmark_tabs:</summary>
+   
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL>```**&sup1;** ```[Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup2;**
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 20 "msg: here are your tokens"```<br>to send 20 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached, also with the transaction message "here are your tokens"
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
@@ -290,36 +302,40 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
   Using the **PolicyID.TokenNameHASH** or **Bech-AssetName** allowes you to send out Tokens you've got from others. Your own generated Tokens can also be referenced by the AssetFile 'policyName.tokenName.asset' schema for an easier handling.
 
-  :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
-
+  :bulb: **&sup1; Expert-Option**: It is possible to send multiple different tokens at the same time! To do so just specify them all in a quoted parameter-3 like: ```"asset14a8suq4v20watch3tzt2f7yj8kvmecgrcsqsps 15 | asset1pmmzqf2akudknt05ealtvcvsy7n6wnc9dd03mf 99"```. You can use the asset-filename, the policyID.Name or the bech32-Assetname for it. The tokens are separated via a `|` char. 
+   
+  :bulb: **&sup1; Expert-Option**: It is also possible to **bulk send** all tokens starting with a given policyID.name* at the same time! To do so just specify them like: ```"7724da6519bbdda506e4d8acce11e01e01019726ddf017418f9c958a.* all"```. To send out all your CryptoDoggies at the same time. You can even go further and specify them with starting chars for the assetName like: ```"b43131f2c82825ee3d81705de0896c611f35ed38e48e33a3bdf298dc.Crypto* all"```. To send out all assets with the specified policyID, and the assetName is starting with 'Crypto'. Make sure to have a `*` at the end! :smiley:
+   
+  :bulb: **&sup2; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 
 &nbsp;<br>
-* **01_claimRewards.sh:** claims all rewards from the given stake address and sends it to a receiver address
+</details>
+   
+<details><summary><b>01_claimRewards.sh</b> claims all rewards from the given stake address and sends it to a receiver address:bookmark_tabs:</summary>
+
 <br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>] [Opt: selected UTXOs]```**&sup1;**
 <br>```./01_claimRewards.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
 <br>```./01_claimRewards.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
 
-  :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
-
-
-&nbsp;<br>
-* **01_sendMeta.sh:** 
-* **01_sendVoteMeta.sh:** 
-<br>Scripts retired, because the normal 01_sendLovelaces.sh can also easily send metadata within a transaction. If you just wanna post metadata on the chain, make a transaction back to yourself and add the transaction-metadata-json as a parameter.<br>Also please check the Step-by-Step notes [HERE](#bulb-how-to-do-a-voting-for-spocra-in-a-simple-process) for the voting metadata sending.
-
+:bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 
 &nbsp;<br>
-* **02_genPaymentAddrOnly.sh:** generates an "enterprise" address with the given name for just transfering funds
+</details>
+
+<details><summary><b>02_genPaymentAddrOnly.sh:</b> generates an "enterprise" address with the given name for just transfering funds:bookmark_tabs:</summary>
+   
 <br>```./02_genPaymentAddrOnly.sh <name> <keymode: cli | hw> [optional Account# for HW-Wallet 0-1000]```**&sup1;**
 <br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the CLI-based files addr1.addr, addr1.skey, addr1.vkey
 <br>```./02_genPaymentAddrOnly.sh addr1 hw``` will generate the HardwareWallet-based files addr1.addr, addr1.hwsfiles, addr1.vkey
 <br>```./02_genPaymentAddrOnly.sh addr2 hw 1``` will generate the HardwareWallet-based files addr2.addr, addr2.hwsfiles, addr2.vkey from subaccount #1 (default=0)<br>
 
-  :bulb: **&sup1; Expert-Option**: It is possible to specify SubAccounts on your Hardware-Wallet. Theses will derive to the Paths ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. Be aware, not all Wallets support SubAccounts in this way! The default value is: 0
-
+:bulb: **&sup1; Expert-Option**: It is possible to specify SubAccounts on your Hardware-Wallet. Theses will derive to the Paths ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. Be aware, not all Wallets support SubAccounts in this way! The default value is: 0
 
 &nbsp;<br>
-* **03a_genStakingPaymentAddr.sh:** generates the base/payment address & staking address combo with the given name and also the stake address registration certificate
+</details>   
+
+<details><summary><b>03a_genStakingPaymentAddr.sh:</b> generates the base/payment address & staking address combo with the given name and also the stake address registration certificate:bookmark_tabs:</summary>
+   
 <br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hybrid> [optional Account# for HW-Wallet 0-1000]```**&sup1;**
 
    ```./03a_genStakingPaymentAddr.sh owner cli``` will generate CLI-based files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert
@@ -330,43 +346,65 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
    ```./03a_genStakingPaymentAddr.sh owner hw 5``` will generate HardwareWallet-based files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey, owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert using SubAccount #5 (Default=#0)
 
-   :bulb: **&sup1; Expert-Option**: It is possible to specify SubAccounts on your Hardware-Wallet. Theses will derive to the Paths ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. Be aware, not all Wallets support SubAccounts in this way! The default value is: 0
-
+:bulb: **&sup1; Expert-Option**: It is possible to specify SubAccounts on your Hardware-Wallet. Theses will derive to the Paths ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. Be aware, not all Wallets support SubAccounts in this way! The default value is: 0
 
 &nbsp;<br>
-* **03b_regStakingAddrCert.sh:** register the staking address on the blockchain with the certificate from 03a.
+</details>
+
+<details><summary><b>03b_regStakingAddrCert.sh:</b> register the staking address on the blockchain with the certificate from 03a.:bookmark_tabs:</summary>
+
 <br>```./03b_regStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
 <br>```./03b_regStakingAddrCert.sh owner.staking addr1``` will register the staking addr owner.staking using the owner.staking.cert with funds from addr1 on the blockchain. you could of course also use the owner.payment address here for funding.<br>
 
 &nbsp;<br>
-* **03c_checkStakingAddrOnChain.sh:** check the blockchain about the staking address
+</details>   
+   
+<details><summary><b>03c_checkStakingAddrOnChain.sh:</b> check the blockchain about the staking address:bookmark_tabs:</summary>
+
 <br>```./03c_checkStakingAddrOnChain.sh <name>```
 <br>```./03c_checkStakingAddrOnChain.sh owner``` will check if the address in owner.staking.addr is currently registered on the blockchain
 
 &nbsp;<br>
-* **04a_genNodeKeys.sh:** generates the poolname.node.vkey and poolname.node.skey/hwsfile cold keys and resets the poolname.node.counter file
+</details>
+   
+<details><summary><b>04a_genNodeKeys.sh:</b> generates the poolname.node.vkey and poolname.node.skey/hwsfile cold keys:bookmark_tabs:</summary>
+
 <br>```./04a_genNodeKeys.sh <poolname> <keytype: CLI or HW>```
 <br>```./04a_genNodeKeys.sh mypool cli``` to generate your pool/node cold keys via the cli [default]
 <br>```./04a_genNodeKeys.sh mypool hw``` to generate your pool/node cold keys via a Hardware-Wallet. The secure key stay in the Hardware-Wallet ! 
 
 &nbsp;<br>
-* **04b_genVRFKeys.sh:** generates the poolname.vrf.vkey/skey files
+</details>
+   
+<details><summary><b>04b_genVRFKeys.sh:</b> generates the poolname.vrf.vkey/skey files:bookmark_tabs:</summary>
+
 <br>```./04b_genVRFKeys.sh <poolname>```
 <br>```./04b_genVRFKeys.sh mypool```
 
 &nbsp;<br>
-* **04c_genKESKeys.sh:** generates a new pair of poolname.kes-xxx.vkey/skey files, and updates the poolname.kes.counter file. every time you generate a new keypair the number(xxx) autoincrements. To renew your kes/opcert before the keys of your node expires just rerun 04c and 04d!
+</details>
+   
+<details><summary><b>04c_genKESKeys.sh:</b> generates a new pair of poolname.kes-xxx.vkey/skey files, and updates the poolname.kes.counter file:bookmark_tabs:</summary>
+   
+<br>Every time you generate a new keypair the number(xxx) autoincrements. To renew your kes/opcert before the keys of your node expires just rerun 04c and 04d!
 <br>```./04c_genKESKeys.sh <poolname>```
 <br>```./04c_genKESKeys.sh mypool```
 
 &nbsp;<br>
-* **04d_genNodeOpCert.sh:** calculates the current KES period from the genesis.json and issues a new poolname.node-xxx.opcert certificate. it also generates the poolname.kes-expire.json file which contains the valid start KES-Period and also contains infos when the generated kes-keys will expire. to renew your kes/opcert before the keys of your node expires just rerun 04c and 04d! after that, update the files on your stakepool server and restart the coreNode
+</details>
+
+<details><summary><b>04d_genNodeOpCert.sh:</b> calculates the current KES period from the genesis.json and issues a new poolname.node-xxx.opcert cert:bookmark_tabs:</summary>
+
+<br>It also generates the poolname.kes-expire.json file which contains the valid start KES-Period and also contains infos when the generated kes-keys will expire. to renew your kes/opcert before the keys of your node expires just rerun 04c and 04d! after that, update the files on your stakepool server and restart the coreNode
 <br>```./04d_genNodeOpCert.sh <poolname>```
 <br>```./04d_genNodeOpCert.sh mypool```
 
 &nbsp;<br>
-* **05a_genStakepoolCert.sh:** generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain
-  <br>```./05a_genStakepoolCert.sh <PoolNodeName> [optional registration-protection key]``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
+</details>
+   
+<details><summary><b>05a_genStakepoolCert.sh:</b> generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain:bookmark_tabs:</summary>
+
+<br>```./05a_genStakepoolCert.sh <PoolNodeName> [optional registration-protection key]``` will generate the certificate poolname.pool.cert from poolname.pool.json file<br>
   To register a protected Ticker you will have to provide the secret protection key as a second parameter to the script.<br>
   The script requires a json file for the values of PoolNodeName, OwnerStakeAddressName(s), RewardsStakeAddressName (can be the same as the OwnerStakeAddressName), pledge, poolCost & poolMargin(0.01-1.00) and PoolMetaData. This script will also generate the poolname.metadata.json file for the upload to your webserver. Learn more about the parameters in this config json [here](#pool-configuration-file-poolnamepooljson---config-file-for-each-pool):
   <br>**Sample mypool.pool.json**
@@ -406,12 +444,26 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
    > :bulb:   **Update Pool values (re-registration):** If you have already registered a stakepool on the chain and want to change some parameters, simply [change](#file-autolock-for-enhanced-security) them in the json file and rerun the script again. The 05c_regStakepoolCert.sh script will later do a re-registration instead of a new registration for you.
 
 &nbsp;<br>
-* **05b_genDelegationCert.sh:** generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool poolname.node.vkey. As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
-<br>```./05b_genDelegationCert.sh <PoolNodeName> <DelegatorStakeAddressName>```
-<br>```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool
+</details>
+
+<details><summary><b>05b_genDelegationCert.sh:</b> generates the delegation certificate name.deleg.cert to delegate a stakeAddress to a Pool:bookmark_tabs:</summary>
+
+<br>As pool owner you have to delegate to your own pool, this is registered as pledged stake on your pool.
+
+```./05b_genDelegationCert.sh <PoolNodeName or PoolID-Hex or PoolID-Bech "pool1..."> <DelegatorStakeAddressName>```
+
+```./05b_genDelegationCert.sh mypool owner``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name owner to the pool mypool (mypool.node.vkey)
+
+```./05b_genDelegationCert.sh 3921f4441153e5936910de57cb1982dfbaa781a57ba1ff97b3fd869e wallet1``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name wallet1 to the pool with hex-id 3921...6893
+
+```./05b_genDelegationCert.sh pool18yslg3q320jex6gsmetukxvzm7a20qd90wsll9anlkrfua38flr wallet2``` this will delegate the Stake in the PaymentAddress of the Payment/Stake combo with name wallet2 to the pool with bech-id pool18ys...8flr
 
 &nbsp;<br>
-* **05c_regStakepoolCert.sh:** (re)register your **poolname.pool.cert certificate** and also the **owner name.deleg.cert certificate** with funds from the given name.addr on the blockchain. it also updates the pool-ID and the registration date in the poolname.pool.json
+</details>
+
+<details><summary><b>05c_regStakepoolCert.sh:</b> (re)register your <b>poolname.pool.cert certificate</b>:bookmark_tabs:</summary>
+
+<br>It also uses submits **owner name.deleg.cert certificate** with funds from the given name.addr on the blockchain. Also it updates the pool-ID and the registration date in the poolname.pool.json
 <br>```./05c_regStakepoolCert.sh <PoolNodeName> <PaymentAddrForRegistration> [optional REG / REREG keyword]```
 <br>```./05c_regStakepoolCert.sh mypool owner.payment``` this will register your pool mypool with the cert and json generated with script 05a on the blockchain. Owner.payment.addr will pay for the fees.<br>
 If the pool was registered before (when there is a **regSubmitted** value in the name.pool.json file), the script will automatically do a re-registration instead of a registration. The difference is that you don't have to pay additional fees for a re-registration.<br>
@@ -419,124 +471,165 @@ If the pool was registered before (when there is a **regSubmitted** value in the
 Also you can force the script to do a re-registration by adding the keyword REREG on the command line like ```./05c_regStakepoolCert.sh mypool mywallet REREG```
 
 &nbsp;<br>
-* **05d_poolWitness.sh:** gives you Status Information, also Signing, Adding and Clearing Witnesses for a PoolRegistration
-  <br>```./05d_poolWitness.sh <command> [additional data]``` 
-  <br>```05d_poolWitness.sh sign <witnessfile> <signingkey>``` signs the witnessFile with the given signingKey
-  <br>```05d_poolWitness.sh sign mypool_ledger_128463691.witness ledger``` signs the witnessFile with the ledger.staking key
+</details>
+   
+<details><summary><b>05d_poolWitness.sh:</b> gives you Status Information, also Signing, Adding and Clearing Witnesses for a PoolRegistration:bookmark_tabs:</summary>
 
-  ```05d_poolWitness.sh add <witnessfile> <poolFileName>``` adds a signed witnessFile to the waiting collection of the poolFileName
-  <br>```05d_poolWitness.sh add mypool_ledger_128463691.witness mypool``` adds the signed witnessFile to the mypool.pool.json witness collection
+<br>```./05d_poolWitness.sh <command> [additional data]``` 
+<br>```05d_poolWitness.sh sign <witnessfile> <signingkey>``` signs the witnessFile with the given signingKey
+<br>```05d_poolWitness.sh sign mypool_ledger_128463691.witness ledger``` signs the witnessFile with the ledger.staking key
 
-  ```05d_poolWitness.sh clear <poolFileName>``` clears any witness collections in the poolFileName.pool.json
-  <br>```05d_poolWitness.sh clear mypool``` clears all witnesses in mypool.pool.json for a fresh start
+```05d_poolWitness.sh add <witnessfile> <poolFileName>``` adds a signed witnessFile to the waiting collection of the poolFileName
+<br>```05d_poolWitness.sh add mypool_ledger_128463691.witness mypool``` adds the signed witnessFile to the mypool.pool.json witness collection
 
-  ```05d_poolWitness.sh info <poolFileName>``` shows the current witness state in the poolFileName.pool.json
-  <br>```05d_poolWitness.sh info mypool``` shows the current witness state in the mypool.pool.json to see if some are still missing
+```05d_poolWitness.sh clear <poolFileName>``` clears any witness collections in the poolFileName.pool.json
+<br>```05d_poolWitness.sh clear mypool``` clears all witnesses in mypool.pool.json for a fresh start
+
+```05d_poolWitness.sh info <poolFileName>``` shows the current witness state in the poolFileName.pool.json
+<br>```05d_poolWitness.sh info mypool``` shows the current witness state in the mypool.pool.json to see if some are still missing
 
 &nbsp;<br>
-* **06_regDelegationCert.sh:** register a simple delegation (from 05b) name.deleg.cert 
+</details>
+   
+<details><summary><b>06_regDelegationCert.sh:</b> register a simple delegation (from 05b) name.deleg.cert:bookmark_tabs:</summary>
+
 <br>```./06_regDelegationCert.sh <delegatorName> <nameOfPaymentAddr>```
 <br>```./06_regDelegationCert.sh someone someone.payment``` this will register the delegation certificate someone.deleg.cert for the stake-address someone.staking.addr on the blockchain. The transaction fees will be paid from someone.payment.addr.
 
 &nbsp;<br>
-* **07a_genStakepoolRetireCert.sh:** generates the de-registration certificate poolname.pool.dereg-cert to retire a stakepool from the blockchain
-  <br>```./07a_genStakepoolRetireCert.sh <PoolNodeName> [optional retire EPOCH]```
-  <br>```./07a_genStakepoolRetireCert.sh mypool``` generates the mypool.pool.dereg-cert to retire the pool in the NEXT epoch
-  <br>```./07a_genStakepoolRetireCert.sh mypool 253``` generates the poolname.pool.dereg-cert to retire the pool in epoch 253<br>
-  The script requires a poolname.pool.json file with values for at least the PoolNodeName & OwnerStakeAddressName. It is the same json file we're already using since script 05a, so a total pool history json file.<br>
-  **If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
+</details>
+   
+<details><summary><b>07a_genStakepoolRetireCert.sh:</b> generates the de-registration certificate poolname.pool.dereg-cert to retire a stakepool from the blockchain:bookmark_tabs:</summary>
+   
+<br>```./07a_genStakepoolRetireCert.sh <PoolNodeName> [optional retire EPOCH]```
+<br>```./07a_genStakepoolRetireCert.sh mypool``` generates the mypool.pool.dereg-cert to retire the pool in the NEXT epoch
+<br>```./07a_genStakepoolRetireCert.sh mypool 253``` generates the poolname.pool.dereg-cert to retire the pool in epoch 253<br>
+
+The script requires a poolname.pool.json file with values for at least the PoolNodeName & OwnerStakeAddressName. It is the same json file we're already using since script 05a, so a total pool history json file.<br>
+**If the json file does not exist with that name, the script will generate one for you, so you can easily edit it.**<br>
    poolName is the name of your poolFiles from steps 04a-04d, poolOwner is the name of the StakeOwner from steps 03
 
 &nbsp;<br>
-* **07b_deregStakepoolCert.sh:** de-register (retire) your pool with the **poolname.pool.dereg-cert certificate** with funds from name.payment.addr from the blockchain. it also updates the de-registration date in the poolname.pool.json
+</details>
+
+<details><summary><b>07b_deregStakepoolCert.sh:</b> de-register (retire) your pool with the <b>poolname.pool.dereg-cert certificate</b>:bookmark_tabs:</summary>
+   
+<br>Uses funds from name.payment.addr, it also updates the de-registration date in the poolname.pool.json
 <br>```./07b_deregStakepoolCert.sh <PoolNodeName> <PaymentAddrForDeRegistration>```
 <br>```./07b_deregStakepoolCert.sh mypool mywallet``` this will retire your pool mypool with the cert generated with script 07a from the blockchain. The transactions fees will be paid from the mywallet.addr account.<br>
   :bulb: Don't de-register your rewards/staking account yet, you will receive the pool deposit fee on it!<br>
 
 &nbsp;<br>
-* **08a_genStakingAddrRetireCert.sh:** generates the de-registration certificate name.staking.dereg-cert to retire a stake-address form the blockchain
-  <br>```./08a_genStakingAddrRetireCert.sh <name>```
-  <br>```./08a_genStakingAddrRetireCert.sh owner``` generates the owner.staking.dereg-cert to retire the owner.staking.addr
+</details>
+
+<details><summary><b>08a_genStakingAddrRetireCert.sh:</b> generates the de-registration certificate name.staking.dereg-cert to retire a stake-address form the blockchain:bookmark_tabs:</summary>
+
+<br>```./08a_genStakingAddrRetireCert.sh <name>```
+<br>```./08a_genStakingAddrRetireCert.sh owner``` generates the owner.staking.dereg-cert to retire the owner.staking.addr
   
 &nbsp;<br>
-* **08b_deregStakingAddrCert.sh:** re-register (retire) you stake-address with the **name.staking.dereg-cert certificate** with funds from name.payment.add from the blockchain.
-  <br>```./08b_deregStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
-  <br>```./08b_deregStakingAddrCert.sh owner.staking owner.payment``` this will retire your owner staking address with the cert generated with script 08a from the blockchain.
+</details>
+
+<details><summary><b>08b_deregStakingAddrCert.sh:</b> re-register (retire) you stake-address with the <b>name.staking.dereg-cert certificate</b> with funds from name.payment.add from the blockchain.:bookmark_tabs:</summary>
+
+<br>```./08b_deregStakingAddrCert.sh <nameOfStakeAddr> <nameOfPaymentAddr>```
+<br>```./08b_deregStakingAddrCert.sh owner.staking owner.payment``` this will retire your owner staking address with the cert generated with script 08a from the blockchain.
 
 &nbsp;<br>
-* **09a_catalystVote.sh:** Script for generating Catalyst-Registration Data and the QR Code for the Voting-App
-  <br>```09a_catalystVote.sh new <voteKeyName>```generates a new VotingKeyPair with the given name
-  <br>```09a_catalystVote.sh new myvote``` generates a new VotingKeyPair myvote.voting.skey/pkey
+</details>
 
-  <br>```09a_catalystVote.sh qrcode <voteKeyName> <4-Digit-PinCode>``` shows the QR code for the Catalyst-App with the given 4-digit PinCode
-  <br>```09a_catalystVote.sh qrcode myvote 1234``` shows the QR code for the VotingKey 'myvote' and protects it with the PinCode '1234'
+<details><summary><b>09a_catalystVote.sh:</b> Script for generating Catalyst-Registration Data and the QR Code for the Voting-App:bookmark_tabs:</summary>
 
-  <br>```09a_catalystVote.sh genmeta <voteKeyName> <stakeName-to-register> [Optional: <rewardsPayoutStakeAddr>]``` generates the Catalyst-Registration-Metadata(cbor) for the given name, stakeAccountName and optional different rewardsPayoutStakeAddr
+<br>```09a_catalystVote.sh new <voteKeyName>```generates a new VotingKeyPair with the given name
+<br>```09a_catalystVote.sh new myvote``` generates a new VotingKeyPair myvote.voting.skey/pkey
 
-  <br>```09a_catalystVote.sh genmeta myvote owner``` generates the Catalyst-Registration-Metadata(cbor) for the myvote VotingKey, amountToRegister via owner.staking,
+<br>```09a_catalystVote.sh qrcode <voteKeyName> <4-Digit-PinCode>``` shows the QR code for the Catalyst-App with the given 4-digit PinCode
+<br>```09a_catalystVote.sh qrcode myvote 1234``` shows the QR code for the VotingKey 'myvote' and protects it with the PinCode '1234'
+
+<br>```09a_catalystVote.sh genmeta <voteKeyName> <stakeName-to-register> [Optional: <rewardsPayoutStakeAddr>]``` generates the Catalyst-Registration-Metadata(cbor) for the given name, stakeAccountName and optional different rewardsPayoutStakeAddr
+
+<br>```09a_catalystVote.sh genmeta myvote owner``` generates the Catalyst-Registration-Metadata(cbor) for the myvote VotingKey, amountToRegister via owner.staking,
               RewardsPayout to the Address owner.staking.addr. With HW-Wallets, the RewardsPayout-Addr must be one of the HW-Wallet itself!
 
-  <br>```09a_catalystVote.sh genmeta myvote owner myrewards``` generates the Catalyst-Registration-Metadata(cbor) for the myvote VotingKey, amountToRegister via owner.staking,
+<br>```09a_catalystVote.sh genmeta myvote owner myrewards``` generates the Catalyst-Registration-Metadata(cbor) for the myvote VotingKey, amountToRegister via owner.staking,
               RewardsPayout to the Address myrewards.payment.addr. With HW-Wallets, the RewardsPayout-Addr must be one of the HW-Wallet itself!
   
 &nbsp;<br>
-* **10_genPolicy.sh:** generate policy keys, signing script and id as files **name.policy.skey/vkey/script/id**. You need a policy for Token minting.
-  <br>```./10_genPolicy.sh <PolicyName> [Optional valid xxx Slots (default=unlimited)]```
-  
-  ```./10_genPolicy.sh mypolicy```<br>this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
-  
-  ```./10_genPolicy.sh assets/mypolicy2```<br>this will generate the policyfiles with name mypolicy2.policy.skey, mypolicy2.policy.vkey, mypolicy2.policy.script & mypolicy2.policy.id in the 'assets' subdirectory
-  
-  ```./10_genPolicy.sh assets/special 600```<br>this will generate the policyfiles with name special.policy.skey, special.policy.vkey, special.policy.script & special.policy.id in the 'assets' subdirectory with a limited minting/burning access of 600 seconds(10 mins). Within those 10 mins you can mint lets say 200000 Tokens. After this 10 mins you will not be able to mint more Tokens or burn any Tokens with that Policy. So the total amount of the Tokens made with this Policy is fixed on the chain. :smiley:
-  
-
-&nbsp;<br>
-* **11a_mintAsset.sh:** mint/generate new Assets(Token) on a given payment address with a policyName generated before. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
-  <br>```./11a_mintAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages]```
-  
-  ```./11a_mintAsset.sh mypolicy.SUPERTOKEN 1000 mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
-  
-  ```./11a_mintAsset.sh mypolicy.SUPERTOKEN 2000 mywallet "msg: minting is so cool"```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr, also it will attach the message "minting is so cool" to the transaction
-  
-  ```./11a_mintAsset.sh mypolicy.MEGATOKEN 30 owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
-  
-  ```./11a_mintAsset.sh mypolicy.HYPERTOKEN 150 owner.payment mymetadata.json```<br>this will mint 150 new HYPERTOKEN with policy 'mypolicy' on the payment address owner.payment.addr and will also attach the mymetadata.json as metadata in the Minting-Transaction
-  
-  It generally depends on the Policy-Type (made by the script 10a) if you can mint unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be more.
-
-&nbsp;<br>
-* **11b_burnAsset.sh:** burnes Assets(Token) on a given payment address with a policyName you own the keys for. This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
-  <br>```./11b_burnAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages]```
-  
-  ```./11b_burnAsset.sh mypolicy.SUPERTOKEN 22 mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
-  
-  ```./11b_burnAsset.sh mypolicy.MEGATOKEN 10 owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
-  
-  ```./11b_burnAsset.sh assets/mypolicy2.HYPERTOKEN 5 owner.payment```<br>this will burn 5 HYPERTOKEN with policy 'mypolicy2' from the subdirectory assets on the payment address owner.payment.addr, also it will send along the mymetadata.json in the Burning-Transaction
-
-  It generally depends on the Policy-Type (made by the script 10) if you can burn unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be less.
-
-&nbsp;<br>
-* **12a_genAssetMeta.sh:** is used to generate and sign the special JSON format which is used to register your Token Metadata on the Token-Registry-Server. This script needs the tool **token-metadata-creator** from IOHK (https://github.com/input-output-hk/offchain-metadata-tools). I uploaded a version of it into the scripts directory so you have a faster start.
-  <br>```./12a_genAssetMeta.sh <PolicyName.AssetName>```
-  
-  ```./12a_genAssetMeta.sh mypolicy.SUPERTOKEN```<br>this will generate the MetadataRegistration-JSON for the SUPERTOKEN and policy 'mypolicy'
-  
-  It will use the information stored in the <PolicyName.AssetName>.asset file to generate the Registration Data. You can edit this file before you run this command to your needs. Please only edit the entries starting with "meta". If the AssetFile is an older type, just run 12a once with that file and it will automatically add all the needed and available Entry-Fields for you! Please check the examples to learn more about the needed informations. :smiley:
-
-&nbsp;<br>
-* **12b_checkAssetMetaServer.sh:** will check the currently stored information about the given Asset from the TokenRegistryServer (only in Onine-Mode)
-  <br>```./12b_checkAssetMetaServer.sh <PolicyName.AssetName OR assetSubject(Hex-Code)>```
-  
-  ```./12b_checkAssetMetaServer.sh mypolicy.SUPERTOKEN```<br>this will check the Registered Metadata for the the SUPERTOKEN (policy mypolicy)
-  
-  You can run a query by that command against the Cardano Token Registry Server (https://github.com/cardano-foundation/cardano-token-registry). Wallets like Daedalus will use this information to show MetaContent about the NativeAsset(Token). Please check the examples to learn more about the needed informations.
-
-&nbsp;<br>
-&nbsp;<br>
-
 </details>
 
+<details><summary><b>10_genPolicy.sh:</b> generate policy keys, signing script and id as files <b>name.policy.skey/vkey/script/id</b>. You need a policy for Token minting.:bookmark_tabs:</summary>
+   
+<br>```./10_genPolicy.sh <PolicyName> [Optional valid xxx Slots (default=unlimited)]```
+  
+```./10_genPolicy.sh mypolicy```<br>this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
+  
+```./10_genPolicy.sh assets/mypolicy2```<br>this will generate the policyfiles with name mypolicy2.policy.skey, mypolicy2.policy.vkey, mypolicy2.policy.script & mypolicy2.policy.id in the 'assets' subdirectory
+  
+```./10_genPolicy.sh assets/special 600```<br>this will generate the policyfiles with name special.policy.skey, special.policy.vkey, special.policy.script & special.policy.id in the 'assets' subdirectory with a limited minting/burning access of 600 seconds(10 mins). Within those 10 mins you can mint lets say 200000 Tokens. After this 10 mins you will not be able to mint more Tokens or burn any Tokens with that Policy. So the total amount of the Tokens made with this Policy is fixed on the chain. :smiley:
+  
+
+&nbsp;<br>
+</details>
+
+<details><summary><b>11a_mintAsset.sh:</b> mint/generate new Assets(Token) on a given payment address with a policyName generated before.:bookmark_tabs:</summary>
+   
+<br>This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
+<br>```./11a_mintAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages]```
+  
+```./11a_mintAsset.sh mypolicy.SUPERTOKEN 1000 mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
+  
+```./11a_mintAsset.sh mypolicy.SUPERTOKEN 2000 mywallet "msg: minting is so cool"```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr, also it will attach the message "minting is so cool" to the transaction
+  
+```./11a_mintAsset.sh mypolicy.MEGATOKEN 30 owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
+  
+```./11a_mintAsset.sh mypolicy.HYPERTOKEN 150 owner.payment mymetadata.json```<br>this will mint 150 new HYPERTOKEN with policy 'mypolicy' on the payment address owner.payment.addr and will also attach the mymetadata.json as metadata in the Minting-Transaction
+  
+It generally depends on the Policy-Type (made by the script 10a) if you can mint unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be more.
+
+&nbsp;<br>
+</details>
+   
+<details><summary><b>11b_burnAsset.sh:</b> burnes Assets(Token) on a given payment address with a policyName you own the keys for.:bookmark_tabs:</summary>
+   
+<br>This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
+<br>```./11b_burnAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages]```
+  
+```./11b_burnAsset.sh mypolicy.SUPERTOKEN 22 mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
+  
+```./11b_burnAsset.sh mypolicy.MEGATOKEN 10 owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
+  
+```./11b_burnAsset.sh assets/mypolicy2.HYPERTOKEN 5 owner.payment```<br>this will burn 5 HYPERTOKEN with policy 'mypolicy2' from the subdirectory assets on the payment address owner.payment.addr, also it will send along the mymetadata.json in the Burning-Transaction
+
+It generally depends on the Policy-Type (made by the script 10) if you can burn unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be less.
+
+&nbsp;<br>
+</details>
+
+<details><summary><b>12a_genAssetMeta.sh:</b> is used to generate and sign the special JSON format which is used to register your Token Metadata on the Token-Registry-Server.:bookmark_tabs:</summary>
+   
+<br>This script needs the tool **token-metadata-creator** from IOHK (https://github.com/input-output-hk/offchain-metadata-tools). I uploaded a version of it into the scripts directory so you have a faster start.
+<br>```./12a_genAssetMeta.sh <PolicyName.AssetName>```
+  
+```./12a_genAssetMeta.sh mypolicy.SUPERTOKEN```<br>this will generate the MetadataRegistration-JSON for the SUPERTOKEN and policy 'mypolicy'
+  
+It will use the information stored in the <PolicyName.AssetName>.asset file to generate the Registration Data. You can edit this file before you run this command to your needs. Please only edit the entries starting with "meta". If the AssetFile is an older type, just run 12a once with that file and it will automatically add all the needed and available Entry-Fields for you! Please check the examples to learn more about the needed informations. :smiley:
+
+&nbsp;<br>
+</details>
+   
+<details><summary><b>12b_checkAssetMetaServer.sh:</b> will check the currently stored information about the given Asset from the TokenRegistryServer (only in Online-Mode):bookmark_tabs:</summary>
+   
+<br>```./12b_checkAssetMetaServer.sh <PolicyName.AssetName OR assetSubject(Hex-Code)>```
+  
+```./12b_checkAssetMetaServer.sh mypolicy.SUPERTOKEN```<br>this will check the Registered Metadata for the the SUPERTOKEN (policy mypolicy)
+  
+You can run a query by that command against the Cardano Token Registry Server (https://github.com/cardano-foundation/cardano-token-registry). Wallets like Daedalus will use this information to show MetaContent about the NativeAsset(Token). Please check the examples to learn more about the needed informations.
+
+&nbsp;<br>
+</details>
+
+&nbsp;<br>
+   
 ### Pool-Configuration-File (poolname.pool.json) - Config-File for each Pool
 
 The **poolname.pool.json** file is your Config-Json to manage your individual Pool-Settings like owners, fees, costs. You don't have to create the base structure of this Config-Json, **the script 05a_genStakepoolCert.sh will generate a blank one for you** ...<br>
@@ -1264,6 +1357,69 @@ So as you can see, you can use the "msg: xxx" parameter multiple times. You can 
    
 </details>
 
+
+## How to send Native Tokens
+
+This is as simply as sending lovelaces(ADA) from one wallet address to another address. Here you can find two examples on how to do it with self created Tokens and with Tokens you got from other ones.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+
+### _Sending one type of token at the same time_
+   
+Lets say we wanna send 15 **SUPERTOKEN** that we created by our own before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory. The Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
+
+<b>Steps:</b>
+1. Run ```./01_sendAssets.sh mywallet yourwallet assets/mypolicy.SUPERTOKEN.asset 15``` to send 15 SUPERTOKENs from *mywallet* to *yourwallet*.
+
+Done. :smiley:
+
+As you can see, we referenced the Token via the AssetsFile ***assets/mypolicy.SUPERTOKEN.asset***. That was easy, wasn't it?
+
+Lets now say we wanna send 36 **RANDOMCOIN**s that we got from another user. For that we have to reference it via the full PolicyID.Assetname scheme. In this example these RANDOMCOIN Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
+
+<b>Steps:</b>
+1. Run ```./01_queryAddress.sh mywallet``` to show the content of the *mywallet* address
+1. Select&Copy the Token you wanna send, in this example we wanna send the RANDOMCOINs.<br>
+   So your selection could look like: ```34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN```<br>
+   Paste it into the command Step 3.
+1. Run ```./01_sendAssets.sh mywallet yourwallet 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN 36``` to send 36 of theses RANDOMCOINs from *mywallet* to *yourwallet*.
+
+Done. :smiley:
+
+There are more options available to select the amount of the Tokens. You can find all the syntax for this 01_sendAssets.sh script [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+
+### _Sending multiple different tokens at the same time_
+
+With the latest update it is possible to send multiple different tokens to a destination address at the same time. Lets say we wanna send 20 **SUPERTOKEN** and also 23 **RANDOMCOIN**s that we got from another user. We reference the SUPERTOKEN via our own assetfile (example above) and the RANDOMCOINs via the policyID.name:
+
+<b>Steps:</b>
+1. Run ```./01_queryAddress.sh mywallet``` to show the content of the *mywallet* address
+1. Select&Copy the Token you wanna send, in this example we wanna send the SUPERTOKEN and RANDOMCOINs.<br>
+   Paste it into the command Step 3.
+1. Run ```./01_sendAssets.sh mywallet yourwallet "assets/mypolicy.SUPERTOKEN 20 | 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN 23"``` to send all assets with the policyID 3425...8518 from *mywallet* to *yourwallet*.
+
+As you can see, you can specify more tokens by putting them all into the quoted parameter 3 and separate them with the `|` char!
+
+### _Sending tokens of the same policyID, or policyID.name* at the same time_
+
+With the latest update it is possible to send multiple tokens to a destination address in a bulk transaction. You can specify them by the policyID or by the policyID and starting chars of the assetName of a policyID. Lets say we wanna send out all assets (NFTs) with the policyID 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518:
+
+<b>Steps:</b>
+1. Run ```./01_sendAssets.sh mywallet yourwallet "34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.* all"``` to send them from *mywallet* to *yourwallet*.
+
+As you can see, you can specify a whole set of assets via the `*` char at the end. It also works for starting chars of an assetName of a given policyID like:
+   
+<b>Steps:</b>
+1. Run ```./01_sendAssets.sh mywallet yourwallet "34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.NFT* all"``` to send all assets with the policyID 3425...8518 and the assetName starting with `NFT` from *mywallet* to *yourwallet*.
+
+For the complete available syntax, please check the 01_sendAsset.sh description [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+  
+&nbsp;<br>&nbsp;<br>
+
+</details>
+   
+
 ## Create the StakePool with CLI-Owner-Keys
 
 We want to make ourself a pool owner stake address with the nickname owner, we want to register the pool with the name mypool. The name is only to keep the files on the harddisc in order, name is not a ticker!
@@ -1737,39 +1893,6 @@ Done - You have burned (destroyed) 200 SUPERTOKENs. You can send Native-Tokens w
 
 </details>
 
-
-## How to send Native Tokens
-
-This is as simply as sending lovelaces(ADA) from one wallet address to another address. Here you can find two examples on how to do it with self created Tokens and with Tokens you got from other ones.
-
-<details>
-   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
-
-<br>Lets say we wanna send 15 **SUPERTOKEN** that we created by our own before under the policy **mypolicy**. The AssetFiles were stored in the *assets* subdirectory. The Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
-
-<br><b>Steps:</b>
-1. Run ```./01_sendAssets.sh mywallet yourwallet assets/mypolicy.SUPERTOKEN.asset 15``` to send 15 SUPERTOKENs from *mywallet* to *yourwallet*.
-
-Done. :smiley:
-
-As you can see, we referenced the Token via the AssetsFile ***assets/mypolicy.SUPERTOKEN.asset***. That was easy, wasn't it?
-
-Lets now say we wanna send 36 **RANDOMCOIN**s that we got from another user. For that we have to reference it via the full PolicyID.Assetname scheme. In this example these RANDOMCOIN Tokens are on the address **mywallet** and we wanna send them to the address in **yourwallet**.
-
-<br><b>Steps:</b>
-1. Run ```./01_queryAddress.sh mywallet``` to show the content of the *mywallet* address
-1. Select&Copy the Token you wanna send, in this example we wanna send the RANDOMCOINs.<br>
-   So your selection could look like: ```34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN```<br>
-   Paste it into the command Step 3.
-1. Run ```./01_sendAssets.sh mywallet yourwallet 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.RANDOMCOIN 36``` to send 36 of theses RANDOMCOINs from *mywallet* to *yourwallet*.
-
-Done. :smiley:
-
-There are more options available to select the amount of the Tokens. You can find all the syntax for this 01_sendAssets.sh script [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
-
-&nbsp;<br>&nbsp;<br>
-
-</details>
 
 ## How to register Metadata for your Native Tokens
 
@@ -2778,6 +2901,8 @@ Lets now say we wanna send 36 **RANDOMCOIN**s that we got from another user. For
 Done. :smiley:
 
 There are more options available to select the amount of the Tokens. You can find all the syntax for this 01_sendAssets.sh script [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
+   
+Also please checkout the example from the Online-Mode to see how to send multiple tokens at the same time, and even bulk transfers from all tokens from policyID xxx for example. You can find them [here](#how-to-send-native-tokens)
 
 &nbsp;<br>
 </details>

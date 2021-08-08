@@ -335,7 +335,7 @@ for (( tmpCnt=0; tmpCnt<${bechAssetsToSendCnt}; tmpCnt++ ))
 
 	#If asset is not present in the totalAssetsJSON, than exit with an error
         if [[ "${assetHash}" == null ]]; then
-		printf "\e[90m%-80s \e[35m%16s %-44s\e[0m\n" "${assetInput:0:80}" "${assetAmount}" "${assetBech}";
+		printf "\e[90m%-80s \e[35m%16s %-44s\e[0m\n" "${assetInput:0:80}" "${assetAmount}" "-";
 		echo -e "\n\e[35mThis asset is not available on this address or on the selected UTXOs!\e[0m\n"; exit 1;
 	fi
 
