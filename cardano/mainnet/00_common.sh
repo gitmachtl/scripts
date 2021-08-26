@@ -404,7 +404,10 @@ echo "${tmpEra}"; return 0; #return era in lowercase
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
 if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 
-#nodeEraParam="--mary-era"
+#Temporary fix to lock the transaction build-raw to mary era for
+#Hardware-Wallet operations. Alonzo-Era is not yet supported, so we will lock this for now
+if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--alonzo-era" ]]; then nodeEraParam="--mary-era"; fi
+
 
 #-------------------------------------------------------
 
@@ -424,8 +427,8 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 
   local utxoHashIndex="${utxo_entry[0]}#${utxo_entry[1]}"
 
-  #There are lovelaces on the UTXO
-  if [[ "${utxo_entry[3]}" == "lovelace" ]]; then
+  #There are lovelaces on the UTXO -> check if the name is "lovelace" or if there are just 3 arguments
+  if [[ "${utxo_entry[3]}" == "lovelace" ]] || [[ ${#utxo_entry[@]} -eq 3 ]]; then
 						local idx=5; #normal indexstart for the next checks
     						local utxoAmountLovelaces=${utxo_entry[2]};
 					      else
