@@ -62,7 +62,9 @@ The logfile for the Relay Node must be in **JSON mode** for this regex expressio
 #nodes from other networks (testnets)
 
 failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
+            ^.*"address":"<HOST>:.*HardForkEncoderDisabledEra.*$
             ^.*version data mismatch.*"address":"<HOST>:.*$
+            ^.*"address":"<HOST>:.*version data mismatch.*$
 
 journalmatch = _SYSTEMD_UNIT=<your systemd service name, i.e. cardano-node.service>
 ```
@@ -100,6 +102,13 @@ So make sure your config file for the Relay has something like this in:
 .
 ```
 
+Also make sure that the         
+```json
+"TraceErrorPolicy": true,
+```            
+is enabled in the config.json for the relay node.
+            
+            
 ## Restart fail2ban
 
 Now you only have to restart your fail2ban service like:
