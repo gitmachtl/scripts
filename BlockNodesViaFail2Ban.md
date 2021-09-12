@@ -43,9 +43,9 @@ For normal logfiles use this configuration:
 #nodes from other networks (testnets)
 
 failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
+            ^.*"address":"<HOST>:.*HardForkEncoderDisabledEra.*$
             ^.*version data mismatch.*"address":"<HOST>:.*$
             ^.*"address":"<HOST>:.*version data mismatch.*$
-
 
 ```
 
