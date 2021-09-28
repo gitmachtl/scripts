@@ -96,7 +96,7 @@ if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
 minNodeVersion="1.27.0"  #minimum allowed node version for this script-collection version
-maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
+maxNodeVersion="1.30.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="2.4.1"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.0"  #minimum version for the cardano-app on the Trezor hardwarewallet
 minHardwareCliVersion="1.6.2" #minimum version for the cardano-hw-cli
@@ -455,6 +455,7 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 	      IFS='.' read -ra asset <<< "${asset_hash_name}"
 	      local asset_policy=${asset[0]}
 	      local asset_name=${asset[1]}
+#	      local asset_name=$(convert_assetNameASCII2HEX ${asset[1]}) #AssetNames in HEX testing
 	      #Add the Entry of the Token
 	      local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.\"${asset_policy}\" += { \"${asset_name}\": \"${asset_amount}\" }" <<< ${utxoJSON})
 	      local idx=$(( ${idx} + 3 ))
@@ -518,6 +519,14 @@ echo -n "${1}" | xxd -b -ps -c 80 | tr -d '\n'
 #Convert HEX assetName into ASCII assetName
 convert_assetNameHEX2ASCII() {
 echo -n "${1}" | xxd -r -ps
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Convert HEX assetName into ASCII assetName. If possible return ".assetName" else return just the HEX assetName without a leading point'.'
+convert_assetNameHEX2ASCII_ifpossible() {
+local tmpAssetName=$(echo -n "${1}" | xxd -r -ps)
+if [[ "${tmpAssetName}" == "${tmpAssetName//[^[:alnum:]]/}" ]]; then echo -n ".${tmpAssetName}"; else echo -n "${tmpAssetName}"; fi
 }
 #-------------------------------------------------------
 
