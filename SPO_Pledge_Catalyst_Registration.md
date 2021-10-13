@@ -176,8 +176,8 @@ There is a handy little tool called **qr-code** available as part of `catalyst-t
 
 Extract the downloaded archive for your operating system and copy out the binary to your prefered folder. We use again ~/cardano/ in our example:
 ``` console
-wget https://github.com/input-output-hk/catalyst-toolbox/releases/download/v0.1.0/catalyst-toolbox-0.1.0-x86_64-unknown-linux-gnu-generic.tar.gz
-tar -xf catalyst-toolbox-0.1.0-x86_64-unknown-linux-gnu-generic.tar.gz
+wget https://github.com/input-output-hk/catalyst-toolbox/releases/download/v0.3.0/catalyst-toolbox-0.3.0-x86_64-unknown-linux-gnu.tar.gz
+tar -xf catalyst-toolbox-0.3.0-x86_64-unknown-linux-gnu.tar.gz
 cp $(find . -name catalyst-toolbox -executable -type f) ~/cardano/.
 ```
 
