@@ -38,15 +38,15 @@ jcliCheck=$(${jcli_bin} --version 2> /dev/null)
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'jcli' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
 jcliVersion=$(echo ${jcliCheck} | cut -d' ' -f 2)
 
-#VIT-KEDQR check
-if ! exists "${vitkedqr_bin}"; then
+#Catalyst-Toolbox check
+if ! exists "${catalyst_toolbox_bin}"; then
                                 #Try the one in the scripts folder
-                                if [[ -f "${scriptDir}/vit-kedqr" ]]; then vitkedqr_bin="${scriptDir}/vit-kedqr";
-                                else majorError "Path ERROR - Path to the 'vit-kedqr' binary is not correct or 'vit-kedqr' binaryfile is missing!\nYou can find it here: https://github.com/input-output-hk/vit-kedqr/releases/latest \nThis is needed to generate the QR code for the Catalyst-App. Please check your 00_common.sh or common.inc settings."; exit 1; fi
+                                if [[ -f "${scriptDir}/catalyst-toolbox" ]]; then catalyst_toolbox_bin="${scriptDir}/catalyst-toolbox";
+                                else majorError "Path ERROR - Path to the 'catalyst-toolbox' binary is not correct or 'catalyst-toolbox' binaryfile is missing!\nYou can find it here: https://github.com/input-output-hk/catalyst-toolbox/releases/latest \nThis is needed to generate the QR code for the Catalyst-App. Please check your 00_common.sh or common.inc settings."; exit 1; fi
 fi
-vitkedqrCheck=$(${vitkedqr_bin} --version 2> /dev/null)
-if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'vit-kedqr' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
-vitkedqrVersion=$(echo ${vitkedqrCheck} | cut -d' ' -f 2)
+catalystToolboxCheck=$(${catalyst_toolbox_bin} --version 2> /dev/null)
+if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'catalyst-toolbox' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
+catalystToolboxVersion=$(echo ${catalystToolboxCheck} | cut -d' ' -f 2)
 
 
 ################################################
@@ -63,18 +63,18 @@ case ${1} in
 		if [ ! -f "${voteKeyName}.voting.skey" ]; then echo -e "\e[35mError - ${voteKeyName}.voting.skey is missing, please generate it first with the subcommand 'new' !\e[0m\n"; showUsage; exit 1; fi
 		if [ -z "${pinCode##*[!0-9]*}" ] || [ ${#pinCode} -lt 4 ] || [ ${pinCode} -lt 0 ] || [ ${pinCode} -gt 9999 ]; then echo -e "\e[35mError - The PinCode must be a 4-Digit-Number between 0000 and 9999 !\e[0m\n"; exit 1; fi
 		if [ -f "${voteKeyName}.catalyst-qrcode.png" ]; then echo -e "\e[35mError - ${voteKeyName}.catalyst-qrcode.png already exists, please delete it first if you wanna overwrite it !\e[0m\n"; exit 1; fi
-                echo -e "\e[0mVIT-KEDQR-Version: \e[32m${vitkedqrVersion}\e[0m"
+                echo -e "\e[0mCatalyst-Toolbox-Version: \e[32m${catalystToolboxVersion}\e[0m"
                 echo
                 echo -e "\e[0mGenerating the Catalyst-APP QR Code for the Voting-Signing-Key: \e[32m${voteKeyName}.voting.skey\e[0m"
                 echo
                 echo -e "\e[0mYour Pin-Code for the Catalyst-APP: \e[32m${pinCode}\e[0m"
 		echo
 
-		tmp=$(${vitkedqr_bin} --pin ${pinCode} --input ${voteKeyName}.voting.skey --output ${voteKeyName}.catalyst-qrcode.png)
+		tmp=$(${catalyst_toolbox_bin} qr-code --pin ${pinCode} --input ${voteKeyName}.voting.skey --output ${voteKeyName}.catalyst-qrcode.png img)
 		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		file_lock ${voteKeyName}.voting.skey
 		echo -e "\e[0mCatalyst-QR-Code: \e[32m ${voteKeyName}.catalyst-qrcode.png \e[0m"
-		${vitkedqr_bin} --pin ${pinCode} --input ${voteKeyName}.voting.skey
+		${catalyst_toolbox_bin} qr-code --pin ${pinCode} --input ${voteKeyName}.voting.skey img
 		echo
 
 		exit 0;
