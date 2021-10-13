@@ -190,6 +190,8 @@ Usage of ./catalyst-toolbox qr-code:
         path to file to save qr code output, if not provided console output will be attempted
   --pin string
         Pin code. 4-digit number is used on Catalyst
+  img
+        Output as an image (Subcommand)
 ```
   
 Or simply run `./catalyst-toolbox qr-code --help` for the newest version help.
@@ -198,14 +200,14 @@ In our example here we have generated the secret voting key as file called **cat
 pincode *1234*. You can choose that and you will have to input it when using the Catalyst App to scan the QR code:
 
 ```console
-./catalyst-toolbox qr-code --pin 1234 --input catalyst-vote.skey
+./catalyst-toolbox qr-code --pin 1234 --input catalyst-vote.skey img
 ```
 
 This will show you the QR code on screen and you can use it with the Catalyst Voting App. :-)
 
 If you wanna save the QR code for later, you can save it as a PNG image too using the -output parameter like:
 ```console
-./catalyst-toolbox qr-code --pin 1234 --input catalyst-vote.skey --output catalyst-qrcode.png
+./catalyst-toolbox qr-code --pin 1234 --input catalyst-vote.skey --output catalyst-qrcode.png img
 ```
 
 This will generate the QR code as the file **catalyst-qrcode.png**
