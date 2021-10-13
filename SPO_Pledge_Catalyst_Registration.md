@@ -171,19 +171,19 @@ Pledge Voting experience...
 
 ## Generate the QR code for the Catalyst Voting App:
 
-There is a handy little tool called **vit-kedqr** available for that, you can find the compiled binary for your system here:<br>
-[https://github.com/input-output-hk/vit-kedqr/releases/latest](https://github.com/input-output-hk/vit-kedqr/releases/latest)
+There is a handy little tool called **qr-code** available as part of `catalyst-toolbox` for that, you can find the compiled binary for your system here:<br>
+[https://github.com/input-output-hk/catalyst-toolbox/releases/latest](https://github.com/input-output-hk/catalyst-toolbox/releases/latest)
 
 Extract the downloaded archive for your operating system and copy out the binary to your prefered folder. We use again ~/cardano/ in our example:
 ``` console
-wget https://github.com/input-output-hk/vit-kedqr/releases/download/v0.1.0/vit-kedqr-0.1.0-x86_64-unknown-linux-gnu-generic.tar.gz
-tar -xf vit-kedqr-0.1.0-x86_64-unknown-linux-gnu-generic.tar.gz
-cp $(find . -name vit-kedqr -executable -type f) ~/cardano/.
+wget https://github.com/input-output-hk/catalyst-toolbox/releases/download/v0.3.0/catalyst-toolbox-0.3.0-x86_64-unknown-linux-gnu.tar.gz
+tar -xf catalyst-toolbox-0.3.0-x86_64-unknown-linux-gnu.tar.gz
+cp $(find . -name catalyst-toolbox -executable -type f) ~/cardano/.
 ```
 
 Now we have the tool to generate the qr code, and thats pretty simple. You have a few parameters:
 ```console
-Usage of ./vit-kedqr:
+Usage of ./catalyst-toolbox qr-code:
   --input string
         path to file containing ed25519extended bech32 value
   --output string
@@ -191,19 +191,21 @@ Usage of ./vit-kedqr:
   --pin string
         Pin code. 4-digit number is used on Catalyst
 ```
+  
+Or simply run `./catalyst-toolbox qr-code --help` for the newest version help.
 
 In our example here we have generated the secret voting key as file called **catalyst-vote.skey**, and lets go with the
 pincode *1234*. You can choose that and you will have to input it when using the Catalyst App to scan the QR code:
 
 ```console
-./vit-kedqr --pin 1234 --input catalyst-vote.skey
+./catalyst-toolbox qr-code --pin 1234 --input catalyst-vote.skey
 ```
 
 This will show you the QR code on screen and you can use it with the Catalyst Voting App. :-)
 
 If you wanna save the QR code for later, you can save it as a PNG image too using the -output parameter like:
 ```console
-./vit-kedqr --pin 1234 --input catalyst-vote.skey --output catalyst-qrcode.png
+./catalyst-toolbox qr-code --pin 1234 --input catalyst-vote.skey --output catalyst-qrcode.png
 ```
 
 This will generate the QR code as the file **catalyst-qrcode.png**
