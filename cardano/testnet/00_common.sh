@@ -99,7 +99,7 @@ minNodeVersion="1.31.0"  #minimum allowed node version for this script-collectio
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="3.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.0"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.9.0" #minimum version for the cardano-hw-cli
+minHardwareCliVersion="1.8.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -785,6 +785,8 @@ fi
 #Get the hardware-wallet ready, check the cardano-app version
 start_HwWallet() {
 
+local onlyForManu=${1^^}
+
 if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
 
 versionHWCLI=$(${cardanohwcli} version 2> /dev/null |& head -n 1 |& awk {'print $6'})
@@ -811,18 +813,21 @@ case ${walletManu^^} in
 
 	LEDGER ) #For Ledger Hardware-Wallets
 		versionCheck "${minLedgerCardanoAppVersion}" "${versionApp}"
-		if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a Cardano App version ${minLedgerCardanoAppVersion} or higher on your ${walletManu} Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+		if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a Cardano App version ${minLedgerCardanoAppVersion} or higher on your LEDGER Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
 		;;
 
         TREZOR ) #For Trezor Hardware-Wallets
                 versionCheck "${minTrezorCardanoAppVersion}" "${versionApp}"
-                if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use Cardano App version ${minTrezorCardanoAppVersion} or higher on your ${walletManu} Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+                if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use Firmware version ${minTrezorCardanoAppVersion} or higher on your TREZOR Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
                 ;;
 
 	* ) #For any other Manuf.
 		majorError "Only Ledger and Trezor Hardware-Wallets are supported at the moment!"; exit 1;
 		;;
 esac
+
+#Check if the function was set to be only available on a specified manufacturer hw wallet
+if [ ! "${onlyForManu}" == "" ]  && [ ! "${onlyForManu}" == "${walletManu^^}" ]; then echo -e "\n\e[35mError - This function is NOT available on this type of Hardware-Wallet, only available on a ${onlyForManu} device at the moment!\e[0m\n"; exit 1; fi
 
 echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
 }
