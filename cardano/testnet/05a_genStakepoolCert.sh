@@ -170,7 +170,7 @@ poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
 if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaUrl entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64 chars allowed !\e[0m\n\nPlease re-edit the poolMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
 
 poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; then exit 1; fi
-if [[ ${#poolMetaDescription} -gt 250 ]]; then echo -e "\e[35mERROR - The poolMetaDescription entry in your ${poolFile}.pool.json is too long. Max. 250 chars allowed !\e[0m\n\nPlease re-edit the poolMetaDescription entry in your ${poolFile}.pool.json, thx!\e[0m"; exit 1; fi
+if [[ ${#poolMetaDescription} -gt 255 ]]; then echo -e "\e[35mERROR - The poolMetaDescription entry in your ${poolFile}.pool.json is too long. Max. 255 chars allowed !\e[0m\n\nPlease re-edit the poolMetaDescription entry in your ${poolFile}.pool.json, thx!\e[0m"; exit 1; fi
 
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json

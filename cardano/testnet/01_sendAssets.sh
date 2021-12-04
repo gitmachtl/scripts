@@ -5,7 +5,6 @@
 #load variables from common.sh
 . "$(dirname "$0")"/00_common.sh
 
-
 #ShowUsage
 showUsage() {
 cat >&2 <<EOF
@@ -23,9 +22,16 @@ Optional parameters:
    "myassets/mypolicy.mytoken 10|asset1hgxml0wxcw903pdsgzr8gyvwg8ch40v0fvnmjl 20" ... to send 10 mytoken and 20 tokens with bech asset1...
    "asset1hgxml0wxcw903pdsgzr8gyvwg8ch40v0fvnmjl all|asset1ra679n0pql7hc57qjlah3cjhaygywgccsufmpn all" ... to send all tokens of the given asset-names
 
-- You can also send all Assets with a specified policyID, or a policyID.name* with the * at the end for parameter 3:
+- You can also send all Assets with a specified policyID, or a policyID.ASCIIname* with the * at the end for parameter 3:
   "b43131f2c82825ee3d81705de0896c611f35ed38e48e33a3bdf298dc.* all" ... to send out all your CryptoMage NFTs
   "34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.Coin* all" .. to send out all your Assets for that policyID starting with the name "Coin"
+
+- You can also send Assets in Hex-ByteArray format without the . decimator in the name, bulk sending also works via the * char at the end:
+  "affeaffec82825ee3d81705de0896c611f35ed38e48e33a3bdf298dc1122334455667788 15" ... to send out 15 your that ByteArray named Asset
+  "34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851800123456* all" .. to send out all your Assets for that policyID and Hex-ByteArray
+
+- If you wanna send ALL Assets to another address you can use the special keyword "ALLASSETS" for the Asset. The remaining ADA will stay on the SourceAddr:
+  "$(basename $0) <FromAddress> <ToAddress> ALLASSETS"
 
 - Normally you don't need to specify an Amount of lovelaces to include, the script will calculcate the minimum Amount that is needed by its own.
   If you wanna send a specific amount, just provide the amount in lovelaces as one of the optional parameters.
@@ -81,7 +87,11 @@ if [ ${paramCnt} -ge 3 ]; then
 		        IFS=' ' read -ra tmpEntry <<< "$(trimString "${allAssetsToSend[tmpCnt]}")" #split the entry by the separator ' '
 
 			assetToSend=${tmpEntry[0]}
-			amountToSend=${tmpEntry[1]^^} #use the uppercase value (easier to check for keyword ALL)
+			if [[ "${assetToSend^^}" == "ALLASSETS" ]]; then  #autoset amount to ALL if the special keyword ALLASSETS is found
+				amountToSend="ALL"; tmpEntry[1]="ALL";
+				else
+			        amountToSend=${tmpEntry[1]^^} #use the uppercase value (easier to check for keyword ALL)
+			fi
 
 			#If the total assetsEntryCombo amount is only one and the splitted entrycount is 1 (asset&amount) and the paramCnt >= 4 and the 4th parameter is a number or ALL, than use this as the amountToSend
 			if [[ ${#allAssetsToSend[@]} -eq 1 ]] && [[ ${#tmpEntry[@]} -eq 1 ]] && [[ ${paramCnt} -ge 4 ]]; then
@@ -102,31 +112,54 @@ if [ ${paramCnt} -ge 3 ]; then
 
 			#Collect all the given Assets in a JSON for easier access, also convert all the entries into the bech32 format
 
+			#Preload the assetFile search variable for a check below
+ 			assetFile="$(dirname ${assetToSend})/$(basename "${assetToSend}" .asset).asset"
+
 			#Check if the assetToSend is a bech32 assetname (starts with "asset" and bech32 tool confirms a valid bech name)
 			if [[ "${assetToSend}" =~ ^asset(.*)$ ]] && [[ "${#assetToSend}" -eq 44 ]]; then
 		        	tmp=$(${bech32_bin} 2> /dev/null <<< "${assetToSend}") #will have returncode 0 if the bech was valid
 				if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - \"${assetToSend}\" is not a valid bech32 asset.\n\e[0m"; showUsage; exit 1; fi
 				assetBechToSend=${assetToSend}; #just copy it, already a valid bech32 asset
 
-			#Check if the assetToSend is a policyID.assetName string, if so, convert it bech32
-			elif [[ "${assetToSend}" =~ ^[[:xdigit:]]{56}(\.[[:alnum:]]{1,32})?$ ]]; then
-				if [[ "${assetToSend}" == *"."* ]]; then assetBechToSend=$(convert_tokenName2BECH $(echo ${assetToSend} | cut -d. -f 1) $(echo ${assetToSend} | cut -d. -f 2) )
-								    else assetBechToSend=$(convert_tokenName2BECH "${assetToSend}") #nameless token
-				fi
+			#All HEX Format Input
+                        #Check if the assetToSend is a policyIDassetName HEX-String, if so, convert it to bech32.
+			#Counting directly on HEX-Pairs, thats 56bytes for the policyID -> 28pairs and, zero (policyID only) up to 32 bytes for the
+			#assetName part so range is from 28+(0to32) pair -> 28 to 60 pairs
+                        elif [[ "${assetToSend}" =~ ^([[:xdigit:]][[:xdigit:]]){28,60}$ ]]; then assetBechToSend=$(convert_tokenName2BECH "${assetToSend}" "");
 
+			#Check if the assetToSend is a policyID.assetName ASCII-string, if so, convert it bech32
+			elif [[ "${assetToSend}" =~ ^[[:xdigit:]]{56}\.[[:alnum:]]{1,32}$ ]]; then assetBechToSend=$(convert_tokenName2BECH $(echo ${assetToSend} | cut -d. -f 1) $(echo ${assetToSend} | cut -d. -f 2) )
+
+			#BULK-HEX Send
+			#Check if the assetToSend is a policyIDassetName HEX-String* , if so, store it as a bulk entry
+			elif [[ "${assetToSend}" =~ ^([[:xdigit:]][[:xdigit:]]){28,59}\*$ ]]; then echo "hex-bulk"; #only up to 59 hex pairs, 60 pairs would be a single asset, no need to check for bulk
+				if [[ "${amountToSend}" == "ALL" ]]; then assetBechToSend="${assetToSend:0:56}.${assetToSend:56:-1}-BULK"; echo ${assetBechToSend} #cut of the last char * and store it in the sending list
+								     else echo -e "\n\e[35mError with Bulk-Selection of asset: \e[0m${assetToSend}\n\n\e[35mPlease set the sending amount to \e[0mALL \e[35m!\e[0m\n"; exit 1; fi
+
+			#BULK-ASCII Send
 			#Check if the assetToSend is a policyID.* string, if so, store it as a bulk entry
-			elif [[ "${assetToSend}" =~ ^[[:xdigit:]]{56}\.(.{0,31})\*$ ]]; then
-				if [[ "${amountToSend}" == "ALL" ]]; then assetBechToSend="${assetToSend:0:-1}-BULK"; #cut of the last char * and store it in the sending list
-								     else echo -e "\n\e[35mError with Bulk-Selection of policyID: \e[0m${assetToSend}\n\n\e[35mPlease set the sending amount to \e[0mALL \e[35m!\e[0m\n"; exit 1; fi
+			elif [[ "${assetToSend}" =~ ^[[:xdigit:]]{56}\.([[:alnum:]]{0,31})\*$ ]]; then #only up to 31 chars, 32 chars is a single asset, no need to check for bulk
+				tmpAssetPolicy=$(echo ${assetToSend} | cut -d. -f 1) #given policyID in hex
+				tmpAssetName=$(echo ${assetToSend:0:-1} | cut -d. -f 2) #given policyID in ascii
+				tmpAssetNameHEX=$(convert_assetNameASCII2HEX "${tmpAssetName}")
+				if [[ "${amountToSend}" == "ALL" ]]; then assetBechToSend="${tmpAssetPolicy}.${tmpAssetNameHEX}-BULK"; #cut of the last char * and store it in the sending list
+								     else echo -e "\n\e[35mError with Bulk-Selection of asset: \e[0m${assetToSend}\n\n\e[35mPlease set the sending amount to \e[0mALL \e[35m!\e[0m\n"; exit 1; fi
+
+			#BULK-ALL
+			elif [[ "${assetToSend^^}" == "ALLASSETS" ]]; then assetBechToSend="***SEND-ALL-BULK***"
 
 			#Check if the assetToSend is a file xxx.asset then read out the data from the file instead
-			assetFile="$(dirname ${assetToSend})/$(basename "${assetToSend}" .asset).asset"
 			elif [ -f "${assetFile}" ]; then
 				tmpAssetPolicy="$(jq -r .policyID < ${assetFile})"
 				tmpAssetName="$(jq -r .name < ${assetFile})"
-				assetBechToSend=$(convert_tokenName2BECH ${tmpAssetPolicy} ${tmpAssetName} )
+				tmpAssetHexName="$(jq -r .hexname < ${assetFile})"
+				if [[ "${tmpAssetHexName,,}" =~ ^([[:xdigit:]][[:xdigit:]]){1,32}$ ]]; then #hex-pair name
+													assetBechToSend=$(convert_tokenName2BECH "${tmpAssetPolicy}${tmpAssetHexName,,}" "")
+				elif [[ "${tmpAssetName}" == "${tmpAssetName//[^[:alnum:]]/}" ]]; then #readale ascii name
+													assetBechToSend=$(convert_tokenName2BECH "${tmpAssetPolicy}" "${tmpAssetName}")
+				else echo -e "\n\e[35mError - I don't understand the format of the name in the given assetFile '${assetFile}' ! \e[0m\n"; exit 1; fi
 
-			#Otherwise print an error message, that the given assetToSend couldnot be resolved
+			#Otherwise print an error message, that the given assetToSend could not be resolved
 			else
 				echo -e "\n\e[35mERROR - The given asset \"${assetToSend}\" could not be resolved from a valid asset-file, bech32 asset or policyID.assetName!\n\e[0m"; showUsage; exit 1;
 			fi
@@ -280,20 +313,30 @@ echo
                                 do
                                 assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
-                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
+                                assetBech=$(convert_tokenName2BECH "${assetHash}${assetName}" "")
                                 if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
 
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
-                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
+                                assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible "${assetName}") #if it starts with a . -> ASCII showable name, otherwise the HEX-String
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
+                                if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
+                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
+
+
+				#special process to add all assets to the sending list
+				if [[ "${bechAssetsToSendJSON}" == *"***SEND-ALL-BULK***"* ]]; then
+					assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible "${assetName}") #if it starts with a . -> ASCII showable name, otherwise the HEX-String
+                                        bechAssetsToSendJSON=$( jq ". += {\"${assetBech}\":{amount: \"ALL\", input: \"* ${assetHash}${assetTmpName}\"}}" <<< ${bechAssetsToSendJSON}) #add the current asset to the sending list
+                                        bechAssetsToSendJSON=$( jq ".\"***SEND-ALL-BULK***\".bulkfound = \"true\"" <<< ${bechAssetsToSendJSON}) #mark the bulksending entry itself as used by adding the key bulk=true to it for later filter$
 
 				#special process to lookup if there is a bulk sending entry in the ${bechAssetsToSendJSON}, if so, add the current asset with amount ALL to that list
 				#this bulk sending is only processed for assets with an assetname like NFTs, not for nameless assets. they have to be sent separate
-				if [[ ! "${assetName}" == "" ]] && [[ "${bechAssetsToSendJSON}" =~ ${assetHash}\.(.*)-BULK ]]; then
+				elif [[ ! "${assetName}" == "" ]] && [[ "${bechAssetsToSendJSON}" =~ ${assetHash}\.(.*)-BULK ]]; then
 					tmpFullKeyFound=${BASH_REMATCH[0]}; tmpCompareFound=${BASH_REMATCH[0]:0:-5};
 					if [[ ! $(grep "${tmpCompareFound}" <<< "${assetHash}.${assetName}") == "" ]]; then
-					bechAssetsToSendJSON=$( jq ". += {\"${assetBech}\":{amount: \"ALL\", input: \"* ${assetHash}.${assetName}\"}}" <<< ${bechAssetsToSendJSON}) #add the current asset to the sending list
+					assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible "${assetName}") #if it starts with a . -> ASCII showable name, otherwise the HEX-String
+					bechAssetsToSendJSON=$( jq ". += {\"${assetBech}\":{amount: \"ALL\", input: \"* ${assetHash}${assetTmpName}\"}}" <<< ${bechAssetsToSendJSON}) #add the current asset to the sending list
 					bechAssetsToSendJSON=$( jq ".\"${tmpFullKeyFound}\".bulkfound = \"true\"" <<< ${bechAssetsToSendJSON}) #mark the bulksending entry itself as used by adding the key bulk=true to it for later filtering
 					fi
 				fi
@@ -362,21 +405,24 @@ echo
 echo
 
 if [[ ${totalAssetsCnt} -gt 0 ]]; then
-	printf "\e[91m%s\e[0m - PolicyID:          %11s    %16s %-44s  %7s  %s\n" "Assets remaining after transaction" "ASCII-Name:" "Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
+	printf "\e[91m%s\e[0m - PolicyID:          %11s    %16s %-44s  %7s  %s\n" "Assets remaining after transaction" "Asset-Name:" "Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
 	for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
 	do
 		assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
 		assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
 		assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
 		assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-		assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+		#assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+                assetHashHex="${assetHashName//./}" #remove a . if present, we need a clean subject here for the registry request
 
                 if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
 			metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
 			metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
 		fi
 
-		printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
+                if [[ "${assetName}" == "." ]]; then assetName=""; fi
+
+                printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName:0:56}${assetName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
 
 		#Compose the assetsReturnString, add only assets with a amount greater than zero
 		if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsReturnString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
@@ -450,14 +496,19 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile} \e[0m"
-echo
-
 #Sign the unsigned transaction body with the SecureKey
 rm ${txFile} 2> /dev/null
 
 #If payment address is a hardware wallet, use the cardano-hw-cli for the signing
 if [[ -f "${fromAddr}.hwsfile" ]]; then
+
+        echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
+        tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
+        echo -e "\e[32m${tmp}\e[0m\n"
+
+        echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.hwsfile\e[0m: \e[32m ${txFile}\e[0m"
+        echo
+
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         #if rxcnt==2 that means that some funds are returned back to the hw-wallet and if its a staking address, we can hide the return
@@ -475,6 +526,8 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 else
+        echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile}\e[0m"
+        echo
         ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
@@ -483,7 +536,10 @@ echo -ne "\e[90m"
 cat ${txFile}
 echo
 
-if ask "\e[33mDoes this look good for you, continue ?" N; then
+#If you wanna skip the Prompt, set the environment variable ENV_SKIP_PROMPT to "YES" - be careful!!!
+#if ask "\e[33mDoes this look good for you, continue ?" N; then
+if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you, continue ?" N; then
+
 	echo
         if ${onlineMode}; then  #onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node... "

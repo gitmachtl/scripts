@@ -29,23 +29,30 @@ Usage:  $(basename $0) <PolicyName.AssetName>
 EOF
   exit 1;; esac
 
-#Check assetName for alphanummeric only, 32 chars max
-if [[ "${assetName}" == ".asset" ]]; then assetName="";
-elif [[ ! "${assetName}" == "${assetName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetName}' should only contain alphanummeric chars!\e[0m"; exit 1; fi
-if [[ ${#assetName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit 1; fi
+assetFileName="${policyName}.${assetName}.asset" #save the output assetfilename here, because at that state the assetName is with or without the {} brackets
 
 # Check for needed input files
 if [ ! -f "${policyName}.policy.id" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.id\" id-file does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
 if [ ! -f "${policyName}.policy.script" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.script\" scriptfile does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
+if [ -f "${policyName}.policy.hwsfile" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.hwsfile\" - Signing with hardware wallet policies is currently not supported :-( \e[0m"; exit 1; fi
 if [ ! -f "${policyName}.policy.skey" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.skey\" signing key does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
 policyID=$(cat ${policyName}.policy.id)
 
-assetFileName="${policyName}.${assetName}.asset"
+#Check assetName for alphanummeric / hex
+if [[ "${assetName}" == ".asset" ]]; then assetName="";
+elif [[ "${assetName,,}" =~ ^\{([[:xdigit:]][[:xdigit:]]){1,}\}$ ]]; then assetName=${assetName,,}; assetName=${assetName:1:-1}; assetHexName=${assetName} #store given hexname in own variable
+elif [[ ! "${assetName}" == "${assetName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetName}' should only contain alphanummeric chars!
+Otherwise you can use the binary hexformat like \"{8ac33ed560000eacce}\" as the assetName! Make sure to use full hex-pairs.\e[0m"; exit 1;
+else assetName=$(convert_assetNameASCII2HEX ${assetName})
+fi
 
-assetNameBech=$(convert_tokenName2BECH ${policyID} ${assetName})
-assetSubject="${policyID}$(convert_assetNameASCII2HEX ${assetName})"
+#assetName is in HEX-Format after this point
+if [[ ${#assetName} -gt 64 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 bytes allowed!\e[0m"; exit 1; fi  #checking for a length of 64 because a byte is two hexchars
 
-echo -e "\e[0mGenerating Metadata for the Asset \e[32m'${assetName}'\e[0m with Policy \e[32m'${policyName}'\e[0m: ${assetNameBech}"
+assetNameBech=$(convert_tokenName2BECH "${policyID}${assetName}" "")
+assetSubject="${policyID}${assetName}"
+
+echo -e "\e[0mGenerating Metadata for the Asset \e[32m'${assetName}' -> '$(convert_assetNameHEX2ASCII_ifpossible ${assetName})'\e[0m with Policy \e[32m'${policyName}'\e[0m: ${assetNameBech}"
 
 #set timetolife (inherent hereafter) to the currentTTL or to the value set in the policy.script for the "before" slot (limited policy lifespan)
 ttlFromScript=$(cat ${policyName}.policy.script | jq -r ".scripts[] | select(.type == \"before\") | .slot" 2> /dev/null || echo "unlimited")
@@ -57,7 +64,7 @@ echo
 #If there is no Asset-File, build up the skeleton and add some initial data
 if [ ! -f "${assetFileName}" ]; then
 				assetFileJSON="{}"
-				assetFileJSON=$(jq ". += {metaName: \"${assetName}\",
+				assetFileJSON=$(jq ". += {metaName: \"${assetName:0:50}\",
 							  metaDescription: \"\",
 							  \"---\": \"--- Optional additional info ---\",
 							  metaDecimals: \"\",
@@ -67,6 +74,7 @@ if [ ! -f "${assetFileName}" ]; then
 							  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
 			        			  minted: \"0\",
                                                           name: \"${assetName}\",
+                                                          hexname: \"${assetHexName}\",
                                                           bechName: \"${assetNameBech}\",
                                                           policyID: \"${policyID}\",
                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
@@ -101,6 +109,7 @@ assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetName}\",
                                   \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
                                   minted: \"0\",
                                   name: \"${assetName}\",
+				  hexname: \"\",
                                   bechName: \"${assetNameBech}\",
                                   policyID: \"${policyID}\",
                                   policyValidBeforeSlot: \"${ttlFromScript}\",
@@ -178,7 +187,7 @@ fi
 
 #Check metaDecimals - optional
 metaDecimals=$(jq -r ".metaDecimals" <<< ${assetFileJSON})
-if [[ ${metaDecimals} -gt -1 ]]; then
+if [[ ${metaDecimals} -gt 0 ]]; then
 	echo -ne "Adding 'metaDecimals'    ... "
 	if [[ ${metaDecimals} -gt 255 ]]; then echo -e "\e[35mERROR - The metaDecimals '${metaDecimals}' is too big. Max. value is 255 decimals !\e[0m\n"; exit 1; fi
 #	metaSubUnitName=$(jq -r ".metaSubUnitName" <<< ${assetFileJSON})

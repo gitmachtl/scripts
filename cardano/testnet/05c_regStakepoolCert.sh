@@ -282,12 +282,14 @@ if [[ "${regWitnessID}" == "" ]]; then
                                 do
                                 assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
-                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
+                                assetBech=$(convert_tokenName2BECH "${assetHash}${assetName}" "")
                                 if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
-                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
+                                assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible "${assetName}") #if it starts with a . -> ASCII showable name, otherwise the HEX-String
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
+                                if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
+                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
                                 done
                         done
 
@@ -301,21 +303,24 @@ if [[ "${regWitnessID}" == "" ]]; then
 
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
-                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "ASCII-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
+                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "Asset-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
                         assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
                         assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-                        assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+                        #assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+                        assetHashHex="${assetHashName//./}" #remove a . if present, we need a clean subject here for the registry request
 
                         if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
                                 metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
                                 metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
                         fi
 
-                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
+                        if [[ "${assetName}" == "." ]]; then assetName=""; fi
+
+                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName:0:56}${assetName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
                         if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
@@ -370,13 +375,16 @@ echo
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
-
-#Debug output
-#echo "${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}"
-
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txBodyFile} | head -n 6   #only show first 6 lines
 echo
+
+#If a hardware wallet is involved, do the autocorrection of the TxBody to make sure it is in canonical order for the assets
+if [[ "${hardwareWalletIncluded}" == "yes" ]]; then
+        echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
+        tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
+        echo -e "\e[32m${tmp}\e[0m\n"
+fi
 
 #So now lets ask if this payment looks ok, it will not be displayed later if a witness is missing
 if ! ask "\e[33mDoes this look good for you? Continue?" N; then exit 1; fi #if not ok, abort
@@ -394,6 +402,7 @@ poolJSON=$(jq ".regWitness.hardwareWalletIncluded = \"${hardwareWalletIncluded}\
 
 #Fill the witness count with the node-coldkey witness
 if [ -f "${poolName}.node.skey" ]; then #key is a normal one
+
 	echo -ne "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ... "
 	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${poolName}.node.skey ${magicparam} --out-file /dev/stdout)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -404,16 +413,18 @@ elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
 
         if ! ask "\e[0mAdding the pool node witness from a local Hardware-Wallet key '\e[33m${poolName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
 
-		tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
-                start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
-                if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
-                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                tmpWitness=$(cat ${tmpWitnessFile})
-		poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
+	tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        tmpWitness=$(cat ${tmpWitnessFile})
+	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
 
 else
-	echo -e "\e[35mError - Node Cold Signing Key for \"${poolName}\" not found. No ${poolName}.node.skey/hwsfile found !\e[0m\n"; exit 1;
+
+	echo -e "\e[35mError - Node Cold Signing Key for \"${poolName}\" not found. No ${poolName}.node.skey/hwsfile file found !\e[0m\n"; exit 1;
+
 fi
 
 #Fill the witnesses with the local payment witness, must be a normal cli skey
@@ -421,7 +432,7 @@ echo -ne "\e[0mAdding the payment witness from a local payment address '\e[33m${
 tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey ${magicparam} --out-file /dev/stdout)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[32mOK\n"
-poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
+poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witness in the poolJSON if its a new collection
 
 #Fill the witnesses with the local owner accounts, if you wanna do this in multiple steps you should set ownerWitness: "external" in the pool.json
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
