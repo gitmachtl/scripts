@@ -34,6 +34,8 @@ offlineFile="./offlineTransfer.json" 	#path to the filename (JSON) that will be 
 #--------- Only needed if you wanna do catalyst voting or if you wanna include your itn witness for your pool-ticker
 jcli_bin="./jcli"               #Path to your jcli binary you wanna use. If your binary is present in the Path just set it to "jcli" without the "./" infront
 catalyst_toolbox_bin="./catalyst-toolbox"       #Path to your catalyst-toolbox binary you wanna use. If your binary is present in the Path just set it to "catalyst-toolbox" without the "./" infront
+voter_registration_bin="./voter-registration"   #Path to your voter-registration binary you wanna use. If your binary is present in the Path just set it to "voter-registration" without the "./" infront
+
 
 
 #--------- Only needed if you wanna use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)

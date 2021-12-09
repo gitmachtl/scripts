@@ -7,25 +7,36 @@ I put this together, should work for you, it did for me. But of course, use the 
 
 Best regards, Martin (ATADA/ATAD2 Stakepool Austria)
 
-:bulb: **Links below were updated for Catalyst Fund4 !**
-
 &nbsp;<br>
 
-# How to vote with Funds (also Pledge) on Hardware-Wallets :new:
+# The simple way using the SPO-Scripts
 
-Important - you need the `cardano-hw-cli` version **1.5.0** or above for that!
+## How to vote with Funds (also Pledge) on Hardware-Wallets :new:
+
+Important - you need the [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases) version **1.5.0** or above for that!
 
 Software needed on the Hardware-Wallet:
-* **Ledger NanoS or NanoX: Cardano-App 2.3.2**
-* **Trezor Model-T: Firmware 2.4.0**
+* **Ledger NanoS or NanoX: Cardano-App 2.3.2** or newer
+* **Trezor Model-T: Firmware 2.4.0** or newer
 
 To **generate your Voting-Registration**, please use the **09a_catalystVote.sh script** from the MainNet Repo to do so, you can find a description of the 4 simple steps [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#catalyst-voting-with-your-hw-wallet)
 
 &nbsp;<br>
 
-# How to vote with Funds (also Pledge) on CLI-Keys
+## How to vote with Funds (also Pledge) on CLI-Keys and HYBRID-Keys :new:
 
-## First - Lets talk about security
+Important - you need the [voter-registration tool](https://github.com/input-output-hk/voting-tools/releases/latest) version **0.2.0.0** or above for that!
+
+To **generate your Voting-Registration**, please use the **09a_catalystVote.sh script** from the MainNet Repo to do so, you can find a description of the 4 simple steps [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#catalyst-voting-with-your-cli-keys-or-hybrid-keys)
+
+&nbsp;<br>
+
+
+# The step-by-step way on the CLI
+
+## How to vote with Funds (also Pledge) on CLI-Keys
+
+### First - Lets talk about security
 
 Make sure you don't have any rewards sitting on your pledge staking key,
 withdrawl them first to your pledge payment account or whereever you like.
@@ -35,7 +46,7 @@ your pledge staking skey on that machine for the time of running the registratio
 tool. Each SPO have to decide if he is ok with that or not. Your pledge funds are
 not at risk here, because you don't need your pledge payment skey for the registration.
 
-## Generate your voting secret and public key
+### Generate your voting secret and public key
 
 You need a **jcli** binary for that, you should already have this laying around, if not,
 you can find the latest compiled release here:<br>
@@ -49,7 +60,7 @@ tar -xf jormungandr-0.9.3-x86_64-unknown-linux-gnu-generic.tar.gz
 
 Now lets generate the two keyfiles:
 
-```console
+``` console
 ./jcli key generate --type ed25519extended > catalyst-vote.skey
 ./jcli key to-public < catalyst-vote.skey > catalyst-vote.pkey
 ```
@@ -58,39 +69,12 @@ You have generated the secret- and the public-voting key, we use them now in the
 
 ⚠️ Make sure, that you have generated the skey as an ed25519**extended** key !
 
-## Where will the voting rewards distributed to?
+### Where will the voting rewards distributed to?
 
 Thats an important one, the voting rewards will be distributed back onto a stake address as rewards. Like staking rewards !
 
-## Generate the signed voting registration
 
-You need the **voter-registration** tool from Samuel ([link to repo](https://github.com/input-output-hk/voting-tools)) for this, you have to compile it like you 
-compile your cardano-node OR you can use a [*precompiled version*](https://hydra.iohk.io/job/Cardano/voting-tools/native.voterRegistrationTarball.x86_64-linux/latest-finished/download/1/voter-registration.tar.gz).<p>
-
-The tool is written in haskell, you **compile** it the same way as you do with your cardano node, should be
-something similar to this:
-
-``` console
-git clone https://github.com/input-output-hk/voting-tools
-cd voting-tools
-echo -e "package cardano-crypto-praos\n  flags: -external-libsodium-vrf\n" > cabal.project.local
-cabal update
-cabal build all
-```
-
-If you just want to use a **precompiled** linux version, you can download it via:
-``` console
-wget https://hydra.iohk.io/job/Cardano/voting-tools/native.voterRegistrationTarball.x86_64-linux/latest-finished/download/1/voter-registration.tar.gz
-tar -xf voter-registration.tar.gz
-```
-
-To copy out the **voter-registration** binary you can use this command after the build to copy it to your
-prefered directory. In this example the copy goes to the ~/cardano/ directory:
-``` console
-cp $(find . -name voter-registration -executable -type f) ~/cardano/.
-```
-
-Ok, now we have the tool to generate the signed transaction file. 
+### Generate the voting registration metadata
 
 Make sure your environment variable **CARDANO_NODE_SOCKET_PATH** is pointing to a running fully synced 
 cardano node (just a simple passive one is ok), for example:
@@ -99,77 +83,134 @@ cardano node (just a simple passive one is ok), for example:
 export CARDANO_NODE_SOCKET_PATH=db-mainnet/node.socket
 ```
 
-The registration tool needs some parameters to call:
+Lets generate the registration metadata in json format:
 
 ``` console
-./voter-registration  --payment-signing-key FILE 
-                      --payment-address STRING
-                      --rewards-address STRING
-                      --vote-public-key FILE 
-                      --stake-signing-key FILE 
-                      (--mainnet | --testnet-magic NATURAL)
-                      [--time-to-live WORD64]
-                      --out-file FILE
-                      [--sign]
-                      [--byron-era | --shelley-era | --allegra-era | --mary-era]
-                      [--shelley-mode | --byron-mode
-                      [--epoch-slots NATURAL] |
-                      --cardano-mode [--epoch-slots NATURAL]]
+export NETWORK_ID="--mainnet"
+export SLOT_TIP=$(cardano-cli query tip $NETWORK_ID | jq '.slot')
 
-```                      
-
-So in our case we need a payment address, this should **NOT BE YOUR PLEDGE ADDRESS**! Just a simple
-payment address to pay for the transaction, we call it **somepayment**. 
-> :bulb: Currently the voter-registration tool is having issues with tokens on the payment address, please just use a payment address with only lovelaces/Ada on it for now!
-
-So we need the somepayment.skey, also we need the somepayment address as text, or in the example below we read it out from the somepayment.addr 
-file directly. You need the rewards receiving address, **this must be a stake-address!**. Lets use the same account as our pledge-account for that. The address is stored in the *pledge.staking.addr* file. Than you need of course your pledge.staking.skey you wanna register for Catalyst Voting.
-Then we need the public voting key we generated in the steps above with jcli. You have to choose the network,
-in this case we are on mainnet. The Time-To-Live parameter is not needed, but make sure to submit the signed 
-transaction file as soon as possible after the creation. The last thing we need is the
-path to the signed transaction output file, lets call it **vote-catalyst.tx**. So a complete call would be:
-
-```console
-./voter-registration  --payment-signing-key somepayment.skey \
-                      --payment-address $(cat somepayment.addr) \
-                      --rewards-address $(cat pledge.staking.addr) \
-                      --vote-public-key catalyst-vote.pkey \
-                      --stake-signing-key pledge.staking.skey \
-                      --mainnet \
-                      --mary-era \
-                      --cardano-mode \
-                      --sign \
-                      --out-file vote-registration.tx
+voter-registration \
+    --rewards-address $(cat pledge.staking.addr) \
+    --vote-public-key-file catalyst-vote.pkey \
+    --stake-signing-key-file pledge.staking.skey \
+    --slot-no $SLOT_TIP \
+    --json > voting-registration-metadata.json
 ```
 
-If all went well, you should get an output similar to this:
-```console
-Vote public key used        (hex): 71ce673ef64baaaafb758b65df01b036665d4498256335e93e28b869568d9ed8
-Stake public key used       (hex): 9be513df12b3fabe7c1b8c3f9bbbb968eb2168d5689bf981c2f7c35b11718b27
-Vote registration signature (hex): 57267d94e5bae64fa236924b83ce7411fef10bd5d73aca7afabcd053cf2dc2e3621f7d253bf90933e2bc0bfb56146cf0a13925d9f96d6d06b0b798bc41d4000d
-```
+Both CBOR (--cbor) and JSON (--json) formats exist. We choose --json in this example.
 
-and also the **vote-registration.tx** file with a content similar to this:
-```console
-{
-    "type": "TxSignedShelley",
-    "description": "",
-    "cborHex": "83a500828258205761bdc4fd016ee0d52ac759ae6c0e8e0943d4892474283866a07f9768e48fee00825820e6701be50c87d8d584985edd4cf39799e1445bd37907027c44d08c7da79ea23200018182583900fec5a902e307707b6ab3de38104918c0e33cf4c3408e6fcea4f0a199c13582aec9a44fcc6d984be003c5058c660e1d2ff1370fd8b49ba73f1b00001e0369444cd7021a0002c329031a00ce0fc70758202386abf617780a925495f38f23d7bc594920ff374f03f3d7517a4345e355b047a1008182582099d1d0c4cdc8a4b206066e9606c6c3729678bd7338a8eab9bffdffa39d3df9585840af346c11fe7a222008f5b1b50fbc23a0cbc3d783bf4461f21353e8b5eb664adadb34291197e039e467d2a68346921879d1212bd0d54245a9e110162ecae9190ba219ef64a201582071ce673ef64b4ac1fb758b65df01b036665d4498256335e93e28b869568d9ed80258209be513df12b3fabe7c1b8c3f9fab0968eb2168d5689bf981c2f7c35b11718b2719ef65a101584057267d94e5bae64fa236924b83ce7411fef10bd5d73aca7af8403053cf2dc2e3621f7d253bf90933e2bc0bfb56146cf0a13925d9f96d6d06b0b798bc41d4000d"
-}
-```
+### Submission of vote registration
 
-## Submit the registration on the chain
+Next, we need to add this transaction metadata to a transaction and submit it to the chain.
 
-We have generated the signed registration transaction file **vote-registration.tx**, now lets submit it on the chain.
-You can do this on the same machine, or on another machine by just running:
+First we'll grab the protocol parameters:
 
 ``` console
-./cardano-cli transaction submit --cardano-mode --mainnet --tx-file vote-registration.tx
+cardano-cli query protocol-parameters \
+    $NETWORK_ID \
+    --out-file protocol.json
 ```
-If you don't get any error outputs, your registration is now on the chain. So there is only one step left for your SPO
-Pledge Voting experience...
 
-## Generate the QR code for the Catalyst Voting App:
+And find some funds to use:
+
+We need a payment address, this should **NOT BE YOUR PLEDGE ADDRESS**! Just a simple
+payment address to pay for the transaction, we call it **payment**. 
+
+
+``` console
+export PAYMENT_ADDR=$(cat payment.addr)
+
+echo "UTxOs available:"
+cardano-cli query utxo \
+    $NETWORK_ID \
+    --address $PAYMENT_ADDR
+                           TxHash                                 TxIx        Amount
+--------------------------------------------------------------------------------------
+b9579d53f3fd77679874a2d1828e2cf40e31a8ee431b35ca9347375a56b6c39b     0        999821651 lovelace + TxOutDatumNone
+
+```
+
+Here we're just using the first TxHash and TxIx we find, you should choose an appropriate UTxO and TxIx.
+
+``` console
+export AMT=$(cardano-cli query utxo $NETWORK_ID --address $PAYMENT_ADDR | tail -n1 | awk '{print $3;}')
+export UTXO=$(cardano-cli query utxo $NETWORK_ID --address $PAYMENT_ADDR | tail -n1 | awk '{print $1;}')
+export UTXO_TXIX=$(cardano-cli query utxo $NETWORK_ID --address $PAYMENT_ADDR | tail -n1 | awk '{print $2;}')
+echo "UTxO: $UTXO#$UTXO_TXIX"
+```
+
+Here we'll make draft transaction for the purposes of fee estimation. This transaction will simply send the entire UTxO value back to us, minus the fee. We don't need to send money anywhere else, we simply have to make a valid transaction with the metadata attached.
+
+``` console
+cardano-cli transaction build-raw \
+    --tx-in $UTXO#$UTXO_TXIX \
+    --tx-out $(cat payment.addr)+0 \
+    --invalid-hereafter 0 \
+    --fee 0 \
+    --metadata-json-file voting-registration-metadata.json
+    --out-file tx.draft \
+
+export FEE=$(cardano-cli transaction calculate-min-fee \
+    $NETWORK_ID \
+    --tx-body-file tx.draft \
+    --tx-in-count 1 \
+    --tx-out-count 1 \
+    --witness-count 1 \
+    --protocol-params-file protocol.json | awk '{print $1;}')
+
+export AMT_OUT=$(expr $AMT - $FEE)
+```
+
+Then we have to decide on a TTL for the transaction, and build the final transaction:
+
+``` console
+export TTL=$(expr $SLOT_TIP + 200)
+
+cardano-cli transaction build-raw \
+    --tx-in $UTXO#$UTXO_TXIX \
+    --tx-out $PAYMENT_ADDR+$AMT_OUT \
+    --invalid-hereafter $TTL \
+    --fee $FEE \
+    --metadata-json-file voting-registration-metadata.json
+    --out-file tx.raw
+```
+
+Then we can sign the transaction:
+
+``` console
+cardano-cli transaction sign \
+    --tx-body-file tx.raw \
+    --signing-key-file payment.skey \
+    $NETWORK_ID \
+    --out-file tx.signed
+```
+
+And finally submit our transaction:
+
+``` console
+cardano-cli transaction submit \
+    --tx-file tx.signed \
+    $NETWORK_ID
+```
+
+We'll have to wait a little while for the transaction to be incorporated into the chain:
+
+``` console
+cardano-cli query utxo --address $(cat payment.addr) $NETWORK_ID
+                           TxHash                                 TxIx        Amount
+--------------------------------------------------------------------------------------
+b9579d53f3fd77679874a2d1828e2cf40e31a8ee431b35ca9347375a56b6c39b     0        999821651 lovelace + TxOutDatumNone
+
+cardano-cli query utxo --address $(cat payment.addr) $NETWORK_ID
+                           TxHash                                 TxIx        Amount
+--------------------------------------------------------------------------------------
+4fbd6149f9cbbeb8f91b618ae3813bc451c22059c626637d3b343d3114cb92c5     0        999642026 lovelace + TxOutDatumNone
+```
+
+But once we've confirmed the transaction has entered the chain, we're registered!
+
+
+### Generate the QR code for the Catalyst Voting App:
 
 There is a handy little tool called **qr-code** available as part of `catalyst-toolbox` for that, you can find the compiled binary for your system here:<br>
 [https://github.com/input-output-hk/catalyst-toolbox/releases/latest](https://github.com/input-output-hk/catalyst-toolbox/releases/latest)
