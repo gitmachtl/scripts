@@ -14,7 +14,7 @@ if [ $# -ge 3 ]; then
       fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr=${fromAddr};
       policyName="$(echo $1 | cut -d. -f 1)";
-      assetBurnName="$(echo $1 | cut -d. -f 2-)"; assetBurnName=$(basename "${assetBurnName}" .asset); #assetBurnName=${assetBurnName//./};
+      assetBurnName="$(echo $1 | cut -d. -f 2-)"; assetBurnName=$(basename "${assetBurnName}" .asset); assetBurnInputName=${assetBurnName}; #assetBurnName=${assetBurnName//./};
       assetBurnAmount="$2";
       else
       cat >&2 <<EOF
@@ -30,31 +30,36 @@ Optional parameters:
    "msg: This is a short comment for the transaction" ... that would be a one-liner comment
    "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
 
-- You can attach a transaction-metadata.json by adding the filename of the json file to the parameters (minting information)
+- You can attach a transaction-metadata.json by adding the filename of the json file to the parameters (burning information)
 
-- You can attach a transaction-metadata.cbor by adding the filename of the json file to the parameters (minting information)
+- You can attach a transaction-metadata.cbor by adding the filename of the json file to the parameters (burning information)
 
 Note: If you wanna register your NativeAsset/Token on the TokenRegistry, use the scripts 12a/12b!
 
 EOF
   exit 1; fi
 
-
 #Check assetBurnName for alphanummeric only, 32 chars max
 if [[ "${assetBurnName}" == ".asset" ]]; then assetBurnName="";
-elif [[ ! "${assetBurnName}" == "${assetBurnName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetBurnName}' should only contain alphanummeric chars!\e[0m"; exit 1; fi
-if [[ ${#assetBurnName} -gt 32 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 chars allowed!\e[0m"; exit 1; fi
+elif [[ "${assetBurnName,,}" =~ ^\{([[:xdigit:]][[:xdigit:]]){1,}\}$ ]]; then assetBurnName=${assetBurnName,,}; assetBurnName=${assetBurnName:1:-1}; assetHexBurnName=${assetBurnName}
+elif [[ ! "${assetBurnName}" == "${assetBurnName//[^[:alnum:]]/}" ]]; then echo -e "\e[35mError - Your given AssetName '${assetBurnName}' should only contain alphanummeric chars! Otherwise you can use the binary hexformat like \"{8ac33ed560000eacce}\" as the assetName! Make sure to use full hex-pairs.\e[0m"; exit 1;
+else assetBurnName=$(convert_assetNameASCII2HEX ${assetBurnName})
+fi
+
+#assetBurnName is in HEX-Format after this point, the given assetBurnName is stored in assetBurnInputName for filehandling, etc.
+
+if [[ ${#assetBurnName} -gt 64 ]]; then echo -e "\e[35mError - Your given AssetName is too long, maximum of 32 bytes allowed!\e[0m"; exit 1; fi  #checking for a length of 64 because a byte is two hexchars
 if [[ ${assetBurnAmount} -lt 1 ]]; then echo -e "\e[35mError - The Amount of Assets to burn must be a positive number!\e[0m"; exit 1; fi
 
-# Check for needed input files
+# Check for needed input files - missing - work to do :-)
 if [ ! -f "${policyName}.policy.id" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.id\" id-file does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
 if [ ! -f "${policyName}.policy.script" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.script\" scriptfile does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
-if [ ! -f "${policyName}.policy.skey" ]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.skey\" signing key does not exist! Please create it first with script 10.\e[0m"; exit 1; fi
+if ! [[ -f "${policyName}.policy.skey" || -f "${policyName}.policy.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${policyName}.policy.skey/hwsfile\" does not exist! Please create it first with script 10.\e[0m"; exit 2; fi
 policyID=$(cat ${policyName}.policy.id)
 
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02. It's not possible to mint on a hw-wallet for now!\e[0m"; exit 1; fi
-#if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+#if [ ! -f "${fromAddr}.skey" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02. It's not possible to mint on a hw-wallet for now!\e[0m"; exit 1; fi
+if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 
 #Check all optional parameters about there types and set the corresponding variables
 #Starting with the 4th parameter (index3) up to the last parameter
@@ -120,10 +125,10 @@ fi
 #Sending ALL lovelaces, so only 1 receiver addresses
 rxcnt="1"
 
-assetBurnBech=$(convert_tokenName2BECH ${policyID} ${assetBurnName})
-assetBurnSubject="${policyID}$(convert_assetNameASCII2HEX ${assetBurnName})"
+assetBurnBech=$(convert_tokenName2BECH "${policyID}${assetBurnName}" "")
+assetBurnSubject="${policyID}${assetBurnName}"
 
-echo -e "\e[0mBurning Asset \e[32m${assetBurnAmount} '${assetBurnName}'\e[0m with Policy \e[32m'${policyName}'\e[0m: ${assetBurnBech}"
+echo -e "\e[0mBurning Asset \e[32m${assetBurnAmount} '${assetBurnInputName}' -> '$(convert_assetNameHEX2ASCII_ifpossible ${assetBurnName})'\e[0m with Policy \e[32m'${policyName}'\e[0m: ${assetBurnBech}"
 
 #get live values
 currentTip=$(get_currentTip)
@@ -173,8 +178,11 @@ echo
         #totalAssetsJSON="{}"; #Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
 	#Preload the new Asset to burn in the totalAssetsJSON with the negative number of assets to burn, will sum up later
 	if [[ "${assetBurnName}" == "" ]]; then point=""; else point="."; fi
-        assetBech=$(convert_tokenName2BECH ${policyID} ${assetBurnName})
-	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetBurnName}\":{amount: \"-${assetBurnAmount}\", name: \"${assetBurnName}\", bech: \"${assetBech}\"}}" <<< "{}")
+
+        assetBech=$(convert_tokenName2BECH "${policyID}${assetBurnName}" "")
+        assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible "${assetBurnName}") #if it starts with a . -> ASCII showable name, otherwise the HEX-String
+
+	totalAssetsJSON=$( jq ". += {\"${policyID}${point}${assetBurnName}\":{amount: \"-${assetBurnAmount}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< "{}")
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
@@ -201,12 +209,14 @@ echo
                                 do
                                 assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
                                 assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
-                                assetBech=$(convert_tokenName2BECH ${assetHash} ${assetName})
+                                assetBech=$(convert_tokenName2BECH "${assetHash}${assetName}" "")
                                 if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
                                 newValue=$(bc <<< "${oldValue}+${assetAmount}")
-                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
-                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetName}\e[0m"
+                                assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible "${assetName}") #if it starts with a . -> ASCII showable name, otherwise the HEX-String
+                                totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
+                                if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
+                                 echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
                                 done
                         done
 
@@ -220,21 +230,24 @@ echo
 
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs - \e[91m PREVIEW after burning!\e[0m\n"
-                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "ASCII-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
+                        printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "Asset-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
                         assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
                         assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
                         assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
                         assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-                        assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+                        #assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+                        assetHashHex="${assetHashName//./}" #remove a . if present, we need a clean subject here for the registry request
 
                         if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
                                 metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
                                 metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
                         fi
 
-                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
+                        if [[ "${assetName}" == "." ]]; then assetName=""; fi
+
+                        printf "\e[90m%-70s \e[32m%16s %44s  \e[90m%-7s  \e[36m%s\e[0m\n" "${assetHashName:0:56}${assetName}" "${assetAmount}" "${assetBech}" "${metaAssetTicker}" "${metaAssetName}"
                         if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
@@ -262,7 +275,7 @@ if [[ "${assetBurnName}" == "" ]]; then point=""; else point="."; fi
 
 #Check amount of assets after the burn
 assetAmountAfterBurn=$(jq -r ".\"${policyID}${point}${assetBurnName}\".amount" <<< ${totalAssetsJSON})
-if [[ $(bc <<< "${assetAmountAfterBurn}<0") -eq 1 ]]; then echo -e "\n\e[35mYou can't burn ${assetBurnAmount} ${assetBurnName} Assets with that policy, you can only burn $(bc <<< "${assetBurnAmount}+${assetAmountAfterBurn}") Assets!\e[0m"; exit; fi
+if [[ $(bc <<< "${assetAmountAfterBurn}<0") -eq 1 ]]; then echo -e "\n\e[35mYou can't burn ${assetBurnAmount} '${assetBurnName}' Assets with that policy, you can only burn $(bc <<< "${assetBurnAmount}+${assetAmountAfterBurn}") Assets!\e[0m"; exit; fi
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
@@ -285,6 +298,13 @@ if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough fu
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
 txFile="${tempDir}/$(basename ${fromAddr}).tx"
 
+txWitnessPolicyFile="${tempDir}/$(basename ${policyName}).witness"
+rm ${txWitnessPolicyFile} 2> /dev/null
+
+txWitnessPaymentFile="${tempDir}/$(basename ${fromAddr}).witness"
+rm ${txWitnessPaymentFile} 2> /dev/null
+
+
 echo
 echo -e "\e[0mBuilding the unsigned transaction body: \e[32m ${txBodyFile} \e[90m"
 echo
@@ -297,13 +317,61 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 cat ${txBodyFile}
 echo
 
-echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m and \e[32m${policyName}.policy.skey\e[0m: \e[32m ${txFile} \e[90m"
+#do the TxBody autocorrection if actions are for a hw-wallet   (same if conditions as below)
+if [ -f "${policyName}.policy.hwsfile" ] || [ -f "${fromAddr}.hwsfile" ]; then
+        echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
+        tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
+        echo -e "\e[32m${tmp}\e[0m\n"
+fi
+
+echo -e "\e[0mSign the Tx-Body with the \e[32m${fromAddr}.skey|hwsfile\e[0m and \e[32m${policyName}.policy.skey|hwsfile\e[0m: \e[32m ${txFile} \e[90m"
 echo
 
-#Sign the unsigned transaction body with the SecureKey
+#If policy is a hw-based one, collect the witness via the cardano-hw-cli for the signing
+if [[ -f "${policyName}.policy.hwsfile" ]]; then
+
+        if ! ask "\e[0mAdding the Policy-Witness signing from a local Hardware-Wallet key '\e[33m${policyName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        #echo -e "${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${policyName}.policy.hwsfile ${magicparam} --out-file ${txWitnessPolicyFile}"
+        tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${policyName}.policy.hwsfile --out-file ${txWitnessPolicyFile} ${magicparam} 2> /dev/stdout)
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+else #generate the policy witness via the cli
+
+        ${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${policyName}.policy.skey ${magicparam} --out-file ${txWitnessPolicyFile}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+fi
+
+#Generate the witness for the payment key
+
+#If the payment address is a hw-based one, collect the witness via the cardano-hw-cli for the signing
+if [[ -f "${fromAddr}.hwsfile" ]]; then
+
+        if ! ask "\e[0mAdding the Payment-Witness signing from a local Hardware-Wallet key '\e[33m${policyName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile ${magicparam} --out-file ${txWitnessPaymentFile} 2> /dev/stdout)
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+else #generate the payment witness via the cli
+
+        ${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txWitnessPaymentFile}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+fi
+
+
+#Assemble all witnesses into the final TxBody
 rm ${txFile} 2> /dev/null
-${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${policyName}.policy.skey ${magicparam} --out-file ${txFile}
+${cardanocli} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessPolicyFile} --witness-file ${txWitnessPaymentFile} --out-file ${txFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+#Sign the unsigned transaction body with the SecureKey
+#rm ${txFile} 2> /dev/null
+#${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey --signing-key-file ${policyName}.policy.skey ${magicparam} --out-file ${txFile}
+#checkError "$?"; if [ $? -ne 0
 
 cat ${txFile}
 echo
@@ -321,12 +389,13 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ ${magicparam^^} =~ (MAINNET|1097911063) ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}${txID}\n\e[0m"; fi
 
+                                assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible ${assetBurnName}); if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; fi
 
-                                #Updating the ${policyName}.${assetBurnName}.asset json
-                                assetFileName="${policyName}.${assetBurnName}.asset"
+                                #Updating the ${policyName}.${assetBurnInputName}.asset json
+                                assetFileName="${policyName}.${assetBurnInputName}.asset"
 
                                 #Make assetFileSkeleton
-                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetBurnName}\",
+                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetTmpName:0:50}\",
                                                                   metaDescription: \"\",
                                                                   \"---\": \"--- Optional additional info ---\",
                                                                   metaTicker: \"\",
@@ -349,7 +418,8 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                 oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
                                 newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
                                 assetFileJSON=$( jq ". += {minted: \"${newValue}\",
-                                                           name: \"${assetBurnName}\",
+                                                           name: \"${assetTmpName}\",
+							   hexname: \"${assetHexBurnName}\",
                                                            bechName: \"${assetBurnBech}\",
                                                            policyID: \"${policyID}\",
                                                            policyValidBeforeSlot: \"${ttlFromScript}\",
@@ -377,7 +447,7 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
                                                                         sendToAddr: \"${sendToAddr}\",
                                                                         txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
                                 #Write the new offileFile content
-                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"burned ${assetBurnAmount} '${assetBurnName}' on '${fromAddr}'\" } ]" <<< ${offlineJSON})
+                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"burned ${assetBurnAmount} '${assetBurnInputName}' on '${fromAddr}'\" } ]" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".general += {offlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
                                 echo "${offlineJSON}" > ${offlineFile}
@@ -389,9 +459,10 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 			                                #Updating the ${policyName}.${assetBurnName}.asset json
 			                                assetFileName="${policyName}.${assetBurnName}.asset"
 
+                                                        assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible ${assetBurnName}); if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; fi
 
 			                                #Make assetFileSkeleton
-			                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetBurnName}\",
+			                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetTmpName:0:50}\",
 			                                                                  metaDescription: \"\",
 			                                                                  \"---\": \"--- Optional additional info ---\",
 			                                                                  metaTicker: \"\",
@@ -412,7 +483,8 @@ if ask "\e[33mDoes this look good for you, continue ?" N; then
 			                                oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
 			                                newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
 			                                assetFileJSON=$( jq ". += {minted: \"${newValue}\",
-			                                                           name: \"${assetBurnName}\",
+			                                                           name: \"${assetTmpName}\",
+										   hexname: \"${assetHexBurnName}\",
 			                                                           bechName: \"${assetBurnBech}\",
 			                                                           policyID: \"${policyID}\",
 			                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
