@@ -143,7 +143,7 @@ done
 
 #Check PoolMetadata Entries
 poolMetaName=$(readJSONparam "poolMetaName"); if [[ ! $? == 0 ]]; then exit 1; fi
-if [[ ${#poolMetaName} -gt 50 ]]; then echo -e "\e[35mERROR - The poolMetaName is too long. Max. 50chars allowed !\e[0m"; exit 1; fi
+if [[ ${#poolMetaName} -gt 50 ]]; then echo -e "\e[35mERROR - The poolMetaName is too long. Max. 50 chars allowed !\e[0m"; exit 1; fi
 
 poolMetaTickerOrig=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
 	poolMetaTicker=${poolMetaTickerOrig//[^[:alnum:]]/_}   #Filter out forbidden chars and replace with _
@@ -164,13 +164,13 @@ poolMetaTickerOrig=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then e
         fi
 
 poolMetaHomepage=$(readJSONparam "poolMetaHomepage"); if [[ ! $? == 0 ]]; then exit 1; fi
-if [[ ! "${poolMetaHomepage}" =~ https?://.* || ${#poolMetaHomepage} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaHomepage entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaHomepage entry in your ${poolFile}.pool.json, thx."; exit 1; fi;
+if [[ ! "${poolMetaHomepage}" =~ https?://.* || ${#poolMetaHomepage} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaHomepage entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64 chars allowed !\e[0m\n\nPlease re-edit the poolMetaHomepage entry in your ${poolFile}.pool.json, thx."; exit 1; fi;
 
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
-if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaUrl entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
+if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolMetaUrl entry in your ${poolFile}.pool.json has an invalid URL format or is too long. Max. 64 chars allowed !\e[0m\n\nPlease re-edit the poolMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
 
 poolMetaDescription=$(readJSONparam "poolMetaDescription"); if [[ ! $? == 0 ]]; then exit 1; fi
-if [[ ${#poolMetaDescription} -gt 250 ]]; then echo -e "\e[35mERROR - The poolMetaDescription entry in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolMetaDescription entry in your ${poolFile}.pool.json, thx!\e[0m"; exit 1; fi
+if [[ ${#poolMetaDescription} -gt 255 ]]; then echo -e "\e[35mERROR - The poolMetaDescription entry in your ${poolFile}.pool.json is too long. Max. 255 chars allowed !\e[0m\n\nPlease re-edit the poolMetaDescription entry in your ${poolFile}.pool.json, thx!\e[0m"; exit 1; fi
 
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
@@ -203,7 +203,7 @@ file_lock ${poolFile}.pool.json
 extendedMetaEntry=
 poolExtendedMetaUrl=$(jq -r .poolExtendedMetaUrl ${poolFile}.pool.json 2> /dev/null)
 
-if [[ ${#poolExtendedMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolExtendedMetaUrl entry in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m\n\nPlease re-edit the poolExtendedMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
+if [[ ${#poolExtendedMetaUrl} -gt 64 ]]; then echo -e "\e[35mERROR - The poolExtendedMetaUrl entry in your ${poolFile}.pool.json is too long. Max. 64 chars allowed !\e[0m\n\nPlease re-edit the poolExtendedMetaUrl entry in your ${poolFile}.pool.json, thx."; exit 1; fi
 if [[ "${poolExtendedMetaUrl}" =~ https?://.* && ${#poolExtendedMetaUrl} -lt 65 ]]; then
 	#OK, a extended MetaDataURL to an extra JSON file is present, so lets continue generate it
 

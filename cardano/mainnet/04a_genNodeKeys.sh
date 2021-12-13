@@ -59,7 +59,8 @@ else #Building it from HW-Keys
         echo -e "\e[0mCreating Node Cold/Offline Keys (HW)\e[32m ${nodeName}.node.vkey/hwsfile\e[0m and Issue.Counter File\e[32m ${nodeName}.node.counter"
         echo
 
-        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	#This function is currently limited to Ledger HW-Wallets only, so call the start_HwWallet function with a restriction to Ledger only
+        start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} node key-gen --path 1853H/1815H/0H/0H --cold-verification-key-file ${nodeName}.node.vkey --hw-signing-file ${nodeName}.node.hwsfile --operational-certificate-issue-counter-file ${nodeName}.node.counter 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

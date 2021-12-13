@@ -33,9 +33,8 @@ offlineFile="./offlineTransfer.json" 	#path to the filename (JSON) that will be 
 
 #--------- Only needed if you wanna do catalyst voting or if you wanna include your itn witness for your pool-ticker
 jcli_bin="./jcli"               #Path to your jcli binary you wanna use. If your binary is present in the Path just set it to "jcli" without the "./" infront
-catalyst_toolbox_bin="./catalyst-toolbox"       #Path to your catalyst-toolbox binary you wanna use. If your binary is present in the Path just set it to "catalyst-toolbox" without the "./" infront
-voter_registration_bin="./voter-registration"   #Path to your voter-registration binary you wanna use. If your binary is present in the Path just set it to "voter-registration" without the "./" infront
-
+catalyst_toolbox_bin="./catalyst-toolbox"	#Path to your catalyst-toolbox binary you wanna use. If your binary is present in the Path just set it to "catalyst-toolbox" without the "./" infront
+voter_registration_bin="./voter-registration"	#Path to your voter-registration binary you wanna use. If your binary is present in the Path just set it to "voter-registration" without the "./" infront
 
 
 #--------- Only needed if you wanna use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
@@ -97,11 +96,11 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.27.0"  #minimum allowed node version for this script-collection version
-maxNodeVersion="1.31.0"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="2.4.1"  #minimum version for the cardano-app on the Ledger hardwarewallet
-minTrezorCardanoAppVersion="2.4.0"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.6.2" #minimum version for the cardano-hw-cli
+minNodeVersion="1.32.1"  #minimum allowed node version for this script-collection version
+maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
+minLedgerCardanoAppVersion="3.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
+minHardwareCliVersion="1.9.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -420,7 +419,8 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 {
 
   #Convert given bech32 address into a base16(hex) address, not needed in theses scripts, but to make a true 1:1 copy of the normal UTXO JSON output
-  local utxoAddress=$(${cardanocli} address info --address ${2} 2> /dev/null | jq -r .base16); if [[ $? -ne 0 ]]; then local utxoAddress=${2}; fi
+  #local utxoAddress=$(${cardanocli} address info --address ${2} 2> /dev/null | jq -r .base16); if [[ $? -ne 0 ]]; then local utxoAddress=${2}; fi
+  local utxoAddress=${2}
 
   local utxoJSON="{}" #start with a blank JSON skeleton
 
@@ -527,8 +527,11 @@ echo -n "${1}" | xxd -r -ps
 #-------------------------------------------------------
 #Convert HEX assetName into ASCII assetName. If possible return ".assetName" else return just the HEX assetName without a leading point'.'
 convert_assetNameHEX2ASCII_ifpossible() {
-local tmpAssetName=$(echo -n "${1}" | xxd -r -ps)
-if [[ "${tmpAssetName}" == "${tmpAssetName//[^[:alnum:]]/}" ]]; then echo -n ".${tmpAssetName}"; else echo -n "${tmpAssetName}"; fi
+if [[ "${1}" =~ ^(..){0,}00(.+)?$ ]]; then echo -n "${1}"; #if the given hexstring contains a nullbyte -> return the hexstring
+else
+     local tmpAssetName=$(echo -n "${1}" | xxd -r -ps)
+     if [[ "${tmpAssetName}" == "${tmpAssetName//[^[:alnum:]]/}" ]]; then echo -n ".${tmpAssetName}"; else echo -n "${1}"; fi
+fi
 }
 #-------------------------------------------------------
 
@@ -540,8 +543,8 @@ calc_minOutUTXOnew() {
         #${2} = tx-out string
 
 local protocolParam=${1}
-local multiAsset=$(echo ${2} | cut -d'+' -f 2-) #split at the + marks and only keep lovelaces+assets
-tmp=$(${cardanocli} transaction calculate-min-value --protocol-params-file <(echo ${protocolParam}) --multi-asset "${multiAsset}" 2> /dev/null)
+local multiAsset=$(echo ${2} | cut -d'+' -f 3-) #split at the + marks and only keep assets
+tmp=$(${cardanocli} transaction calculate-min-required-utxo --alonzo-era --protocol-params-file <(echo ${protocolParam}) --tx-out "${2}" 2> /dev/null)
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Can't calculate minValue for the given tx-out string: ${2} !\e[0m"; exit 1; fi
 echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second part
 }
@@ -595,7 +598,8 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
           #this can be simplified into a stringsplit
           IFS='.' read -ra asset_split <<< "${asset_hash}"
           local asset_hash_policy=${asset_split[0]}
-          local asset_hash_hexname=$(echo -n "${asset_split[1]}" | xxd -b -ps -c 80 | tr -d '\n')
+#         local asset_hash_hexname=$(echo -n "${asset_split[1]}" | xxd -b -ps -c 80 | tr -d '\n')
+          local asset_hash_hexname=${asset_split[1]} #now assetNames are also in hex format
 
 	  #collect the entries in individual lists to sort them later
 	  local pidCollector="${pidCollector}${asset_hash_policy}\n"
@@ -782,6 +786,8 @@ fi
 #Get the hardware-wallet ready, check the cardano-app version
 start_HwWallet() {
 
+local onlyForManu=${1^^}
+
 if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
 
 versionHWCLI=$(${cardanohwcli} version 2> /dev/null |& head -n 1 |& awk {'print $6'})
@@ -808,18 +814,21 @@ case ${walletManu^^} in
 
 	LEDGER ) #For Ledger Hardware-Wallets
 		versionCheck "${minLedgerCardanoAppVersion}" "${versionApp}"
-		if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a Cardano App version ${minLedgerCardanoAppVersion} or higher on your ${walletManu} Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+		if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a Cardano App version ${minLedgerCardanoAppVersion} or higher on your LEDGER Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
 		;;
 
         TREZOR ) #For Trezor Hardware-Wallets
                 versionCheck "${minTrezorCardanoAppVersion}" "${versionApp}"
-                if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use Cardano App version ${minTrezorCardanoAppVersion} or higher on your ${walletManu} Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+                if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use Firmware version ${minTrezorCardanoAppVersion} or higher on your TREZOR Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
                 ;;
 
 	* ) #For any other Manuf.
 		majorError "Only Ledger and Trezor Hardware-Wallets are supported at the moment!"; exit 1;
 		;;
 esac
+
+#Check if the function was set to be only available on a specified manufacturer hw wallet
+if [ ! "${onlyForManu}" == "" ]  && [ ! "${onlyForManu}" == "${walletManu^^}" ]; then echo -e "\n\e[35mError - This function is NOT available on this type of Hardware-Wallet, only available on a ${onlyForManu} device at the moment!\e[0m\n"; exit 1; fi
 
 echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
 }
@@ -838,3 +847,31 @@ echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and 
 byteLength() {
     echo -n "${1}" | wc --bytes
 }
+
+
+#-------------------------------------------------------
+#Autocorrection of the TxBody to be in canonical order for HW-Wallet transactions
+autocorrect_TxBodyFile() {
+
+local txBodyFile="${1}"
+local txBodyTmpFile="${1}-corrected"
+
+#check cardanohwcli presence and version
+if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
+versionHWCLI=$(${cardanohwcli} version 2> /dev/null |& head -n 1 |& awk {'print $6'})
+versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nYour version ${versionHWCLI} is no longer supported for security reasons or features, please upgrade - thx."; exit 1; fi
+
+#do the correction
+tmp=$(${cardanohwcli} transaction transform-raw --tx-body-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout)
+if [[ $? -ne 0 ]]; then echo -e "\n${tmp}"; exit 1; fi
+tmp_lastline=$(echo "${tmp}" | tail -n 1)
+if [[ "${tmp_lastline^^}" =~ (ERROR) ]]; then echo -e "\n${tmp}"; exit 1; fi
+
+#ok, no error occured to this point. copy the generated new TxBody file over the original one
+mv ${txBodyTmpFile} ${txBodyFile}; if [[ $? -ne 0 ]]; then echo -e "\n\e[35mError: Could not write new TxBody File!"; exit 1; fi
+
+#all went well, now return the lastline output
+echo "${tmp_lastline}"; exit 0
+}
+#-------------------------------------------------------

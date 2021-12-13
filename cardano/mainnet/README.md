@@ -1,12 +1,12 @@
-# StakePool Operator Scripts (SPOS) for MainNet
+# StakePool Operator Scripts (SPOS) for Mainnet
 
 *Examples on how to use the scripts **ONLINE** and/or **OFFLINE**, with or without a **Ledger/Trezor-Wallet** can be found on this page :smiley:*
 
 | | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.27.0</b><br><sub>**git checkout tags/1.27.0**</sub> | <b>1.6.2</b><br><sub>**if you use hw-wallets** | <b>2.4.1</b><br><sub>**if you use hw-wallets** | <b>2.4.0</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.32.1</b><br><sub>**git checkout tags/1.32.1**</sub> | <b>1.9.0</b><br><sub>**if you use hw-wallets** | <b>3.0.0</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
 
-> *:bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose mainnet!*. 
+> :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose mainnet! 
 
 &nbsp;<br>
 ### About
@@ -300,6 +300,7 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
 <br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. 
 <br>```./01_sendAssets.sh addr1 addr2 asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs 1000```<br>to send 1000 Assets with that Bech-AssetName asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs :smiley:
+<br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304 99```<br>to send 99 Tokens of the binary/hexencoded type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304 from addr1.addr to addr2.addr. 
 
   Using the **PolicyID.TokenNameHASH** or **Bech-AssetName** allowes you to send out Tokens you've got from others. Your own generated Tokens can also be referenced by the AssetFile 'policyName.tokenName.asset' schema for an easier handling.
 
@@ -558,21 +559,21 @@ The script requires a poolname.pool.json file with values for at least the PoolN
 &nbsp;<br>
 </details>
 
-<details><summary><b>10_genPolicy.sh:</b> generate policy keys, signing script and id as files <b>name.policy.skey/vkey/script/id</b>. You need a policy for Token minting.:bookmark_tabs:</summary>
+<details><summary><b>10_genPolicy.sh:</b> generate policy keys, signing script and id as files <b>name.policy.skey/hwsfile/vkey/script/id</b>. You need a policy for Token minting.:bookmark_tabs:</summary>
    
-<br>```./10_genPolicy.sh <PolicyName> [Optional valid xxx Slots (default=unlimited)]```
+<br>```./10_genPolicy.sh <PolicyName> <KeyType: cli | hw> [Optional valid xxx Slots (default=unlimited)]```
   
-```./10_genPolicy.sh mypolicy```<br>this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
+```./10_genPolicy.sh mypolicy cli```<br>this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
   
-```./10_genPolicy.sh assets/mypolicy2```<br>this will generate the policyfiles with name mypolicy2.policy.skey, mypolicy2.policy.vkey, mypolicy2.policy.script & mypolicy2.policy.id in the 'assets' subdirectory
+```./10_genPolicy.sh assets/mypolicy2 hw```<br>this will generate the policyfiles with name mypolicy2.policy.skey, mypolicy2.policy.vkey, mypolicy2.policy.script & mypolicy2.policy.id in the 'assets' subdirectory on a hardware-wallet
   
-```./10_genPolicy.sh assets/special 600```<br>this will generate the policyfiles with name special.policy.skey, special.policy.vkey, special.policy.script & special.policy.id in the 'assets' subdirectory with a limited minting/burning access of 600 seconds(10 mins). Within those 10 mins you can mint lets say 200000 Tokens. After this 10 mins you will not be able to mint more Tokens or burn any Tokens with that Policy. So the total amount of the Tokens made with this Policy is fixed on the chain. :smiley:
+```./10_genPolicy.sh assets/special cli 600```<br>this will generate the policyfiles with name special.policy.skey, special.policy.vkey, special.policy.script & special.policy.id in the 'assets' subdirectory with a limited minting/burning access of 600 seconds(10 mins). Within those 10 mins you can mint lets say 200000 Tokens. After this 10 mins you will not be able to mint more Tokens or burn any Tokens with that Policy. So the total amount of the Tokens made with this Policy is fixed on the chain. :smiley:
   
 
 &nbsp;<br>
 </details>
 
-<details><summary><b>11a_mintAsset.sh:</b> mint/generate new Assets(Token) on a given payment address with a policyName generated before.:bookmark_tabs:</summary>
+<details><summary><b>11a_mintAsset.sh:</b> mint/generate new Assets(Token) on a given payment address with a policyName (or hexencoded {...}) generated before.:bookmark_tabs:</summary>
    
 <br>This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
 <br>```./11a_mintAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages]```
@@ -584,6 +585,8 @@ The script requires a poolname.pool.json file with values for at least the PoolN
 ```./11a_mintAsset.sh mypolicy.MEGATOKEN 30 owner.payment```<br>this will mint 30 new MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
   
 ```./11a_mintAsset.sh mypolicy.HYPERTOKEN 150 owner.payment mymetadata.json```<br>this will mint 150 new HYPERTOKEN with policy 'mypolicy' on the payment address owner.payment.addr and will also attach the mymetadata.json as metadata in the Minting-Transaction
+
+```./11a_mintAsset.sh mypolicy.{01020304} 77 mywallet```<br>this will mint 77 new binary/hexencoded tokens 0x01020304 with policy 'mypolicy' on the payment address mywallet.addr
   
 It generally depends on the Policy-Type (made by the script 10a) if you can mint unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be more.
 
@@ -600,6 +603,8 @@ It generally depends on the Policy-Type (made by the script 10a) if you can mint
 ```./11b_burnAsset.sh mypolicy.MEGATOKEN 10 owner.payment```<br>this will burn 10 MEGATOKEN with policy 'mypolicy' on the payment address owner.payment.addr
   
 ```./11b_burnAsset.sh assets/mypolicy2.HYPERTOKEN 5 owner.payment```<br>this will burn 5 HYPERTOKEN with policy 'mypolicy2' from the subdirectory assets on the payment address owner.payment.addr, also it will send along the mymetadata.json in the Burning-Transaction
+
+```./11b_burnAsset.sh mypolicy.{01020304} 23 mywallet```<br>this will burn 23 binary/hexencoded tokens 0x01020304 with policy 'mypolicy' on the payment address mywallet.addr
 
 It generally depends on the Policy-Type (made by the script 10) if you can burn unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be less.
 
@@ -933,7 +938,8 @@ The scripts 02 and 03a are supporting this kind of SubAccounts, please checkout 
 | Create a enterprise(payment only, no staking) address | :heavy_check_mark: | :heavy_check_mark: |
 | Create a stakingaddress combo (base-payment & stake address) | :heavy_check_mark: | :heavy_check_mark: |
 | Send ADA from the HW payment address | :x: | :heavy_check_mark: |
-| Send, Mint or Burn Assets from the HW payment address | :x: | :x:<br>mary assets not supported yet |
+| Send, Mint or Burn Assets from the HW payment address | :x: | :heavy_check_mark: |
+| Generate and use a Minting/Burning Policy on a HW ledger | :x: | :heavy_check_mark: |
 | Claim Rewards from a CLI stake address | :heavy_check_mark: | :x: |
 | Claim Rewards from then HW stake address, Paying with the HW payment address | :x: | :heavy_check_mark: |
 | Claim Rewards from then HW stake address, Paying with a CLI payment address | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode*) | :x: |
@@ -941,6 +947,7 @@ The scripts 02 and 03a are supporting this kind of SubAccounts, please checkout 
 | Register CLI staking keys on the chain | :heavy_check_mark: | :x: |
 | Delegate HW staking keys to a stakepool | :x: | :heavy_check_mark: |
 | Delegate CLI staking keys to a stakepool | :heavy_check_mark: | :x: |
+| Register a stakepool with HW node cold keys | :heavy_check_mark: | :x: |
 | Register a stakepool with HW staking keys as an owner | :heavy_check_mark: | :x: |
 | Register a stakepool with HW staking keys as an rewards-account | :heavy_check_mark: | :x: |
 | Register a stakepool together with all the delegation certificates if only CLI owner keys are used | :heavy_check_mark: | :x: |
@@ -1168,6 +1175,7 @@ Yep, it was that simple.
 
 </details>
 
+
 &nbsp;<br>&nbsp;<br>
 
 # Catalyst-Voting-Registration
@@ -1305,6 +1313,7 @@ You have successfully transmitted your voting registration onto the chain. To do
 </details>
 
 &nbsp;<br>&nbsp;<br>
+
 
 # Import your existing Pool from CLI-Keys or Tutorials
 
@@ -1925,7 +1934,7 @@ So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under t
 
 <br><b>Steps:</b>
 1. First you have to generate a policyName/ID. You can reuse the same policyName/ID to mint other Assets(Tokens) later again. If you already have the policy, skip to step 3
-1. Run ```./10_genPolicy.sh assets/mypolicy``` to generate a new policy with name 'mypolicy' in the assets subdirectory (you can do it in the same directory too of course)
+1. Run ```./10_genPolicy.sh assets/mypolicy cli``` to generate a new policy with name 'mypolicy' in the assets subdirectory (you can do it in the same directory too of course)
 1. Run ```./11a_mintAsset.sh assets/mypolicy.SUPERTOKEN 1000 mywallet``` to mint 1000 new SUPERTOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
 
 The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
@@ -1938,14 +1947,29 @@ Lets say we wanna create 200000 Tokens with the name **RARETOKEN** under the pol
 
 <br><b>Steps:</b>
 1. First you have to generate a policyName/ID that is time limited (slotheight limited). Using such a policy gives you the ability to mint your Tokens on the Chain for a limited amount of time, after that your cannot mint more or burn any of those. 
-1. Run ```./10_genPolicy.sh assets/special 600``` to generate a new policy with name 'special' in the assets subdirectory. The slotheight (time limit) is set to 600 -> 600 seconds 
+1. Run ```./10_genPolicy.sh assets/special cli 600``` to generate a new policy with name 'special' in the assets subdirectory. The slotheight (time limit) is set to 600 -> 600 seconds 
 1. Run ```./11a_mintAsset.sh assets/special.RARETOKEN 200000 mywallet``` to mint 200000 RARETOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
 
 The AssetsFile ***assets/special.RARETOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
 
 Done - You have minted (created) 200000 RARETOKENs within the given time limit and there will never be more RARETOKENs available on the the chain, the policy for minting and burning is deactivated automatically after the set 600 seconds (10 mins). :smiley:
 
+### Mint an amount of binary/hexencoded Tokens
+
+So lets say we wanna create 77 new Tokens with the binary/hexencoded representation of **0x01020304** under the policy **mypolicy**. And we want that theses AssetFiles are stored in the *assets* subdirectory. These Tokens should be generated on the account **mywallet**.
+
+<br><b>Steps:</b>
+1. First you have to generate a policyName/ID. You can reuse the same policyName/ID to mint other Assets(Tokens) later again. If you already have the policy, skip to step 3
+1. Run ```./10_genPolicy.sh assets/mypolicy cli``` to generate a new policy with name 'mypolicy' in the assets subdirectory (you can do it in the same directory too of course)
+1. Run ```./11a_mintAsset.sh assets/mypolicy.{01020304} 77 mywallet``` to mint 77 new 0x01020304 Tokens on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full$
+
+The AssetsFile ***assets/mypolicy.{01020304}.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
+
+Done - You have minted (created) 77 new binary/hexencoded Tokens 0x01020304 and they are now added to the mywallet address. You can now send them out into the world with the example below. You can mint more anytime if you like. :smiley:
+
 </details>
+
+
 
 ## How to burn/destroy Native Tokens
 
@@ -2842,7 +2866,7 @@ So lets say we wanna create 1000 new Tokens with the name **SUPERTOKEN** under t
 **Offline-Machine:** (same steps like working online)
 
 1. First you have to generate a policyName/ID. You can reuse the same policyName/ID to mint other Assets(Tokens) later again. If you already have the policy, skip to step 3
-1. Run ```./10_genPolicy.sh assets/mypolicy``` to generate a new policy with name 'mypolicy' in the assets subdirectory (you can do it in the same directory too of course)
+1. Run ```./10_genPolicy.sh assets/mypolicy cli``` to generate a new policy with name 'mypolicy' in the assets subdirectory (you can do it in the same directory too of course)
 1. Run ```./11a_mintAsset.sh assets/mypolicy.SUPERTOKEN 1000 mywallet``` to mint 1000 new SUPERTOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
 
 The AssetsFile ***assets/mypolicy.SUPERTOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
@@ -2870,7 +2894,7 @@ Lets say we wanna create 200000 Tokens with the name **RARETOKEN** under the pol
 **Offline-Machine:** (same steps like working online)
 
 1. First you have to generate a policyName/ID that is time limited (slotheight limited). Using such a policy gives you the ability to mint your Tokens on the Chain for a limited amount of time, after that your cannot mint more or burn any of those. 
-1. Run ```./10_genPolicy.sh assets/special 600``` to generate a new policy with name 'special' in the assets subdirectory. The slotheight (time limit) is set to 1200 -> 1200 seconds 
+1. Run ```./10_genPolicy.sh assets/special cli 600``` to generate a new policy with name 'special' in the assets subdirectory. The slotheight (time limit) is set to 1200 -> 1200 seconds 
 1. Run ```./11a_mintAsset.sh assets/special.RARETOKEN 200000 mywallet``` to mint 200000 RARETOKEN on the wallet mywallet. If you want, you can also add a custom Metadata.json file to the Minting-Transaction as the 4th parameter. Full-Syntax description can be found [here](#main-configuration-file-00_commonsh---syntax-for-all-the-other-ones)
 
 The AssetsFile ***assets/special.RARETOKEN.asset*** was also written/updated with the latest action. You can see the totally minted Token count in there too.
@@ -2884,6 +2908,13 @@ The AssetsFile ***assets/special.RARETOKEN.asset*** was also written/updated wit
 Done - You have minted (created) 200000 RARETOKENs within the given time limit and there will never be more RARETOKENs available on the the chain, the policy for minting and burning is deactivated automatically after the given 1200 seconds (20 mins). :smiley:
 
 :smiley:
+
+
+## How to mint/create binary/hexencoded Native Tokens in Offline-Mode
+
+Please checkout the example in the Online-Mode section, its exactly the same as in Offline-Mode.
+
+
 
 </details>
 

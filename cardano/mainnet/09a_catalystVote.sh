@@ -161,7 +161,7 @@ case ${1} in
 				rewardsAmount=$(${cardanocli} query stake-address-info --address ${rewardsPayoutAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
 				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			        if [[ ${rewardsAmount} == null ]]; then echo -e "\e[33mNOT REGISTERED\n\n\e[35mERROR - Staking Address is NOT registered on the chain, please register it first to use it as Rewards-Account for the Voting-Rewards !\e[0m\n"; exit 1;
-								   else echo -e "\e[32mok\e[0m\n";
+								   else echo -e "\e[32mregistered, ok\e[0m\n";
 				fi
 			fi
 
@@ -196,7 +196,7 @@ case ${1} in
 	                echo -e "\e[0mMetadata will be generated for the Voting-Key with the name: \e[32m${voteKeyName}\e[90m.voting.pkey\e[0m"
 	                echo -e "\e[0mand the Public-Key: \e[32m$(cat ${voteKeyName}.voting.pkey)\e[0m"
 			echo
-	                echo -e "\e[0mHW-Wallet-StakeKey (Voting-Power) that will be used: \e[32m${stakeAddr}\e[90m.hwsfile\e[0m"
+	                echo -e "\e[0mStakeKey (Voting-Power) that will be used: \e[32m${stakeAddr}\e[90m.skey\e[0m"
 			echo
 
 			#If in online mode, do a check it the Rewards-Address is registered on the chain
@@ -206,7 +206,7 @@ case ${1} in
 				rewardsAmount=$(${cardanocli} query stake-address-info --address ${rewardsPayoutAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
 				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			        if [[ ${rewardsAmount} == null ]]; then echo -e "\e[33mNOT REGISTERED\n\n\e[35mERROR - Staking Address is NOT registered on the chain, please register it first to use it as Rewards-Account for the Voting-Rewards !\e[0m\n"; exit 1;
-								   else echo -e "\e[32mok\e[0m\n";
+								   else echo -e "\e[32mregistered, ok\e[0m\n";
 				fi
 			fi
 
