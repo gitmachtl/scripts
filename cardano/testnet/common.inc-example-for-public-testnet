@@ -14,5 +14,3 @@ magicparam="--testnet-magic 1097911063"
 addrformat="--testnet-magic 1097911063"
 
 byronToShelleyEpochs=74 #74 for the public testnet
-
-minNodeVersion="1.26.0"
