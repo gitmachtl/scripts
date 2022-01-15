@@ -65,7 +65,8 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	utxoHashIndex=${utxoHashIndexArray[${tmpCnt}]}
 	utxoAmount=${utxoLovelaceArray[${tmpCnt}]} #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
-	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"; if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e "  DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
+	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}";
+	if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
 	assetsEntryCnt=${assetsEntryCntArray[${tmpCnt}]}
 
 	if [[ ${assetsEntryCnt} -gt 0 ]]; then
