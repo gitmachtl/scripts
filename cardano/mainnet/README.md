@@ -772,6 +772,7 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
   "metaName": "SUPER Token",
   "metaDescription": "This is the description of the Wakanda SUPERTOKEN",
   "---": "--- Optional additional info ---",
+  "metaDecimals": "6",
   "metaTicker": "SUPER",
   "metaUrl": "https://wakandaforever.io",
   "metaLogoPNG": "supertoken.png",
@@ -792,7 +793,8 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
 | :---      | :---: |    :---     | :---    |
 | metaName | **required** | Name of your NativeAsset (1-50chars) | SUPER Token |
 | metaDescription | optional | Description of your NativeAsset (max. 500chars) | This is the SUPER Token, once upon... |
-| metaTicker | optional | ShortTicker Name (3-5chars) | MAX, SUPER, Yeah |
+| metaDecimals | optional | Number of Decimals for the Token | 0,1,2,...18 |
+| metaTicker | optional | ShortTicker Name (3-9chars) | MAX, SUPERcoin, Yeah |
 | metaUrl | optional | Secure Weblink, must start with https:// (max. 250chars) | https://wakandaforever.io |
 | metaLogoPNG | optional | Path to a valid PNG Image File for your NativeAsset (max. 64kB) | supertoken.png |
 
@@ -2004,7 +2006,7 @@ How does it work: The **Mainnet** TokenRegistryServer (currently maintained by t
 
 The script 12a provides you with a method that is using the **token-metadata-creatorr** binary from IOHK to form and sign the needed JSON file for the registration of your Metadata on this GitHub Repo. You can find the binary here (https://github.com/input-output-hk/offchain-metadata-tools) or you can simply use the one that is provided within these scripts. After you have created that special JSON file, you can then browse to GitHub and clone the cardano-token-registry Repo into your own repo. After that, upload the special JSON file into the 'mappings' folder and generate a PullRequest to merge it back with the Master-Branch of the CardanoFoundation Repo.
 
-So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN** under the policy **mypolicy** we minted before using the 'assets' directory.
+So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN** under the policy **mypolicy** we minted before using the 'assets' directory with no decimals.
 
 <br><b>Steps:</b>
 1. Make sure that the path-setting in the `00_common.sh` config file is correct for the `cardanometa="./token-metadata-creator"` entry. The script will automatically try to find it also in the scripts directory.
@@ -2017,6 +2019,7 @@ So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN*
    "metaName": "SUPER Token",
    "metaDescription": "This is the description of the Wakanda SUPERTOKEN",
    "---": "--- Optional additional info ---",
+   "metaDecimals": "0",
    "metaTicker": "SUPER",
    "metaUrl": "https://wakandaforever.io",
    "metaLogoPNG": "supertoken.png",
