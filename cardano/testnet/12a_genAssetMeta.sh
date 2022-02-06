@@ -63,8 +63,12 @@ echo
 
 #If there is no Asset-File, build up the skeleton and add some initial data
 if [ ! -f "${assetFileName}" ]; then
+
+				assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible "${assetName}") #if it starts with a . -> ASCII showable name, otherwise the HEX-String
+                                if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; fi
+
 				assetFileJSON="{}"
-				assetFileJSON=$(jq ". += {metaName: \"${assetName:0:50}\",
+				assetFileJSON=$(jq ". += {metaName: \"${assetTmpName:0:50}\",
 							  metaDescription: \"\",
 							  \"---\": \"--- Optional additional info ---\",
 							  metaDecimals: \"\",
@@ -73,7 +77,7 @@ if [ ! -f "${assetFileName}" ]; then
 							  metaLogoPNG: \"\",
 							  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
 			        			  minted: \"0\",
-                                                          name: \"${assetName}\",
+                                                          name: \"${assetTmpName}\",
                                                           hexname: \"${assetHexName}\",
                                                           bechName: \"${assetNameBech}\",
                                                           policyID: \"${policyID}\",
@@ -155,7 +159,7 @@ echo -e "\e[32mOK\e[0m"
 #Check metaDescription
 echo -ne "Adding 'metaDescription' ... "
 metaDescription=$(jq -r ".metaDescription" <<< ${assetFileJSON})
-if [[ ${#metaDescription} -gt 500 ]]; then echo -e "\e[35mERROR - The metaDescription is too long. Max. 500chars allowed !\e[0m\n"; exit 1; fi
+if [[ ${#metaDescription} -lt 1 || ${#metaDescription} -gt 500 ]]; then echo -e "\e[35mERROR - The metaDescription is too short or too long. Min. 1char, Max. 500chars allowed !\e[0m\n"; exit 1; fi
 creatorArray+=("--description" "${metaDescription}")
 echo -e "\e[32mOK\e[0m"
 
@@ -169,7 +173,7 @@ metaTicker=$(jq -r ".metaTicker" <<< ${assetFileJSON})
 if [[ ! "${metaTicker}" == "" ]]; then
 echo -ne "Adding 'metaTicker'      ... "
 	#if [[ ! "${metaTicker//[[:space:]]}" == "${metaTicker}" ]]; then echo -e "\e[35mERROR - The metaTicker '${metaTicker}' contains spaces, not allowed !\e[0m\n"; exit 1; fi
-	if [[ ${#metaTicker} -lt 2 || ${#metaTicker} -gt 5 ]]; then echo -e "\e[35mERROR - The metaTicker '${metaTicker}' must be between 3-5 chars!\e[0m\n"; exit 1; fi
+	if [[ ${#metaTicker} -lt 2 || ${#metaTicker} -gt 9 ]]; then echo -e "\e[35mERROR - The metaTicker '${metaTicker}' must be between 3-9 chars!\e[0m\n"; exit 1; fi
 	creatorArray+=("--ticker" "${metaTicker}")
 	echo -e "\e[32mOK\e[0m"
 fi
