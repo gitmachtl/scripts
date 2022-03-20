@@ -51,6 +51,10 @@ Optional parameters:
    "skiputxowithasset: yyy" ... to skip all input UTXOs that contains assets with the policyID yyy
    "skiputxowithasset: yyy|zzz" ... to skip all input UTXOs that contains assets with the policyID yyy or zzz
 
+- In rare cases you wanna only use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:
+   "onlyutxowithasset: yyy" ... to skip all input UTXOs that contains assets with the policyID yyy
+   "onlyutxowithasset: yyy|zzz" ... to skip all input UTXOs that contains assets with the policyID yyy or zzz
+
 EOF
   exit 1; fi
 
@@ -114,7 +118,8 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
         #Check if its an skipUtxoWithPolicy set
         elif [[ "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]]; then #if the parameter starts with "skiputxowithasset:" then set the skipUtxoWithAsset variable
                 skipUtxoWithAssetTmp=$(trimString "${paramValue:18}"); skipUtxoWithAssetTmp=${skipUtxoWithAssetTmp,,}; #read the value and convert it to lowercase
-		if [[ ! "${skipUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then echo -e "\n\e[35mSkip-UTXO-With-Asset-ERROR: The given asset '${skipUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
+		if [[ ! "${skipUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then
+			echo -e "\n\e[35mSkip-UTXO-With-Asset-ERROR: The given asset '${skipUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
 		skipUtxoWithAssetTmp=${skipUtxoWithAssetTmp//|/ }; #replace the | with a space so it can be read as an array
 		skipUtxoWithAsset=""
 		#Check each entry (separated via a | char) if they contain also assethex-parts, if so place a . in the middle. Concate the final string.
@@ -126,7 +131,8 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
         #Check if its an onlyUtxoWithPolicy set
         elif [[ "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]]; then #if the parameter starts with "onylutxowithasset:" then set the onlyUtxoWithAsset variable
                 onlyUtxoWithAssetTmp=$(trimString "${paramValue:18}"); onlyUtxoWithAssetTmp=${onlyUtxoWithAssetTmp,,}; #read the value and convert it to lowercase
-		if [[ ! "${onlyUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then echo -e "\n\e[35mOnly-UTXO-With-Asset-ERROR: The given asset '${onlyUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
+		if [[ ! "${onlyUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then
+			echo -e "\n\e[35mOnly-UTXO-With-Asset-ERROR: The given asset '${onlyUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
 		onlyUtxoWithAssetTmp=${onlyUtxoWithAssetTmp//|/ }; #replace the | with a space so it can be read as an array
 		onlyUtxoWithAsset=""
 		#Check each entry (separated via a | char) if they contain also assethex-parts, if so place a . in the middle. Concate the final string.

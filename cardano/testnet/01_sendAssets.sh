@@ -61,6 +61,10 @@ Optional parameters:
    "skiputxowithasset: yyy" ... to skip all input UTXOs that contains assets with the policyID yyy
    "skiputxowithasset: yyy|zzz" ... to skip all input UTXOs that contains assets with the policyID yyy or zzz
 
+- In rare cases you wanna use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:
+   "onlyutxowithasset: yyy" ... to skip all input UTXOs that contains assets with the policyID yyy
+   "onlyutxowithasset: yyy|zzz" ... to skip all input UTXOs that contains assets with the policyID yyy or zzz
+
 EOF
 }
 
@@ -206,10 +210,10 @@ for (( tmpCnt=${optionalParameterIdxStart}; tmpCnt<${paramCnt}; tmpCnt++ ))
 	#echo -n "${tmpCnt}: ${paramValue} -> "
 
         #Check if an additional amount of lovelaces was set as parameter (not a message, not an UTXO#IDX, not empty, beeing a number)
-	if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^keeppolicy:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ ! -z "${paramValue##*[!0-9]*}" ]; then lovelacesToSend=${paramValue};
+	if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^keeppolicy:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ ! -z "${paramValue##*[!0-9]*}" ]; then lovelacesToSend=${paramValue};
 
         #Check if an additional metadata.json/.cbor was set as parameter (not a message, not an UTXO#IDX, not empty, not beeing a number)
-        elif [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^keeppolicy:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+        elif [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^keeppolicy:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
              metafile="$(dirname ${paramValue})/$(basename $(basename ${paramValue} .json) .cbor)"; metafile=${metafile//.\//}
              if [ -f "${metafile}.json" ]; then metafile="${metafile}.json"
@@ -252,13 +256,31 @@ for (( tmpCnt=${optionalParameterIdxStart}; tmpCnt<${paramCnt}; tmpCnt++ ))
                         echo -e "\n\e[35mUTXO-Limit-ERROR: Please use a number value greater than zero!\n\e[0m"; exit 1;
                 fi
 
-        #Check if its an skipUtxoWithAsset set
-        elif [[ "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]]; then #if the parameter starts with "skiputxowithasset:" then set the utxolimit
-                skipUtxoWithAsset=$(trimString "${paramValue:18}"); skipUtxoWithAsset=${skipUtxoWithAsset,,}; #read the value and convert it to lowercase
-                if [[ ! "${skipUtxoWithAsset}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then
-                        echo -e "\n\e[35mSkip-UTXO-With-Asset-ERROR: The given asset '${skipUtxoWithAsset}' is not a valid policy(+assetName) hex string!\n\e[0m"; exit 1;
-                fi
-		if [[ ${#skipUtxoWithAsset} -gt 56 ]]; then skipUtxoWithAsset="${skipUtxoWithAsset:0:56}.${skipUtxoWithAsset:56}"; fi
+        #Check if its an skipUtxoWithPolicy set
+        elif [[ "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]]; then #if the parameter starts with "skiputxowithasset:" then set the skipUtxoWithAsset variable
+                skipUtxoWithAssetTmp=$(trimString "${paramValue:18}"); skipUtxoWithAssetTmp=${skipUtxoWithAssetTmp,,}; #read the value and convert it to lowercase
+                if [[ ! "${skipUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then
+                        echo -e "\n\e[35mSkip-UTXO-With-Asset-ERROR: The given asset '${skipUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
+                skipUtxoWithAssetTmp=${skipUtxoWithAssetTmp//|/ }; #replace the | with a space so it can be read as an array
+                skipUtxoWithAsset=""
+                #Check each entry (separated via a | char) if they contain also assethex-parts, if so place a . in the middle. Concate the final string.
+                for tmpEntry in ${skipUtxoWithAssetTmp}; do
+                if [[ ${#tmpEntry} -gt 56 ]]; then skipUtxoWithAsset+="${tmpEntry:0:56}.${tmpEntry:56}|"; else skipUtxoWithAsset+="${tmpEntry}|"; fi #representation in the rawquery output is <hexPolicyID>.<hexAssetName>
+                done
+                skipUtxoWithAsset=${skipUtxoWithAsset%?}; #remove the last char "|"
+
+        #Check if its an onlyUtxoWithPolicy set
+        elif [[ "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]]; then #if the parameter starts with "onylutxowithasset:" then set the onlyUtxoWithAsset variable
+                onlyUtxoWithAssetTmp=$(trimString "${paramValue:18}"); onlyUtxoWithAssetTmp=${onlyUtxoWithAssetTmp,,}; #read the value and convert it to lowercase
+                if [[ ! "${onlyUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then
+                        echo -e "\n\e[35mOnly-UTXO-With-Asset-ERROR: The given asset '${onlyUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
+                onlyUtxoWithAssetTmp=${onlyUtxoWithAssetTmp//|/ }; #replace the | with a space so it can be read as an array
+                onlyUtxoWithAsset=""
+                #Check each entry (separated via a | char) if they contain also assethex-parts, if so place a . in the middle. Concate the final string.
+                for tmpEntry in ${onlyUtxoWithAssetTmp}; do
+                if [[ ${#tmpEntry} -gt 56 ]]; then onlyUtxoWithAsset+="${tmpEntry:0:56}.${tmpEntry:56}|"; else onlyUtxoWithAsset+="${tmpEntry}|"; fi #representation in the rawquery output is <hexPolicyID>.<hexAssetName>
+                done
+                onlyUtxoWithAsset=${onlyUtxoWithAsset%?}; #remove the last char "|"
 
         #Check if its an keepPolicy set
         elif [[ "${paramValue,,}" =~ ^keeppolicy:(.*)$ ]]; then #if the parameter starts with "keeppolicy:" then set the utxolimit
@@ -304,6 +326,7 @@ echo
                                 showProcessAnimation "Query-UTXO: " &
                                 utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
+                                if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
                                 if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;

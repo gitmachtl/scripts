@@ -687,7 +687,7 @@ local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${1});
 #check for new parameter available in alonzo-era, if so, overwrite the minUTXOValue
 local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${1});
 if [[ ! "${utxoCostPerWord}" == "" ]]; then
-					    adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more than in mary era
+					    adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more starting with the mary era
 					    minUTXOValue=$(( ${utxoCostPerWord} * ${adaOnlyUTxOSize} ));
 fi
 

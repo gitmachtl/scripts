@@ -238,8 +238,10 @@ if [[ "${regWitnessID}" == "" ]]; then
 #
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}")
+                                showProcessAnimation "Query-UTXO: " &
+                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                showProcessAnimation "Convert-UTXO: " &
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
                                 #utxoJSON=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
@@ -251,37 +253,50 @@ if [[ "${regWitnessID}" == "" ]]; then
 
 	#Calculating the total amount of lovelaces in all utxos on this address
         #totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
-        totalLovelaces=0
 
+        totalLovelaces=0
         totalAssetsJSON="{}"; 	#Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
-
 	assetsOutString="";	#This will hold the String to append on the --tx-out if assets present or it will be empty
 
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
         #LEVEL 1 - different UTXOs
+
+        readarray -t utxoHashIndexArray <<< $(jq -r "keys_unsorted[]" <<< ${utxoJSON})
+        readarray -t utxoLovelaceArray <<< $(jq -r "flatten | .[].value.lovelace" <<< ${utxoJSON})
+        readarray -t assetsEntryCntArray <<< $(jq -r "flatten | .[].value | del (.lovelace) | length" <<< ${utxoJSON})
+        readarray -t assetsEntryJsonArray <<< $(jq -c "flatten | .[].value | del (.lovelace)" <<< ${utxoJSON})
+        readarray -t utxoDatumHashArray <<< $(jq -r "flatten | .[].datumhash" <<< ${utxoJSON})
+
         for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
         do
-        utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
-        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".value.lovelace" <<< ${utxoJSON})   #Lovelaces
+        utxoHashIndex=${utxoHashIndexArray[${tmpCnt}]}
+        utxoAmount=${utxoLovelaceArray[${tmpCnt}]} #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
-        echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
-        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".value | del (.lovelace)" <<< ${utxoJSON}) #All values without the lovelaces entry
-        assetsEntryCnt=$(jq length <<< ${assetsJSON})
+        echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"; if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
+        assetsEntryCnt=${assetsEntryCntArray[${tmpCnt}]}
 
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
+
+                        assetsJSON=${assetsEntryJsonArray[${tmpCnt}]}
+                        assetHashIndexArray=(); readarray -t assetHashIndexArray <<< $(jq -r "keys_unsorted[]" <<< ${assetsJSON})
+                        assetNameCntArray=(); readarray -t assetNameCntArray <<< $(jq -r "flatten | .[] | length" <<< ${assetsJSON})
+
                         #LEVEL 2 - different policyIDs
                         for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
                         do
-                        assetHash=$(jq -r "keys_unsorted[${tmpCnt2}]" <<< ${assetsJSON})  #assetHash = policyID
-                        assetsNameCnt=$(jq ".\"${assetHash}\" | length" <<< ${assetsJSON})
-                        totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
+                        assetHash=${assetHashIndexArray[${tmpCnt2}]} #assetHash = policyID
+                        totalPolicyIDsLIST+="${assetHash}\n"
+
+                        assetsNameCnt=${assetNameCntArray[${tmpCnt2}]}
+                        assetNameArray=(); readarray -t assetNameArray <<< $(jq -r ".\"${assetHash}\" | keys_unsorted[]" <<< ${assetsJSON})
+                        assetAmountArray=(); readarray -t assetAmountArray <<< $(jq -r ".\"${assetHash}\" | flatten | .[]" <<< ${assetsJSON})
 
                                 #LEVEL 3 - different names under the same policyID
                                 for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
                                 do
-                                assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
-                                assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
+                                assetName=${assetNameArray[${tmpCnt3}]}
+                                assetAmount=${assetAmountArray[${tmpCnt3}]}
                                 assetBech=$(convert_tokenName2BECH "${assetHash}${assetName}" "")
                                 if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
@@ -289,28 +304,42 @@ if [[ "${regWitnessID}" == "" ]]; then
                                 assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible "${assetName}") #if it starts with a . -> ASCII showable name, otherwise the HEX-String
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
-                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
+
+                                case ${assetHash} in
+                                        f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a )      #$adahandle
+                                                echo -e "\e[90m                           Asset: ${assetBech}  ADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        * ) #default
+                                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
+                                                ;;
+                                esac
+
                                 done
                         done
-
         fi
         txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
         echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
-        echo -e "Total ADA on the Address:\e[32m $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
-        totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
-        totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
+        echo -e "Total ADA on the Address:\e[32m  $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
 
+        totalPolicyIDsCnt=$(echo -ne "${totalPolicyIDsLIST}" | sort | uniq | wc -l)
+        totalAssetsCnt=$(jq length <<< ${totalAssetsJSON});
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
                         printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "Asset-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
+
+                        totalAssetsJSON=$(jq --sort-keys . <<< ${totalAssetsJSON}) #sort the json by the hashname
+                        assetHashNameArray=(); readarray -t assetHashNameArray <<< $(jq -r "keys_unsorted[]" <<< ${totalAssetsJSON})
+                        assetAmountArray=(); readarray -t assetAmountArray <<< $(jq -r "flatten | .[].amount" <<< ${totalAssetsJSON})
+                        assetNameArray=(); readarray -t assetNameArray <<< $(jq -r "flatten | .[].name" <<< ${totalAssetsJSON})
+                        assetBechArray=(); readarray -t assetBechArray <<< $(jq -r "flatten | .[].bech" <<< ${totalAssetsJSON})
+
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
-                        assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
-                        assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
-                        assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-                        #assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
+                        assetHashName=${assetHashNameArray[${tmpCnt}]}
+                        assetAmount=${assetAmountArray[${tmpCnt}]}
+                        assetName=${assetNameArray[${tmpCnt}]}
+                        assetBech=${assetBechArray[${tmpCnt}]}
                         assetHashHex="${assetHashName//./}" #remove a . if present, we need a clean subject here for the registry request
 
                         if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
@@ -376,7 +405,8 @@ echo
 rm ${txBodyFile} 2> /dev/null
 ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-cat ${txBodyFile} | head -n 6   #only show first 6 lines
+
+dispFile=$(cat ${txBodyFile}); if [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
 
 #If a hardware wallet is involved, do the autocorrection of the TxBody to make sure it is in canonical order for the assets
@@ -414,7 +444,8 @@ elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
         if ! ask "\e[0mAdding the pool node witness from a local Hardware-Wallet key '\e[33m${poolName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
 
 	tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
-        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	#this is currently only supported by ledger devices
+        start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -594,8 +625,18 @@ done
 rm ${txFile} 2> /dev/null
 ${cardanocli} transaction assemble --tx-body-file <(echo ${regWitnessTxBody}) ${witnessString} --out-file ${txFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-cat ${txFile} | head -n 6   #only show first 6 lines
+echo -ne "\e[90m"
+dispFile=$(cat ${txFile}); if [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
+
+#Do a txSize Check to not exceed the max. txSize value
+cborHex=$(jq -r .cborHex < ${txFile})
+txSize=$(( ${#cborHex} / 2 ))
+maxTxSize=$(jq -r .maxTxSize <<< ${protocolParametersJSON})
+if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSize} bytes (max. ${maxTxSize})\n"
+                                     else echo -e "\n\e[35mError - ${txSize} bytes Transaction-Size is too big! The maximum is currently ${maxTxSize} bytes.\e[0m\n"; exit 1; fi
+
+
 
 #Do temporary witness file cleanup
 for (( tmpCnt=0; tmpCnt<${witnessCnt}; tmpCnt++ ))
