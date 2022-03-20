@@ -96,7 +96,7 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.32.1"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.32.0"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="3.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
@@ -415,13 +415,13 @@ if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--alonzo-era" ]]; t
 
 #-------------------------------------------------------
 #Converts a raw UTXO query output into the new UTXO JSON style since 1.26.0, but with stringnumbers
-generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
+#Old Version that used jq to build up the json structur, was replaced by the new version
+generate_UTXO_old()  #Parameter1=RawUTXO, Parameter2=Address
 {
 
   #Convert given bech32 address into a base16(hex) address, not needed in theses scripts, but to make a true 1:1 copy of the normal UTXO JSON output
   #local utxoAddress=$(${cardanocli} address info --address ${2} 2> /dev/null | jq -r .base16); if [[ $? -ne 0 ]]; then local utxoAddress=${2}; fi
   local utxoAddress=${2}
-
   local utxoJSON="{}" #start with a blank JSON skeleton
 
   while IFS= read -r line; do
@@ -464,7 +464,7 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
      #if its a data entry, add the data-key field to the json output
      elif [[ "${next_entry}" == "TxOutDatumHash" ]] && [[ "${utxo_entry[$((idx+1))]}" == *"Data"* ]]; then
 	      local data_entry_hash=${utxo_entry[$((idx+2))]}
-	      local utxoJSON=$( jq ".\"${utxoHashIndex}\".data = \"${data_entry_hash//\"/}\"" <<< ${utxoJSON})
+	      local utxoJSON=$( jq ".\"${utxoHashIndex}\".datumhash = \"${data_entry_hash//\"/}\"" <<< ${utxoJSON})
 	      local idx=$(( ${idx} + 4 ))
      else
 	      local idx=$(( ${idx} + 1 ))
@@ -472,16 +472,110 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 
     done
   fi
-  echo
+
 done < <(printf "${1}\n" | tail -n +3) #read in from parameter 1 (raw utxo) but cut first two lines
 echo "${utxoJSON}"
 }
 #-------------------------------------------------------
 
 #-------------------------------------------------------
+#Converts a raw UTXO query output into the new UTXO JSON style since 1.26.0, but with stringnumbers
+#Building the JSON structure from scratch, way faster than using jq for it
+generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
+{
+
+  #Convert given bech32 address into a base16(hex) address, not needed in theses scripts, but to make a true 1:1 copy of the normal UTXO JSON output
+  #local utxoAddress=$(${cardanocli} address info --address ${2} 2> /dev/null | jq -r .base16); if [[ $? -ne 0 ]]; then local utxoAddress=${2}; fi
+  local utxoAddress=${2}
+  local utxoJSON="{" #start with a blank JSON skeleton and an open {
+
+  while IFS= read -r line; do
+  IFS=' ' read -ra utxo_entry <<< "${line}" # utxo_entry array holds entire utxo string
+
+  local utxoHashIndex="${utxo_entry[0]}#${utxo_entry[1]}"
+
+  #There are lovelaces on the UTXO -> check if the name is "lovelace" or if there are just 3 arguments
+  if [[ "${utxo_entry[3]}" == "lovelace" ]] || [[ ${#utxo_entry[@]} -eq 3 ]]; then
+                                                local idx=5; #normal indexstart for the next checks
+                                                local utxoAmountLovelaces=${utxo_entry[2]};
+                                              else
+                                                local idx=2; #earlier indexstart, because no lovelaces present
+                                                local utxoAmountLovelaces=0;
+  fi
+
+  #Build the entry for each UtxoHashIndex, start with the hash and the entry for the address and the lovelaces
+  local utxoJSON+="\"${utxoHashIndex}\": { \"address\": \"${utxoAddress}\", \"value\": { \"lovelace\": \"${utxoAmountLovelaces}\""
+
+  #value part is open
+  local value_open=true
+
+  local idxCompare=$(( ${idx} - 1 ))
+  local old_asset_policy=""
+  local policy_open=false
+
+  #Add the Token entries if tokens available, also check for data (script) entries
+  if [[ ${#utxo_entry[@]} -gt ${idxCompare} ]]; then # contains tokens
+
+    while [[ ${#utxo_entry[@]} -gt ${idx} ]]; do  #check if there are more entries, and the amount is a number
+      local next_entry=${utxo_entry[${idx}]}
+
+      #if the next entry is a number -> process asset/tokendata
+      if [[ "${next_entry}" =~ ^[0-9]+$ ]]; then
+              local asset_amount=${next_entry}
+              local asset_hash_name="${utxo_entry[$((idx+1))]}"
+              IFS='.' read -ra asset <<< "${asset_hash_name}"
+              local asset_policy=${asset[0]}
+
+	      #Open up a policy if it is a different one
+	      if [[ "${asset_policy}" != "${old_asset_policy}" ]]; then #open up a new policy
+			if ${policy_open}; then local utxoJSON="${utxoJSON%?}}"; fi #close the previous policy first and remove the last , from the last assetname entry of the previous policy
+			local utxoJSON="${utxoJSON}, \"${asset_policy}\": {"
+			local policy_open=true
+			local old_asset_policy=${asset_policy}
+	      fi
+
+              local asset_name=${asset[1]}
+              #Add the Entry of the Token
+	      local utxoJSON+="\"${asset_name}\": \"${asset_amount}\"," # the  , will be deleted when the policy part closes
+              local idx=$(( ${idx} + 3 ))
+
+     #if its a data entry, add the datumhash key-field to the json output
+     elif [[ "${next_entry}" == "TxOutDatumHash" ]] && [[ "${utxo_entry[$((idx+1))]}" == *"Data"* ]]; then
+	      if ${policy_open}; then local utxoJSON="${utxoJSON%?}}"; local policy_open=false; fi #close the previous policy first and remove the last , from the last assetname entry of the previous policy
+	      if ${value_open}; then local utxoJSON+="}"; local value_open=false; fi #close the open value part
+              local data_entry_hash=${utxo_entry[$((idx+2))]}
+	      #Add the Entry for the data(datumhash)
+              local utxoJSON+=",\"datumhash\": \"${data_entry_hash//\"/}\""
+              local idx=$(( ${idx} + 4 ))
+     else
+              local idx=$(( ${idx} + 1 ))
+     fi
+    done
+  fi
+
+  #close policy if still open
+  if ${policy_open}; then local utxoJSON="${utxoJSON%?}}"; fi #close the previous policy first and remove the last char "," from the last assetname entry of the previous policy
+
+  #close value part if still open
+  if ${value_open}; then local utxoJSON+="}"; fi #close the open value part
+
+  #close the utxo part
+  local utxoJSON+="},"  #the last char "," will be deleted at the end
+
+done < <(printf "${1}\n" | tail -n +3) #read in from parameter 1 (raw utxo) but cut first two lines
+
+  #close the whole json but delete the last char "," before that. do it only if there are entries present (length>1), else return an empty json
+  if [[ ${#utxoJSON} -gt 1 ]]; then echo "${utxoJSON%?}}"; else echo "{}"; fi;
+
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
 #Cuts out all UTXOs in a mary style UTXO JSON that are not the given UTXO hash ($2)
 #The given UTXO hash can be multiple UTXO hashes with the or separator | for egrep
-filterFor_UTXO()
+filterFor_UTXO_old()
 {
 local inJSON=${1}
 local searchUTXO=${2}
@@ -498,6 +592,27 @@ echo "${outJSON}"
 #-------------------------------------------------------
 
 #-------------------------------------------------------
+#Cuts out all UTXOs in a mary style UTXO JSON that are not the given UTXO hash ($2)
+#The given UTXO hash can be multiple UTXO hashes with the separator |
+filterFor_UTXO()
+{
+local inJSON=${1}
+local searchUTXO=${2}
+local outJSON="{}"
+
+IFS='|' read -ra searchUTXOs <<< "${searchUTXO}" #split the given utxos on the | separator
+local noOfSearchUTXOs=${#searchUTXOs[@]}
+for (( tmpCnt=0; tmpCnt<${noOfSearchUTXOs}; tmpCnt++ ))
+do
+	local utxoHashIndex=${searchUTXOs[${tmpCnt}]} #the current hashindex
+	local sourceUTXO=$(jq -r .\"${utxoHashIndex}\" <<< ${inJSON}) #the hashindex of the source json
+	if [[ "${sourceUTXO}" != "null" ]]; then local outJSON=$( jq ". += { \"${utxoHashIndex}\": ${sourceUTXO} }" <<< ${outJSON}); fi
+done
+echo "${outJSON}"
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
 #Convert PolicyID|assetName TokenName into Bech32 format "token1....."
 convert_tokenName2BECH() {
         #${1} = policyID | assetName as a HEX String
@@ -506,7 +621,8 @@ local tmp_policyID=$(trimString "${1}") #make sure there are not spaces before a
 local tmp_assetName=$(trimString "${2}")
 if [[ ! "${tmp_assetName}" == "" ]]; then local tmp_assetName=$(echo -n "${tmp_assetName}" | xxd -b -ps -c 80 | tr -d '\n'); fi
 
-echo -n "${tmp_policyID}${tmp_assetName}" | xxd -r -ps | b2sum -l 160 -b | cut -d' ' -f 1 | ${bech32_bin} asset
+#echo -n "${tmp_policyID}${tmp_assetName}" | xxd -r -ps | b2sum -l 160 -b | cut -d' ' -f 1 | ${bech32_bin} asset
+echo -n "${tmp_policyID}${tmp_assetName}" | xxd -r -ps | b2sum -l 160 -b | awk {'print $1'} | ${bech32_bin} asset
 }
 #-------------------------------------------------------
 
@@ -571,7 +687,7 @@ local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${1});
 #check for new parameter available in alonzo-era, if so, overwrite the minUTXOValue
 local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${1});
 if [[ ! "${utxoCostPerWord}" == "" ]]; then
-					    adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more than in mary era
+					    adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more starting with the mary era
 					    minUTXOValue=$(( ${utxoCostPerWord} * ${adaOnlyUTxOSize} ));
 fi
 
@@ -873,5 +989,35 @@ mv ${txBodyTmpFile} ${txBodyFile}; if [[ $? -ne 0 ]]; then echo -e "\n\e[35mErro
 
 #all went well, now return the lastline output
 echo "${tmp_lastline}"; exit 0
+}
+#-------------------------------------------------------
+
+
+#-------------------------------------------------------
+#Show a rotating bar in asynchron mode during processing like utxo query
+#Stop animation by sending a SIGINT to this child process
+#
+# ${1} = preText
+function showProcessAnimation() {
+
+local stopAnimation="false";
+local idx=0;
+#local animChar=("-" "\\" "|" "/");
+#local animChar=("⎺" "\\" "⎽" "/");
+local animChar=(">    " ">>   " ">>>  " " >>> " "  >>>" "   >>" "    >" "     ");
+#local animChar=(">    " " >   " "  >  " "   > " "    >" "   < " "  <  " " <   ");
+
+trap terminate SIGINT
+terminate(){ stopAnimation="true"; }
+
+until [[ ${stopAnimation} == "true" ]]; do
+        idx=$(( (${idx}+1)%8 ))
+        echo -ne "\r\e[0m${1}${animChar[$idx]} "
+        sleep 0.2
+done
+}
+#-------------------------------------------------------
+stopProcessAnimation() {
+pkill -SIGINT -P $$ && echo -ne "\r\033[K" #stop childprocess and delete the outputline
 }
 #-------------------------------------------------------

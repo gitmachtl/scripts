@@ -20,7 +20,9 @@ Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lo
         [Opt: metadata.json/.cbor]
         [Opt: list of UTXOs to use, | is the separator]
         [Opt: Message comment, starting with "msg: ...", | is the separator]
-
+        [Opt: no of input UTXOs limitation, starting with "utxolimit: ..."]
+        [Opt: skip input UTXOs that contain assets (hex-format), starting with "skiputxowithasset: <policyID>(assetName)", | is the separator]
+        [Opt: only input UTXOs that contain assets (hex-format), starting with "onlyutxowithasset: <policyID>(assetName)", | is the separator]
 
 Optional parameters:
 
@@ -41,6 +43,18 @@ Optional parameters:
    "UTXO1#Index" ... to specify one UTXO, must be in quotes "..."
    "UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in quotes "..."
 
+- In rare cases you wanna define the maximum count of input UTXOs that will be used for building the Transaction:
+   "utxolimit: xxx" ... to specify xxx number of input UTXOs to be used as maximum
+   "utxolimit: 300" ... to specify a maximum of 300 input UTXOs that will be used for the transaction
+
+- In rare cases you wanna skip input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:
+   "skiputxowithasset: yyy" ... to skip all input UTXOs that contains assets with the policyID yyy
+   "skiputxowithasset: yyy|zzz" ... to skip all input UTXOs that contains assets with the policyID yyy or zzz
+
+- In rare cases you wanna only use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:
+   "onlyutxowithasset: yyy" ... to skip all input UTXOs that contains assets with the policyID yyy
+   "onlyutxowithasset: yyy|zzz" ... to skip all input UTXOs that contains assets with the policyID yyy or zzz
+
 EOF
   exit 1; fi
 
@@ -60,7 +74,7 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
         #echo -n "${tmpCnt}: ${paramValue} -> "
 
         #Check if an additional metadata.json/.cbor was set as parameter (not a Message, not a UTXO#IDX, not empty, not a number)
-        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
              metafile="$(dirname ${paramValue})/$(basename $(basename ${paramValue} .json) .cbor)"; metafile=${metafile//.\//}
              if [ -f "${metafile}.json" ]; then metafile="${metafile}.json"
@@ -96,6 +110,36 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
 			fi
 		done
 
+        #Check if its an utxo amount limitation
+        elif [[ "${paramValue,,}" =~ ^utxolimit:(.*)$ ]]; then #if the parameter starts with "utxolimit:" then set the utxolimit
+                utxoLimitCnt=$(trimString "${paramValue:10}");
+                if [[ ${utxoLimitCnt} -le 0 ]]; then echo -e "\n\e[35mUTXO-Limit-ERROR: Please use a number value greater than zero!\n\e[0m"; exit 1; fi
+
+        #Check if its an skipUtxoWithPolicy set
+        elif [[ "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]]; then #if the parameter starts with "skiputxowithasset:" then set the skipUtxoWithAsset variable
+                skipUtxoWithAssetTmp=$(trimString "${paramValue:18}"); skipUtxoWithAssetTmp=${skipUtxoWithAssetTmp,,}; #read the value and convert it to lowercase
+		if [[ ! "${skipUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then
+			echo -e "\n\e[35mSkip-UTXO-With-Asset-ERROR: The given asset '${skipUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
+		skipUtxoWithAssetTmp=${skipUtxoWithAssetTmp//|/ }; #replace the | with a space so it can be read as an array
+		skipUtxoWithAsset=""
+		#Check each entry (separated via a | char) if they contain also assethex-parts, if so place a . in the middle. Concate the final string.
+		for tmpEntry in ${skipUtxoWithAssetTmp}; do
+                if [[ ${#tmpEntry} -gt 56 ]]; then skipUtxoWithAsset+="${tmpEntry:0:56}.${tmpEntry:56}|"; else skipUtxoWithAsset+="${tmpEntry}|"; fi #representation in the rawquery output is <hexPolicyID>.<hexAssetName>
+		done
+		skipUtxoWithAsset=${skipUtxoWithAsset%?}; #remove the last char "|"
+
+        #Check if its an onlyUtxoWithPolicy set
+        elif [[ "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]]; then #if the parameter starts with "onylutxowithasset:" then set the onlyUtxoWithAsset variable
+                onlyUtxoWithAssetTmp=$(trimString "${paramValue:18}"); onlyUtxoWithAssetTmp=${onlyUtxoWithAssetTmp,,}; #read the value and convert it to lowercase
+		if [[ ! "${onlyUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then
+			echo -e "\n\e[35mOnly-UTXO-With-Asset-ERROR: The given asset '${onlyUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
+		onlyUtxoWithAssetTmp=${onlyUtxoWithAssetTmp//|/ }; #replace the | with a space so it can be read as an array
+		onlyUtxoWithAsset=""
+		#Check each entry (separated via a | char) if they contain also assethex-parts, if so place a . in the middle. Concate the final string.
+		for tmpEntry in ${onlyUtxoWithAssetTmp}; do
+                if [[ ${#tmpEntry} -gt 56 ]]; then onlyUtxoWithAsset+="${tmpEntry:0:56}.${tmpEntry:56}|"; else onlyUtxoWithAsset+="${tmpEntry}|"; fi #representation in the rawquery output is <hexPolicyID>.<hexAssetName>
+		done
+		onlyUtxoWithAsset=${onlyUtxoWithAsset%?}; #remove the last char "|"
 
         fi #end of different parameters check
 
@@ -144,9 +188,13 @@ echo
 
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}")
-                                #utxoJSON=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                showProcessAnimation "Query-UTXO: " &
+                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
+                                if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
+                                if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
+                                showProcessAnimation "Convert-UTXO: " &
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
                           else
 				readOfflineFile;	#Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -159,39 +207,49 @@ echo
 	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit 1; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
-	#Calculating the total amount of lovelaces in all utxos on this address
-        #totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
         totalLovelaces=0
-
         totalAssetsJSON="{}"; 	#Building a total JSON with the different assetstypes "policyIdHash.name", amount and name
-        totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
-
+        totalPolicyIDsLIST=""; #Buffer for the policyIDs, will be sorted/uniq/linecount at the end of the query
 	assetsOutString="";	#This will hold the String to append on the --tx-out if assets present or it will be empty
 
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
         #LEVEL 1 - different UTXOs
+
+        readarray -t utxoHashIndexArray <<< $(jq -r "keys_unsorted[]" <<< ${utxoJSON})
+        readarray -t utxoLovelaceArray <<< $(jq -r "flatten | .[].value.lovelace" <<< ${utxoJSON})
+        readarray -t assetsEntryCntArray <<< $(jq -r "flatten | .[].value | del (.lovelace) | length" <<< ${utxoJSON})
+        readarray -t assetsEntryJsonArray <<< $(jq -c "flatten | .[].value | del (.lovelace)" <<< ${utxoJSON})
+        readarray -t utxoDatumHashArray <<< $(jq -r "flatten | .[].datumhash" <<< ${utxoJSON})
+
         for (( tmpCnt=0; tmpCnt<${txcnt}; tmpCnt++ ))
         do
-        utxoHashIndex=$(jq -r "keys_unsorted[${tmpCnt}]" <<< ${utxoJSON})
-        utxoAmount=$(jq -r ".\"${utxoHashIndex}\".value.lovelace" <<< ${utxoJSON})   #Lovelaces
+        utxoHashIndex=${utxoHashIndexArray[${tmpCnt}]}
+        utxoAmount=${utxoLovelaceArray[${tmpCnt}]} #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
-        echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"
-        assetsJSON=$(jq -r ".\"${utxoHashIndex}\".value | del (.lovelace)" <<< ${utxoJSON}) #All values without the lovelaces entry
-        assetsEntryCnt=$(jq length <<< ${assetsJSON})
+        echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"; if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
+        assetsEntryCnt=${assetsEntryCntArray[${tmpCnt}]}
 
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
+
+                        assetsJSON=${assetsEntryJsonArray[${tmpCnt}]}
+                        assetHashIndexArray=(); readarray -t assetHashIndexArray <<< $(jq -r "keys_unsorted[]" <<< ${assetsJSON})
+                        assetNameCntArray=(); readarray -t assetNameCntArray <<< $(jq -r "flatten | .[] | length" <<< ${assetsJSON})
+
                         #LEVEL 2 - different policyIDs
                         for (( tmpCnt2=0; tmpCnt2<${assetsEntryCnt}; tmpCnt2++ ))
                         do
-                        assetHash=$(jq -r "keys_unsorted[${tmpCnt2}]" <<< ${assetsJSON})  #assetHash = policyID
-                        assetsNameCnt=$(jq ".\"${assetHash}\" | length" <<< ${assetsJSON})
-                        totalPolicyIDsJSON=$( jq ". += {\"${assetHash}\": 1}" <<< ${totalPolicyIDsJSON})
+                        assetHash=${assetHashIndexArray[${tmpCnt2}]} #assetHash = policyID
+                        totalPolicyIDsLIST+="${assetHash}\n"
+
+                        assetsNameCnt=${assetNameCntArray[${tmpCnt2}]}
+                        assetNameArray=(); readarray -t assetNameArray <<< $(jq -r ".\"${assetHash}\" | keys_unsorted[]" <<< ${assetsJSON})
+                        assetAmountArray=(); readarray -t assetAmountArray <<< $(jq -r ".\"${assetHash}\" | flatten | .[]" <<< ${assetsJSON})
 
                                 #LEVEL 3 - different names under the same policyID
                                 for (( tmpCnt3=0; tmpCnt3<${assetsNameCnt}; tmpCnt3++ ))
                                 do
-                                assetName=$(jq -r ".\"${assetHash}\" | keys_unsorted[${tmpCnt3}]" <<< ${assetsJSON})
-                                assetAmount=$(jq -r ".\"${assetHash}\".\"${assetName}\"" <<< ${assetsJSON})
+                                assetName=${assetNameArray[${tmpCnt3}]}
+                                assetAmount=${assetAmountArray[${tmpCnt3}]}
                                 assetBech=$(convert_tokenName2BECH "${assetHash}${assetName}" "")
                                 if [[ "${assetName}" == "" ]]; then point=""; else point="."; fi
                                 oldValue=$(jq -r ".\"${assetHash}${point}${assetName}\".amount" <<< ${totalAssetsJSON})
@@ -199,33 +257,43 @@ echo
                                 assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible "${assetName}") #if it starts with a . -> ASCII showable name, otherwise the HEX-String
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
-                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
+
+                                case ${assetHash} in
+                                        f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a )      #$adahandle
+                                                echo -e "\e[90m                           Asset: ${assetBech}  ADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        * ) #default
+                                                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
+                                                ;;
+                                esac
+
                                 done
                         done
-
         fi
         txInString="${txInString} --tx-in ${utxoHashIndex}"
         done
         echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
         echo -e "Total ADA on the Address:\e[32m  $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
-        totalPolicyIDsCnt=$(jq length <<< ${totalPolicyIDsJSON});
-        totalAssetsCnt=$(jq length <<< ${totalAssetsJSON})
 
-	#Get a sorted list of the AssetHashes into a separate Array
-        #totalAssetsHASHsorted=$(jq "keys | sort_by( split(\".\")[1]|length) | sort_by( split(\".\")[0])" 2> /dev/null <<< ${totalAssetsJSON})
-
+        totalPolicyIDsCnt=$(echo -ne "${totalPolicyIDsLIST}" | sort | uniq | wc -l)
+        totalAssetsCnt=$(jq length <<< ${totalAssetsJSON});
         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                         echo -e "\e[32m${totalAssetsCnt} Asset-Type(s) / ${totalPolicyIDsCnt} different PolicyIDs\e[0m found on the Address!\n"
                         printf "\e[0m%-56s%11s    %16s %-44s  %7s  %s\n" "PolicyID:" "Asset-Name:" "Total-Amount:" "Bech-Format:" "Ticker:" "Meta-Name:"
+
+                        totalAssetsJSON=$(jq --sort-keys . <<< ${totalAssetsJSON}) #sort the json by the hashname
+                        assetHashNameArray=(); readarray -t assetHashNameArray <<< $(jq -r "keys_unsorted[]" <<< ${totalAssetsJSON})
+                        assetAmountArray=(); readarray -t assetAmountArray <<< $(jq -r "flatten | .[].amount" <<< ${totalAssetsJSON})
+                        assetNameArray=(); readarray -t assetNameArray <<< $(jq -r "flatten | .[].name" <<< ${totalAssetsJSON})
+                        assetBechArray=(); readarray -t assetBechArray <<< $(jq -r "flatten | .[].bech" <<< ${totalAssetsJSON})
+
                         for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         do
-                        assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
-                        #assetHashName=$(jq -r ".[${tmpCnt}]" <<< ${totalAssetsHASHsorted})
-                        assetAmount=$(jq -r ".\"${assetHashName}\".amount" <<< ${totalAssetsJSON})
-                        assetName=$(jq -r ".\"${assetHashName}\".name" <<< ${totalAssetsJSON})
-                        assetBech=$(jq -r ".\"${assetHashName}\".bech" <<< ${totalAssetsJSON})
-                        #assetHashHex="${assetHashName:0:56}$(convert_assetNameASCII2HEX ${assetName})"
-			assetHashHex="${assetHashName//./}" #remove a . if present, we need a clean subject here for the registry request
+                        assetHashName=${assetHashNameArray[${tmpCnt}]}
+                        assetAmount=${assetAmountArray[${tmpCnt}]}
+                        assetName=${assetNameArray[${tmpCnt}]}
+                        assetBech=${assetBechArray[${tmpCnt}]}
+                        assetHashHex="${assetHashName//./}" #remove a . if present, we need a clean subject here for the registry request
 
                         if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
                                 metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
@@ -238,6 +306,7 @@ echo
                         if [[ $(bc <<< "${assetAmount}>0") -eq 1 ]]; then assetsOutString+="+${assetAmount} ${assetHashName}"; fi #only include in the sendout if more than zero
                         done
         fi
+
 
 echo
 
@@ -367,7 +436,7 @@ if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
 
-cat ${txBodyFile}
+dispFile=$(cat ${txBodyFile}); if [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
 
 
@@ -410,8 +479,15 @@ else
 fi
 
 echo -ne "\e[90m"
-cat ${txFile}
+dispFile=$(cat ${txFile}); if [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
+
+#Do a txSize Check to not exceed the max. txSize value
+cborHex=$(jq -r .cborHex < ${txFile})
+txSize=$(( ${#cborHex} / 2 ))
+maxTxSize=$(jq -r .maxTxSize <<< ${protocolParametersJSON})
+if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSize} bytes (max. ${maxTxSize})\n"
+                                     else echo -e "\n\e[35mError - ${txSize} bytes Transaction-Size is too big! The maximum is currently ${maxTxSize} bytes.\e[0m\n"; exit 1; fi
 
 
 #If you wanna skip the Prompt, set the environment variable ENV_SKIP_PROMPT to "YES" - be careful!!!
