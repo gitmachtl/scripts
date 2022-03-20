@@ -1,4 +1,4 @@
-# StakePool Operator Scripts (SPOS) for Testing
+# StakePool Operator Scripts (SPOS) for Testing/TestNets
 
 *Examples on how to use the scripts **ONLINE** and/or **OFFLINE**, with or without a **Ledger/Trezor-Wallet** can be found on this page :smiley:*
 
@@ -6,7 +6,7 @@
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
 | *Required<br>version<br><sub>or higher</sub>* | <b>1.32.1</b><br><sub>**git checkout tags/1.32.1**</sub> | <b>1.9.0</b><br><sub>**if you use hw-wallets** | <b>3.0.0</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
 
-> :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet, alonzo, ... 
+> :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet! 
 
 &nbsp;<br>
 ### About
@@ -279,7 +279,8 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
          
 <details><summary><b>01_sendLovelaces.sh:</b> sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address:bookmark_tabs:</summary>
             
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;** (you can send to an HASH address too)
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup2;** (you can send to an HASH address too)
+   
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./01_sendLovelaces.sh addr1 addr2 2000000 "msg: here is your money"``` to send 2000000 lovelaces from addr1.addr to addr2.addr and add the transaction message "here is your money"
 <br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send **ALL lovelaces** from addr1.addr to addr2.addr, Tokens on addr1.addr are preserved
@@ -289,12 +290,19 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
   :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 
+  :bulb: **&sup2; Expert-Option**: It is possible to specify the maximum number of input UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"utxolimit: 300"``` to set the max. no of input UTXOs to 300.
+   
+  :bulb: **&sup2; Expert-Option**: In rare cases you wanna **skip** input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"skiputxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to skip all input UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"skiputxowithasset: yyy|zzz"``` to skip all input UTXOs that contains assets with the policyID yyy or zzz
+
+  :bulb: **&sup2; Expert-Option**: In rare cases you **only** wanna use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"onlyutxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to use only UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"onlyutxowithasset: yyy|zzz"``` to only use input UTXOs that contains assets with the policyID yyy or zzz
+ 
 &nbsp;<br>
 </details>            
 
 <details><summary><b>01_sendAssets.sh:</b> sends Assets(Tokens) and optional a given amount of lovelaces from one address to another:bookmark_tabs:</summary>
    
-<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL>```**&sup1;** ```[Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup2;**
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL>```**&sup1;** ```[Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup2;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup3;**
+
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 20 "msg: here are your tokens"```<br>to send 20 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached, also with the transaction message "here are your tokens"
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
@@ -310,6 +318,12 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
    
   :bulb: **&sup2; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 
+  :bulb: **&sup3; Expert-Option**: It is possible to specify the maximum number of input UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"utxolimit: 300"``` to set the max. no of input UTXOs to 300.
+   
+  :bulb: **&sup3; Expert-Option**: In rare cases you wanna **skip** input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"skiputxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to skip all input UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"skiputxowithasset: yyy|zzz"``` to skip all input UTXOs that contains assets with the policyID yyy or zzz
+
+  :bulb: **&sup3; Expert-Option**: In rare cases you **only** wanna use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"onlyutxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to use only UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"onlyutxowithasset: yyy|zzz"``` to only use input UTXOs that contains assets with the policyID yyy or zzz   
+   
 &nbsp;<br>
 </details>
    
@@ -772,6 +786,7 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
   "metaName": "SUPER Token",
   "metaDescription": "This is the description of the Wakanda SUPERTOKEN",
   "---": "--- Optional additional info ---",
+  "metaDecimals": "6",
   "metaTicker": "SUPER",
   "metaUrl": "https://wakandaforever.io",
   "metaLogoPNG": "supertoken.png",
@@ -792,7 +807,8 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
 | :---      | :---: |    :---     | :---    |
 | metaName | **required** | Name of your NativeAsset (1-50chars) | SUPER Token |
 | metaDescription | optional | Description of your NativeAsset (max. 500chars) | This is the SUPER Token, once upon... |
-| metaTicker | optional | ShortTicker Name (3-5chars) | MAX, SUPER, Yeah |
+| metaDecimals | optional | Number of Decimals for the Token | 0,1,2,...18 |
+| metaTicker | optional | ShortTicker Name (3-9chars) | MAX, SUPERcoin, Yeah |
 | metaUrl | optional | Secure Weblink, must start with https:// (max. 250chars) | https://wakandaforever.io |
 | metaLogoPNG | optional | Path to a valid PNG Image File for your NativeAsset (max. 64kB) | supertoken.png |
 
@@ -2004,7 +2020,7 @@ How does it work: The **Mainnet** TokenRegistryServer (currently maintained by t
 
 The script 12a provides you with a method that is using the **token-metadata-creatorr** binary from IOHK to form and sign the needed JSON file for the registration of your Metadata on this GitHub Repo. You can find the binary here (https://github.com/input-output-hk/offchain-metadata-tools) or you can simply use the one that is provided within these scripts. After you have created that special JSON file, you can then browse to GitHub and clone the cardano-token-registry Repo into your own repo. After that, upload the special JSON file into the 'mappings' folder and generate a PullRequest to merge it back with the Master-Branch of the CardanoFoundation Repo.
 
-So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN** under the policy **mypolicy** we minted before using the 'assets' directory.
+So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN** under the policy **mypolicy** we minted before using the 'assets' directory with no decimals.
 
 <br><b>Steps:</b>
 1. Make sure that the path-setting in the `00_common.sh` config file is correct for the `cardanometa="./token-metadata-creator"` entry. The script will automatically try to find it also in the scripts directory.
@@ -2017,6 +2033,7 @@ So lets say we wanna create the Metadata registration JSON for our **SUPERTOKEN*
    "metaName": "SUPER Token",
    "metaDescription": "This is the description of the Wakanda SUPERTOKEN",
    "---": "--- Optional additional info ---",
+   "metaDecimals": "0",
    "metaTicker": "SUPER",
    "metaUrl": "https://wakandaforever.io",
    "metaLogoPNG": "supertoken.png",
