@@ -279,7 +279,8 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
          
 <details><summary><b>01_sendLovelaces.sh:</b> sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address:bookmark_tabs:</summary>
             
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;** (you can send to an HASH address too)
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup2;** (you can send to an HASH address too)
+   
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./01_sendLovelaces.sh addr1 addr2 2000000 "msg: here is your money"``` to send 2000000 lovelaces from addr1.addr to addr2.addr and add the transaction message "here is your money"
 <br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send **ALL lovelaces** from addr1.addr to addr2.addr, Tokens on addr1.addr are preserved
@@ -289,12 +290,19 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
   :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 
+  :bulb: **&sup2; Expert-Option**: It is possible to specify the maximum number of input UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"utxolimit: 300"``` to set the max. no of input UTXOs to 300.
+   
+  :bulb: **&sup2; Expert-Option**: In rare cases you wanna **skip** input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"skiputxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to skip all input UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"skiputxowithasset: yyy|zzz"``` to skip all input UTXOs that contains assets with the policyID yyy or zzz
+
+  :bulb: **&sup2; Expert-Option**: In rare cases you **only** wanna use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"onlyutxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to use only UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"onlyutxowithasset: yyy|zzz"``` to only use input UTXOs that contains assets with the policyID yyy or zzz
+ 
 &nbsp;<br>
 </details>            
 
 <details><summary><b>01_sendAssets.sh:</b> sends Assets(Tokens) and optional a given amount of lovelaces from one address to another:bookmark_tabs:</summary>
    
-<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL>```**&sup1;** ```[Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup2;**
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL>```**&sup1;** ```[Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup2;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup3;**
+
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 20 "msg: here are your tokens"```<br>to send 20 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached, also with the transaction message "here are your tokens"
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.MEGATOKEN ALL 12000000```<br>to send **ALL** MEGATOKEN from addr1.addr to addr2.addr and also 12 ADA
@@ -310,6 +318,12 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
    
   :bulb: **&sup2; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 
+  :bulb: **&sup3; Expert-Option**: It is possible to specify the maximum number of input UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"utxolimit: 300"``` to set the max. no of input UTXOs to 300.
+   
+  :bulb: **&sup3; Expert-Option**: In rare cases you wanna **skip** input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"skiputxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to skip all input UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"skiputxowithasset: yyy|zzz"``` to skip all input UTXOs that contains assets with the policyID yyy or zzz
+
+  :bulb: **&sup3; Expert-Option**: In rare cases you **only** wanna use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"onlyutxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to use only UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"onlyutxowithasset: yyy|zzz"``` to only use input UTXOs that contains assets with the policyID yyy or zzz   
+   
 &nbsp;<br>
 </details>
    
