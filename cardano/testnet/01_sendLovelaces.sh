@@ -16,7 +16,7 @@ if [ $# -ge 3 ]; then
 			lovelacesToSend="$3";
 		 else
 		 cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets>
+Usage:  $(basename $0) <From AddressName> <To AddressName or HASH or '\$adahandle'> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets>
         [Opt: metadata.json/.cbor]
         [Opt: list of UTXOs to use, | is the separator]
         [Opt: Message comment, starting with "msg: ...", | is the separator]
@@ -145,11 +145,45 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
 
  done
 
-#Check if toAddr file does not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
-if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
+
 
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+
+#Check if toAddr file does not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
+if [ ! -f "${toAddr}.addr" ]; then
+				toAddr=$(trimString "${toAddr,,}") #make it lowercase, no file so we don't care
+
+				#check if its a regular cardano payment address
+				typeOfAddr=$(get_addressType "${toAddr}");
+				if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo";
+
+				#check if its an adahandle
+				elif [[ "${toAddr}" =~ ^\$[a-z0-9_.-]{1,15}$ ]]; then
+					if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
+					adahandleName=${toAddr}
+					assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
+					#query adahandle asset holding address via koios
+					showProcessAnimation "Query Adahandle into holding address: " &
+					response=$(curl -s -m 10 -X GET "https://api.koios.rest/api/v0/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
+					stopProcessAnimation;
+					#check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+					if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
+					toAddr=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
+					typeOfAddr=$(get_addressType "${toAddr}");
+					if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
+	                                showProcessAnimation "Verify Adahandle is on resolved address: " &
+	                                utxo=$(${cardanocli} query utxo --address ${toAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+					if [[ $(grep "${adahandlePolicyID}.${assetNameHex}" <<< ${utxo} | wc -l) -ne 1 ]]; then
+						 echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
+					echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m"
+                                        echo "$(basename ${toAddr})" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
+
+				#otherwise post an error message
+				else echo -e "\n\e[35mERROR - Destination Address can't be resolved. Maybe filename wrong, or not a payment-address.\n\e[0m"; exit 1;
+
+				fi
+fi
 
 
 #Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list

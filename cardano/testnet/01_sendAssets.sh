@@ -9,7 +9,7 @@
 #ShowUsage
 showUsage() {
 cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName OR HASH> <PolicyID.Name OR asset1-name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL>
+Usage:  $(basename $0) <From AddressName> <To AddressName or HASH or '\$adahandle'> <PolicyID.Name OR asset1-name OR PATH to the AssetFile(.asset)> <Amount of Assets to send OR keyword ALL>
         [Opt: Amount of lovelaces to include]
         [Opt: Transaction-Metadata.json/.cbor]
         [Opt: list of UTXOs to use, | is the separator]
@@ -87,7 +87,40 @@ if [ ${paramCnt} -ge 2 ]; then
 
 	toAddr="$(dirname $2)/$(basename ${allParameters[1]} .addr)"; toAddr=${toAddr/#.\//}
 	#Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
-	if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
+	if [ ! -f "${toAddr}.addr" ]; then
+                                toAddr=$(trimString "${toAddr,,}") #make it lowercase, no file so we don't care
+
+                                #check if its a regular cardano payment address
+                                typeOfAddr=$(get_addressType "${toAddr}");
+                                if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo";
+
+                                #check if its an adahandle
+                                elif [[ "${toAddr}" =~ ^\$[a-z0-9_.-]{1,15}$ ]]; then
+                                        if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
+                                        adahandleName=${toAddr}
+                                        assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
+                                        #query adahandle asset holding address via koios
+                                        showProcessAnimation "Query Adahandle into holding address: " &
+                                        response=$(curl -s -m 10 -X GET "https://api.koios.rest/api/v0/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
+                                        stopProcessAnimation;
+                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
+                                        toAddr=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
+                                        typeOfAddr=$(get_addressType "${toAddr}");
+                                        if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
+                                        showProcessAnimation "Verify Adahandle is on resolved address: " &
+                                        utxo=$(${cardanocli} query utxo --address ${toAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex}" <<< ${utxo} | wc -l) -ne 1 ]]; then
+                                                 echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
+                                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m"
+                                        echo "$(basename ${toAddr})" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
+
+                                #otherwise post an error message
+                                else echo -e "\n\e[35mERROR - Destination Address can't be resolved. Maybe filename wrong, or not a payment-address.\n\e[0m"; exit 1;
+
+                                fi
+	fi
+
 	sendToAddr=$(cat ${toAddr}.addr)
 	check_address "${sendToAddr}"
 

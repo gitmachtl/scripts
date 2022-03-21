@@ -11,10 +11,43 @@
 . "$(dirname "$0")"/00_common.sh
 
 #Check the commandline parameter
-if [[ $# -eq 1 && ! $1 == "" ]]; then addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//}; else echo "ERROR - Usage: $0 <AdressName or HASH>"; exit 2; fi
+if [[ $# -eq 1 && ! $1 == "" ]]; then addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//}; else echo "ERROR - Usage: $0 <AdressName or HASH or '\$adahandle'>"; exit 2; fi
 
-#Check if Address file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
-if [ ! -f "${addrName}.addr" ]; then echo "${addrName}" > ${tempDir}/tempAddr.addr; addrName="${tempDir}/tempAddr"; fi
+
+#Check if addrName file does not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
+if [ ! -f "${addrName}.addr" ]; then
+                                addrName=$(trimString "${addrName,,}") #make it lowercase, no file so we don't care
+
+                                #check if its a regular cardano payment address
+                                typeOfAddr=$(get_addressType "${addrName}");
+                                if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then echo "$(basename ${addrName})" > ${tempDir}/tempAddr.addr; addrName="${tempDir}/tempAddr";
+
+                                #check if its an adahandle
+                                elif [[ "${addrName}" =~ ^\$[a-z0-9_.-]{1,15}$ ]]; then
+                                        if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
+                                        adahandleName=${addrName}
+                                        assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
+                                        #query adahandle asset holding address via koios
+                                        showProcessAnimation "Query Adahandle into holding address: " &
+                                        response=$(curl -s -m 10 -X GET "https://api.koios.rest/api/v0/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
+                                        stopProcessAnimation;
+                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
+                                        addrName=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
+                                        typeOfAddr=$(get_addressType "${addrName}");
+                                        if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${addrName}' is not a valid payment address.\n\e[0m"; exit 1; fi;
+                                        showProcessAnimation "Verify Adahandle is on resolved address: " &
+                                        utxo=$(${cardanocli} query utxo --address ${addrName} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex}" <<< ${utxo} | wc -l) -ne 1 ]]; then
+                                                 echo -e "\n\e[35mERROR - Resolved address '${addrName}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
+                                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${addrName}\e[0m\n"
+                                        echo "$(basename ${addrName})" > ${tempDir}/adahandle-resolve.addr; addrName="${tempDir}/adahandle-resolve";
+
+                                #otherwise post an error message
+                                else echo -e "\n\e[35mERROR - Destination Address can't be resolved. Maybe filename wrong, or not a payment-address.\n\e[0m"; exit 1;
+
+                                fi
+fi
 
 checkAddr=$(cat ${addrName}.addr)
 
