@@ -89,6 +89,9 @@ transactionExplorer_testnet="https://explorer.cardano-testnet.iohkdev.io/en/tran
 #Pool-Importhelper Live-API-Helper
 poolImportAPI="https://api.crypto2099.io/v1/pool/"
 
+#Koios-API
+koiosAPI="https://api.koios.rest/api/v0/"
+
 #Overwrite variables via env file if present
 scriptDir=$(dirname "$0" 2> /dev/null)
 if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
@@ -96,7 +99,7 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.32.0"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.32.1"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="3.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
@@ -107,6 +110,10 @@ export CARDANO_NODE_SOCKET_PATH=${socket}
 
 #Set the bc linebreak to a big number so we can work with really biiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiig numbers
 export BC_LINE_LENGTH=1000
+
+#Other constants
+adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"
+
 
 #Setting online/offline variables and offlineFile default value, versionInfo
 if [[ "${offlineMode^^}" == "YES" ]]; then offlineMode=true; onlineMode=false; else offlineMode=false; onlineMode=true; fi
@@ -979,7 +986,9 @@ versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nYour version ${versionHWCLI} is no longer supported for security reasons or features, please upgrade - thx."; exit 1; fi
 
 #do the correction
-tmp=$(${cardanohwcli} transaction transform-raw --tx-body-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout)
+tmp=$(${cardanohwcli} transaction transform-raw --tx-body-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #old default format
+#tmp=$(${cardanohwcli} transaction transform --tx-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #new cddl format
+
 if [[ $? -ne 0 ]]; then echo -e "\n${tmp}"; exit 1; fi
 tmp_lastline=$(echo "${tmp}" | tail -n 1)
 if [[ "${tmp_lastline^^}" =~ (ERROR) ]]; then echo -e "\n${tmp}"; exit 1; fi
