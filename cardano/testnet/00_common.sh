@@ -99,11 +99,11 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.32.0"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.32.1"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="3.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.9.1" #minimum version for the cardano-hw-cli
+minHardwareCliVersion="1.9.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}

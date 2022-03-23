@@ -88,16 +88,16 @@ if [ ${paramCnt} -ge 2 ]; then
 	toAddr="$(dirname $2)/$(basename ${allParameters[1]} .addr)"; toAddr=${toAddr/#.\//}
 	#Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 	if [ ! -f "${toAddr}.addr" ]; then
-                                toAddr=$(trimString "${toAddr,,}") #make it lowercase, no file so we don't care
+                                toAddr=$(trimString "${toAddr}") #make it lowercase, no file so we don't care
 
                                 #check if its a regular cardano payment address
                                 typeOfAddr=$(get_addressType "${toAddr}");
                                 if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo";
 
                                 #check if its an adahandle
-                                elif [[ "${toAddr}" =~ ^\$[a-z0-9_.-]{1,15}$ ]]; then
+                                elif [[ "${toAddr,,}" =~ ^\$[a-z0-9_.-]{1,15}$ ]]; then
                                         if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
-                                        adahandleName=${toAddr}
+                                        adahandleName=${toAddr,,}
                                         assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
                                         #query adahandle asset holding address via koios
                                         showProcessAnimation "Query Adahandle into holding address: " &
