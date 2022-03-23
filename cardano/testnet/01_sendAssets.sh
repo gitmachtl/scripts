@@ -88,7 +88,7 @@ if [ ${paramCnt} -ge 2 ]; then
 	toAddr="$(dirname $2)/$(basename ${allParameters[1]} .addr)"; toAddr=${toAddr/#.\//}
 	#Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 	if [ ! -f "${toAddr}.addr" ]; then
-                                toAddr=$(trimString "${toAddr}") #make it lowercase, no file so we don't care
+                                toAddr=$(trimString "${toAddr}") #trim it if spaces present
 
                                 #check if its a regular cardano payment address
                                 typeOfAddr=$(get_addressType "${toAddr}");

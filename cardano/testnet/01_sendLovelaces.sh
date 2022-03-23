@@ -152,7 +152,7 @@ if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e
 
 #Check if toAddr file does not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "${toAddr}.addr" ]; then
-				toAddr=$(trimString "${toAddr}") #make it lowercase, no file so we don't care
+				toAddr=$(trimString "${toAddr}") #trim it if spaces present
 
 				#check if its a regular cardano payment address
 				typeOfAddr=$(get_addressType "${toAddr}");

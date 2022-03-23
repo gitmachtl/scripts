@@ -16,7 +16,7 @@ if [[ $# -eq 1 && ! $1 == "" ]]; then addrName="$(dirname $1)/$(basename $1 .add
 
 #Check if addrName file does not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "${addrName}.addr" ]; then
-                                addrName=$(trimString "${addrName}") #make it lowercase, no file so we don't care
+                                addrName=$(trimString "${addrName}") #trim it if spaces present
 
                                 #check if its a regular cardano payment address
                                 typeOfAddr=$(get_addressType "${addrName}");
