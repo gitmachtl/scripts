@@ -470,7 +470,7 @@ if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
 
-dispFile=$(cat ${txBodyFile}); if [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
+dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
 
 
@@ -513,7 +513,7 @@ else
 fi
 
 echo -ne "\e[90m"
-dispFile=$(cat ${txFile}); if [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
+dispFile=$(cat ${txFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
 
 #Do a txSize Check to not exceed the max. txSize value

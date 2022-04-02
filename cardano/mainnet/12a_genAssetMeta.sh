@@ -173,7 +173,7 @@ metaTicker=$(jq -r ".metaTicker" <<< ${assetFileJSON})
 if [[ ! "${metaTicker}" == "" ]]; then
 echo -ne "Adding 'metaTicker'      ... "
 	#if [[ ! "${metaTicker//[[:space:]]}" == "${metaTicker}" ]]; then echo -e "\e[35mERROR - The metaTicker '${metaTicker}' contains spaces, not allowed !\e[0m\n"; exit 1; fi
-	if [[ ${#metaTicker} -lt 2 || ${#metaTicker} -gt 9 ]]; then echo -e "\e[35mERROR - The metaTicker '${metaTicker}' must be between 3-9 chars!\e[0m\n"; exit 1; fi
+	if [[ ${#metaTicker} -lt 3 || ${#metaTicker} -gt 9 ]]; then echo -e "\e[35mERROR - The metaTicker '${metaTicker}' must be between 3-9 chars!\e[0m\n"; exit 1; fi
 	creatorArray+=("--ticker" "${metaTicker}")
 	echo -e "\e[32mOK\e[0m"
 fi

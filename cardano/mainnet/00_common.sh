@@ -45,25 +45,16 @@ cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna
 cardanometa="./token-metadata-creator" #Path to your token-metadata-creator binary you wanna use. If present in the Path just set it to "token-metadata-creator" without the "./" infront
 
 
-#--------- Only needed for automated kes/opcert update and upload via scp -----
-remoteServerAddr="remoteserver address or ip"                   #RemoteServer ip or dns name
-remoteServerUser="remoteuser"                             	#RemoteServer userlogin via ssh keys
-remoteServerSSHport="22"                                	#RemoteServer SSH port number
-remoteServerDestDir="~/remoteuser/core-###NODENAME###/."        #Destination directory were to copy the files to
-remoteServerPostCommand="~/remoteuser/restartCore.sh"      	#Command to execute via SSH after the file upload completed to restart the coreNode on the remoteServer
-
-
 #--------- Only needed if you wanna change the BlockChain from the Mainnet to a Testnet Chain Setup
 byronToShelleyEpochs=208 	#choose 208 for the mainnet, 74 for the public testnet
 magicparam="--mainnet"          #choose "--mainnet" for mainnet or "--testnet-magic 1097911063" for the public testnet
 addrformat="--mainnet"          #choose "--mainnet" for mainnet address format or "--testnet-magic 1097911063" for the testnet address format
 
 
-
 #--------- some other stuff -----
 showVersionInfo="yes"		#yes/no to show the version info and script mode on every script call
 queryTokenRegistry="yes"	#yes/no to query each native asset/token on the token registry server live
-
+cropTxOutput="yes"		#yes/no to crop the unsigned/signed txfile outputs on transactions to a max. of 4000chars
 
 
 
@@ -115,11 +106,12 @@ export BC_LINE_LENGTH=1000
 adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"
 
 
-#Setting online/offline variables and offlineFile default value, versionInfo
+#Setting online/offline variables and offlineFile default value, versionInfo, tokenRegistryquery, tx output cropping to boolean values
 if [[ "${offlineMode^^}" == "YES" ]]; then offlineMode=true; onlineMode=false; else offlineMode=false; onlineMode=true; fi
 if [[ "${offlineFile}" == "" ]]; then offlineFile="./offlineTransfer.json"; fi
 if [[ "${showVersionInfo^^}" == "NO" ]]; then showVersionInfo=false; else showVersionInfo=true; fi
 if [[ "${queryTokenRegistry^^}" == "NO" ]]; then queryTokenRegistry=false; else queryTokenRegistry=true; fi
+if [[ "${cropTxOutput^^}" == "NO" ]]; then cropTxOutput=false; else cropTxOutput=true; fi
 
 
 #-------------------------------------------------------
