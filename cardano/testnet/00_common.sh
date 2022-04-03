@@ -90,11 +90,11 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.32.1"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.34.1"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="3.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minLedgerCardanoAppVersion="4.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.9.1" #minimum version for the cardano-hw-cli
+minHardwareCliVersion="1.10.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -406,7 +406,7 @@ if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else node
 
 #Temporary fix to lock the transaction build-raw to mary era for
 #Hardware-Wallet operations. Alonzo-Era is not yet supported, so we will lock this for now
-if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--alonzo-era" ]]; then nodeEraParam="--mary-era"; fi
+#if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--alonzo-era" ]]; then nodeEraParam="--mary-era"; fi
 
 
 #-------------------------------------------------------
@@ -978,8 +978,8 @@ versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nYour version ${versionHWCLI} is no longer supported for security reasons or features, please upgrade - thx."; exit 1; fi
 
 #do the correction
-tmp=$(${cardanohwcli} transaction transform-raw --tx-body-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #old default format
-#tmp=$(${cardanohwcli} transaction transform --tx-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #new cddl format
+#tmp=$(${cardanohwcli} transaction transform-raw --tx-body-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #old default format
+tmp=$(${cardanohwcli} transaction transform --tx-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #new cddl format
 
 if [[ $? -ne 0 ]]; then echo -e "\n${tmp}"; exit 1; fi
 tmp_lastline=$(echo "${tmp}" | tail -n 1)

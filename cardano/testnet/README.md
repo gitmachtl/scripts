@@ -4,7 +4,7 @@
 
 | | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.32.1</b><br><sub>**git checkout tags/1.32.1**</sub> | <b>1.9.0</b><br><sub>**if you use hw-wallets** | <b>3.0.0</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.34.1</b><br><sub>**git checkout tags/1.34.1**</sub> | <b>1.10.0</b><br><sub>**if you use hw-wallets** | <b>4.0.0</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
 
 > :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet! 
 

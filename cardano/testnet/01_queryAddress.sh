@@ -226,7 +226,7 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
         fi
 
         #If delegated to a pool, show the current pool ID
-        if [[ ! ${delegationPoolID} == null ]]; then echo -e "   \tAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m"; fi
+        if [[ ! ${delegationPoolID} == null ]]; then echo -e "   \tAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m"; else echo -e "   \tAccount is not delegated to a Pool !"; fi
 
         echo
 

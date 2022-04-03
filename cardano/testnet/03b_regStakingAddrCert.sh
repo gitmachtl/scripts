@@ -221,10 +221,10 @@ minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${asset
 #----------------------------------------------------
 
 #Generate Dummy-TxBody file for fee calculation
-txBodyFile="${tempDir}/dummy.txbody"
+txBodyFile="${tempDir}/dummy.txbody"; rm ${txBodyFile} 2> /dev/null
 rm ${txBodyFile} 2> /dev/null
-#echo -e "${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 100 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}"
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 100 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
+#echo -e "${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 100 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}"
+${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 100 --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
@@ -249,6 +249,7 @@ echo
 if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
 
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
+txWitnessFile="${tempDir}/$(basename ${fromAddr}).txwitness"; rm ${txWitnessFile}* 2> /dev/null
 txFile="${tempDir}/$(basename ${fromAddr}).tx"
 
 echo -e "\e[0mBuilding the unsigned transaction body with the\e[32m ${stakeAddr}.cert\e[0m certificate: \e[32m ${txBodyFile} \e[90m"
@@ -256,7 +257,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
+${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --certificate ${stakeAddr}.cert --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -274,13 +275,21 @@ if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" 
         tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
         echo -e "\e[32m${tmp}\e[0m\n"
 
-        echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.hwsfile\e[0m & \e[32m${stakeAddr}.hwsfile\e[0m: \e[32m ${txFile} \e[90m"
+        echo -e "\e[0mSign (Witness+Assemble) the unsigned transaction body with the \e[32m${fromAddr}.hwsfile\e[0m & \e[32m${stakeAddr}.hwsfile\e[0m: \e[32m ${txFile} \e[90m"
         echo
 
+        #Witness and Assemble the TxFile
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile  --change-output-key-file ${fromAddr}.hwsfile  --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txWitnessFile}-payment --out-file ${txWitnessFile}-staking 2> /dev/stdout)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
+
+        ${cardanocli} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile}-payment --witness-file ${txWitnessFile}-staking --out-file ${txFile}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        echo -e "Assembled ... \e[32mDONE\e[0m\n";
+
+
+
 
 elif [[ -f "${stakeAddr}.skey" && -f "${fromAddr}.skey" ]]; then #with the normal cli skey
 
