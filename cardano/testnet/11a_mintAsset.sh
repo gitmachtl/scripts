@@ -359,7 +359,11 @@ echo
 if [ -f "${policyName}.policy.hwsfile" ] || [ -f "${fromAddr}.hwsfile" ]; then
 	echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
 	tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
-	echo -e "\e[32m${tmp}\e[0m\n"
+	echo -e "\e[32m${tmp}\e[90m\n"
+
+	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
+	echo
+
 fi
 
 echo -e "\e[0mSign the Tx-Body with the \e[32m${fromAddr}.skey|hwsfile\e[0m and \e[32m${policyName}.policy.skey|hwsfile\e[0m: \e[32m ${txFile} \e[90m"
