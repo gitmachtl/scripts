@@ -959,8 +959,8 @@ The scripts 02 and 03a are supporting this kind of SubAccounts, please checkout 
 | Claim Rewards from a CLI stake address | :heavy_check_mark: | :x: |
 | Claim Rewards from then HW stake address, Paying with the HW payment address | :x: | :heavy_check_mark: |
 | Claim Rewards from then HW stake address, Paying with a CLI payment address | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode*) | :x: |
-| Register HW staking keys on the chain | :x: | :heavy_check_mark: |
-| Register CLI staking keys on the chain | :heavy_check_mark: | :x: |
+| Register HW staking address on the chain | :heavy_check_mark: | :heavy_check_mark: |
+| Register CLI staking address on the chain | :heavy_check_mark: | :x: |
 | Delegate HW staking keys to a stakepool | :x: | :heavy_check_mark: |
 | Delegate CLI staking keys to a stakepool | :heavy_check_mark: | :x: |
 | Register a stakepool with HW node cold keys | :heavy_check_mark: | :x: |
