@@ -75,7 +75,8 @@ tokenMetaServer_testnet="https://metadata.cardano-testnet.iohkdev.io/metadata/"	
 
 #URLS for the Transaction-Explorers
 transactionExplorer_mainnet="https://cardanoscan.io/transaction/"
-transactionExplorer_testnet="https://explorer.cardano-testnet.iohkdev.io/en/transaction?id="
+transactionExplorer_testnet="https://testnet.cardanoscan.io/transaction/"
+#transactionExplorer_testnet="https://explorer.cardano-testnet.iohkdev.io/en/transaction?id="
 
 #Pool-Importhelper Live-API-Helper
 poolImportAPI="https://api.crypto2099.io/v1/pool/"
@@ -945,7 +946,7 @@ esac
 #Check if the function was set to be only available on a specified manufacturer hw wallet
 if [ ! "${onlyForManu}" == "" ]  && [ ! "${onlyForManu}" == "${walletManu^^}" ]; then echo -e "\n\e[35mError - This function is NOT available on this type of Hardware-Wallet, only available on a ${onlyForManu} device at the moment!\e[0m\n"; exit 1; fi
 
-echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
+echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m (HW-Cli Version \e[32m${versionHWCLI}\e[0m) found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
 }
 
 #-------------------------------------------------------
