@@ -394,7 +394,9 @@ echo
         utxoHashIndex=${utxoHashIndexArray[${tmpCnt}]}
         utxoAmount=${utxoLovelaceArray[${tmpCnt}]} #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
-        echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"; if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
+#       echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}";
+        echo -e "Hash#Index: ${utxoHashIndex}\tADA: $(convertToADA ${utxoAmount}) \e[90m(${utxoAmount} lovelaces)\e[0m";
+	if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
         assetsEntryCnt=${assetsEntryCntArray[${tmpCnt}]}
 
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
@@ -584,7 +586,7 @@ minReturnUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${as
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsSendString}" --tx-out "${sendToAddr}+0${assetsReturnString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsSendString}" --tx-out "${sendToAddr}+0${assetsReturnString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -605,6 +607,7 @@ echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m $(convertToADA ${l
 if [[ ${lovelacesToReturn} -lt ${minReturnUTXO} ]]; then echo -e "\n\e[35mError - Not enough funds on the source Addr! Minimum UTXO value to return is ${minReturnUTXO} lovelaces.\e[0m\n"; exit 1; fi
 
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
+txWitnessFile="${tempDir}/$(basename ${fromAddr}).txwitness"
 txFile="${tempDir}/$(basename ${fromAddr}).tx"
 
 echo
@@ -613,7 +616,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsSendString}" --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsReturnString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsSendString}" --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsReturnString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -627,13 +630,16 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
 
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
         tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
-        echo -e "\e[32m${tmp}\e[0m\n"
+        echo -e "\e[32m${tmp}\e[90m\n"
 
-        echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.hwsfile\e[0m: \e[32m ${txFile}\e[0m"
+	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
+	echo
+
+        echo -e "\e[0mSign (Witness+Assemble) the unsigned transaction body with the \e[32m${fromAddr}.hwsfile\e[0m: \e[32m ${txFile}\e[0m"
         echo
 
+	#Witness and Assemble the TxFile
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
         #if rxcnt==2 that means that some funds are returned back to the hw-wallet and if its a staking address, we can hide the return
         #amount of lovelaces which could cause confusion. we have to add the --change-output-key-file parameters for payment and stake if
         #its a base address. this only works great for base addresses, otherwise a warning would pop up on the hw-wallet complaining about that
@@ -645,10 +651,16 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
                                         if [[ -f "${stakeFromAddr}.hwsfile" ]]; then hwWalletReturnStr="--change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeFromAddr}.hwsfile"; fi
                                 fi
 
-        tmp=$(${cardanohwcli} transaction sign --tx-body-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txWitnessFile} 2> /dev/stdout)
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        ${cardanocli} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --out-file ${txFile}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        echo -e "Assembled ... \e[32mDONE\e[0m\n";
+
 else
+
         echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile}\e[0m"
         echo
         ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}

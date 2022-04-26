@@ -75,7 +75,8 @@ tokenMetaServer_testnet="https://metadata.cardano-testnet.iohkdev.io/metadata/"	
 
 #URLS for the Transaction-Explorers
 transactionExplorer_mainnet="https://cardanoscan.io/transaction/"
-transactionExplorer_testnet="https://explorer.cardano-testnet.iohkdev.io/en/transaction?id="
+transactionExplorer_testnet="https://testnet.cardanoscan.io/transaction/"
+#transactionExplorer_testnet="https://explorer.cardano-testnet.iohkdev.io/en/transaction?id="
 
 #Pool-Importhelper Live-API-Helper
 poolImportAPI="https://api.crypto2099.io/v1/pool/"
@@ -90,11 +91,11 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.32.1"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.34.1"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="3.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
+minLedgerCardanoAppVersion="4.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
-minHardwareCliVersion="1.9.0" #minimum version for the cardano-hw-cli
+minHardwareCliVersion="1.10.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -406,7 +407,7 @@ if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else node
 
 #Temporary fix to lock the transaction build-raw to mary era for
 #Hardware-Wallet operations. Alonzo-Era is not yet supported, so we will lock this for now
-if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--alonzo-era" ]]; then nodeEraParam="--mary-era"; fi
+#if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--alonzo-era" ]]; then nodeEraParam="--mary-era"; fi
 
 
 #-------------------------------------------------------
@@ -945,7 +946,7 @@ esac
 #Check if the function was set to be only available on a specified manufacturer hw wallet
 if [ ! "${onlyForManu}" == "" ]  && [ ! "${onlyForManu}" == "${walletManu^^}" ]; then echo -e "\n\e[35mError - This function is NOT available on this type of Hardware-Wallet, only available on a ${onlyForManu} device at the moment!\e[0m\n"; exit 1; fi
 
-echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
+echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m (HW-Cli Version \e[32m${versionHWCLI}\e[0m) found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
 }
 
 #-------------------------------------------------------
@@ -953,7 +954,8 @@ echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m found on yo
 #-------------------------------------------------------
 #Convert the given lovelaces $1 into ada (divide by 1M)
 convertToADA() {
-echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and add a leading zero if below 1 ada
+#echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and add a leading zero if below 1 ada
+printf "%'.6f" "${1}e-6" #return in ADA format (with 6 commas)
 }
 
 
@@ -978,8 +980,8 @@ versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nYour version ${versionHWCLI} is no longer supported for security reasons or features, please upgrade - thx."; exit 1; fi
 
 #do the correction
-tmp=$(${cardanohwcli} transaction transform-raw --tx-body-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #old default format
-#tmp=$(${cardanohwcli} transaction transform --tx-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #new cddl format
+#tmp=$(${cardanohwcli} transaction transform-raw --tx-body-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #old default format
+tmp=$(${cardanohwcli} transaction transform --tx-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #new cddl format
 
 if [[ $? -ne 0 ]]; then echo -e "\n${tmp}"; exit 1; fi
 tmp_lastline=$(echo "${tmp}" | tail -n 1)

@@ -273,7 +273,9 @@ if [[ "${regWitnessID}" == "" ]]; then
         utxoHashIndex=${utxoHashIndexArray[${tmpCnt}]}
         utxoAmount=${utxoLovelaceArray[${tmpCnt}]} #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
-        echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}"; if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
+#	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}";
+        echo -e "Hash#Index: ${utxoHashIndex}\tADA: $(convertToADA ${utxoAmount}) \e[90m(${utxoAmount} lovelaces)\e[0m";
+	if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
         assetsEntryCnt=${assetsEntryCntArray[${tmpCnt}]}
 
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
@@ -363,7 +365,7 @@ minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${asset
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -403,7 +405,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -413,7 +415,10 @@ echo
 if [[ "${hardwareWalletIncluded}" == "yes" ]]; then
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
         tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
-        echo -e "\e[32m${tmp}\e[0m\n"
+        echo -e "\e[32m${tmp}\e[90m\n"
+
+	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
+	echo
 fi
 
 #So now lets ask if this payment looks ok, it will not be displayed later if a witness is missing
@@ -446,7 +451,7 @@ elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
 	tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
 	#this is currently only supported by ledger devices
         start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
+        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmpWitness=$(cat ${tmpWitnessFile})
@@ -489,16 +494,13 @@ do
 		if ! ask "\e[0mAdding the owner witness from a local Hardware-Wallet key '\e[33m${ownerName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
 
 		start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-		tmp=$(${cardanohwcli} transaction witness --tx-body-file ${txBodyFile} --hw-signing-file ${ownerName}.staking.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
+		tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${ownerName}.staking.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
 
 	        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
 	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 		tmpWitness=$(cat ${tmpWitnessFile})
-		#Doing a txWitness Hack, because currently the ledger-fw is not using the right Era - Must be removed later when corrected!
-		#Disabled now with cardano-hw-cli release 1.1.2
-		#if [[ "$(jq -r .type < ${txBodyFile})" == "TxBodyMary" ]]; then tmpWitness=$(jq ".type = \"TxWitness MaryEra\"" <<< ${tmpWitness}); fi
-		#if [[ "$(jq -r .type < ${txBodyFile})" == "TxBodyAllegra" ]]; then tmpWitness=$(jq ".type = \"TxWitness AllegraEra\"" <<< ${tmpWitness}); fi
+
 	        poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON
 
 	else
@@ -531,6 +533,7 @@ regWitnessHardwareWalletIncluded=$(jq -r ".regWitness.hardwareWalletIncluded" <<
 regWitnessPayAmount=$(jq -r ".regWitness.regPayAmount" <<< ${poolJSON})
 regWitnessPayReturn=$(jq -r ".regWitness.regPayReturn" <<< ${poolJSON})
 
+echo
 echo -e "Lovelaces you have to pay: \e[32m $(convertToADA ${regWitnessPayAmount}) ADA / ${regWitnessPayAmount} lovelaces\e[0m"
 echo -e " Lovelaces to be returned: \e[32m $(convertToADA ${regWitnessPayReturn}) ADA / ${regWitnessPayReturn} lovelaces\e[0m"
 echo
@@ -606,6 +609,8 @@ fi
 #
 
 txFile="${tempDir}/$(basename ${poolName}).tx"
+txBodyFile="${tempDir}/$(basename ${poolName}).txbody"
+echo "${regWitnessTxBody}" > ${txBodyFile}
 
 echo -e "\e[0mAssemble the Transaction with the payment \e[32m${regPayName}.skey\e[0m, node\e[32m ${poolName}.node.skey/hwsfile\e[0m and all PoolOwner Witnesses: \e[32m ${txFile} \e[90m"
 echo
@@ -623,7 +628,8 @@ done
 
 #Assemble the transaction
 rm ${txFile} 2> /dev/null
-${cardanocli} transaction assemble --tx-body-file <(echo ${regWitnessTxBody}) ${witnessString} --out-file ${txFile}
+
+${cardanocli} transaction assemble --tx-body-file ${txBodyFile} ${witnessString} --out-file ${txFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -ne "\e[90m"
 dispFile=$(cat ${txFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi

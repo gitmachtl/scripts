@@ -1,10 +1,10 @@
-# StakePool Operator Scripts (SPOS) for Mainnet
+# StakePool Operator Scripts (SPOS) for Cardano MainNet
 
 *Examples on how to use the scripts **ONLINE** and/or **OFFLINE**, with or without a **Ledger/Trezor-Wallet** can be found on this page :smiley:*
 
 | | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.32.1</b><br><sub>**git checkout tags/1.32.1**</sub> | <b>1.9.0</b><br><sub>**if you use hw-wallets** | <b>3.0.0</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.34.1</b><br><sub>**git checkout tags/1.34.1**</sub> | <b>1.10.0</b><br><sub>**if you use hw-wallets** | <b>4.0.0</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
 
 > :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose mainnet! 
 
@@ -269,7 +269,6 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <details><summary><b>01_queryAddress.sh:</b> checks the amount of lovelaces and tokens on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses:bookmark_tabs:</summary>
       
 <br>```./01_queryAddress.sh <name or HASH or '$adahandle'>``` **NEW** you can use now an $adahandle too
-
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
 <br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
 <br>```./01_queryAddress.sh addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m``` shows the lovelaces on this given Bech32 address
@@ -963,8 +962,8 @@ The scripts 02 and 03a are supporting this kind of SubAccounts, please checkout 
 | Claim Rewards from a CLI stake address | :heavy_check_mark: | :x: |
 | Claim Rewards from then HW stake address, Paying with the HW payment address | :x: | :heavy_check_mark: |
 | Claim Rewards from then HW stake address, Paying with a CLI payment address | :x:<br>(:heavy_check_mark: when HW keys are in hybrid mode*) | :x: |
-| Register HW staking keys on the chain | :x: | :heavy_check_mark: |
-| Register CLI staking keys on the chain | :heavy_check_mark: | :x: |
+| Register HW staking address on the chain | :heavy_check_mark: | :heavy_check_mark: |
+| Register CLI staking address on the chain | :heavy_check_mark: | :x: |
 | Delegate HW staking keys to a stakepool | :x: | :heavy_check_mark: |
 | Delegate CLI staking keys to a stakepool | :heavy_check_mark: | :x: |
 | Register a stakepool with HW node cold keys | :heavy_check_mark: | :x: |
