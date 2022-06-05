@@ -174,7 +174,7 @@ if [ ! -f "${toAddr}.addr" ]; then
 					if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
 	                                showProcessAnimation "Verify Adahandle is on resolved address: " &
 	                                utxo=$(${cardanocli} query utxo --address ${toAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-					if [[ $(grep "${adahandlePolicyID}.${assetNameHex}" <<< ${utxo} | wc -l) -ne 1 ]]; then
+					if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
 						 echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
 					echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m"
                                         echo "$(basename ${toAddr})" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";

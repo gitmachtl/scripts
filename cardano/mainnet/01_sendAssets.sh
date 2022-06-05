@@ -16,6 +16,7 @@ Usage:  $(basename $0) <From AddressName> <To AddressName or HASH or '\$adahandl
         [Opt: Message comment, starting with "msg: ...", | is the separator]
         [Opt: no of input UTXOs limitation, starting with "utxolimit: ..."]
         [Opt: skip input UTXOs that contain assets (hex-format), starting with "skiputxowithasset: <policyID>(assetName)", | is the separator]
+        [Opt: only use input UTXOs that contain assets (hex-format), starting with "onlyutxowithasset: <policyID>(assetName)", | is the separator]
         [Opt: keep a certain PolicyID while doing a 'ALLASSETS' transaction, starting with "keeppolicy: <policyID>", | is the separator]
 
 Optional parameters:
@@ -110,7 +111,7 @@ if [ ${paramCnt} -ge 2 ]; then
                                         if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
                                         showProcessAnimation "Verify Adahandle is on resolved address: " &
                                         utxo=$(${cardanocli} query utxo --address ${toAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex}" <<< ${utxo} | wc -l) -ne 1 ]]; then
+                                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
                                                  echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
                                         echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m"
                                         echo "$(basename ${toAddr})" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
