@@ -230,7 +230,7 @@ echo
 if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
 
 txBodyFile="${tempDir}/$(basename ${poolName}).txbody"
-txWitnessFile="${tempDir}/$(basename ${fromAddr}).txwitness"
+txWitnessFile="${tempDir}/$(basename ${poolName}).txwitness"
 txFile="${tempDir}/$(basename ${poolName}).tx"
 
 echo

@@ -69,20 +69,20 @@ cropTxOutput="yes"		#yes/no to crop the unsigned/signed txfile outputs on transa
 #
 ##############################################################################################################################
 
-#Token Metadata API URLs  (will be autoresolved into the tokenMetaServer variable)
+#Token Metadata API URLs -> autoresolve into ${tokenMetaServer}
 tokenMetaServer_mainnet="https://tokens.cardano.org/metadata/" #mainnet
 tokenMetaServer_testnet="https://metadata.cardano-testnet.iohkdev.io/metadata/"	#public testnet
 
-#URLS for the Transaction-Explorers
+#URLS for the Transaction-Explorers -> autoresolve into ${transactionExplorer}
 transactionExplorer_mainnet="https://cardanoscan.io/transaction/"
 transactionExplorer_testnet="https://testnet.cardanoscan.io/transaction/"
-#transactionExplorer_testnet="https://explorer.cardano-testnet.iohkdev.io/en/transaction?id="
 
 #Pool-Importhelper Live-API-Helper
 poolImportAPI="https://api.crypto2099.io/v1/pool/"
 
-#Koios-API
-koiosAPI="https://api.koios.rest/api/v0/"
+#Koios-API URLs -> autoresolve into ${koiosAPI}
+koiosAPI_mainnet="https://api.koios.rest/api/v0"
+koiosAPI_testnet="https://testnet.koios.rest/api/v0"
 
 #Overwrite variables via env file if present
 scriptDir=$(dirname "$0" 2> /dev/null)
@@ -91,7 +91,7 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.34.1"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.33.0"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="4.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
@@ -221,9 +221,11 @@ tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 if [[ "${magicparam}" == *"mainnet"* ]]; then #mainnet
 					   	tokenMetaServer=${tokenMetaServer_mainnet};
 						transactionExplorer=${transactionExplorer_mainnet};
+						koiosAPI=${koiosAPI_mainnet};
 					 else #testnet
 						tokenMetaServer=${tokenMetaServer_testnet};
 						transactionExplorer=${transactionExplorer_testnet};
+						koiosAPI=${koiosAPI_testnet};
 fi
 if [[ ! "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer="${tokenMetaServer}/"; fi #make sure the last char is a /
 
@@ -368,6 +370,7 @@ echo ${currentTip}
 }
 #-------------------------------------------------------
 
+
 #-------------------------------------------------------
 #Subroutines to calculate current TTL
 get_currentTTL()
@@ -375,6 +378,29 @@ get_currentTTL()
 echo $(( $(get_currentTip) + 100000 )) #changed from 10000 to 100000 so a little over a day to have time to collect witnesses if needed
 }
 #-------------------------------------------------------
+
+#-------------------------------------------------------
+#Subroutines to check the syncState of the node
+get_currentSync()
+{
+if ${onlineMode}; then
+			local currentSync=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
+
+			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
+			if [[ "${currentSync}" == "" ]]; then local currentSyncp=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
+				if [[ "${currentSync}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
+					if [[ "${currentSync}" == "" ]]; then majorError "query tip return from cardano-cli failed"; exit 1; fi
+				fi
+			fi
+
+			if [[ ${currentSync} == "100.00" ]]; then echo "synced"; else echo "unsynced"; fi
+
+		  else
+			echo "offline"
+fi
+}
+#-------------------------------------------------------
+
 
 
 #-------------------------------------------------------
@@ -405,9 +431,9 @@ echo "${tmpEra}"; return 0; #return era in lowercase
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
 if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 
-#Temporary fix to lock the transaction build-raw to mary era for
-#Hardware-Wallet operations. Alonzo-Era is not yet supported, so we will lock this for now
-#if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--alonzo-era" ]]; then nodeEraParam="--mary-era"; fi
+#Temporary fix to lock the transaction build-raw to alonzo era for
+#Hardware-Wallet operations. Babbage-Era is not yet supported, so we will lock this for now
+if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--babbage-era" ]]; then nodeEraParam="--alonzo-era"; fi
 
 
 #-------------------------------------------------------
@@ -954,7 +980,8 @@ echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m (HW-Cli Ver
 #-------------------------------------------------------
 #Convert the given lovelaces $1 into ada (divide by 1M)
 convertToADA() {
-echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and add a leading zero if below 1 ada
+#echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and add a leading zero if below 1 ada
+printf "%'.6f" "${1}e-6" #return in ADA format (with 6 commas)
 }
 
 

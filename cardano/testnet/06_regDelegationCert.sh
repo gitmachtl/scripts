@@ -207,14 +207,14 @@ echo
 #calculate new balance for destination address
 lovelacesToSend=$(( ${totalLovelaces}-${minRegistrationFund} ))
 
-echo -e "\e[0mLovelaces that will be return to payment Address (UTXO-Sum minus fees): \e[32m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
+echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
 echo
 
 #Checking about minimum funds in the UTX0
 if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
 
 txBodyFile="${tempDir}/$(basename ${regPayName}).txbody"
-txWitnessFile="${tempDir}/$(basename ${fromAddr}).txwitness"
+txWitnessFile="${tempDir}/$(basename ${regPayName}).txwitness"
 txFile="${tempDir}/$(basename ${regPayName}).tx"
 
 echo

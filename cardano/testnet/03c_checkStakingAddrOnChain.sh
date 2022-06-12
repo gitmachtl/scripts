@@ -40,7 +40,22 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 	fi
 
 	#If delegated to a pool, show the current pool ID
-        if [[ ! ${delegationPoolID} == null ]]; then echo -e "Account is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m\n"; fi
+        if [[ ! ${delegationPoolID} == null ]]; then
+		echo -e "Account is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m\n";
+
+		#query poolinfo via poolid on koios
+		showProcessAnimation "Query Pool-Info via Koios: " &
+		response=$(curl -s -m 10 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
+		stopProcessAnimation;
+		#check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+		if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -eq 1 ]]; then
+			poolName=$(jq -r ".[0].meta_json.name | select (.!=null)" 2> /dev/null <<< ${response})
+			poolTicker=$(jq -r ".[0].meta_json.ticker | select (.!=null)" 2> /dev/null <<< ${response})
+			echo -e "\e[0mInformation about the Pool: \e[32m${poolName} (${poolTicker})\e[0m"
+			echo
+		fi
+
+	fi
 
 else #unsupported address type
 
