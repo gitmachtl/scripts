@@ -265,7 +265,7 @@ elif [[ -f "${delegName}.staking.skey" && -f "${regPayName}.skey" ]]; then #with
         ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey --signing-key-file ${delegName}.staking.skey ${magicparam} --out-file ${txFile}
 
 else
-echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet can only (must) be used to register its own staking key on the chain.\e[0m\n"; exit 1;
+echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet can only (must) be used to register its own delegation on the chain.\e[0m\n"; exit 1;
 fi
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -ne "\e[90m"

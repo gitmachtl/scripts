@@ -1,10 +1,10 @@
-# StakePool Operator Scripts (SPOS) for Testing/TestNets
+# StakePool Operator Scripts (SPOS) for Cardano Public TestNet
 
 *Examples on how to use the scripts **ONLINE** and/or **OFFLINE**, with or without a **Ledger/Trezor-Wallet** can be found on this page :smiley:*
 
 | | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.34.1</b><br><sub>**git checkout tags/1.34.1**</sub> | <b>1.10.0</b><br><sub>**if you use hw-wallets** | <b>4.0.0</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.35.0</b><br><sub>**git checkout tags/1.35.0-rc3**</sub> | <b>1.10.0</b><br><sub>**if you use hw-wallets** | <b>4.0.0</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
 
 > :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet! 
 
@@ -268,24 +268,26 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
       
 <details><summary><b>01_queryAddress.sh:</b> checks the amount of lovelaces and tokens on an address with autoselection about a UTXO query on enterprise & payment(base) addresses or a rewards query for stake addresses:bookmark_tabs:</summary>
       
-<br>```./01_queryAddress.sh <name or hash>``` **NEW** you can use the HASH of an address too now.
+<br>```./01_queryAddress.sh <name or HASH or '$adahandle'>``` **NEW** you can use now an $adahandle too
 <br>```./01_queryAddress.sh addr1``` shows the lovelaces from addr1.addr
 <br>```./01_queryAddress.sh owner.staking``` shows the current rewards on the owner.staking.addr
 <br>```./01_queryAddress.sh addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m``` shows the lovelaces on this given Bech32 address
 <br>```./01_queryAddress.sh stake1u9w60cpjg0xnp6uje8v3plcsmmrlv3vndcz0t2lgjma0segm2x9gk``` shows the rewards on this given Bech32 address
+<br>```./01_queryAddress.sh '$adahandle'``` shows the lovelaces of the address that hold the $adahandle. Important: put it always into ' ' like ```'$myadahandle'```
 
 &nbsp;<br>
 </details>
          
 <details><summary><b>01_sendLovelaces.sh:</b> sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address:bookmark_tabs:</summary>
             
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or hash> <lovelaces> [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup2;** (you can send to an HASH address too)
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or HASH or '$adahandle'> <lovelaces> [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup2;** (you can send to an HASH address too)
    
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./01_sendLovelaces.sh addr1 addr2 2000000 "msg: here is your money"``` to send 2000000 lovelaces from addr1.addr to addr2.addr and add the transaction message "here is your money"
 <br>```./01_sendLovelaces.sh addr1 addr2 ALL``` to send **ALL lovelaces** from addr1.addr to addr2.addr, Tokens on addr1.addr are preserved
 <br>```./01_sendLovelaces.sh addr1 addr2 ALLFUNDS``` to send **ALL funds** from addr1.addr to addr2.addr **including Tokens** if present
 <br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL lovelaces from addr1.addr to the given Bech32 address
+<br>```./01_sendLovelaces.sh addr1 '$adahandle' ALL``` send ALL lovelaces from addr1.addr to the address with the '$adahandle'
 <br>```./01_sendLovelaces.sh addr1 addr2 5000000 mymetadata.json``` to send 5 ADA from addr1.addr to addr2.addr and attach the metadata-file mymetadata.json
 
   :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
@@ -301,7 +303,7 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
 <details><summary><b>01_sendAssets.sh:</b> sends Assets(Tokens) and optional a given amount of lovelaces from one address to another:bookmark_tabs:</summary>
    
-<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL>```**&sup1;** ```[Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup2;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup3;**
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH|'$adahandle'> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL>```**&sup1;** ```[Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup2;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup3;**
 
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 20 "msg: here are your tokens"```<br>to send 20 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached, also with the transaction message "here are your tokens"
@@ -309,6 +311,7 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin 120```<br>to send 120 Tokens of Type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc355208518.ATADAcoin from addr1.addr to addr2.addr. 
 <br>```./01_sendAssets.sh addr1 addr2 asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs 1000```<br>to send 1000 Assets with that Bech-AssetName asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs :smiley:
 <br>```./01_sendAssets.sh addr1 addr2 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304 99```<br>to send 99 Tokens of the binary/hexencoded type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304 from addr1.addr to addr2.addr. 
+<br>```./01_sendAssets.sh addr1 '$adahandle' 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304 10```<br>to send 10 Tokens of the binary/hexencoded type 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304 from addr1.addr to the address holding the $adahandle. 
 
   Using the **PolicyID.TokenNameHASH** or **Bech-AssetName** allowes you to send out Tokens you've got from others. Your own generated Tokens can also be referenced by the AssetFile 'policyName.tokenName.asset' schema for an easier handling.
 
@@ -412,11 +415,32 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <details><summary><b>04d_genNodeOpCert.sh:</b> calculates the current KES period from the genesis.json and issues a new poolname.node-xxx.opcert cert:bookmark_tabs:</summary>
 
 <br>It also generates the poolname.kes-expire.json file which contains the valid start KES-Period and also contains infos when the generated kes-keys will expire. to renew your kes/opcert before the keys of your node expires just rerun 04c and 04d! after that, update the files on your stakepool server and restart the coreNode
-<br>```./04d_genNodeOpCert.sh <poolname>```
+<br>```./04d_genNodeOpCert.sh <poolname> <optional: opcertcounter that should be used>```
 <br>```./04d_genNodeOpCert.sh mypool```
+:warning: Starting with the Babbage-Era, you're only allowed to increase your OpCertCounter by +1 after at least one block was made in the previous KES periods (last OpCert used). The script 04d will help you to select the right OpCertCounter! Please also use script 04e to verify your config!
 
 &nbsp;<br>
 </details>
+
+<details><summary><b>04e_checkNodeOpCert.sh:</b> checks your current or planned next OpCertFile about the right KES and OpCertCounter:bookmark_tabs:</summary>
+
+<br>```./04e_checkNodeOpCert.sh <OpCertFilename&sup1 or PoolNodeName&sup1 or PoolID> <checkType for &sup1: current | next>```
+<br>Examples for detailed results **via LocalNode (OpCertFile)**:
+<br>```04e_checkNodeOpCert.sh mypool current```	... searches for the latest OpCertFile of mypool and checks it to be used as the CURRENT OpCert making blocks
+<br>```04e_checkNodeOpCert.sh mypool next``` ... searches for the latest OpCertFile of mypool and checks it to be used as the NEXT OpCert making blocks
+<br>```04e_checkNodeOpCert.sh mypool.node-003.opcert current```	... uses the given OpCertFile and checks it to be used as the CURRENT OpCert making blocks
+<br>```04e_checkNodeOpCert.sh mypool.node-003.opcert next``` ... uses the given OpCertFile and checks it to be used as the NEXT OpCert making blocks
+
+<br>Examples only for the OpCertCounter **via Koios (PoolID)**:
+<br>```04e_checkNodeOpCert.sh pool1qqqqqdk4zhsjuxxd8jyvwncf5eucfskz0xjjj64fdmlgj735lr9``` ... is looking up the current OpCertCounter via Koios for the given Bech32-Pool-ID
+<br>```04e_checkNodeOpCert.sh 00000036d515e12e18cd3c88c74f09a67984c2c279a5296aa96efe89``` ... is looking up the current OpCertCounter via Koios for the given HEX-Pool-ID
+<br>```04e_checkNodeOpCert.sh mypool``` ... is looking up the current OpCertCounter via Koios for the mypool.pool.id-bech file
+
+:warning: Starting with the Babbage-Era, you're only allowed to increase your OpCertCounter by +1 after at least one block was made in the previous KES periods (last OpCert used). The script 04d will help you to select the right OpCertCounter! Please also use script 04e to verify your config!
+
+&nbsp;<br>
+</details>
+
    
 <details><summary><b>05a_genStakepoolCert.sh:</b> generates the certificate poolname.pool.cert to (re)register a stakepool on the blockchain:bookmark_tabs:</summary>
 
@@ -993,7 +1017,7 @@ You can find the GitHub-Repository here: https://github.com/vacuumlabs/cardano-h
 
 Please follow the installation instructions on the website, its really simple to get the binary onto your system. You can install it via a .deb Package, from a .tar.gz or you can compile it yourself.
 
-### Installing Ledger Nano S / Nano X
+### Installing Ledger Nano S / Nano S Plus / Nano X
 
 You can find a pretty good summary of how to add the udev rules to you system on this website: https://support.ledger.com/hc/en-us/articles/360019301813-Fix-USB-issues
 
@@ -1013,6 +1037,8 @@ SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0002|2000|2001|20
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0003|3000|3001|3002|3003|3004|3005|3006|3007|3008|3009|300a|300b|300c|300d|300e|300f|3010|3011|3012|3013|3014|3015|3016|3017|3018|3019|301a|301b|301c|301d|301e|301f", TAG+="uaccess", TAG+="udev-acl", OWNER=<username>
 # Nano X
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0004|4000|4001|4002|4003|4004|4005|4006|4007|4008|4009|400a|400b|400c|400d|400e|400f|4010|4011|4012|4013|4014|4015|4016|4017|4018|4019|401a|401b|401c|401d|401e|401f", TAG+="uaccess", TAG+="udev-acl", OWNER=<username>
+# Nano S Plus
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0005|5000|5001|5002|5003|5004|5005|5006|5007|5008|5009|500a|500b|500c|500d|500e|500f|5010|5011|5012|5013|5014|5015|5016|5017|5018|5019|501a|501b|501c|501d|501e|501f", TAG+="uaccess", TAG+="udev-acl", OWNER=<username>
 
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="plugdev", ATTRS{idVendor}=="2c97"
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="plugdev", ATTRS{idVendor}=="2581"
