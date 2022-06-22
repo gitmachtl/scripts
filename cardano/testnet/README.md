@@ -417,7 +417,8 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <br>It also generates the poolname.kes-expire.json file which contains the valid start KES-Period and also contains infos when the generated kes-keys will expire. to renew your kes/opcert before the keys of your node expires just rerun 04c and 04d! after that, update the files on your stakepool server and restart the coreNode
 <br>```./04d_genNodeOpCert.sh <poolname> <optional: opcertcounter that should be used>```
 <br>```./04d_genNodeOpCert.sh mypool```
-:warning: Starting with the Babbage-Era, you're only allowed to increase your OpCertCounter by +1 after at least one block was made in the previous KES periods (last OpCert used). The script 04d will help you to select the right OpCertCounter! Please also use script 04e to verify your config!
+
+:warning: Starting with the Babbage-Era, you're only allowed to increase your OpCertCounter by +1 after at least one block was made in the previous KES periods (last OpCert used).<br>The script 04d will help you to select the right OpCertCounter!<br>Please also use script 04e to verify your config!
 
 &nbsp;<br>
 </details>
@@ -436,7 +437,7 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <br>```04e_checkNodeOpCert.sh 00000036d515e12e18cd3c88c74f09a67984c2c279a5296aa96efe89``` ... is looking up the current OpCertCounter via Koios for the given HEX-Pool-ID
 <br>```04e_checkNodeOpCert.sh mypool``` ... is looking up the current OpCertCounter via Koios for the mypool.pool.id-bech file
 
-:warning: Starting with the Babbage-Era, you're only allowed to increase your OpCertCounter by +1 after at least one block was made in the previous KES periods (last OpCert used). The script 04d will help you to select the right OpCertCounter! Please also use script 04e to verify your config!
+:warning: Starting with the Babbage-Era, you're only allowed to increase your OpCertCounter by +1 after at least one block was made in the previous KES periods (last OpCert used).<br>The script 04d will help you to select the right OpCertCounter!<br>Please also use script 04e to verify your config!
 
 &nbsp;<br>
 </details>

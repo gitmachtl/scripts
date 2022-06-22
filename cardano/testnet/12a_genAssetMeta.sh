@@ -191,7 +191,7 @@ fi
 
 #Check metaDecimals - optional
 metaDecimals=$(jq -r ".metaDecimals" <<< ${assetFileJSON})
-if [[ ${metaDecimals} -gt 0 ]]; then
+if [[ ${metaDecimals} -ge 0 ]]; then
 	echo -ne "Adding 'metaDecimals'    ... "
 	if [[ ${metaDecimals} -gt 255 ]]; then echo -e "\e[35mERROR - The metaDecimals '${metaDecimals}' is too big. Max. value is 255 decimals !\e[0m\n"; exit 1; fi
 #	metaSubUnitName=$(jq -r ".metaSubUnitName" <<< ${assetFileJSON})
