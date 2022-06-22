@@ -156,6 +156,7 @@ if [[ ${#metaName} -lt 1 || ${#metaName} -gt 50 ]]; then echo -e "\e[35mERROR - 
 creatorArray+=("--name" "${metaName}")
 echo -e "\e[32mOK\e[0m"
 
+
 #Check metaDescription
 echo -ne "Adding 'metaDescription' ... "
 metaDescription=$(jq -r ".metaDescription" <<< ${assetFileJSON})
@@ -163,10 +164,12 @@ if [[ ${#metaDescription} -lt 1 || ${#metaDescription} -gt 500 ]]; then echo -e 
 creatorArray+=("--description" "${metaDescription}")
 echo -e "\e[32mOK\e[0m"
 
+
 #Add policy script
 echo -ne "Adding 'policyScript'    ... "
 creatorArray+=("--policy" "${policyName}.policy.script")
 echo -e "\e[32mOK\e[0m"
+
 
 #Check metaTicker - optional
 metaTicker=$(jq -r ".metaTicker" <<< ${assetFileJSON})
@@ -191,15 +194,16 @@ fi
 
 #Check metaDecimals - optional
 metaDecimals=$(jq -r ".metaDecimals" <<< ${assetFileJSON})
-if [[ ${metaDecimals} -ge 0 ]]; then
+if [[ ${metaDecimals} != "" ]] && [ ! -z "${metaDecimals##*[!0-9]*}" ] && [ ${metaDecimals} -ge 0 ]; then #if a number and greater/equal to zero
 	echo -ne "Adding 'metaDecimals'    ... "
 	if [[ ${metaDecimals} -gt 255 ]]; then echo -e "\e[35mERROR - The metaDecimals '${metaDecimals}' is too big. Max. value is 255 decimals !\e[0m\n"; exit 1; fi
-#	metaSubUnitName=$(jq -r ".metaSubUnitName" <<< ${assetFileJSON})
-#	if [[ ! "${metaSubUnitName//[[:space:]]}" == "${metaSubUnitName}" ]]; then echo -e "\e[35mERROR - The metaSubUnitName '${metaSubUnitName}' contains spaces, not allowed !\e[0m\n"; exit 1; fi
-#	if [[ ${#metaSubUnitName} -lt 1 || ${#metaSubUnitName} -gt 30 ]]; then echo -e "\e[35mERROR - The metaSubUnitName '${metaSubUnitName}' is too too long. Max. 30chars allowed !\e[0m\n"; exit 1; fi
 	creatorArray+=("--decimals" "${metaDecimals}")
 	echo -e "\e[32mOK\e[0m"
+
+elif [[ ${metaDecimals} != "" ]] && [ -z "${metaDecimals##*[!0-9]*}" ]; then #if not a number, show an errormessage
+	 echo -e "\e[35mERROR - The metaDecimals '${metaDecimals}' is not a number. The value range is 0 to 255 or empty!\e[0m\n"; exit 1;
 fi
+
 
 #Check metaPNG - optional
 metaLogoPNG=$(jq -r ".metaLogoPNG" <<< ${assetFileJSON})
@@ -238,12 +242,6 @@ tmp=$(${cardanometa} entry ${assetSubject} --finalize)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[32mOK\e[90m (${tmp})\e[0m"
 metaFile=${tmp}
-
-##Adding Creator-Credits
-#tmpJSON=$(cat ${metaFile})
-#tmpJSON=$(jq ". += {tool: {description: \"StakePoolOperator Scripts\", url: \"https://github.com/gitmachtl/scripts\"} } " <<< ${tmpJSON})
-#echo -e "${tmpJSON}" > ${metaFile}
-
 
 #Validating the metadata registry submission json file
 echo -ne "Validating the final file ... "
