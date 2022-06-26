@@ -680,13 +680,14 @@ fi
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
-calc_minOutUTXOnew() {
+calc_minOutUTXO() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
 local protocolParam=${1}
-local multiAsset=$(echo ${2} | cut -d'+' -f 3-) #split at the + marks and only keep assets
-tmp=$(${cardanocli} transaction calculate-min-required-utxo --alonzo-era --protocol-params-file <(echo ${protocolParam}) --tx-out "${2}" 2> /dev/null)
+###local multiAsset=$(echo ${2} | cut -d'+' -f 3-) #split at the + marks and only keep assets
+tmp=$(${cardanocli} transaction calculate-min-required-utxo ${nodeEraParam} --protocol-params-file <(echo "${protocolParam}") --tx-out "${2}" 2> /dev/null)
+
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Can't calculate minValue for the given tx-out string: ${2} !\e[0m"; exit 1; fi
 echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second part
 }
@@ -694,7 +695,7 @@ echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second 
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
-calc_minOutUTXO() {
+calc_minOutUTXOown() {
 
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string

@@ -142,7 +142,7 @@ if [ -f "${nodeName}.node.skey" ]; then #key is a normal one
                 echo -ne "\e[0mGenerating a new opcert from a cli signing key '\e[33m${nodeName}.node.skey\e[0m' ... "
 		file_unlock ${nodeName}.node-${latestKESnumber}.opcert
 		file_unlock ${nodeName}.node.counter
-		${cardanocli} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
+		${cardanocli} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter-file ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
 		checkError "$?"; if [ $? -ne 0 ]; then file_lock ${nodeName}.node-${latestKESnumber}.opcert; file_lock ${nodeName}.node.counter; exit $?; fi
 		file_lock ${nodeName}.node-${latestKESnumber}.opcert
 		file_lock ${nodeName}.node.counter

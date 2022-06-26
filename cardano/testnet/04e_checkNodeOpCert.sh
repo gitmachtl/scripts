@@ -110,7 +110,11 @@ if [ $# -eq 1 ]; then
 			poolID=$(cat ${poolIDfile})
 			checkSource="poolID";
 		else
-		echo -e "\e[35mError - Cannot resolve the given PoolID!\e[0m\n"; $(showUsage); exit 1;
+		echo -e "\e[35mError - Cannot resolve the given PoolID!\e[0m\n"; $(showUsage);
+		opCertFile=$(ls -v "${1}".node-*.opcert 2> /dev/null | tail -n 1) #sorted by "version number" and only used the last entry
+			if [ "${opCertFile}" != "" ]; then #if a file was found, show a suggestion how to run the script
+			echo -e "\n\e[0mYou could try to run:\n\e[33m$(basename $0) ${1} current\n\e[0mif you wanna use the latest OpCertFile '${opCertFile}'\n\n"; exit 1;
+			fi
 		fi
 	else
 		echo -e "\e[35mError - Cannot resolve the given PoolID!\e[0m\n"; $(showUsage); exit 1;
@@ -278,7 +282,7 @@ if [[ "${checkSource}" == "poolID" ]]; then
 #Only possible in onlineMode -> KOIOS request
 if ${offlineMode}; then	echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; fi
 
-echo -e "\e[0mChecking the OpCertCounter for the Pool-ID \e[32m${poolID}\e[0m via Koios:"
+echo -e "\e[0mChecking the OpCertCounter for the Pool-ID \e[32m${poolID}\e[0m via ${koiosAPI}:"
 echo
 
 #query poolinfo via poolid on koios
