@@ -55,9 +55,7 @@ addrformat="--mainnet"          #choose "--mainnet" for mainnet address format o
 showVersionInfo="yes"		#yes/no to show the version info and script mode on every script call
 queryTokenRegistry="yes"	#yes/no to query each native asset/token on the token registry server live
 cropTxOutput="yes"		#yes/no to crop the unsigned/signed txfile outputs on transactions to a max. of 4000chars
-
-
-
+checkByronShelleyEpochs="yes"	#yes/no to do an automated check for the two common used settings mainnet/testnet(1097911063)
 
 
 
@@ -113,7 +111,6 @@ if [[ "${offlineFile}" == "" ]]; then offlineFile="./offlineTransfer.json"; fi
 if [[ "${showVersionInfo^^}" == "NO" ]]; then showVersionInfo=false; else showVersionInfo=true; fi
 if [[ "${queryTokenRegistry^^}" == "NO" ]]; then queryTokenRegistry=false; else queryTokenRegistry=true; fi
 if [[ "${cropTxOutput^^}" == "NO" ]]; then cropTxOutput=false; else cropTxOutput=true; fi
-
 
 #-------------------------------------------------------
 #DisplayMajorErrorMessage
@@ -179,6 +176,14 @@ if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelle
 if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
 #-------------------------------------------------------------
+
+
+#Do an additional check that the byronToShelley Epoch is set correctly for mainnet and the public testnet
+if [[ "${checkByronShelleyEpochs^^}" == "YES" ]]; then
+	if [[ "${magicparam}" == *"mainnet"* ]] && [[ ${byronToShelleyEpochs} -ne 208 ]]; then majorError "ByronToShelleyEpochs Setting ERROR - You've set the MagicParam to '${magicparam}', the Cardano Mainnet.\nThe ByronToShelleyEpoch-Parameter in your settings should be 208 and not ${byronToShelleyEpochs} !\nPlease set the correct value in your 00_common.sh / common.inc file.\n\nYou can disable this check via the checkByronShelleyEpochs=\"no\" parameter."; exit 1;
+	elif [[ "${magicparam}" == *"1097911063"* ]] && [[ ${byronToShelleyEpochs} -ne 74 ]]; then majorError "ByronToShelleyEpochs Setting ERROR - You've set the MagicParam to '${magicparam}', the Cardano Testnet.\nThe ByronToShelleyEpoch-Parameter in your settings should be 74 and not ${byronToShelleyEpochs} !\nPlease set the correct value in your 00_common.sh / common.inc file.\n\nYou can disable this check via the checkByronShelleyEpochs=\"no\" parameter."; exit 1;
+	fi
+fi
 
 
 #Check if curl, jq, bc and xxd is installed
