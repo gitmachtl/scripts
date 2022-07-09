@@ -721,9 +721,9 @@ local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
 local constantOverhead=160			#constantOverhead=160 bytes set for babbage-era
 
 #get values for the different eras
-local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${protocolParam});
-local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam});
-local utxoCostPerByte=$(jq -r ".utxoCostPerByte | select (.!=null)" <<< ${protocolParam});
+local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${protocolParam}); #shelley, allegra, mary
+local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam}); #alonzo
+local utxoCostPerByte=$(jq -r ".utxoCostPerByte | select (.!=null)" <<< ${protocolParam}); #babbage
 
 ### check for utxoCostPerByte parameter (new in babbage, CIP-0055) -> minOutUTXO depends on the cbor bytes length
 if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
@@ -767,7 +767,7 @@ if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
 
 		done
 
-		#only keep unique pids and get the number of each individual pid, also get the number of individual pids
+		#only keep unique pids and get the number of each individual pid, also get the number of total individual pids
 		local pidCollector=$(echo -ne "${pidCollector}" | sort | uniq -c)
 		local numPIDs=$(wc -l <<< "${pidCollector}")
 
@@ -802,10 +802,10 @@ if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
 
 		done <<< "${pidCollector}"
 
-	fi #only lovelaces, no assets
+	fi #only lovelaces or lovelaces + assets
 
 	#cborLength is length of cborStr / 2 because of the hexchars (2 chars -> 1 byte)
-	minOutUTXO=$(( ( (${#cborStr} / 2) + ${constantOverhead}) * ${utxoCostPerByte} ))
+	minOutUTXO=$(( ( (${#cborStr} / 2) + ${constantOverhead} ) * ${utxoCostPerByte} ))
 	echo ${minOutUTXO}
 	exit #calculation for babbage is done, leave the function
 
@@ -882,48 +882,48 @@ echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or wit
 #
 cbor_add() {
 
-	# ${1} type: map, array, bytes, unsigned
-	# ${2} value: unsigned int value or hexstring for bytes
-	# ${3} cborHexString to add the code to
+        # ${1} type: map, array, bytes, unsigned
+        # ${2} value: unsigned int value or hexstring for bytes
+        # ${3} cborHexString to add the code to
 
-	local type=${1}
-	local value="${2}"
-	local cborStr="${3}"
+        local type=${1}
+        local value="${2}"
+        local cborStr="${3}"
 
-	# majortypes
-	# unsigned	000x|xxxx	majortype 0
-	# bytes		010x|xxxx	majortype 2	limited to max. 65535 here
-	# array		100x|xxxx	majortype 4	limited to max. 65535 here
-	# map		101x|xxxx	majortype 5	limited to max. 65535 here
+        # majortypes
+        # unsigned      000x|xxxx       majortype 0
+        # bytes         010x|xxxx       majortype 2     limited to max. 65535 here
+        # array         100x|xxxx       majortype 4     limited to max. 65535 here
+        # map           101x|xxxx       majortype 5     limited to max. 65535 here
 
 case ${type} in
 
-	unsigned )	if [[ $(bc <<< "${value} < 24") -eq 1 ]]; then printf -v cborStr "${cborStr}%02x" $((10#${value})) #1byte total value below 24
-			elif [[ $(bc <<< "${value} < 256") -eq 1 ]]; then printf -v cborStr "${cborStr}%04x" $((10#${value} + 6144)) #2bytes total: first 0x1800 + 1 lower byte value
-			elif [[ $(bc <<< "${value} < 65536") -eq 1 ]]; then printf -v cborStr "${cborStr}%06x" $((10#${value} + 1638400)) #3bytes total: first 0x190000 + 2 lowerbytes value
-			elif [[ $(bc <<< "${value} < 4294967296") -eq 1 ]]; then printf -v cborStr "${cborStr}%10x" $((10#${value} + 111669149696)) #5bytes total: 0x1A00000000 + 4 lower bytes value
-			else local tmp="00$(bc <<< "obase=16;ibase=10;${value}+498062089990157893632")"; cborStr="${cborStr}${tmp: -18}" #9bytes total: first 0x1B0000000000000000 + 8 lower bytes value
-			fi
-			;;
+        unsigned )      if [[ $(bc <<< "${value} < 24") -eq 1 ]]; then printf -v cborStr "${cborStr}%02x" $((10#${value})) #1byte total value below 24
+                        elif [[ $(bc <<< "${value} < 256") -eq 1 ]]; then printf -v cborStr "${cborStr}%04x" $((0x1800 + 10#${value})) #2bytes total: first 0x1800 + 1 lower byte value
+                        elif [[ $(bc <<< "${value} < 65536") -eq 1 ]]; then printf -v cborStr "${cborStr}%06x" $((0x190000 + 10#${value})) #3bytes total: first 0x190000 + 2 lowerbytes value
+                        elif [[ $(bc <<< "${value} < 4294967296") -eq 1 ]]; then printf -v cborStr "${cborStr}%10x" $((0x1A00000000 + 10#${value})) #5bytes total: 0x1A00000000 + 4 lower bytes value
+                        else local tmp="00$(bc <<< "obase=16;ibase=10;${value}+498062089990157893632")"; cborStr="${cborStr}${tmp: -18}" #9bytes total: first 0x1B0000000000000000 + 8 lower bytes value
+                        fi
+                        ;;
 
-	bytes )		local bytesLength=$(( ${#value} / 2 ))  #bytesLength is length of value /2 because of hex encoding (2chars -> 1byte)
-			if [[ ${bytesLength} -lt 24 ]]; then printf -v cborStr "${cborStr}%02x${value}" $((10#${bytesLength} + 64)) #1byte total 0x40 + lower part value & bytearrayitself
-			elif [[ ${bytesLength} -lt 256 ]]; then printf -v cborStr "${cborStr}%04x${value}" $((10#${bytesLength} + 22528)) #2bytes total: first 0x4000 + 0x1800 + 1 lower byte value & bytearrayitself
-			elif [[ ${bytesLength} -lt 65536 ]]; then printf -v cborStr "${cborStr}%06x${value}" $((10#${bytesLength} + 5832704)) #3bytes total: first 0x400000 + 0x190000 + 2 lower bytes value & bytearrayitself
-			fi
-			;;
+        bytes )         local bytesLength=$(( ${#value} / 2 ))  #bytesLength is length of value /2 because of hex encoding (2chars -> 1byte)
+                        if [[ ${bytesLength} -lt 24 ]]; then printf -v cborStr "${cborStr}%02x${value}" $((0x40 + 10#${bytesLength})) #1byte total 0x40 + lower part value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 256 ]]; then printf -v cborStr "${cborStr}%04x${value}" $((0x5800 + 10#${bytesLength})) #2bytes total: first 0x4000 + 0x1800 + 1 lower byte value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 65536 ]]; then printf -v cborStr "${cborStr}%06x${value}" $((0x590000 + 10#${bytesLength})) #3bytes total: first 0x400000 + 0x190000 + 2 lower bytes value & bytearrayitself
+                        fi
+                        ;;
 
-	array )		if [[ ${value} -lt 24 ]]; then printf -v cborStr "${cborStr}%02x" $((10#${value} + 128)) #1byte total 0x80 + lower part value
-			elif [[ ${value} -lt 256 ]]; then printf -v cborStr "${cborStr}%04x" $((10#${value} + 38912)) #2bytes total: first 0x8000 + 0x1800 & 1 lower byte value
-			elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "${cborStr}%06x" $((10#${value} + 10027008)) #3bytes total: first 0x800000 + 0x190000 & 2 lower bytes value
-			fi
-			;;
+        array )         if [[ ${value} -lt 24 ]]; then printf -v cborStr "${cborStr}%02x" $((0x80 + 10#${value})) #1byte total 0x80 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cborStr "${cborStr}%04x" $((0x9800 + 10#${value})) #2bytes total: first 0x8000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "${cborStr}%06x" $((0x990000 + 10#${value})) #3bytes total: first 0x800000 + 0x190000 & 2 lower bytes value
+                        fi
+                        ;;
 
-	map )		if [[ ${value} -lt 24 ]]; then printf -v cborStr "${cborStr}%02x" $((10#${value} + 160)) #1byte total 0xA0 + lower part value
-			elif [[ ${value} -lt 256 ]]; then printf -v cborStr "${cborStr}%04x" $((10#${value} + 47104)) #2bytes total: first 0xA000 + 0x1800 & 1 lower byte value
-			elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "${cborStr}%06x" $((10#${value} + 12124160)) #3bytes total: first 0xA00000 + 0x190000 & 2 lower bytes value
-			fi
-			;;
+        map )           if [[ ${value} -lt 24 ]]; then printf -v cborStr "${cborStr}%02x" $((0xA0 + 10#${value})) #1byte total 0xA0 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cborStr "${cborStr}%04x" $((0xB800 + 10#${value})) #2bytes total: first 0xA000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "${cborStr}%06x" $((0xB90000 + 10#${value})) #3bytes total: first 0xA00000 + 0x190000 & 2 lower bytes value
+                        fi
+                        ;;
 
 esac
 
