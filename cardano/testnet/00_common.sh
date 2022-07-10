@@ -102,7 +102,8 @@ export CARDANO_NODE_SOCKET_PATH=${socket}
 export BC_LINE_LENGTH=1000
 
 #Other constants
-adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"
+adahandlePolicyID_mainnet="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"
+adahandlePolicyID_testnet="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
 
 
 #Setting online/offline variables and offlineFile default value, versionInfo, tokenRegistryquery, tx output cropping to boolean values
@@ -227,10 +228,12 @@ if [[ "${magicparam}" == *"mainnet"* ]]; then #mainnet
 					   	tokenMetaServer=${tokenMetaServer_mainnet};
 						transactionExplorer=${transactionExplorer_mainnet};
 						koiosAPI=${koiosAPI_mainnet};
+						adahandlePolicyID=${adahandlePolicyID_mainnet}
 					 else #testnet
 						tokenMetaServer=${tokenMetaServer_testnet};
 						transactionExplorer=${transactionExplorer_testnet};
 						koiosAPI=${koiosAPI_testnet};
+						adahandlePolicyID=${adahandlePolicyID_testnet}
 fi
 if [[ ! "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer="${tokenMetaServer}/"; fi #make sure the last char is a /
 
@@ -718,7 +721,7 @@ local utxoEntrySizeWithoutVal=27        #6+txOutLenNoVal(14)+txInLen(7)
 local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
 
 #chain constants for babbage
-local constantOverhead=160			#constantOverhead=160 bytes set for babbage-era
+local constantOverhead=160			#constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions
 
 #get values for the different eras
 local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${protocolParam}); #shelley, allegra, mary

@@ -105,7 +105,7 @@ if [ ${paramCnt} -ge 2 ]; then
                                         response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
                                         stopProcessAnimation;
                                         #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
+                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve \$adahandle '${adahandleName}' to an address.\n\e[0m"; exit 1; fi
                                         toAddr=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
                                         typeOfAddr=$(get_addressType "${toAddr}");
                                         if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
@@ -430,8 +430,8 @@ echo
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
                                 case ${assetHash} in
-                                        f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a )      #$adahandle
-                                                echo -e "\e[90m                           Asset: ${assetBech}  ADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                        "${adahandlePolicyID}" )      #$adahandle
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default
                                                 echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"

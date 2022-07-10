@@ -13,10 +13,10 @@
 if [ $# -ge 3 ]; then
 			fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//};
 			toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//};
-			lovelacesToSend="$3";
+			lovelacesToSend="${3^^}";
 		 else
 		 cat >&2 <<EOF
-Usage:  $(basename $0) <From AddressName> <To AddressName or HASH or '\$adahandle'> <Amount in lovelaces OR keyword ALL to send all lovelaces but keep your assets OR keyword ALLFUNDS to send all funds including Assets>
+Usage:  $(basename $0) <From AddressName> <To AddressName or HASH or '\$adahandle'> <Amount in lovelaces / 'ALL' to send all lovelaces(keep your Assets) / 'ALLFUNDS' to send all funds & assets / 'MIN' to send only minimal ada>
         [Opt: metadata.json/.cbor]
         [Opt: list of UTXOs to use, | is the separator]
         [Opt: Message comment, starting with "msg: ...", | is the separator]
@@ -59,7 +59,7 @@ EOF
   exit 1; fi
 
 #Check if Parameter 3 is a number or the keywords ALL or ALLFUNDS
-if [[ ! "${lovelacesToSend^^}" == "ALL"  && ! "${lovelacesToSend^^}" == "ALLFUNDS"  && -z "${lovelacesToSend##*[!0-9]*}" ]]; then echo -e "\n\e[35mERROR - No amount of lovecase (or keyword ALL/ALLFUNDS) specified.\n\e[0m"; exit 1; fi
+if [[ ! "${lovelacesToSend}" == "ALL"  && ! "${lovelacesToSend}" == "ALLFUNDS"  && ! "${lovelacesToSend}" == "MIN" && -z "${lovelacesToSend##*[!0-9]*}" ]]; then echo -e "\n\e[35mERROR - No amount of lovecase (or keyword ALL/ALLFUNDS) specified.\n\e[0m"; exit 1; fi
 
 #Check all optional parameters about there types and set the corresponding variables
 #Starting with the 4th parameter (index3) up to the last parameter
@@ -76,16 +76,16 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
         #Check if an additional metadata.json/.cbor was set as parameter (not a Message, not a UTXO#IDX, not empty, not a number)
         if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
-             metafile="$(dirname ${paramValue})/$(basename $(basename ${paramValue} .json) .cbor)"; metafile=${metafile//.\//}
+             metafile="$(dirname "${paramValue}")/$(basename $(basename "${paramValue}" .json) .cbor)"; #metafile=${metafile//.\//}
              if [ -f "${metafile}.json" ]; then metafile="${metafile}.json"
                 #Do a simple basic check if the metadatum is in the 0..65535 range
-                metadatum=$(jq -r "keys_unsorted[0]" ${metafile} 2> /dev/null)
+                metadatum=$(jq -r "keys_unsorted[0]" "${metafile}" 2> /dev/null)
                 if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
                 #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
    		if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
-                metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}${metafile} "
+                metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
              elif [ -f "${metafile}.cbor" ]; then metafile="${metafile}.cbor"
-                metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}${metafile} "
+                metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
 	     else echo -e "The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again."; exit 1;
              fi
 
@@ -168,7 +168,7 @@ if [ ! -f "${toAddr}.addr" ]; then
 					response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
 					stopProcessAnimation;
 					#check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-					if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
+					if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve \$adahandle '${adahandleName}' to an address.\n\e[0m"; exit 1; fi
 					toAddr=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
 					typeOfAddr=$(get_addressType "${toAddr}");
 					if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
@@ -295,8 +295,8 @@ echo
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
                                 case ${assetHash} in
-                                        f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a )      #$adahandle
-                                                echo -e "\e[90m                           Asset: ${assetBech}  ADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                        "${adahandlePolicyID}" )      #$adahandle
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default
                                                 echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
@@ -364,7 +364,7 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 # Depending on the input of lovelaces / keyword, set the right rxcnt (one receiver or two receivers)
 #
 
-case "${lovelacesToSend^^}" in
+case "${lovelacesToSend}" in
 
 	"ALLFUNDS" )	#If keyword ALLFUNDS was used, send all lovelaces and all assets to the destination address
 			rxcnt=1;;
@@ -387,7 +387,6 @@ if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no 
                         ${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
-#                       echo -e "${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}"
                         ${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
@@ -404,11 +403,11 @@ echo
 # Depending on the input of lovelaces / keyword, set the right amount of lovelacesToSend, lovelacesToReturn and also check about sendinglimits like minOutUTXO for returning assets if available
 #
 
-case "${lovelacesToSend^^}" in
+case "${lovelacesToSend}" in
 
         "ALLFUNDS" )    #If keyword ALLFUNDS was used, send all lovelaces and all assets to the destination address - rxcnt=1
-                        minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
 			lovelacesToSend=$(( ${totalLovelaces} - ${fee} ))
+                        minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
 			echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m ${lovelacesToSend} lovelaces \e[90m"
 			if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
 			if [[ ${totalAssetsCnt} -gt 0 ]]; then	#assets are also send completly over, so display them
@@ -441,8 +440,21 @@ case "${lovelacesToSend^^}" in
 								if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
                                                           fi;;
 
+        "MIN" )         #If keyword MIN was used, send just the minimal possible amount of lovelces to the destination address, rest will be returned to the source address, rxcnt=2
+			minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
+			lovelacesToSend=${minOutUTXO}
+                        echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
+			lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
+                        echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m"
+			minReturnUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendFromAddr}+1000000${assetsOutString}")
+                        if [[ ${lovelacesToReturn} -lt ${minReturnUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr to return the rest! Minimum UTXO value needed is ${minReturnUTXO} lovelaces.\e[0m";
+										if [[ ${lovelacesToSend} -ge ${totalLovelaces} ]]; then echo -e "\e[35mIf you wanna send out ALL your lovelaces, use the keyword ALL instead of the amount.\e[0m";fi
+										exit 1; fi
+			;;
+
+
         * )             #If no keyword was used, its just the amount of lovelacesToSend to the destination address, rest will be returned to the source address, rxcnt=2
-			minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+${lovelacesToSend}")
+			minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
                         echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
                         if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough lovelaces to send to the destination! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
 			lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
