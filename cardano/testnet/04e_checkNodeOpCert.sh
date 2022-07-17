@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 #Display usage instructions
 showUsage() {
@@ -46,6 +42,16 @@ $(basename $0) mypool
 
 
 EOF
+}
+
+#Convert seconds into days, hours, minutes, seconds
+convert_secs() {
+ local sec=${1}
+ local d=$(( ${sec}/86400 ))
+ local h=$(( (${sec}%86400)/3600 ))
+ local m=$(( (${sec}%3600)/60 ))
+ local s=$(( ${sec}%60 ))
+ printf "%02d days %02d:%02d:%02d\n" $d $h $m $s
 }
 
 #Check commandline parameters
@@ -180,18 +186,27 @@ echo -ne "\e[0mKES-Interval Check: "
 expireKESperiod=$(( ${onDiskKESStart} + ${maxKESEvolutions} ))
 kesError="false"
 
-if [[ ${currentKESperiod} -ge ${onDiskKESStart} && ${currentKESperiod} -le ${expireKESperiod} ]]; then
+if [[ ${currentKESperiod} -ge ${onDiskKESStart} && ${currentKESperiod} -lt ${expireKESperiod} ]]; then
 	echo -e "\e[32mOK, within range\e[0m\n";
 	echo -e "\e[0m    Current KES Period: \e[32m${currentKESperiod}\e[0m"
 	echo -e "\e[0m File KES start Period: \e[32m${onDiskKESStart}\e[0m"
 	echo -e "\e[0mFile KES expiry Period: \e[32m${expireKESperiod}\e[0m"
+
+	expireInSecs=$(( (${expireKESperiod} * ${slotsPerKESPeriod} * ${slotLength}) - ${currentSlot} ))
+	if [[ ${expireInSecs} -lt 604800 ]]; then expireColor="\e[35m" #if less than a week, show in magenta
+	elif [[ ${expireInSecs} -lt 1814400 ]]; then expireColor="\e[33m" #if less than 3 weeks, show in yellow
+	else expireColor="\e[32m" #otherwise show in green
+	fi
+	echo -e "\e[0m   File KES expires in: ${expireColor}$(convert_secs ${expireInSecs})\e[0m"
 	echo
 
  	else
 	echo -e "\e[35mFALSE, out of range !\e[0m\n";
-	echo -e "\e[0m    Current KES Period: \e[32m${currentKESperiod}\e[0m"
-	echo -e "\e[0m File KES start Period: \e[35m${onDiskKESStart}\e[0m"
-	echo -e "\e[0mFile KES expiry Period: \e[35m${expireKESperiod}\e[0m"
+	echo -e "\e[0m     Current KES Period: \e[32m${currentKESperiod}\e[0m"
+	echo -e "\e[0m  File KES start Period: \e[35m${onDiskKESStart}\e[0m"
+	echo -e "\e[0m File KES expiry Period: \e[35m${expireKESperiod}\e[0m"
+	expiredBeforeSecs=$(( ${currentSlot} - (${expireKESperiod} * ${slotsPerKESPeriod} * ${slotLength}) ))
+	echo -e "\e[0mFile KES expired before: \e[35m$(convert_secs ${expiredBeforeSecs})\e[0m"
 	echo
 	kesError="true"
 fi
