@@ -563,7 +563,8 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 	      #Open up a policy if it is a different one
 	      if [[ "${asset_policy}" != "${old_asset_policy}" ]]; then #open up a new policy
 			if ${policy_open}; then local utxoJSON="${utxoJSON%?}}"; fi #close the previous policy first and remove the last , from the last assetname entry of the previous policy
-			local utxoJSON="${utxoJSON}, \"${asset_policy}\": {"
+#			local utxoJSON="${utxoJSON}, \"${asset_policy}\": {"
+			local utxoJSON+=", \"${asset_policy}\": {"
 			local policy_open=true
 			local old_asset_policy=${asset_policy}
 	      fi
@@ -711,21 +712,10 @@ calc_minOutUTXO() {
 local protocolParam=${1}
 IFS='+' read -ra asset_entry <<< "${2}" #split the tx-out string into address, lovelaces, assets (read it into asset_entry array)
 
-#chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
-local k0=0                              #coinSize=0 in mary-era, 2 in alonzo-era
-local k1=6
-local k2=12                             #assetSize=12
-local k3=28                             #pidSize=28
-local k4=8                              #word=8 bytes
-local utxoEntrySizeWithoutVal=27        #6+txOutLenNoVal(14)+txInLen(7)
-local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
-
 #chain constants for babbage
-local constantOverhead=160			#constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions
+local constantOverhead=160 #constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions in babbage era
 
-#get values for the different eras
-local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${protocolParam}); #shelley, allegra, mary
-local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam}); #alonzo
+#get values for the different eras, starting with new utxoCostPerByte calculation. because it will be the standard in the future starting with babbage era
 local utxoCostPerByte=$(jq -r ".utxoCostPerByte | select (.!=null)" <<< ${protocolParam}); #babbage
 
 ### check for utxoCostPerByte parameter (new in babbage, CIP-0055) -> minOutUTXO depends on the cbor bytes length
@@ -739,11 +729,11 @@ if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
 
 		#Build the tx-out cbor
 		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
-		local cborStr=$(cbor_add "map" 2 ${cborStr}) #map 2
-		local cborStr=$(cbor_add "unsigned" 0 ${cborStr}) #unsigned 0
-		local cborStr=$(cbor_add "bytes" "${toAddrHex}" ${cborStr}) #toAddr in hex
-		local cborStr=$(cbor_add "unsigned" 1 ${cborStr}) #unsigned 1
-		local cborStr=$(cbor_add "unsigned" ${toLovelaces} ${cborStr}) #amount of lovelaces
+		local cborStr+=$(to_cbor "map" 2) #map 2
+		local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
+		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+		local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
+		local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
 
 	else #assets involved
 
@@ -763,8 +753,10 @@ if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
 	          local asset_hash_hexname=${asset_hash:57}
 
 		  #collect the entries in individual lists to sort them later
-		  local pidCollector="${pidCollector}${asset_hash_policy}\n"
-		  local assetsCollector="${assetsCollector}amount=${asset_amount} pid=${asset_hash_policy} name=${asset_hash_hexname}\n"
+#		  local pidCollector="${pidCollector}${asset_hash_policy}\n"
+#		  local assetsCollector="${assetsCollector}amount=${asset_amount} pid=${asset_hash_policy} name=${asset_hash_hexname}\n"
+		  local pidCollector+="${asset_hash_policy}\n"
+		  local assetsCollector+="amount=${asset_amount} pid=${asset_hash_policy} name=${asset_hash_hexname}\n"
 
 		  local idx=$(( ${idx} + 1 ))
 
@@ -776,30 +768,30 @@ if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
 
 		#build the tx-out cbor
 		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
-		local cborStr=$(cbor_add "map" 2 ${cborStr}) #map 2
-		local cborStr=$(cbor_add "unsigned" 0 ${cborStr}) #unsigned 0
-		local cborStr=$(cbor_add "bytes" "${toAddrHex}" ${cborStr}) #toAddr in hex
-		local cborStr=$(cbor_add "unsigned" 1 ${cborStr}) #unsigned 1
-		local cborStr=$(cbor_add "array" 2 ${cborStr}) #array 2 -> first entry value of lovelaces, second is maps of assets
-		local cborStr=$(cbor_add "unsigned" ${toLovelaces} ${cborStr}) #amount of lovelaces
+		local cborStr+=$(to_cbor "map" 2) #map 2
+		local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
+		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+		local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
+		local cborStr+=$(to_cbor "array" 2) #array 2 -> first entry value of lovelaces, second is maps of assets
+		local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
 
-		local cborStr=$(cbor_add "map" ${numPIDs} ${cborStr}) #map x -> number of individual PIDs
+		local cborStr+=$(to_cbor "map" ${numPIDs}) #map x -> number of individual PIDs
 
 		#process each individual pid
 		while read pidLine ; do
 			local numOfAssets=$(awk {'print $1'} <<< ${pidLine})
 			local pidHash=$(awk {'print $2'} <<< ${pidLine})
 
-			local cborStr=$(cbor_add "bytes" "${pidHash}" ${cborStr}) #asset pid as byteArray
-			local cborStr=$(cbor_add "map" "${numOfAssets}" ${cborStr}) #map for number of asset with that pid
+			local cborStr+=$(to_cbor "bytes" "${pidHash}") #asset pid as byteArray
+			local cborStr+=$(to_cbor "map" "${numOfAssets}") #map for number of asset with that pid
 
 			#process each individual asset
 			while read assetLine ; do
 				local tmpAssetAmount=$(awk {'print $1'} <<< ${assetLine}); local tmpAssetAmount=${tmpAssetAmount:7}
 				local tmpAssetHexName=$(awk {'print $3'} <<< ${assetLine}); local tmpAssetHexName=${tmpAssetHexName:5}
 
-					local cborStr=$(cbor_add "bytes" "${tmpAssetHexName}" ${cborStr}) #asset name as byteArray
-					local cborStr=$(cbor_add "unsigned" ${tmpAssetAmount} ${cborStr}) #amount of this asset
+					local cborStr+=$(to_cbor "bytes" "${tmpAssetHexName}") #asset name as byteArray
+					local cborStr+=$(to_cbor "unsigned" ${tmpAssetAmount}) #amount of this asset
 
 			done < <(echo -e "${assetsCollector}" | grep "pid=${pidHash}")
 
@@ -811,16 +803,28 @@ if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
 	minOutUTXO=$(( ( (${#cborStr} / 2) + ${constantOverhead} ) * ${utxoCostPerByte} ))
 	echo ${minOutUTXO}
 	exit #calculation for babbage is done, leave the function
+fi
 
+### if we are here, it was not a babbage style calculation, so lets do it for the other eras
+### do the calculation for shelley, allegra, mary, alonzo
+
+#chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
+local k0=0                              #coinSize=0 in mary-era, 2 in alonzo-era
+local k1=6
+local k2=12                             #assetSize=12
+local k3=28                             #pidSize=28
+local k4=8                              #word=8 bytes
+local utxoEntrySizeWithoutVal=27        #6+txOutLenNoVal(14)+txInLen(7)
+local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
+
+local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${protocolParam}); #shelley, allegra, mary
+local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam}); #alonzo
 
 ### check for CostperWord parameter (new in alonzo)
-elif [[ ! "${utxoCostPerWord}" == "" ]]; then #Alonzo calculation
+if [[ ! "${utxoCostPerWord}" == "" ]]; then #Alonzo calculation
 	adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more starting with the alonzo era
 	minUTXOValue=$(( ${utxoCostPerWord} * ${adaOnlyUTxOSize} ));
 fi
-
-
-### do the calculation for shelley, allegra, mary, alonzo
 
 #preload it with the minUTXOValue from the parameters, will be overwritten at the end if costs are higher
 local minOutUTXO=${minUTXOValue}
@@ -878,20 +882,17 @@ echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or wit
 
 
 #-------------------------------------------------------
-#cbor_add function
+#to_cbor function
 #
 # converts different majortypes and there values into a cborHexString
-# and appends it to the given string
 #
-cbor_add() {
+to_cbor() {
 
         # ${1} type: map, array, bytes, unsigned
         # ${2} value: unsigned int value or hexstring for bytes
-        # ${3} cborHexString to add the code to
 
         local type=${1}
         local value="${2}"
-        local cborStr="${3}"
 
         # majortypes
         # unsigned      000x|xxxx       majortype 0
@@ -901,30 +902,30 @@ cbor_add() {
 
 case ${type} in
 
-        unsigned )      if [[ $(bc <<< "${value} < 24") -eq 1 ]]; then printf -v cborStr "${cborStr}%02x" $((10#${value})) #1byte total value below 24
-                        elif [[ $(bc <<< "${value} < 256") -eq 1 ]]; then printf -v cborStr "${cborStr}%04x" $((0x1800 + 10#${value})) #2bytes total: first 0x1800 + 1 lower byte value
-                        elif [[ $(bc <<< "${value} < 65536") -eq 1 ]]; then printf -v cborStr "${cborStr}%06x" $((0x190000 + 10#${value})) #3bytes total: first 0x190000 + 2 lowerbytes value
-                        elif [[ $(bc <<< "${value} < 4294967296") -eq 1 ]]; then printf -v cborStr "${cborStr}%10x" $((0x1A00000000 + 10#${value})) #5bytes total: 0x1A00000000 + 4 lower bytes value
-                        else local tmp="00$(bc <<< "obase=16;ibase=10;${value}+498062089990157893632")"; cborStr="${cborStr}${tmp: -18}" #9bytes total: first 0x1B0000000000000000 + 8 lower bytes value
+        unsigned )      if [[ $(bc <<< "${value} < 24") -eq 1 ]]; then printf -v cborStr "%02x" $((10#${value})) #1byte total value below 24
+                        elif [[ $(bc <<< "${value} < 256") -eq 1 ]]; then printf -v cborStr "%04x" $((0x1800 + 10#${value})) #2bytes total: first 0x1800 + 1 lower byte value
+                        elif [[ $(bc <<< "${value} < 65536") -eq 1 ]]; then printf -v cborStr "%06x" $((0x190000 + 10#${value})) #3bytes total: first 0x190000 + 2 lowerbytes value
+                        elif [[ $(bc <<< "${value} < 4294967296") -eq 1 ]]; then printf -v cborStr "%10x" $((0x1A00000000 + 10#${value})) #5bytes total: 0x1A00000000 + 4 lower bytes value
+                        else local tmp="00$(bc <<< "obase=16;ibase=10;${value}+498062089990157893632")"; cborStr="${tmp: -18}" #9bytes total: first 0x1B0000000000000000 + 8 lower bytes value
                         fi
                         ;;
 
         bytes )         local bytesLength=$(( ${#value} / 2 ))  #bytesLength is length of value /2 because of hex encoding (2chars -> 1byte)
-                        if [[ ${bytesLength} -lt 24 ]]; then printf -v cborStr "${cborStr}%02x${value}" $((0x40 + 10#${bytesLength})) #1byte total 0x40 + lower part value & bytearrayitself
-                        elif [[ ${bytesLength} -lt 256 ]]; then printf -v cborStr "${cborStr}%04x${value}" $((0x5800 + 10#${bytesLength})) #2bytes total: first 0x4000 + 0x1800 + 1 lower byte value & bytearrayitself
-                        elif [[ ${bytesLength} -lt 65536 ]]; then printf -v cborStr "${cborStr}%06x${value}" $((0x590000 + 10#${bytesLength})) #3bytes total: first 0x400000 + 0x190000 + 2 lower bytes value & bytearrayitself
+                        if [[ ${bytesLength} -lt 24 ]]; then printf -v cborStr "%02x${value}" $((0x40 + 10#${bytesLength})) #1byte total 0x40 + lower part value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 256 ]]; then printf -v cborStr "%04x${value}" $((0x5800 + 10#${bytesLength})) #2bytes total: first 0x4000 + 0x1800 + 1 lower byte value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 65536 ]]; then printf -v cborStr "%06x${value}" $((0x590000 + 10#${bytesLength})) #3bytes total: first 0x400000 + 0x190000 + 2 lower bytes value & bytearrayitself
                         fi
                         ;;
 
-        array )         if [[ ${value} -lt 24 ]]; then printf -v cborStr "${cborStr}%02x" $((0x80 + 10#${value})) #1byte total 0x80 + lower part value
-                        elif [[ ${value} -lt 256 ]]; then printf -v cborStr "${cborStr}%04x" $((0x9800 + 10#${value})) #2bytes total: first 0x8000 + 0x1800 & 1 lower byte value
-                        elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "${cborStr}%06x" $((0x990000 + 10#${value})) #3bytes total: first 0x800000 + 0x190000 & 2 lower bytes value
+        array )         if [[ ${value} -lt 24 ]]; then printf -v cborStr "%02x" $((0x80 + 10#${value})) #1byte total 0x80 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cborStr "%04x" $((0x9800 + 10#${value})) #2bytes total: first 0x8000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "%06x" $((0x990000 + 10#${value})) #3bytes total: first 0x800000 + 0x190000 & 2 lower bytes value
                         fi
                         ;;
 
-        map )           if [[ ${value} -lt 24 ]]; then printf -v cborStr "${cborStr}%02x" $((0xA0 + 10#${value})) #1byte total 0xA0 + lower part value
-                        elif [[ ${value} -lt 256 ]]; then printf -v cborStr "${cborStr}%04x" $((0xB800 + 10#${value})) #2bytes total: first 0xA000 + 0x1800 & 1 lower byte value
-                        elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "${cborStr}%06x" $((0xB90000 + 10#${value})) #3bytes total: first 0xA00000 + 0x190000 & 2 lower bytes value
+        map )           if [[ ${value} -lt 24 ]]; then printf -v cborStr "%02x" $((0xA0 + 10#${value})) #1byte total 0xA0 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cborStr "%04x" $((0xB800 + 10#${value})) #2bytes total: first 0xA000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "%06x" $((0xB90000 + 10#${value})) #3bytes total: first 0xA00000 + 0x190000 & 2 lower bytes value
                         fi
                         ;;
 
