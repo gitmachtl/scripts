@@ -243,6 +243,8 @@ if [[ ! "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer="${tokenMetaSer
 check_address() {
 tmp=$(${cardanocli} address info --address $1 2> /dev/null)
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Unknown address format for address: $1 !\e[0m"; exit 1; fi
+era=$(jq -r .era <<< ${tmp} 2> /dev/null)
+if [[ "${era^^}" == "BYRON" ]]; then echo -e "\e[33mINFO - Byron addresses are only supported as a destination address!\e[0m\n"; fi
 }
 
 get_addressType() {
@@ -722,7 +724,8 @@ local utxoCostPerByte=$(jq -r ".utxoCostPerByte | select (.!=null)" <<< ${protoc
 if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
 
 	#Get the destination address in hex format as well as the amount of lovelaces
-	local toAddrHex=$(echo -n "${asset_entry[0]}" | ${bech32_bin} | tr -d '\n')
+	#local toAddrHex=$(echo -n "${asset_entry[0]}" | ${bech32_bin} | tr -d '\n')   #this would only work for bech32-shelley addresses
+	local toAddrHex=$(${cardanocli} address info --address ${asset_entry[0]} 2> /dev/null | jq -r .base16 | tr -d '\n') #this works for bech32-shelley and even base58-byron addresses
 	local toLovelaces=${asset_entry[1]}
 
 	if [[ ${#asset_entry[@]} -eq 2 ]]; then #only lovelaces, no assets
@@ -888,50 +891,95 @@ echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or wit
 #
 to_cbor() {
 
-        # ${1} type: map, array, bytes, unsigned
+        # ${1} type: unsigned, negative, bytes, string, array, map, tag
         # ${2} value: unsigned int value or hexstring for bytes
 
         local type=${1}
         local value="${2}"
 
         # majortypes
-        # unsigned      000x|xxxx       majortype 0
+        # unsigned      000x|xxxx       majortype 0	not limited, but above 18446744073709551615 (2^64), the numbers are represented via tag2 + bytearray
         # bytes         010x|xxxx       majortype 2     limited to max. 65535 here
         # array         100x|xxxx       majortype 4     limited to max. 65535 here
         # map           101x|xxxx       majortype 5     limited to max. 65535 here
 
+	# extras - not used yet but implemented for the future
+	# negative	001x|xxxx	majortype 1	not limited, but below -18446744073709551616 (-2^64 -1), the numbers are represented via tag3 + bytearray
+	# string	011x|xxxx	majortype 3	limited to max. 65535 chars
+        # tag           110x|xxxx       majortype 6     limited to max. 65535 here
+
+
 case ${type} in
 
-        unsigned )      if [[ $(bc <<< "${value} < 24") -eq 1 ]]; then printf -v cborStr "%02x" $((10#${value})) #1byte total value below 24
-                        elif [[ $(bc <<< "${value} < 256") -eq 1 ]]; then printf -v cborStr "%04x" $((0x1800 + 10#${value})) #2bytes total: first 0x1800 + 1 lower byte value
-                        elif [[ $(bc <<< "${value} < 65536") -eq 1 ]]; then printf -v cborStr "%06x" $((0x190000 + 10#${value})) #3bytes total: first 0x190000 + 2 lowerbytes value
-                        elif [[ $(bc <<< "${value} < 4294967296") -eq 1 ]]; then printf -v cborStr "%10x" $((0x1A00000000 + 10#${value})) #5bytes total: 0x1A00000000 + 4 lower bytes value
-                        else local tmp="00$(bc <<< "obase=16;ibase=10;${value}+498062089990157893632")"; cborStr="${tmp: -18}" #9bytes total: first 0x1B0000000000000000 + 8 lower bytes value
+	#unsigned - input is an unsigned integer, range is selected via a bc query because bash can't handle big numbers
+        unsigned )      if [[ $(bc <<< "${value} < 24") -eq 1 ]]; then printf -v cbor "%02x" $((10#${value})) #1byte total value below 24
+                        elif [[ $(bc <<< "${value} < 256") -eq 1 ]]; then printf -v cbor "%04x" $((0x1800 + 10#${value})) #2bytes total: first 0x1800 + 1 lower byte value
+                        elif [[ $(bc <<< "${value} < 65536") -eq 1 ]]; then printf -v cbor "%06x" $((0x190000 + 10#${value})) #3bytes total: first 0x190000 + 2 lowerbytes value
+                        elif [[ $(bc <<< "${value} < 4294967296") -eq 1 ]]; then printf -v cbor "%10x" $((0x1A00000000 + 10#${value})) #5bytes total: 0x1A00000000 + 4 lower bytes value
+                        elif [[ $(bc <<< "${value} < 18446744073709551616") -eq 1 ]]; then local tmp="00$(bc <<< "obase=16;ibase=10;${value}+498062089990157893632")"; cbor="${tmp: -18}" #9bytes total: first 0x1B0000000000000000 + 8 lower bytes value
+			#if value does not fit into an 8byte unsigned integer, the cbor representation is tag2(pos.bignum)+bytearray of the value
+			else local cbor=$(to_cbor "tag" 2); local tmp="00$(bc <<< "obase=16;ibase=10;${value}")"; tmp=${tmp: -$(( (${#tmp}-1)/2*2 ))}; local cbor+=$(to_cbor "bytes" ${tmp}) #fancy calc to get a leading zero in the hex array if needed
                         fi
                         ;;
 
+	#bytestring - input is a hexstring
         bytes )         local bytesLength=$(( ${#value} / 2 ))  #bytesLength is length of value /2 because of hex encoding (2chars -> 1byte)
-                        if [[ ${bytesLength} -lt 24 ]]; then printf -v cborStr "%02x${value}" $((0x40 + 10#${bytesLength})) #1byte total 0x40 + lower part value & bytearrayitself
-                        elif [[ ${bytesLength} -lt 256 ]]; then printf -v cborStr "%04x${value}" $((0x5800 + 10#${bytesLength})) #2bytes total: first 0x4000 + 0x1800 + 1 lower byte value & bytearrayitself
-                        elif [[ ${bytesLength} -lt 65536 ]]; then printf -v cborStr "%06x${value}" $((0x590000 + 10#${bytesLength})) #3bytes total: first 0x400000 + 0x190000 + 2 lower bytes value & bytearrayitself
+                        if [[ ${bytesLength} -lt 24 ]]; then printf -v cbor "%02x${value}" $((0x40 + 10#${bytesLength})) #1byte total 0x40 + lower part value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 256 ]]; then printf -v cbor "%04x${value}" $((0x5800 + 10#${bytesLength})) #2bytes total: first 0x4000 + 0x1800 + 1 lower byte value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 65536 ]]; then printf -v cbor "%06x${value}" $((0x590000 + 10#${bytesLength})) #3bytes total: first 0x400000 + 0x190000 + 2 lower bytes value & bytearrayitself
                         fi
                         ;;
 
-        array )         if [[ ${value} -lt 24 ]]; then printf -v cborStr "%02x" $((0x80 + 10#${value})) #1byte total 0x80 + lower part value
-                        elif [[ ${value} -lt 256 ]]; then printf -v cborStr "%04x" $((0x9800 + 10#${value})) #2bytes total: first 0x8000 + 0x1800 & 1 lower byte value
-                        elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "%06x" $((0x990000 + 10#${value})) #3bytes total: first 0x800000 + 0x190000 & 2 lower bytes value
+	#array - input is an unsigned integer
+        array )         if [[ ${value} -lt 24 ]]; then printf -v cbor "%02x" $((0x80 + 10#${value})) #1byte total 0x80 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cbor "%04x" $((0x9800 + 10#${value})) #2bytes total: first 0x8000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cbor "%06x" $((0x990000 + 10#${value})) #3bytes total: first 0x800000 + 0x190000 & 2 lower bytes value
                         fi
                         ;;
 
-        map )           if [[ ${value} -lt 24 ]]; then printf -v cborStr "%02x" $((0xA0 + 10#${value})) #1byte total 0xA0 + lower part value
-                        elif [[ ${value} -lt 256 ]]; then printf -v cborStr "%04x" $((0xB800 + 10#${value})) #2bytes total: first 0xA000 + 0x1800 & 1 lower byte value
-                        elif [[ ${value} -lt 65536 ]]; then printf -v cborStr "%06x" $((0xB90000 + 10#${value})) #3bytes total: first 0xA00000 + 0x190000 & 2 lower bytes value
+	#map - input is an unsigned integer
+        map )           if [[ ${value} -lt 24 ]]; then printf -v cbor "%02x" $((0xA0 + 10#${value})) #1byte total 0xA0 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cbor "%04x" $((0xB800 + 10#${value})) #2bytes total: first 0xA000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cbor "%06x" $((0xB90000 + 10#${value})) #3bytes total: first 0xA00000 + 0x190000 & 2 lower bytes value
                         fi
                         ;;
+
+	###
+	### the following types are not used in these scripts yet, but added to have a more complete function for the future
+	###
+
+	#negative - input is a negative unsigned integer, range is selected via a bc query because bash can't handle big numbers
+        negative )  local value=$(bc <<< "${value//-/} -1") #negative representation in cbor is the neg. number as a pos. number minus 1, so a -500 will be represented as a 499
+			if [[ $(bc <<< "${value} < 24") -eq 1 ]]; then printf -v cbor "%02x" $((0x20 + 10#${value})) #1byte total 0x20 value below 24
+                        elif [[ $(bc <<< "${value} < 256") -eq 1 ]]; then printf -v cbor "%04x" $((0x3800 + 10#${value})) #2bytes total: first 0x2000 + 0x1800 + 1 lower byte value
+                        elif [[ $(bc <<< "${value} < 65536") -eq 1 ]]; then printf -v cbor "%06x" $((0x390000 + 10#${value})) #3bytes total: first 0x200000 + 0x190000 + 2 lowerbytes value
+                        elif [[ $(bc <<< "${value} < 4294967296") -eq 1 ]]; then printf -v cbor "%10x" $((0x3A00000000 + 10#${value})) #5bytes total: 0x2000000000 + 0x1A00000000 + 4 lower bytes value
+                        elif [[ $(bc <<< "${value} < 18446744073709551616") -eq 1 ]]; then local tmp="00$(bc <<< "obase=16;ibase=10;${value}+1088357900348863545344")"; cbor="${tmp: -18}" #9bytes total: first 0x3B0000000000000000 + 8 lower bytes value
+			#if value does not fit into an 8byte unsigned integer, the cbor representation is tag3(neg.bignum)+bytearray of the value
+			else local cbor=$(to_cbor "tag" 3); local tmp="00$(bc <<< "obase=16;ibase=10;${value}")"; tmp=${tmp: -$(( (${#tmp}-1)/2*2 ))}; local cbor+=$(to_cbor "bytes" ${tmp}) #fancy calc to get a leading zero in the hex array if needed
+                        fi
+                        ;;
+
+	#tag - input is an unsigned integer
+        tag )           if [[ ${value} -lt 24 ]]; then printf -v cbor "%02x" $((0xC0 + 10#${value})) #1byte total 0xC0 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cbor "%04x" $((0xD800 + 10#${value})) #2bytes total: first 0xC000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cbor "%06x" $((0xD90000 + 10#${value})) #3bytes total: first 0xC00000 + 0x190000 & 2 lower bytes value
+                        fi
+                        ;;
+
+	#textstring - input is a utf8-string
+        string )        local value=$(echo -ne "${value}" | xxd -p -c 65536 | tr -d '\n') #convert the given string into a hexstring and process it further like a bytearray
+			local bytesLength=$(( ${#value} / 2 ))  #bytesLength is length of value /2 because of hex encoding (2chars -> 1byte)
+                        if [[ ${bytesLength} -lt 24 ]]; then printf -v cbor "%02x${value}" $((0x60 + 10#${bytesLength})) #1byte total 0x60 + lower part value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 256 ]]; then printf -v cbor "%04x${value}" $((0x7800 + 10#${bytesLength})) #2bytes total: first 0x6000 + 0x1800 + 1 lower byte value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 65536 ]]; then printf -v cbor "%06x${value}" $((0x790000 + 10#${bytesLength})) #3bytes total: first 0x600000 + 0x190000 + 2 lower bytes value & bytearrayitself
+                        fi
+                        ;;
+
 
 esac
 
-echo -n "${cborStr^^}" #return the cborStr in uppercase
+echo -n "${cbor^^}" #return the cbor in uppercase
 }
 #-------------------------------------------------------
 
