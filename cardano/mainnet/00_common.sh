@@ -55,9 +55,7 @@ addrformat="--mainnet"          #choose "--mainnet" for mainnet address format o
 showVersionInfo="yes"		#yes/no to show the version info and script mode on every script call
 queryTokenRegistry="yes"	#yes/no to query each native asset/token on the token registry server live
 cropTxOutput="yes"		#yes/no to crop the unsigned/signed txfile outputs on transactions to a max. of 4000chars
-
-
-
+checkByronShelleyEpochs="yes"	#yes/no to do an automated check for the two common used settings mainnet/testnet(1097911063)
 
 
 
@@ -69,20 +67,20 @@ cropTxOutput="yes"		#yes/no to crop the unsigned/signed txfile outputs on transa
 #
 ##############################################################################################################################
 
-#Token Metadata API URLs  (will be autoresolved into the tokenMetaServer variable)
+#Token Metadata API URLs -> autoresolve into ${tokenMetaServer}
 tokenMetaServer_mainnet="https://tokens.cardano.org/metadata/" #mainnet
 tokenMetaServer_testnet="https://metadata.cardano-testnet.iohkdev.io/metadata/"	#public testnet
 
-#URLS for the Transaction-Explorers
+#URLS for the Transaction-Explorers -> autoresolve into ${transactionExplorer}
 transactionExplorer_mainnet="https://cardanoscan.io/transaction/"
 transactionExplorer_testnet="https://testnet.cardanoscan.io/transaction/"
-#transactionExplorer_testnet="https://explorer.cardano-testnet.iohkdev.io/en/transaction?id="
 
 #Pool-Importhelper Live-API-Helper
 poolImportAPI="https://api.crypto2099.io/v1/pool/"
 
-#Koios-API
-koiosAPI="https://api.koios.rest/api/v0/"
+#Koios-API URLs -> autoresolve into ${koiosAPI}
+koiosAPI_mainnet="https://api.koios.rest/api/v0"
+koiosAPI_testnet="https://testnet.koios.rest/api/v0"
 
 #Overwrite variables via env file if present
 scriptDir=$(dirname "$0" 2> /dev/null)
@@ -91,7 +89,7 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.34.1"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.35.0"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="4.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
@@ -104,7 +102,8 @@ export CARDANO_NODE_SOCKET_PATH=${socket}
 export BC_LINE_LENGTH=1000
 
 #Other constants
-adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"
+adahandlePolicyID_mainnet="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"
+adahandlePolicyID_testnet="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
 
 
 #Setting online/offline variables and offlineFile default value, versionInfo, tokenRegistryquery, tx output cropping to boolean values
@@ -113,7 +112,6 @@ if [[ "${offlineFile}" == "" ]]; then offlineFile="./offlineTransfer.json"; fi
 if [[ "${showVersionInfo^^}" == "NO" ]]; then showVersionInfo=false; else showVersionInfo=true; fi
 if [[ "${queryTokenRegistry^^}" == "NO" ]]; then queryTokenRegistry=false; else queryTokenRegistry=true; fi
 if [[ "${cropTxOutput^^}" == "NO" ]]; then cropTxOutput=false; else cropTxOutput=true; fi
-
 
 #-------------------------------------------------------
 #DisplayMajorErrorMessage
@@ -181,6 +179,14 @@ if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the 
 #-------------------------------------------------------------
 
 
+#Do an additional check that the byronToShelley Epoch is set correctly for mainnet and the public testnet
+if [[ "${checkByronShelleyEpochs^^}" == "YES" ]]; then
+	if [[ "${magicparam}" == *"mainnet"* ]] && [[ ${byronToShelleyEpochs} -ne 208 ]]; then majorError "ByronToShelleyEpochs Setting ERROR - You've set the MagicParam to '${magicparam}', the Cardano Mainnet.\nThe ByronToShelleyEpoch-Parameter in your settings should be 208 and not ${byronToShelleyEpochs} !\nPlease set the correct value in your 00_common.sh / common.inc file.\n\nYou can disable this check via the checkByronShelleyEpochs=\"no\" parameter."; exit 1;
+	elif [[ "${magicparam}" == *"1097911063"* ]] && [[ ${byronToShelleyEpochs} -ne 74 ]]; then majorError "ByronToShelleyEpochs Setting ERROR - You've set the MagicParam to '${magicparam}', the Cardano Testnet.\nThe ByronToShelleyEpoch-Parameter in your settings should be 74 and not ${byronToShelleyEpochs} !\nPlease set the correct value in your 00_common.sh / common.inc file.\n\nYou can disable this check via the checkByronShelleyEpochs=\"no\" parameter."; exit 1;
+	fi
+fi
+
+
 #Check if curl, jq, bc and xxd is installed
 if ! exists curl; then
           echo -e "\nYou need the little tool 'curl' !\n"
@@ -221,9 +227,13 @@ tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 if [[ "${magicparam}" == *"mainnet"* ]]; then #mainnet
 					   	tokenMetaServer=${tokenMetaServer_mainnet};
 						transactionExplorer=${transactionExplorer_mainnet};
+						koiosAPI=${koiosAPI_mainnet};
+						adahandlePolicyID=${adahandlePolicyID_mainnet}
 					 else #testnet
 						tokenMetaServer=${tokenMetaServer_testnet};
 						transactionExplorer=${transactionExplorer_testnet};
+						koiosAPI=${koiosAPI_testnet};
+						adahandlePolicyID=${adahandlePolicyID_testnet}
 fi
 if [[ ! "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer="${tokenMetaServer}/"; fi #make sure the last char is a /
 
@@ -233,6 +243,8 @@ if [[ ! "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer="${tokenMetaSer
 check_address() {
 tmp=$(${cardanocli} address info --address $1 2> /dev/null)
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Unknown address format for address: $1 !\e[0m"; exit 1; fi
+era=$(jq -r .era <<< ${tmp} 2> /dev/null)
+if [[ "${era^^}" == "BYRON" ]]; then echo -e "\e[33mINFO - Byron addresses are only supported as a destination address!\e[0m\n"; fi
 }
 
 get_addressType() {
@@ -368,6 +380,7 @@ echo ${currentTip}
 }
 #-------------------------------------------------------
 
+
 #-------------------------------------------------------
 #Subroutines to calculate current TTL
 get_currentTTL()
@@ -375,6 +388,29 @@ get_currentTTL()
 echo $(( $(get_currentTip) + 100000 )) #changed from 10000 to 100000 so a little over a day to have time to collect witnesses if needed
 }
 #-------------------------------------------------------
+
+#-------------------------------------------------------
+#Subroutines to check the syncState of the node
+get_currentSync()
+{
+if ${onlineMode}; then
+			local currentSync=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
+
+			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
+			if [[ "${currentSync}" == "" ]]; then local currentSyncp=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
+				if [[ "${currentSync}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
+					if [[ "${currentSync}" == "" ]]; then majorError "query tip return from cardano-cli failed"; exit 1; fi
+				fi
+			fi
+
+			if [[ ${currentSync} == "100.00" ]]; then echo "synced"; else echo "unsynced"; fi
+
+		  else
+			echo "offline"
+fi
+}
+#-------------------------------------------------------
+
 
 
 #-------------------------------------------------------
@@ -399,15 +435,14 @@ get_NodeEra() {
 local tmpEra=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r ".era | select (.!=null)" 2> /dev/null)
 if [[ ! "${tmpEra}" == "" ]]; then tmpEra=${tmpEra,,}; else tmpEra="auto"; fi
 echo "${tmpEra}"; return 0; #return era in lowercase
-#echo "mary"; return 0;
 }
-##Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
+##Set nodeEra parameter ( --byron-era, --shelley-era, --allegra-era, --mary-era, --alonzo-era, --babbage-era or empty)
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
 if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 
-#Temporary fix to lock the transaction build-raw to mary era for
-#Hardware-Wallet operations. Alonzo-Era is not yet supported, so we will lock this for now
-#if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--alonzo-era" ]]; then nodeEraParam="--mary-era"; fi
+#Temporary fix to lock the transaction build-raw to alonzo era for
+#Hardware-Wallet operations. Babbage-Era is not yet supported, so we will lock this for now
+if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--babbage-era" ]]; then nodeEraParam="--alonzo-era"; fi
 
 
 #-------------------------------------------------------
@@ -529,7 +564,8 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 	      #Open up a policy if it is a different one
 	      if [[ "${asset_policy}" != "${old_asset_policy}" ]]; then #open up a new policy
 			if ${policy_open}; then local utxoJSON="${utxoJSON%?}}"; fi #close the previous policy first and remove the last , from the last assetname entry of the previous policy
-			local utxoJSON="${utxoJSON}, \"${asset_policy}\": {"
+#			local utxoJSON="${utxoJSON}, \"${asset_policy}\": {"
+			local utxoJSON+=", \"${asset_policy}\": {"
 			local policy_open=true
 			local old_asset_policy=${asset_policy}
 	      fi
@@ -654,48 +690,157 @@ fi
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
-calc_minOutUTXOnew() {
+calc_minOutUTXOcli() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
 local protocolParam=${1}
-local multiAsset=$(echo ${2} | cut -d'+' -f 3-) #split at the + marks and only keep assets
-tmp=$(${cardanocli} transaction calculate-min-required-utxo --alonzo-era --protocol-params-file <(echo ${protocolParam}) --tx-out "${2}" 2> /dev/null)
+###local multiAsset=$(echo ${2} | cut -d'+' -f 3-) #split at the + marks and only keep assets
+tmp=$(${cardanocli} transaction calculate-min-required-utxo ${nodeEraParam} --protocol-params-file <(echo "${protocolParam}") --tx-out "${2}" 2> /dev/null)
+
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Can't calculate minValue for the given tx-out string: ${2} !\e[0m"; exit 1; fi
 echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second part
 }
 
 
 #-------------------------------------------------------
-#Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
+#Calculate the minimum UTXO value that has to be sent depending on the assets and the protocol-parameters
 calc_minOutUTXO() {
 
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
-#chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
-local k0=0				#coinSize=0 in mary-era, 2 in alonzo-era
-local k1=6
-local k2=12				#assetSize=12
-local k3=28				#pidSize=28
-local k4=8				#word=8 bytes
-local utxoEntrySizeWithoutVal=27 	#6+txOutLenNoVal(14)+txInLen(7)
-local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
+local protocolParam=${1}
+IFS='+' read -ra asset_entry <<< "${2}" #split the tx-out string into address, lovelaces, assets (read it into asset_entry array)
 
-local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${1});
+#protocol version major
+#7=babbage, 5+6=alonzo, 4=mary, 3=allegra, 2=shelley, 0+1=byron
+local protocolVersionMajor=$(jq -r ".protocolVersion.major | select (.!=null)" <<< ${protocolParam})
 
-#check for new parameter available in alonzo-era, if so, overwrite the minUTXOValue
-local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${1});
-if [[ ! "${utxoCostPerWord}" == "" ]]; then
-					    adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more starting with the mary era
-					    minUTXOValue=$(( ${utxoCostPerWord} * ${adaOnlyUTxOSize} ));
+
+### switch the method of the minOutUTXO calculation depending on the current era, starting with protocolVersionMajor>=7 (babbage)
+if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage and above, new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
+
+	#chain constants for babbage
+	local constantOverhead=160 #constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions in babbage era
+
+	#Get the destination address in hex format as well as the amount of lovelaces
+	#local toAddrHex=$(echo -n "${asset_entry[0]}" | ${bech32_bin} | tr -d '\n')   #this would only work for bech32-shelley addresses
+	local toAddrHex=$(${cardanocli} address info --address ${asset_entry[0]} 2> /dev/null | jq -r .base16 | tr -d '\n') #this works for bech32-shelley and even base58-byron addresses
+	local toLovelaces=${asset_entry[1]}
+
+	if [[ ${#asset_entry[@]} -eq 2 ]]; then #only lovelaces, no assets
+
+		#Build the tx-out cbor
+		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
+		local cborStr+=$(to_cbor "map" 2) #map 2
+		local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
+		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+		local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
+		local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
+
+	else #assets involved
+
+		local idx=2
+		local pidCollector=""    #holds the list of individual policyIDs
+		local assetsCollector="" #holds the list of individual assetHases (policyID+assetName)
+
+	        while [[ ${#asset_entry[@]} -gt ${idx} ]]; do #step thru all given assets
+
+	          #separate assetamount from asset_hash(policyID.assetName)
+	          IFS=' ' read -ra asset <<< "${asset_entry[${idx}]}"
+	          local asset_amount=${asset[0]}
+	          local asset_hash=${asset[1]}
+
+	          #split asset_hash_name into policyID and assetName(hex)
+	          local asset_hash_policy=${asset_hash:0:56}
+	          local asset_hash_hexname=${asset_hash:57}
+
+		  #collect the entries in individual lists to sort them later
+#		  local pidCollector="${pidCollector}${asset_hash_policy}\n"
+#		  local assetsCollector="${assetsCollector}amount=${asset_amount} pid=${asset_hash_policy} name=${asset_hash_hexname}\n"
+		  local pidCollector+="${asset_hash_policy}\n"
+		  local assetsCollector+="amount=${asset_amount} pid=${asset_hash_policy} name=${asset_hash_hexname}\n"
+
+		  local idx=$(( ${idx} + 1 ))
+
+		done
+
+		#only keep unique pids and get the number of each individual pid, also get the number of total individual pids
+		local pidCollector=$(echo -ne "${pidCollector}" | sort | uniq -c)
+		local numPIDs=$(wc -l <<< "${pidCollector}")
+
+		#build the tx-out cbor
+		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
+		local cborStr+=$(to_cbor "map" 2) #map 2
+		local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
+		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+		local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
+		local cborStr+=$(to_cbor "array" 2) #array 2 -> first entry value of lovelaces, second is maps of assets
+		local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
+
+		local cborStr+=$(to_cbor "map" ${numPIDs}) #map x -> number of individual PIDs
+
+		#process each individual pid
+		while read pidLine ; do
+			local numOfAssets=$(awk {'print $1'} <<< ${pidLine})
+			local pidHash=$(awk {'print $2'} <<< ${pidLine})
+
+			local cborStr+=$(to_cbor "bytes" "${pidHash}") #asset pid as byteArray
+			local cborStr+=$(to_cbor "map" "${numOfAssets}") #map for number of asset with that pid
+
+			#process each individual asset
+			while read assetLine ; do
+				local tmpAssetAmount=$(awk {'print $1'} <<< ${assetLine}); local tmpAssetAmount=${tmpAssetAmount:7}
+				local tmpAssetHexName=$(awk {'print $3'} <<< ${assetLine}); local tmpAssetHexName=${tmpAssetHexName:5}
+
+					local cborStr+=$(to_cbor "bytes" "${tmpAssetHexName}") #asset name as byteArray
+					local cborStr+=$(to_cbor "unsigned" ${tmpAssetAmount}) #amount of this asset
+
+			done < <(echo -e "${assetsCollector}" | grep "pid=${pidHash}")
+
+		done <<< "${pidCollector}"
+
+	fi #only lovelaces or lovelaces + assets
+
+	#We need to get the CostPerByte. This is reported via the protocol-parameters in the utxoCostPerByte or utxoCostPerWord parameter
+	local utxoCostPerByte=$(jq -r ".utxoCostPerByte | select (.!=null)" <<< ${protocolParam}); #babbage
+	if [[ "${utxoCostPerByte}" == "" ]]; then #if the parameter is not present, use the utxoCostPerWord one. a word is 8 bytes
+						local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam});
+						local utxoCostPerByte=$(( ${utxoCostPerWord} / 8 ))
+	fi
+
+	#cborLength is length of cborStr / 2 because of the hexchars (2 chars -> 1 byte)
+	minOutUTXO=$(( ( (${#cborStr} / 2) + ${constantOverhead} ) * ${utxoCostPerByte} ))
+	echo ${minOutUTXO}
+	exit #calculation for babbage is done, leave the function
 fi
 
-#preload it with the minUTXOValue (1ADA), will be overwritten if costs are higher
-local minOutUTXO=${minUTXOValue}
+### if we are here, it was not a babbage style calculation, so lets do it for the other eras
+### do the calculation for shelley, allegra, mary, alonzo
 
-#split the tx-out string into the assets
-IFS='+' read -ra asset_entry <<< "${2}"
+#chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
+local k0=0                              #coinSize=0 in mary-era, 2 in alonzo-era
+local k1=6
+local k2=12                             #assetSize=12
+local k3=28                             #pidSize=28
+local k4=8                              #word=8 bytes
+local utxoEntrySizeWithoutVal=27        #6+txOutLenNoVal(14)+txInLen(7)
+local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
+
+local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${protocolParam}); #shelley, allegra, mary
+local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam}); #alonzo
+
+### switch the method of the minOutUTXO calculation depending on the current era
+if [[ ${protocolVersionMajor} -ge 5 ]]; then #5+6=Alonzo, new since alonzo: the k0 parameter increases by 2 compared to the mary one
+	adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more starting with the alonzo era
+	minUTXOValue=$(( ${utxoCostPerWord} * ${adaOnlyUTxOSize} ));
+fi
+
+### from here on, the calculation is the same for shelley, allegra, mary, alonzo
+
+#preload it with the minUTXOValue from the parameters, will be overwritten at the end if costs are higher
+local minOutUTXO=${minUTXOValue}
 
 if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. otherwise leave it at the default value
         local idx=2
@@ -710,17 +855,13 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
           local asset_hash=${asset[1]}
 
           #split asset_hash_name into policyID and assetName(hex)
-          #later when we change the tx-out format to full hex format
-          #this can be simplified into a stringsplit
-          IFS='.' read -ra asset_split <<< "${asset_hash}"
-          local asset_hash_policy=${asset_split[0]}
-#         local asset_hash_hexname=$(echo -n "${asset_split[1]}" | xxd -b -ps -c 80 | tr -d '\n')
-          local asset_hash_hexname=${asset_split[1]} #now assetNames are also in hex format
+          local asset_hash_policy=${asset_hash:0:56}
+          local asset_hash_hexname=${asset_hash:57}
 
 	  #collect the entries in individual lists to sort them later
-	  local pidCollector="${pidCollector}${asset_hash_policy}\n"
-	  local assetsCollector="${assetsCollector}${asset_hash_policy}${asset_hash_hexname}\n"
-	  if [[ ! "${asset_hash_hexname}" == "" ]]; then local nameCollector="${nameCollector}${asset_hash_hexname}\n"; fi
+	  local pidCollector+="${asset_hash_policy}\n"
+	  local assetsCollector+="${asset_hash_policy}${asset_hash_hexname}\n"
+	  if [[ ! "${asset_hash_hexname}" == "" ]]; then local nameCollector+="${asset_hash_hexname}\n"; fi
 
           local idx=$(( ${idx} + 1 ))
 
@@ -753,9 +894,104 @@ echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or wit
 
 
 
+#-------------------------------------------------------
+#to_cbor function
+#
+# converts different majortypes and there values into a cborHexString
+#
+to_cbor() {
+
+        # ${1} type: unsigned, negative, bytes, string, array, map, tag
+        # ${2} value: unsigned int value or hexstring for bytes
+
+        local type=${1}
+        local value="${2}"
+
+        # majortypes
+        # unsigned      000x|xxxx       majortype 0	not limited, but above 18446744073709551615 (2^64), the numbers are represented via tag2 + bytearray
+        # bytes         010x|xxxx       majortype 2     limited to max. 65535 here
+        # array         100x|xxxx       majortype 4     limited to max. 65535 here
+        # map           101x|xxxx       majortype 5     limited to max. 65535 here
+
+	# extras - not used yet but implemented for the future
+	# negative	001x|xxxx	majortype 1	not limited, but below -18446744073709551616 (-2^64 -1), the numbers are represented via tag3 + bytearray
+	# string	011x|xxxx	majortype 3	limited to max. 65535 chars
+        # tag           110x|xxxx       majortype 6     limited to max. 65535 here
 
 
+case ${type} in
 
+	#unsigned - input is an unsigned integer, range is selected via a bc query because bash can't handle big numbers
+        unsigned )      if [[ $(bc <<< "${value} < 24") -eq 1 ]]; then printf -v cbor "%02x" $((10#${value})) #1byte total value below 24
+                        elif [[ $(bc <<< "${value} < 256") -eq 1 ]]; then printf -v cbor "%04x" $((0x1800 + 10#${value})) #2bytes total: first 0x1800 + 1 lower byte value
+                        elif [[ $(bc <<< "${value} < 65536") -eq 1 ]]; then printf -v cbor "%06x" $((0x190000 + 10#${value})) #3bytes total: first 0x190000 + 2 lowerbytes value
+                        elif [[ $(bc <<< "${value} < 4294967296") -eq 1 ]]; then printf -v cbor "%10x" $((0x1A00000000 + 10#${value})) #5bytes total: 0x1A00000000 + 4 lower bytes value
+                        elif [[ $(bc <<< "${value} < 18446744073709551616") -eq 1 ]]; then local tmp="00$(bc <<< "obase=16;ibase=10;${value}+498062089990157893632")"; cbor="${tmp: -18}" #9bytes total: first 0x1B0000000000000000 + 8 lower bytes value
+			#if value does not fit into an 8byte unsigned integer, the cbor representation is tag2(pos.bignum)+bytearray of the value
+			else local cbor=$(to_cbor "tag" 2); local tmp="00$(bc <<< "obase=16;ibase=10;${value}")"; tmp=${tmp: -$(( (${#tmp}-1)/2*2 ))}; local cbor+=$(to_cbor "bytes" ${tmp}) #fancy calc to get a leading zero in the hex array if needed
+                        fi
+                        ;;
+
+	#bytestring - input is a hexstring
+        bytes )         local bytesLength=$(( ${#value} / 2 ))  #bytesLength is length of value /2 because of hex encoding (2chars -> 1byte)
+                        if [[ ${bytesLength} -lt 24 ]]; then printf -v cbor "%02x${value}" $((0x40 + 10#${bytesLength})) #1byte total 0x40 + lower part value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 256 ]]; then printf -v cbor "%04x${value}" $((0x5800 + 10#${bytesLength})) #2bytes total: first 0x4000 + 0x1800 + 1 lower byte value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 65536 ]]; then printf -v cbor "%06x${value}" $((0x590000 + 10#${bytesLength})) #3bytes total: first 0x400000 + 0x190000 + 2 lower bytes value & bytearrayitself
+                        fi
+                        ;;
+
+	#array - input is an unsigned integer
+        array )         if [[ ${value} -lt 24 ]]; then printf -v cbor "%02x" $((0x80 + 10#${value})) #1byte total 0x80 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cbor "%04x" $((0x9800 + 10#${value})) #2bytes total: first 0x8000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cbor "%06x" $((0x990000 + 10#${value})) #3bytes total: first 0x800000 + 0x190000 & 2 lower bytes value
+                        fi
+                        ;;
+
+	#map - input is an unsigned integer
+        map )           if [[ ${value} -lt 24 ]]; then printf -v cbor "%02x" $((0xA0 + 10#${value})) #1byte total 0xA0 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cbor "%04x" $((0xB800 + 10#${value})) #2bytes total: first 0xA000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cbor "%06x" $((0xB90000 + 10#${value})) #3bytes total: first 0xA00000 + 0x190000 & 2 lower bytes value
+                        fi
+                        ;;
+
+	###
+	### the following types are not used in these scripts yet, but added to have a more complete function for the future
+	###
+
+	#negative - input is a negative unsigned integer, range is selected via a bc query because bash can't handle big numbers
+        negative )  local value=$(bc <<< "${value//-/} -1") #negative representation in cbor is the neg. number as a pos. number minus 1, so a -500 will be represented as a 499
+			if [[ $(bc <<< "${value} < 24") -eq 1 ]]; then printf -v cbor "%02x" $((0x20 + 10#${value})) #1byte total 0x20 value below 24
+                        elif [[ $(bc <<< "${value} < 256") -eq 1 ]]; then printf -v cbor "%04x" $((0x3800 + 10#${value})) #2bytes total: first 0x2000 + 0x1800 + 1 lower byte value
+                        elif [[ $(bc <<< "${value} < 65536") -eq 1 ]]; then printf -v cbor "%06x" $((0x390000 + 10#${value})) #3bytes total: first 0x200000 + 0x190000 + 2 lowerbytes value
+                        elif [[ $(bc <<< "${value} < 4294967296") -eq 1 ]]; then printf -v cbor "%10x" $((0x3A00000000 + 10#${value})) #5bytes total: 0x2000000000 + 0x1A00000000 + 4 lower bytes value
+                        elif [[ $(bc <<< "${value} < 18446744073709551616") -eq 1 ]]; then local tmp="00$(bc <<< "obase=16;ibase=10;${value}+1088357900348863545344")"; cbor="${tmp: -18}" #9bytes total: first 0x3B0000000000000000 + 8 lower bytes value
+			#if value does not fit into an 8byte unsigned integer, the cbor representation is tag3(neg.bignum)+bytearray of the value
+			else local cbor=$(to_cbor "tag" 3); local tmp="00$(bc <<< "obase=16;ibase=10;${value}")"; tmp=${tmp: -$(( (${#tmp}-1)/2*2 ))}; local cbor+=$(to_cbor "bytes" ${tmp}) #fancy calc to get a leading zero in the hex array if needed
+                        fi
+                        ;;
+
+	#tag - input is an unsigned integer
+        tag )           if [[ ${value} -lt 24 ]]; then printf -v cbor "%02x" $((0xC0 + 10#${value})) #1byte total 0xC0 + lower part value
+                        elif [[ ${value} -lt 256 ]]; then printf -v cbor "%04x" $((0xD800 + 10#${value})) #2bytes total: first 0xC000 + 0x1800 & 1 lower byte value
+                        elif [[ ${value} -lt 65536 ]]; then printf -v cbor "%06x" $((0xD90000 + 10#${value})) #3bytes total: first 0xC00000 + 0x190000 & 2 lower bytes value
+                        fi
+                        ;;
+
+	#textstring - input is a utf8-string
+        string )        local value=$(echo -ne "${value}" | xxd -p -c 65536 | tr -d '\n') #convert the given string into a hexstring and process it further like a bytearray
+			local bytesLength=$(( ${#value} / 2 ))  #bytesLength is length of value /2 because of hex encoding (2chars -> 1byte)
+                        if [[ ${bytesLength} -lt 24 ]]; then printf -v cbor "%02x${value}" $((0x60 + 10#${bytesLength})) #1byte total 0x60 + lower part value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 256 ]]; then printf -v cbor "%04x${value}" $((0x7800 + 10#${bytesLength})) #2bytes total: first 0x6000 + 0x1800 + 1 lower byte value & bytearrayitself
+                        elif [[ ${bytesLength} -lt 65536 ]]; then printf -v cbor "%06x${value}" $((0x790000 + 10#${bytesLength})) #3bytes total: first 0x600000 + 0x190000 + 2 lower bytes value & bytearrayitself
+                        fi
+                        ;;
+
+
+esac
+
+echo -n "${cbor^^}" #return the cbor in uppercase
+}
+#-------------------------------------------------------
 
 
 
