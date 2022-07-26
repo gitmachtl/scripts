@@ -450,8 +450,10 @@ transactionToAddr=$(jq -r ".transactions[${transactionIdx}].sendToAddr" <<< ${of
 transactionTxJSON=$(jq -r ".transactions[${transactionIdx}].txJSON" <<< ${offlineJSON})
 
 #Write out the TxJSON to a temporary file
-txFile="${tempDir}/$(basename ${transactionFromName}).tx"
+txFile="${tempDir}/$(basename ${transactionFromName}).tmp.txfile"
 rm ${txFile} 2> /dev/null #delete an old one if present
+echo "${transactionTxJSON}" > ${txFile};
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 case ${transactionType} in
         Transaction|Asset-Minting|Asset-Burning )
