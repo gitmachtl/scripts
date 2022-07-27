@@ -89,7 +89,7 @@ if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.35.0"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.35.2"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="4.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
 minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
@@ -435,9 +435,8 @@ get_NodeEra() {
 local tmpEra=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r ".era | select (.!=null)" 2> /dev/null)
 if [[ ! "${tmpEra}" == "" ]]; then tmpEra=${tmpEra,,}; else tmpEra="auto"; fi
 echo "${tmpEra}"; return 0; #return era in lowercase
-#echo "mary"; return 0;
 }
-##Set nodeEra parameter (--shelley-era, --allegra-era, --mary-era, --byron-era or empty)
+##Set nodeEra parameter ( --byron-era, --shelley-era, --allegra-era, --mary-era, --alonzo-era, --babbage-era or empty)
 if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
 if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
 
@@ -705,7 +704,7 @@ echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second 
 
 
 #-------------------------------------------------------
-#Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
+#Calculate the minimum UTXO value that has to be sent depending on the assets and the protocol-parameters
 calc_minOutUTXO() {
 
         #${1} = protocol-parameters(json format) content
@@ -714,14 +713,16 @@ calc_minOutUTXO() {
 local protocolParam=${1}
 IFS='+' read -ra asset_entry <<< "${2}" #split the tx-out string into address, lovelaces, assets (read it into asset_entry array)
 
-#chain constants for babbage
-local constantOverhead=160 #constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions in babbage era
+#protocol version major
+#7=babbage, 5+6=alonzo, 4=mary, 3=allegra, 2=shelley, 0+1=byron
+local protocolVersionMajor=$(jq -r ".protocolVersion.major | select (.!=null)" <<< ${protocolParam})
 
-#get values for the different eras, starting with new utxoCostPerByte calculation. because it will be the standard in the future starting with babbage era
-local utxoCostPerByte=$(jq -r ".utxoCostPerByte | select (.!=null)" <<< ${protocolParam}); #babbage
 
-### check for utxoCostPerByte parameter (new in babbage, CIP-0055) -> minOutUTXO depends on the cbor bytes length
-if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
+### switch the method of the minOutUTXO calculation depending on the current era, starting with protocolVersionMajor>=7 (babbage)
+if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage and above, new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
+
+	#chain constants for babbage
+	local constantOverhead=160 #constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions in babbage era
 
 	#Get the destination address in hex format as well as the amount of lovelaces
 	#local toAddrHex=$(echo -n "${asset_entry[0]}" | ${bech32_bin} | tr -d '\n')   #this would only work for bech32-shelley addresses
@@ -802,6 +803,13 @@ if [[ ! "${utxoCostPerByte}" == "" ]]; then #Babbage calculation
 
 	fi #only lovelaces or lovelaces + assets
 
+	#We need to get the CostPerByte. This is reported via the protocol-parameters in the utxoCostPerByte or utxoCostPerWord parameter
+	local utxoCostPerByte=$(jq -r ".utxoCostPerByte | select (.!=null)" <<< ${protocolParam}); #babbage
+	if [[ "${utxoCostPerByte}" == "" ]]; then #if the parameter is not present, use the utxoCostPerWord one. a word is 8 bytes
+						local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam});
+						local utxoCostPerByte=$(( ${utxoCostPerWord} / 8 ))
+	fi
+
 	#cborLength is length of cborStr / 2 because of the hexchars (2 chars -> 1 byte)
 	minOutUTXO=$(( ( (${#cborStr} / 2) + ${constantOverhead} ) * ${utxoCostPerByte} ))
 	echo ${minOutUTXO}
@@ -823,11 +831,13 @@ local adaOnlyUTxOSize=$((${utxoEntrySizeWithoutVal} + ${k0}))
 local minUTXOValue=$(jq -r ".minUTxOValue | select (.!=null)" <<< ${protocolParam}); #shelley, allegra, mary
 local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam}); #alonzo
 
-### check for CostperWord parameter (new in alonzo)
-if [[ ! "${utxoCostPerWord}" == "" ]]; then #Alonzo calculation
+### switch the method of the minOutUTXO calculation depending on the current era
+if [[ ${protocolVersionMajor} -ge 5 ]]; then #5+6=Alonzo, new since alonzo: the k0 parameter increases by 2 compared to the mary one
 	adaOnlyUTxOSize=$(( adaOnlyUTxOSize + 2 )); #2 more starting with the alonzo era
 	minUTXOValue=$(( ${utxoCostPerWord} * ${adaOnlyUTxOSize} ));
 fi
+
+### from here on, the calculation is the same for shelley, allegra, mary, alonzo
 
 #preload it with the minUTXOValue from the parameters, will be overwritten at the end if costs are higher
 local minOutUTXO=${minUTXOValue}
@@ -849,9 +859,9 @@ if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. other
           local asset_hash_hexname=${asset_hash:57}
 
 	  #collect the entries in individual lists to sort them later
-	  local pidCollector="${pidCollector}${asset_hash_policy}\n"
-	  local assetsCollector="${assetsCollector}${asset_hash_policy}${asset_hash_hexname}\n"
-	  if [[ ! "${asset_hash_hexname}" == "" ]]; then local nameCollector="${nameCollector}${asset_hash_hexname}\n"; fi
+	  local pidCollector+="${asset_hash_policy}\n"
+	  local assetsCollector+="${asset_hash_policy}${asset_hash_hexname}\n"
+	  if [[ ! "${asset_hash_hexname}" == "" ]]; then local nameCollector+="${asset_hash_hexname}\n"; fi
 
           local idx=$(( ${idx} + 1 ))
 

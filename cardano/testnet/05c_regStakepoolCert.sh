@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 #Check command line parameter
 case $# in
@@ -58,6 +54,7 @@ regCertFile=$(readJSONparam "regCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaHash=$(readJSONparam "poolMetaHash"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolIDbech=$(readJSONparam "poolIDbech"); if [[ ! $? == 0 ]]; then exit 1; fi
 regProtectionKey=$(jq -r .regProtectionKey <<< ${poolJSON} 2> /dev/null); if [[ "${regProtectionKey}" == null ]]; then regProtectionKey=""; fi
 
 #Checks for needed local files
@@ -78,9 +75,25 @@ if [[ "${regWitnessID}" == "" ]]; then
 	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = {}" <<< ${poolJSON});
 	poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = {}" <<< ${poolJSON});
 
-	#Force registration instead of re-registration via optional command line command "force"
+	#Force registration instead of re-registration via optional command line command "REG"
+	#Force re-registration instead of registration via optional command line command "REREG"
 	if [[ "${forceParam}" == "" ]]; then
 		deregSubmitted=$(jq -r .deregSubmitted <<< ${poolJSON} 2> /dev/null); if [[ ! "${deregSubmitted}" == null ]]; then echo -e "\n\e[35mERROR - I'am confused, the pool was registered and retired before. Please specify if you wanna register or reregister the pool now with the optional keyword REG or REREG !\e[0m\n"; exit 1; fi
+
+		#In Online-Mode check if the Pool is already registered on the chain, if so print an info that the method was forced to a REREG
+		if ${onlineMode}; then
+		        #check that the node is fully synced, otherwise the opcertcounter query could return a false state
+		        if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced, please let your node sync to 100% first !\e[0m\n"; exit 2; fi
+
+			#check if the poolIDbech is already on the chain
+			poolsInLedger=$(${cardanocli} query stake-pools ${magicparam} 2> /dev/null); checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not query if Pool-ID is already on the chain.\e[0m\n"; exit 1; fi
+			poolInLedgerCnt=$(grep  "${poolIDbech}" <<< ${poolsInLedger} | wc -l)
+			if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -e "Pool-ID is already on the chain, continue with a Re-Registration\e[0m\n"; regSubmitted="xxx";
+			elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "Pool-ID is not on the chain yet, continue with a normal Registration\e[0m\n"; regSubmitted="";
+			else echo -e "\e[35mERROR - The Pool-ID is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m\n"; exit 2;
+			fi
+		fi
+
 	elif [[ "${forceParam^^}" == "REG" ]]; then regSubmitted="";  	#force a new registration
 	elif [[ "${forceParam^^}" == "REREG" ]]; then regSubmitted="xxx";	#force a re-registration
 	fi
@@ -140,8 +153,14 @@ if [[ "${regWitnessID}" == "" ]]; then #New witness collection
 	fi
 fi
 
-echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m and Owner-Delegations with funds from Address\e[32m ${regPayName}.addr\e[0m:"
-echo
+
+if [[ "${regSubmitted}" == "" ]]; then  #pool not registered before -> registration
+	echo -e "\e[0mRegister new StakePool Certificate\e[32m ${regCertFile}\e[0m and Owner-Delegations with funds from Address\e[32m ${regPayName}.addr\e[0m:"
+	echo
+				  else	#pool was registered before -> re-registration
+	echo -e "\e[0mRe-Register StakePool Certificate\e[32m ${regCertFile}\e[0m and Owner-Delegations with funds from Address\e[32m ${regPayName}.addr\e[0m:"
+	echo
+fi
 
 if ${onlineMode}; then
 
@@ -641,8 +660,6 @@ txSize=$(( ${#cborHex} / 2 ))
 maxTxSize=$(jq -r .maxTxSize <<< ${protocolParametersJSON})
 if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSize} bytes (max. ${maxTxSize})\n"
                                      else echo -e "\n\e[35mError - ${txSize} bytes Transaction-Size is too big! The maximum is currently ${maxTxSize} bytes.\e[0m\n"; exit 1; fi
-
-
 
 #Do temporary witness file cleanup
 for (( tmpCnt=0; tmpCnt<${witnessCnt}; tmpCnt++ ))
