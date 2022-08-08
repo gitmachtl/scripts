@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 case $# in
   2 ) delegName="$(dirname $1)/$(basename $1 .staking)"; delegName=${delegName/#.\//};
@@ -260,9 +256,21 @@ if [[ -f "${regPayName}.hwsfile" && -f "${delegName}.staking.hwsfile" && "${paym
 
 elif [[ -f "${delegName}.staking.skey" && -f "${regPayName}.skey" ]]; then #with the normal cli skey
 
+
+        #read the needed signing keys into ram and sign the transaction
+        skeyJSON1=$(read_skeyFILE "${regPayName}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON1}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+        skeyJSON2=$(read_skeyFILE "${delegName}.staking.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON2}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
+
 	echo -e "\e[0mSign the unsigned transaction body with the \e[32m${regPayName}.skey\e[0m & \e[32m${delegName}.staking.skey\e[0m: \e[32m ${txFile} \e[90m"
 	echo
-        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey --signing-key-file ${delegName}.staking.skey ${magicparam} --out-file ${txFile}
+
+        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON1}") --signing-key-file <(echo "${skeyJSON2}") ${magicparam} --out-file ${txFile}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #forget the signing keys
+        unset skeyJSON1
+        unset skeyJSON2
 
 else
 echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet can only (must) be used to register its own delegation on the chain.\e[0m\n"; exit 1;

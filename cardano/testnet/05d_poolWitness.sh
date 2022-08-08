@@ -379,6 +379,9 @@ case ${action} in
 
 		tmpWitnessFile="${tempDir}/$(basename ${signingKey}).tmp.witness"
 		tmpWitnessTxBody="${tempDir}/$(basename ${signingKey}).tmp.witnessTxBody"
+		#cleanup before writing
+		rm ${tmpWitnessTxBody} 2> /dev/null
+		rm ${tmpWitnessFile} 2> /dev/null
 		echo "${witnessTxBody}" > ${tmpWitnessTxBody}
 
 
@@ -403,15 +406,28 @@ case ${action} in
 		else #Signing via normal cli key
 
                         echo -e "\e[0mSigning via CLI-Key ...\n"
-                        if [ ! -f "${signingKey}.skey" ]; then echo -e "\n\e[35mError - \"${signingKey}.skey\" file not found !\e[0m"; exit 1; fi
-			tmpWitness=$(${cardanocli} transaction witness --tx-body-file <(echo ${witnessTxBody}) --signing-key-file ${signingKey}.skey ${magicparam} --out-file /dev/stdout)
+
+			#read the needed signing keys into ram and sign the transaction
+			skeyJSON=$(read_skeyFILE "${signingKey}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
+			tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${tmpWitnessTxBody} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
                         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         witnessJSON=$(jq ".signedWitness = ${tmpWitness}" <<< ${witnessJSON}); #include the witness in the witnessJSON
                         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         witnessJSON=$(jq ".\"date-signed\" = \"$(date -R)\"" <<< ${witnessJSON}); #include the date in the witnessJSON
                         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
+		        #forget the signing keys
+			unset skeyJSON
+
+
+
 		fi
+
+		#cleanup
+		rm ${tmpWitnessTxBody} 2> /dev/null
+		rm ${tmpWitnessFile} 2> /dev/null
+
 
                 echo "${witnessJSON}" > ${witnessFile}
                 if [ $? -eq 0 ]; then

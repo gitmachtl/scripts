@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 case $# in
   2 ) stakeAddr="$(dirname $1)/$(basename $1 .staking).staking"; stakeAddr=${stakeAddr/#.\//};
@@ -293,15 +289,20 @@ if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" 
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo -e "Assembled ... \e[32mDONE\e[0m\n";
 
-
-
-
-#elif [[ -f "${stakeAddr}.skey" && -f "${fromAddr}.skey" ]]; then #with the normal cli skey
 elif [[ -f "${fromAddr}.skey" ]]; then #with the normal cli skey
 
-        echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile} \e[90m"
+
+        #read the needed signing keys into ram and sign the transaction
+        skeyJSON=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
+        echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile}\e[0m"
         echo
-	${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}
+
+        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file ${txFile}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #forget the signing keys
+        unset skeyJSON
 
 else
 echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet can only be used to register its own staking key on the chain.\e[0m\n"; exit 1;

@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 #Display usage instructions
 showUsage() {
@@ -448,6 +449,12 @@ transactionToName=$(jq -r ".transactions[${transactionIdx}].toAddr" <<< ${offlin
 transactionToAddr=$(jq -r ".transactions[${transactionIdx}].sendToAddr" <<< ${offlineJSON})
 transactionTxJSON=$(jq -r ".transactions[${transactionIdx}].txJSON" <<< ${offlineJSON})
 
+#Write out the TxJSON to a temporary file
+txFile="${tempDir}/$(basename ${transactionFromName}).tmp.txfile"
+rm ${txFile} 2> /dev/null #delete an old one if present
+echo "${transactionTxJSON}" > ${txFile};
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
 case ${transactionType} in
         Transaction|Asset-Minting|Asset-Burning )
                         #Normal UTXO Transaction (lovelaces and/or tokens)
@@ -464,11 +471,11 @@ case ${transactionType} in
 
 			echo -e "\e[32m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] from '${transactionFromName}' to '${transactionToName}' \e[90m(${transactionDate})\n\t   \t\e[90mfrom ${transactionFromAddr}\n\t   \t\e[90mto ${transactionToAddr}\e[0m"
 			echo
-			txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+			txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
 			echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
 			if ask "\e[33mDoes this look good for you, continue ?" N; then
-	                        ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
+	                        ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
 	                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam^^} =~ (MAINNET|1097911063) ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}${txID}\n\e[0m"; fi
@@ -507,11 +514,11 @@ case ${transactionType} in
                         echo -e "\e[32m\t[${transactionCue}]\t\e[0mRewards-Withdrawal[${transactionEra}] from '${transactionStakeName}' to '${transactionToName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mfrom ${transactionStakeAddr}\n\t   \t\e[90mto ${transactionToAddr}\n\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
+                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -545,11 +552,11 @@ case ${transactionType} in
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for '${transactionStakeName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
+                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -582,11 +589,11 @@ case ${transactionType} in
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for '${transactionDelegName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
+                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -662,11 +669,11 @@ case ${transactionType} in
 		        else echo -e "\e[32mOK\e[0m\n"; fi
 		        #Ok, HASH is the same, continue
 
-                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
+                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -698,11 +705,11 @@ case ${transactionType} in
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for Pool '${poolMetaTicker}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} transaction txid --tx-file <(echo ${transactionTxJSON}) )
+                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
                         echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file <(echo ${transactionTxJSON}) ${magicparam}
+                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
                                 if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
@@ -724,6 +731,10 @@ case ${transactionType} in
                         echo -e "\n\e[90m\t[${transactionCue}]\t\e[35mUnknown transaction type\e[0m"
                         ;;
 esac
+
+#clean up
+rm ${txFile} 2> /dev/null
+
 
 #Check the number of pending transactions
 transactionsCnt=$(jq -r ".transactions | length" <<< ${offlineJSON})

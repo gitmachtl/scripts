@@ -1,13 +1,8 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
 
 if [[ $# -ge 1 && ! $1 == "" ]]; then nodeName=$1; else echo -e "Usage: $0 <NodePoolName> (Optional: newOpCertCounterValue)\n\n"; exit 2; fi
@@ -23,7 +18,7 @@ fi
 #check that *.node.skey/hwsfile is present
 if ! [[ -f "${nodeName}.node.skey" || -f "${nodeName}.node.hwsfile" ]]; then echo -e "\e[0mERROR - Cannot find '${nodeName}.node.skey/hwsfile', please generate Node Keys with ${nodeName}.node.counter first with script 04a ...\e[0m"; exit 2; fi
 
-#check that there is are new kes keys present by checking the counters. If counterfiles are present, check that the values are identical
+#check that there is a new kes keys present by checking the counters. If counterfiles are present, check that the values are identical
 if [[ -f "${nodeName}.kes.counter" && -f "${nodeName}.kes.counter-next" ]]; then
 	latestKESnumber=$(cat ${nodeName}.kes.counter); latestKESnumber=$(printf "%03d" $((10#${latestKESnumber})) )
 	nextKESnumber=$(cat ${nodeName}.kes.counter-next); nextKESnumber=$(printf "%03d" $((10#${nextKESnumber})) )
@@ -35,6 +30,7 @@ fi
 
 loop=0
 question="Do you wanna use the given OpCertCounter"
+skeyJSON=""
 #
 #Entering the Loop of generating a new OpCert. Loop will autoexit if the results are ok. Otherwise ask the user to rerun the script and correct the OpCertCounter
 #
@@ -137,25 +133,34 @@ echo -e "{\n\t\"latestKESfileindex\": \"${latestKESnumber}\",\n\t\"currentKESper
 file_lock ${nodeName}.kes-expire.json
 
 
+opcertFile="${nodeName}.node-${latestKESnumber}.opcert"
+
 #Generate the opcert from a classic cli node skey or from a hwsfile (hw-wallet)
 if [ -f "${nodeName}.node.skey" ]; then #key is a normal one
+
+	        #read the needed signing keys into ram, this whole part is running in a big while loop for the opcert autocorrection, so only load new skeyJSON if it was empty
+	        if [[ "${skeyJSON}" == "" ]]; then
+						skeyJSON=$(read_skeyFILE "${nodeName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+		fi
+
                 echo -ne "\e[0mGenerating a new opcert from a cli signing key '\e[33m${nodeName}.node.skey\e[0m' ... "
-		file_unlock ${nodeName}.node-${latestKESnumber}.opcert
+		file_unlock ${opcertFile}
 		file_unlock ${nodeName}.node.counter
-		${cardanocli} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file ${nodeName}.node.skey --operational-certificate-issue-counter-file ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${nodeName}.node-${latestKESnumber}.opcert
-		checkError "$?"; if [ $? -ne 0 ]; then file_lock ${nodeName}.node-${latestKESnumber}.opcert; file_lock ${nodeName}.node.counter; exit $?; fi
-		file_lock ${nodeName}.node-${latestKESnumber}.opcert
+		${cardanocli} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file <(echo "${skeyJSON}") --operational-certificate-issue-counter-file ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${opcertFile}
+		checkError "$?"; if [ $? -ne 0 ]; then file_lock ${opcertFile}; file_lock ${nodeName}.node.counter; exit $?; fi
+		file_lock ${opcertFile}
 		file_lock ${nodeName}.node.counter
 
 elif [ -f "${nodeName}.node.hwsfile" ]; then #key is a hardware wallet
+
                 if ! ask "\e[0mGenerating the new opcert from a local Hardware-Wallet keyfile '\e[33m${nodeName}.node.hwsfile\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Opcert Generation aborted...\e[0m"; echo; exit 2; fi
 
                 start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-		file_unlock ${nodeName}.node-${latestKESnumber}.opcert
+		file_unlock ${opcertFile}
 		file_unlock ${nodeName}.node.counter
-                tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --kes-period ${currentKESperiod} --operational-certificate-issue-counter ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${nodeName}.node-${latestKESnumber}.opcert 2> /dev/stdout)
-                if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; file_lock ${nodeName}.node-${latestKESnumber}.opcert; file_lock ${nodeName}.node.counter; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
-		file_lock ${nodeName}.node-${latestKESnumber}.opcert
+                tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --kes-period ${currentKESperiod} --operational-certificate-issue-counter ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${opcertFile} 2> /dev/stdout)
+                if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; file_lock ${opcertFile}; file_lock ${nodeName}.node.counter; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
+		file_lock ${opcertFile}
 		file_lock ${nodeName}.node.counter
                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 else
@@ -166,12 +171,12 @@ echo -e "\e[32mOK\e[0m\n"
 
 #in onlineMode, check the opcert file against the current chain status to use the right OpCertCounter value
 if ${onlineMode}; then
-echo -ne "\e[0mChecking operational certificate \e[32m${nodeName}.node-${latestKESnumber}.opcert\e[0m for the right OpCertCounter ... "
+echo -ne "\e[0mChecking operational certificate \e[32m${opcertFile}\e[0m for the right OpCertCounter ... "
 
 	#query the current opcertstate from the chain
-	queryFile="${tempDir}/${nodeName}.query"
+	queryFile="${tempDir}/opcert.query"
 	rm ${queryFile} 2> /dev/null
-	tmp=$(${cardanocli} query kes-period-info ${magicparam} --op-cert-file ${nodeName}.node-${latestKESnumber}.opcert --out-file ${queryFile} 2> /dev/null);
+	tmp=$(${cardanocli} query kes-period-info ${magicparam} --op-cert-file ${opcertFile} --out-file ${queryFile} 2> /dev/null);
 	if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't query the onChain OpCertCounter state !\e[0m"; echo; exit 2; fi
 
 	onChainOpcertCount=$(jq -r ".qKesNodeStateOperationalCertificateNumber | select (.!=null)" 2> /dev/null ${queryFile}); if [[ ${onChainOpcertCount} == "" ]]; then onChainOpcertCount=-1; fi #if there is none, set it to -1
@@ -197,8 +202,8 @@ echo -ne "\e[0mChecking operational certificate \e[32m${nodeName}.node-${latestK
 		echo
 
 		#Issued OpCert is having the wrong Counter, so delete the files directly
-		file_unlock "${nodeName}.node-${latestKESnumber}.opcert"
-		rm "${nodeName}.node-${latestKESnumber}.opcert"
+		file_unlock "${opcertFile}"
+		rm "${opcertFile}"
 
 		useOpCertCounter=${nextChainOpcertCount}
 		loop=1
@@ -216,10 +221,14 @@ fi #onlinemode
 
 done #WHILE Loop
 
+#forget the signing keys
+unset skeyJSON
 
 
-echo -e "\e[0mNode operational certificate:\e[32m ${nodeName}.node-${latestKESnumber}.opcert \e[90m"
-cat ${nodeName}.node-${latestKESnumber}.opcert
+
+
+echo -e "\e[0mNode operational certificate:\e[32m ${opcertFile} \e[90m"
+cat ${opcertFile}
 echo
 
 echo
@@ -242,9 +251,9 @@ echo -e "\e[0mUpdated KES-Next-Counter:\e[32m ${nodeName}.kes.counter-next\e[90m
 cat ${nodeName}.kes.counter-next
 echo
 
-echo -e "\e[0mNew \e[32m${nodeName}.kes-${latestKESnumber}.skey\e[0m and \e[32m${nodeName}.node-${latestKESnumber}.opcert\e[0m files ready for upload to the server."
+echo -e "\e[0mNew \e[32m${nodeName}.kes-${latestKESnumber}.skey\e[0m and \e[32m${opcertFile}\e[0m files ready for upload to the server."
 echo
 
-if ${offlineMode}; then echo -e "\e[33mThis was generated in Offline-Mode, please verify the new OpCertCounter on an Online-Machine like:\n\e[36m./04e_checkNodeOpCert.sh ${nodeName}.node-${latestKESnumber}.opcert next\e[0m\n"; fi
+if ${offlineMode}; then echo -e "\e[33mThis was generated in Offline-Mode, please verify the new OpCertCounter on an Online-Machine like:\n\e[36m./04e_checkNodeOpCert.sh ${opcertFile} next\e[0m\n"; fi
 
 echo -e "\e[0m\n"

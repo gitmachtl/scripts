@@ -457,10 +457,17 @@ poolJSON=$(jq ".regWitness.hardwareWalletIncluded = \"${hardwareWalletIncluded}\
 #Fill the witness count with the node-coldkey witness
 if [ -f "${poolName}.node.skey" ]; then #key is a normal one
 
+        #read the needed signing keys into ram
+        skeyJSON=$(read_skeyFILE "${poolName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
 	echo -ne "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ... "
-	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${poolName}.node.skey ${magicparam} --out-file /dev/stdout)
+	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	echo -e "\e[32mOK\n"
+
+        #forget the signing keys
+        unset skeyJSON
+
 	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
 
 elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
@@ -483,11 +490,19 @@ else
 fi
 
 #Fill the witnesses with the local payment witness, must be a normal cli skey
-echo -ne "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ... "
-tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey ${magicparam} --out-file /dev/stdout)
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-echo -e "\e[32mOK\n"
-poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witness in the poolJSON if its a new collection
+
+	#read the needed signing keys into ram
+        skeyJSON=$(read_skeyFILE "${regPayName}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
+	echo -ne "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ... "
+	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	echo -e "\e[32mOK\n"
+
+        #forget the signing keys
+        unset skeyJSON
+
+	poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witness in the poolJSON if its a new collection
 
 #Fill the witnesses with the local owner accounts, if you wanna do this in multiple steps you should set ownerWitness: "external" in the pool.json
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
@@ -502,10 +517,18 @@ do
 
 	#Fill the witnesses with the local owner witness
 	if [ -f "${ownerName}.staking.skey" ]; then #key is a normal one
+
+	        #read the needed signing keys into ram
+	        skeyJSON=$(read_skeyFILE "${ownerName}.staking.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
 	        echo -ne "\e[0mAdding the owner witness from a local signing key '\e[33m${ownerName}.skey\e[0m' ... "
-	        tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${ownerName}.staking.skey ${magicparam} --out-file /dev/stdout)
+	        tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
 	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		echo -e "\e[32mOK\n"
+
+	        #forget the signing keys
+	        unset skeyJSON
+
 	        poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON
 
 	elif [ -f "${ownerName}.staking.hwsfile" ]; then #key is a hardware wallet

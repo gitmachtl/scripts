@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 #Check token-metadata-creator tool if given path is ok, if not try to use the one in the scripts folder
 if ! exists "${cardanometa}"; then
@@ -230,11 +226,20 @@ sed -i "s/\"sequenceNumber\":\ .*,/\"sequenceNumber\":\ ${newSequenceNumber},/g"
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[32mOK\e[0m"
 
+
+#read the needed signing keys into ram and sign the transaction
+skeyJSON=$(read_skeyFILE "${policyName}.policy.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
 #Sign the metadata registry submission json draft file
 echo -ne "Signing with '${policyName}.policy.skey' ... "
-tmp=$(${cardanometa} entry ${assetSubject} -a "${policyName}.policy.skey")
+tmp=$(${cardanometa} entry ${assetSubject} -a <(echo "${skeyJSON}") )
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[32mOK\e[0m"
+
+#forget the signing keys
+unset skeyJSON
+
+
 
 #Finanlize the metadata registry submission json draft file
 echo -ne "Finalizing the draft file ... "

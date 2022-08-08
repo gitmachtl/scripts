@@ -525,10 +525,18 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
 
 else
 
+	#read the needed signing keys into ram and sign the transaction
+	skeyJSON=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
 	echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile}\e[0m"
 	echo
-	${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txFile}
+
+        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file ${txFile}
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+	#forget the signing keys
+	unset skeyJSON
+
 fi
 
 echo -ne "\e[90m"

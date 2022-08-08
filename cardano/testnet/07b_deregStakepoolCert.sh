@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 #Check command line parameter
 case $# in
@@ -272,10 +268,21 @@ if [[ -f "${deregPayName}.hwsfile" && -f "${poolName}.node.hwsfile" ]]; then #wi
 
 elif [[ -f "${deregPayName}.skey" && -f "${poolName}.node.skey" ]]; then #with the normal cli skeys
 
+
+
+        #read the needed signing keys into ram and sign the transaction
+        skeyJSON1=$(read_skeyFILE "${deregPayName}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON1}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+        skeyJSON2=$(read_skeyFILE "${poolName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON2}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
 	echo -e "\e[0mSign the unsigned transaction body with the payment \e[32m${deregPayName}.skey\e[0m & node \e[32m${poolName}.node.skey\e[0m: \e[32m ${txFile} \e[90m"
 	echo
-        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file ${deregPayName}.skey --signing-key-file ${poolName}.node.skey ${magicparam} --out-file ${txFile}
+
+        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON1}") --signing-key-file <(echo "${skeyJSON2}") ${magicparam} --out-file ${txFile}
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #forget the signing keys
+        unset skeyJSON1
+        unset skeyJSON2
 
 else
 

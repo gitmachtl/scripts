@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 if [ $# -ge 3 ]; then
       fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//};
@@ -376,8 +372,14 @@ if [[ -f "${policyName}.policy.hwsfile" ]]; then
 
 else #generate the policy witness via the cli
 
-        ${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${policyName}.policy.skey ${magicparam} --out-file ${txWitnessPolicyFile}
+        #read the needed signing keys into ram
+        skeyJSON=$(read_skeyFILE "${policyName}.policy.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
+        ${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file ${txWitnessPolicyFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #forget the signing keys
+        unset skeyJSON
 
 fi
 
@@ -394,8 +396,14 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
 
 else #generate the payment witness via the cli
 
-        ${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${fromAddr}.skey ${magicparam} --out-file ${txWitnessPaymentFile}
+        #read the needed signing keys into ram
+        skeyJSON=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
+        ${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file ${txWitnessPaymentFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #forget the signing keys
+        unset skeyJSON
 
 fi
 

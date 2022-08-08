@@ -172,13 +172,14 @@ echo
 echo
 fi
 
+#-------------------------------------------------------------
 #Check path to genesis files
 if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
 if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
+
+
 #-------------------------------------------------------------
-
-
 #Do an additional check that the byronToShelley Epoch is set correctly for mainnet and the public testnet
 if [[ "${checkByronShelleyEpochs^^}" == "YES" ]]; then
 	if [[ "${magicparam}" == *"mainnet"* ]] && [[ ${byronToShelleyEpochs} -ne 208 ]]; then majorError "ByronToShelleyEpochs Setting ERROR - You've set the MagicParam to '${magicparam}', the Cardano Mainnet.\nThe ByronToShelleyEpoch-Parameter in your settings should be 208 and not ${byronToShelleyEpochs} !\nPlease set the correct value in your 00_common.sh / common.inc file.\n\nYou can disable this check via the checkByronShelleyEpochs=\"no\" parameter."; exit 1;
@@ -187,34 +188,12 @@ if [[ "${checkByronShelleyEpochs^^}" == "YES" ]]; then
 fi
 
 
+#-------------------------------------------------------------
 #Check if curl, jq, bc and xxd is installed
-if ! exists curl; then
-          echo -e "\nYou need the little tool 'curl' !\n"
-          echo -e "Install it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install curl\e[0m\n"
-          echo -e "Thx! :-)\n"
-          exit 2
-fi
-
-if ! exists jq; then
-          echo -e "\nYou need the little tool 'jq' !\n"
-          echo -e "Install it On Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install jq\e[0m\n"
-          echo -e "Thx! :-)\n"
-          exit 2
-fi
-
-if ! exists bc; then
-          echo -e "\nYou need the little tool 'bc' !\n"
-          echo -e "Install it On Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install bc\e[0m\n"
-          echo -e "Thx! :-)\n"
-          exit 2
-fi
-
-if ! exists xxd; then
-          echo -e "\nYou need the little tool 'xxd' !\n"
-          echo -e "Install it On Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install xxd\e[0m\n"
-          echo -e "Thx! :-)\n"
-          exit 2
-fi
+if ! exists curl; then echo -e "\e[33mYou need the little tool 'curl', its needed to fetch online data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install curl\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! exists jq; then echo -e "\e[33mYou need the little tool 'jq', its needed to do the json processing !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install jq\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! exists bc; then echo -e "\e[33mYou need the little tool 'bc', its needed to do larger number calculations !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install bc\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! exists xxd; then echo -e "\e[33mYou need the little tool 'xxd', its needed to convert hex strings !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install xxd\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
 
 
 #-------------------------------------------------------------
@@ -297,6 +276,22 @@ ask() {
     done
 }
 #-------------------------------------------------------
+
+#-------------------------------------------------------
+#Subroutine for password interaction
+ask_pass() {
+ 	local pass #pass variable only lives within this function
+	echo -ne "${1}: " > $(tty) #redirect to the tty output
+	IFS= read -s pass #read in the password but don't show it
+	local hidden=$(sed 's/./*/g' <<< ${pass})
+	echo -ne "${hidden}" > $(tty) #show stars for the chars
+	echo -n "${pass}" #pass the password to the calling instance
+	unset pass #unset the variable
+}
+#-------------------------------------------------------
+
+
+
 
 #-------------------------------------------------------
 #Subroutines to set read/write flags for important files
@@ -1260,3 +1255,168 @@ stopProcessAnimation() {
 pkill -SIGINT -P $$ && echo -ne "\r\033[K" #stop childprocess and delete the outputline
 }
 #-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
+#checks if the given password $1 is a strong one
+#min. 10 chars long, includes at least one uppercase, one lowercase, one special char
+is_strong_password() {
+    [[ "$1" =~ ^(.*[a-z]) ]] && [[ "$1" =~ ^(.*[A-Z]) ]] && [[ "$1" =~ ^(.*[0-9]) ]] && [[ "$1" =~ ^(.*[^a-zA-Z0-9]) ]] && [[ "$1" =~ ^(.){10,} ]] && echo "true"
+}
+#-------------------------------------------------------
+
+
+#-------------------------------------------------------
+#encrypt skey json data, will return a json with a
+#modified 'description' field and encrypted 'encrHex' field
+#
+# ${1} = skeyJSON data
+# ${2} = password
+encrypt_skeyJSON() {
+
+	local skeyJSON="${1}"
+	local password="${2}"
+
+	#check that the encryption/decryption tool gpg exists
+	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > $(tty); exit 1; fi
+
+	#check if the skeyJSON is already encrypted
+	if [[ $(egrep "encrHex|Encrypted" <<< "${skeyJSON}" | wc -l) -ne 0 ]]; then echo "It is already encrypted!"; exit 1; fi
+
+	#read data
+	local skeyType=$(jq -r .type <<< ${skeyJSON}); if [[ $? -ne 0 ]]; then echo "Can't read the .type field!"; exit 1; fi
+	if [[ "${skeyJSON}" != *"SigningKey"* ]]; then echo "Type field does not contain 'SigningKey' information!"; exit 1; fi
+	local skeyDescription=$(jq -r .description <<< ${skeyJSON}); if [[ $? -ne 0 ]]; then echo "Can't read the .description field!"; exit 1; fi
+	local skeyCBOR=$(jq -r .cborHex <<< ${skeyJSON}); if [[ $? -ne 0 ]]; then echo "Can't read the .cborHex field!"; exit 1; fi
+	unset skeyJSON #not used after this line
+
+	#encrypt
+	local encrHex=$(gpg --symmetric --yes --batch --quiet --cipher-algo AES256 --passphrase "${password}" --log-file /dev/null <<< ${skeyCBOR} 2> /dev/null | xxd -ps -c 1000000)
+	unset skeyCBOR #not used after this line
+	unset password #not used after this line
+	if [[ "${encrHex}" == "" ]]; then echo "Couldn't encrypt the data via gpg!"; exit 1; fi
+
+	#return data and format it via jq (monochrome)
+	echo -e "{ \"type\": \"${skeyType}\", \"description\": \"Encrypted ${skeyDescription}\", \"encrHex\": \"${encrHex}\" }" | jq -M .
+
+}
+#-------------------------------------------------------
+
+
+#-------------------------------------------------------
+#decrypt skey json data, will return a json with the
+#original 'description' field and a decrypted 'cborHex' field
+#
+# ${1} = skeyJSON data
+# ${2} = password
+decrypt_skeyJSON() {
+
+	local skeyJSON="${1}"
+	local password="${2}"
+
+	#check that the encryption/decryption tool gpg exists
+	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > $(tty); exit 1; fi
+
+	#check if the skeyJSON is already decrypted
+	if [[ $(egrep "encrHex|Encrypted" <<< "${skeyJSON}" | wc -l) -eq 0 ]]; then echo "It is already decrypted!"; exit 1; fi
+
+	#read data
+	local skeyType=$(jq -r .type <<< ${skeyJSON}); if [[ $? -ne 0 ]]; then echo "Can't read the .type field!"; exit 1; fi
+	if [[ "${skeyJSON}" != *"SigningKey"* ]]; then echo "Type field does not contain 'SigningKey' information!"; exit 1; fi
+	local skeyDescription=$(jq -r .description <<< ${skeyJSON}); if [[ $? -ne 0 ]]; then echo "Can't read the .description field!"; exit 1; fi
+	local skeyEncrHex=$(jq -r .encrHex <<< ${skeyJSON}); if [[ $? -ne 0 ]]; then echo "Can't read the .encrHex field!"; exit 1; fi
+	unset skeyJSON #not used after this line
+
+	#decrypt
+	local cborHex=$(xxd -ps -r <<< ${skeyEncrHex} | gpg --decrypt --yes --batch --quiet --passphrase "${password}" --log-file /dev/null 2> /dev/null)
+	unset skeyEncrHex #not used after this line
+	unset password #not used after this line
+	if [[ "${cborHex}" == "" ]]; then echo "Couldn't decrypt the data via gpg! Wrong password?"; exit 1; fi
+
+	#return data and format it via jq (monochrome)
+	echo -e "{ \"type\": \"${skeyType}\", \"description\": \"${skeyDescription//Encrypted /}\", \"cborHex\": \"${cborHex}\" }" | jq -M .
+	unset cborHex
+
+}
+#-------------------------------------------------------
+
+
+#-------------------------------------------------------
+#read skey file and decrypt it if needed
+#
+#this function returns the skey json which will be used for example to sign transactions directly and not via a file read
+#
+# ${1} = skeyFILE
+#
+read_skeyFILE() {
+
+	local skeyFILE="${1}"
+	local cborHex=""
+
+	local viaENV=""
+
+	#check if the file exists
+	if [ ! -f "${skeyFILE}" ]; then echo -e "\e[35mGiven SKEY-File does not exist!\e[0m\n\n"; exit 1; fi
+
+	#check if the skeyJSON is already decrypted, if so, just return the content
+	if [[ $(egrep "encrHex|Encrypted" < "${skeyFILE}" | wc -l) -eq 0 ]]; then echo -ne "\e[0mReading unencrypted file \e[32m${skeyFILE}\e[0m ... " > $(tty); cat "${skeyFILE}"; exit 0; fi
+
+	#its encrypted, check that the encryption/decryption tool gpg exists
+	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > $(tty); exit 1; fi
+
+	#main loop to repeat the decryption until we have a cborHex
+	while [[ "${cborHex}" == "" ]]; do
+
+		#check if there is a passwort set in the ENV_DECRYPT_PASSWORD variable, if so, just do a short check and not prompt for a password
+
+		if [[ "${ENV_DECRYPT_PASSWORD}" == "" ]]; then #prompt for a password
+			#prompt for the password
+		        local password=$(ask_pass "\e[33mEnter the Password to decrypt '${skeyFILE}' (empty to abort)")
+		        if [[ ${password} == "" ]]; then echo -e "\e[35mAborted\e[0m\n\n"; exit 1; fi
+		        while [[ $(is_strong_password "${password}") != "true" ]]; do
+		                        echo -e "\n\e[35mThis is not a strong password, so it couldn't be the right one. Lets try it again...\e[0m\n" > $(tty)
+				        local password=$(ask_pass "\e[33mEnter the Password to decrypt '${skeyFILE}' (empty to abort)")
+		                        if [[ ${password} == "" ]]; then echo -e "\e[35mAborted\e[0m\n\n"; exit 1; fi
+		        done
+
+		else #password is present in the ENV_DECRYPT_PASSWORD variable
+
+			#exit with an error if the password in the ENV_DECRYPT_PASSWORD is not a strong one
+			if [[ $(is_strong_password "${ENV_DECRYPT_PASSWORD}") != "true" ]]; then echo -e "\n\e[35mThis is not a strong password via ENV_DECRYPT_PASSWORD... abort!\n\n"; exit 1; fi
+			local password=${ENV_DECRYPT_PASSWORD}
+			local viaENV="via ENV_DECRYPT_PASSWORD " #to extend the processing text
+
+		fi
+
+		#read data
+		local skeyJSON=$(cat "${skeyFILE}")
+		local skeyType=$(jq -r .type <<< ${skeyJSON}); if [[ $? -ne 0 ]]; then echo "Can't read the .type field!"; exit 1; fi
+		if [[ "${skeyJSON}" != *"SigningKey"* ]]; then echo "Type field does not contain 'SigningKey' information!"; exit 1; fi
+		local skeyDescription=$(jq -r .description <<< ${skeyJSON}); if [[ $? -ne 0 ]]; then echo "Can't read the .description field!"; exit 1; fi
+		local skeyEncrHex=$(jq -r .encrHex <<< ${skeyJSON}); if [[ $? -ne 0 ]]; then echo "Can't read the .encrHex field!"; exit 1; fi
+		unset skeyJSON #not used after this line
+
+		#decrypt
+		echo -ne "\r\033[K\e[0mDecrypting the file '\e[32m${skeyFILE}\e[0m' ${viaENV}... " > $(tty)
+		local cborHex=$(xxd -ps -r <<< ${skeyEncrHex} 2> /dev/null | gpg --decrypt --yes --batch --quiet --passphrase "${password}" --log-file /dev/null 2> /dev/null)
+		unset skeyEncrHex #not used after this line
+		unset password #not used after this line
+		if [[ "${cborHex}" == "" ]]; then
+			if [[ "${ENV_DECRYPT_PASSWORD}" != "" ]]; then echo -e "\e[35mCouldn't decrypt the data via ENV_DECRYPT_PASSWORD! Wrong password?\e[0m"; exit 1; fi #if there was an error and password was from the ENV, exit with an error
+			echo -e "\e[35mCouldn't decrypt the data! Wrong password?\e[0m" > $(tty);
+ 		fi
+
+	done
+
+	#we have cborHex content now, so the decryption worked
+
+	#return data in json format, remove the added "Encrypted " in the description field on the fly
+	printf "{ \"type\": \"${skeyType}\", \"description\": \"${skeyDescription//Encrypted /}\", \"cborHex\": \"${cborHex}\" }"
+	unset cborHex
+
+}
+#-------------------------------------------------------
+
+
+
