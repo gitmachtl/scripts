@@ -4,9 +4,9 @@
 
 | | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.35.0</b><br><sub>**git checkout tags/1.35.0**</sub> | <b>1.10.0</b><br><sub>**if you use hw-wallets** | <b>4.0.0</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.35.3</b><br><sub>**git checkout tags/1.35.3**</sub> | <b>1.10.0</b><br><sub>**if you use hw-wallets** | <b>4.1.2</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
 
-> :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html), choose testnet! 
+> :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://book.world.dev.cardano.org/environments.html), choose PREPROD, PREVIEW or LEGACY! 
 
 &nbsp;<br>
 ### About
@@ -235,13 +235,16 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 | cardanohwcli | Path to your *cardano-hw-cli* binary<br>(only for HW-Wallet support) | ```cardano-hw-cli``` if in the global PATH (Default)|
 | genesisfile | Path to your *SHELLEY* genesis file | ```config-mainnet/mainnet-shelley-genesis.json``` |
 | genesisfile_byron | Path to your *BYRON* genesis file | ```config-mainnet/mainnet-byron-genesis.json``` |
-| magicparam<br>addrformat | Type of the Chain your using<br>and the Address-Format | ```--mainnet``` for mainnet<br>```--testnet-magic 1097911063``` for the testnet<br>```--testnet-magic 3``` for launchpad |
-| byronToShelleyEpochs | Number of Epochs between Byron<br>to Shelley Fork | ```208``` for mainnet (Default)<br>```74``` for the testnet<br>```8``` for alonzo-purple(light) |
+| network | Name of the preconfigured network-settings | ```mainnet``` for the Mainnet (Default)<br>```preprod``` for PreProduction-TN<br>```preview``` for Preview-TN<br>```legacy``` for the Legacy-TN<br>```vasil-dev``` for the Vasil-Developer-Chain |
+| magicparam&sup1;<br>addrformat&sup1; | Type of the Chain your using<br>and the Address-Format | ```--mainnet``` for mainnet<br>```--testnet-magic 1097911063``` for the testnet<br>```--testnet-magic 3``` for launchpad |
+| byronToShelleyEpochs&sup1; | Number of Epochs between Byron<br>to Shelley Fork | ```208``` for mainnet (Default)<br>```74``` for the testnet<br>```8``` for alonzo-purple(light) |
 | jcli_bin | Path to your *jcli* binary<br>(only for ITN ticker proof) | ```./jcli``` (Default) |
 | cardanometa | Path to your *token-metadata-creator* binary<br>(part of the scripts) |```./token-metadata-creator``` (Default)<br>```token-metadata-creator``` if in the global PATH|
-  
-  **Overwritting the default settings:** You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
-  :bulb: You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
+
+  **&sup1; Optional-Option**: If the ```network``` parameter is not set.
+
+  :bulb: **Overwritting the default settings:** You can now place a file with name ```common.inc``` in the calling directory and it will be sourced by the 00_common.sh automatically. So you can overwrite the setting-variables dynamically if you want. Or if you wanna place it in a more permanent place, you can name it ```.common.inc``` and place it in the user home directory. The ```common.inc``` in a calling directory will overwrite the one in the home directory if present. <br>
+  You can also use it to set the CARDANO_NODE_SOCKET_PATH environment variable by just calling ```source ./00_common.sh```
 
 &nbsp;<br>
 </details>
