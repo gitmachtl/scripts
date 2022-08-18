@@ -9,11 +9,11 @@
 #Check command line parameter
 if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|HYBRID|ENC|HYBRIDENC)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hybrid> [Account# 0-1000 for HW-Wallet-Path, Default=0]
+ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hybrid | hybridenc> [Account# 0-1000 for HW-Wallet-Path, Default=0]
 
 Examples:
 $(basename $0) owner cli        ... generates Payment & Staking keys via cli (was default method before)
-$(basename $0) owner enc        ... generates Payment & Staking keys via cli and encrypted them via a Password
+$(basename $0) owner enc        ... generates Payment & Staking keys via cli and encrypted via a Password
 $(basename $0) owner hw         ... generates Payment & Staking keys using Ledger/Trezor HW-Keys
 $(basename $0) owner hybrid     ... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli (comfort mode for multiowner pools)
 $(basename $0) owner hybridenc  ... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli and encrypted via a Password

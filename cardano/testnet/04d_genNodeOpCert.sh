@@ -28,6 +28,11 @@ else
 fi
 
 
+kesVkeyFile="${nodeName}.kes-${latestKESnumber}.vkey"
+if ! [[ -f "${kesVkeyFile}" ]]; then echo -e "\e[0mERROR - Cannot find '${}kesVkeyFile', please generate new KES Keys first using script 04c !\e[0m"; exit 2; fi
+
+
+
 loop=0
 question="Do you wanna use the given OpCertCounter"
 skeyJSON=""
@@ -89,7 +94,7 @@ if [ ! -f "${nodeName}.node.counter" ]; then
 fi
 
 echo
-echo -e "\e[0mIssue a new Node operational certificate using KES-vKey \e[32m${nodeName}.kes-${latestKESnumber}.vkey\e[0m and Cold-sKey \e[32m${nodeName}.node.skey/hwsfile\e[0m:"
+echo -e "\e[0mIssue a new Node operational certificate using KES-vKey \e[32m${kesVkeyFile}\e[0m and Cold-sKey \e[32m${nodeName}.node.skey/hwsfile\e[0m:"
 echo
 
 #Static
@@ -119,6 +124,17 @@ currentKESperiod=$(( (${currentSlot}-${byronSlots}) / (${slotsPerKESPeriod}*${sl
 if [[ "${currentKESperiod}" -lt 0 ]]; then currentKESperiod=0; fi
 
 echo -e "\e[0mCurrent KES period:\e[32m ${currentKESperiod}\e[0m"
+
+#Reading kesVkeyFile cborHex to show the Vkey-Bech32-String
+kesVkeyBech=$(jq -r .cborHex ${kesVkeyFile} 2> /dev/null | tail -c +5 | ./bech32 "kes_vk" 2> /dev/null)
+echo -e "\e[0mKES-vKey-File Bech:\e[32m ${kesVkeyBech}\e[0m"
+
+#Show PoolID from node.vkey file
+if [ -f "${nodeName}.node.vkey" ]; then
+	poolID=$(${cardanocli} stake-pool id --cold-verification-key-file "${nodeName}.node.vkey" --output-format bech32 2> /dev/null);
+	echo -e "\e[0mOpcert for Pool-ID:\e[32m ${poolID}\e[0m"
+fi
+
 echo
 
 #Calculating Expire KES Period and Date/Time
@@ -146,7 +162,7 @@ if [ -f "${nodeName}.node.skey" ]; then #key is a normal one
                 echo -ne "\e[0mGenerating a new opcert from a cli signing key '\e[33m${nodeName}.node.skey\e[0m' ... "
 		file_unlock ${opcertFile}
 		file_unlock ${nodeName}.node.counter
-		${cardanocli} node issue-op-cert --hot-kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --cold-signing-key-file <(echo "${skeyJSON}") --operational-certificate-issue-counter-file ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${opcertFile}
+		${cardanocli} node issue-op-cert --hot-kes-verification-key-file ${kesVkeyFile} --cold-signing-key-file <(echo "${skeyJSON}") --operational-certificate-issue-counter-file ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${opcertFile}
 		checkError "$?"; if [ $? -ne 0 ]; then file_lock ${opcertFile}; file_lock ${nodeName}.node.counter; exit $?; fi
 		file_lock ${opcertFile}
 		file_lock ${nodeName}.node.counter
@@ -158,7 +174,7 @@ elif [ -f "${nodeName}.node.hwsfile" ]; then #key is a hardware wallet
                 start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		file_unlock ${opcertFile}
 		file_unlock ${nodeName}.node.counter
-                tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${nodeName}.kes-${latestKESnumber}.vkey --kes-period ${currentKESperiod} --operational-certificate-issue-counter ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${opcertFile} 2> /dev/stdout)
+                tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${kesVkeyFile} --kes-period ${currentKESperiod} --operational-certificate-issue-counter ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${opcertFile} 2> /dev/stdout)
                 if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; file_lock ${opcertFile}; file_lock ${nodeName}.node.counter; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
 		file_lock ${opcertFile}
 		file_lock ${nodeName}.node.counter

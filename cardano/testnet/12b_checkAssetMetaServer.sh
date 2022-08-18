@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 #Check can only be done in online mode
 if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; fi
@@ -51,8 +47,8 @@ fi
 
 
 #Checking Mainnet or Testnet Metadata Registry Server
-echo -e "\e[0mChecking Token-Registry (${tokenMetaServer}) for Asset-Subject: \e[32m${assetSubject}\e[0m\n"
-metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetSubject}")  #20 seconds timeout
+echo -e "\e[0mChecking Token-Registry (${tokenMetaServer}/) for Asset-Subject: \e[32m${assetSubject}\e[0m\n"
+metaResponse=$(curl -sL -m 20 "${tokenMetaServer}//${assetSubject}")  #20 seconds timeout
 
 echo -ne "\e[0mServer Response: "
 #Display Error-Message if no valid JSON returned

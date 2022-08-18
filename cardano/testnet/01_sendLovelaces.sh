@@ -72,15 +72,16 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
         #Check if an additional metadata.json/.cbor was set as parameter (not a Message, not a UTXO#IDX, not empty, not a number)
         if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
-             metafile="$(dirname "${paramValue}")/$(basename $(basename "${paramValue}" .json) .cbor)"; #metafile=${metafile//.\//}
-             if [ -f "${metafile}.json" ]; then metafile="${metafile}.json"
+	     metafile=${paramValue}; metafileExt=${metafile##*.}
+             if [[ -f "${metafile}" && "${metafileExt^^}" == "JSON" ]]; then #its a json file
                 #Do a simple basic check if the metadatum is in the 0..65535 range
                 metadatum=$(jq -r "keys_unsorted[0]" "${metafile}" 2> /dev/null)
                 if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
                 #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
-   		if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
+   		if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then
+			echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
                 metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
-             elif [ -f "${metafile}.cbor" ]; then metafile="${metafile}.cbor"
+             elif [[ -f "${metafile}" && "${metafileExt^^}" == "CBOR" ]]; then #its a cbor file
                 metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
 	     else echo -e "The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again."; exit 1;
              fi
@@ -327,7 +328,7 @@ echo
                         assetBech=${assetBechArray[${tmpCnt}]}
                         assetHashHex="${assetHashName//./}" #remove a . if present, we need a clean subject here for the registry request
 
-                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
+                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}/${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
                                 metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
                                 metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
                         fi
@@ -491,9 +492,20 @@ rm ${txFile} 2> /dev/null
 #If payment address is a hardware wallet, use the cardano-hw-cli for the signing
 if [[ -f "${fromAddr}.hwsfile" ]]; then
 
+#	currentAuxHash=$(cat ${txBodyFile} | sed -n "s/.*f5\(d90103.*\)\"/\1/p" | xxd -r -ps | b2sum -l 256 -b | awk {'print $1'}) #holds the expected auxhash
+#	currentAuxHash=$(cat ${txBodyFile} | sed -n "s/.*\($currentAuxHash\).*/\1/p") #holds the auxhash if it was found in the txcbor as a proof
+
 	echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
 	tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
         echo -e "\e[32m${tmp}\e[90m\n"
+
+#	newAuxHash=$(cat ${txBodyFile} | sed -n 's/.*f5\(d90103.*\)\"/\1/p' | xxd -r -ps | b2sum -l 256 -b | awk {'print $1'})
+#	if [[ "${currentAuxHash}" != "" && "${currentAuxHash}" != "${newAuxHash}" ]]; then #only do it when the currentAuxHash holds a hash (detection worked) and if the new one is different to the old one
+#		echo -ne "\e[0mAutocorrect the AuxHash from '${currentAuxHash}' to '${newAuxHash}': "
+#		sed -i "s/${currentAuxHash}/${newAuxHash}/g" ${txBodyFile}; if [ $? -ne 0 ]; then echo -e "\e[35mCouldn't write new ${txBodyFile} with a corrected AuxHash!\e[0m\n\n"; exit 1; fi
+#		echo -e "\e[32mOK\e[90m\n"
+#	fi
+
 
 	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 	echo
@@ -510,7 +522,7 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
 	hwWalletReturnStr=""
 	if [[ ${rxcnt} == 2 ]]; then
 					#but now we have to check if its a base address, in that case we also need to add the staking.hwsfile
-					stakeFromAddr="$(basename ${fromAddr} .payment).staking"
+					stakeFromAddr="$(dirname ${fromAddr})/$(basename ${fromAddr} .payment).staking"
 					if [[ -f "${stakeFromAddr}.hwsfile" ]]; then hwWalletReturnStr="--change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeFromAddr}.hwsfile"; fi
 
 				fi
@@ -565,7 +577,7 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
                                 #Show the TxID
                                 txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam^^} =~ (MAINNET|1097911063) ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}${txID}\n\e[0m"; fi
+                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 
 			  else	#offlinestore
 				txFileJSON=$(cat ${txFile} | jq .)

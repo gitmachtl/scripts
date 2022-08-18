@@ -44,18 +44,33 @@ cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna
 #--------- Only needed if you wanna generate the right format for the NativeAsset Metadata Registry
 cardanometa="./token-metadata-creator" #Path to your token-metadata-creator binary you wanna use. If present in the Path just set it to "token-metadata-creator" without the "./" infront
 
+#--------- Only needed if you wanna change the BlockChain from the Mainnet to a Testnet Chain Setup, uncomment the network you wanna use by removing the leading #
+#          Using a preconfigured network name automatically loads and sets the magicparam, addrformat and byronToShelleyEpochs parameters, also API-URLs, etc.
 
-#--------- Only needed if you wanna change the BlockChain from the Mainnet to a Testnet Chain Setup
-byronToShelleyEpochs=208 	#choose 208 for the mainnet, 74 for the public testnet
-magicparam="--mainnet"          #choose "--mainnet" for mainnet or "--testnet-magic 1097911063" for the public testnet
-addrformat="--mainnet"          #choose "--mainnet" for mainnet address format or "--testnet-magic 1097911063" for the testnet address format
+#network="Mainnet" 	#Mainnet (Default)
+#network="PreProd" 	#PreProd (new default Testnet)
+#network="Preview"	#Preview (new fast Testnet)
+#network="Vasil-Dev"	#Vasil-Dev TestChain
+#network="Legacy"	#Legacy TestChain (formally known as Public-Testnet)
+
+#--------- You can of course specify your own values by setting a new network=, magicparam=, addrformat= and byronToShelleyEpochs= parameter :-)
+#network="new-devchain"; magicparam="--testnet-magic 11111"; addrformat="--testnet-magic 11111"; byronToShelleyEpochs=6 #Custom Chain settings
+
+
+
+
 
 
 #--------- some other stuff -----
 showVersionInfo="yes"		#yes/no to show the version info and script mode on every script call
 queryTokenRegistry="yes"	#yes/no to query each native asset/token on the token registry server live
 cropTxOutput="yes"		#yes/no to crop the unsigned/signed txfile outputs on transactions to a max. of 4000chars
-checkByronShelleyEpochs="yes"	#yes/no to do an automated check for the two common used settings mainnet/testnet(1097911063)
+
+
+
+
+
+
 
 
 
@@ -67,32 +82,129 @@ checkByronShelleyEpochs="yes"	#yes/no to do an automated check for the two commo
 #
 ##############################################################################################################################
 
-#Token Metadata API URLs -> autoresolve into ${tokenMetaServer}
-tokenMetaServer_mainnet="https://tokens.cardano.org/metadata/" #mainnet
-tokenMetaServer_testnet="https://metadata.cardano-testnet.iohkdev.io/metadata/"	#public testnet
 
-#URLS for the Transaction-Explorers -> autoresolve into ${transactionExplorer}
-transactionExplorer_mainnet="https://cardanoscan.io/transaction/"
-transactionExplorer_testnet="https://testnet.cardanoscan.io/transaction/"
+#-------------------------------------------------------
+#DisplayMajorErrorMessage
+majorError() {
+echo -e "\e[97m\n" > $(tty)
+echo -e "         _ ._  _ , _ ._\n        (_ ' ( \`  )_  .__)\n      ( (  (    )   \`)  ) _)\n     (__ (_   (_ . _) _) ,__)\n         \`~~\`\\ ' . /\`~~\`\n              ;   ;\n              /   \\ \n_____________/_ __ \\___________________________________________\n" > $(tty)
+echo -e "\e[35m${1}\n\nIf you think all is right at your side, please check the GitHub repo if there\nis a newer version/bugfix available, thx: https://github.com/gitmachtl/scripts\e[0m\n" > $(tty); exit 1;
+}
+#-------------------------------------------------------
 
-#Pool-Importhelper Live-API-Helper
-poolImportAPI="https://api.crypto2099.io/v1/pool/"
 
-#Koios-API URLs -> autoresolve into ${koiosAPI}
-koiosAPI_mainnet="https://api.koios.rest/api/v0"
-koiosAPI_testnet="https://testnet.koios.rest/api/v0"
 
-#Overwrite variables via env file if present
+#API Endpoints and Network-Settings for the various chains
+
+network=${network:-mainnet} #sets the default network to mainnet, if not set otherwise
+unset _magicparam _addrformat _byronToShelleyEpochs _tokenMetaServer _transactionExplorer _koiosAPI _adahandlePolicyID
+
+#Load and overwrite variables via env files if present
 scriptDir=$(dirname "$0" 2> /dev/null)
 if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
+#Set the list of preconfigured networknames
+networknames="mainnet, preprod, preview, legacy, vasildev"
+
+#Check if there are testnet parameters set but network is still "mainnet"
+if [[ "${magicparam}${addrformat}" == *"testnet"* && "${network,,}" == "mainnet" ]]; then majorError "Mainnet selected, but magicparam(${magicparam})/addrformat(${addrformat}) have testnet settings!\n\nPlease select the right chain in the '00_common.sh', '${scriptDir}/common.inc', '$HOME/.common.inc' or './common.inc' file by setting the value for the parameter network to one of the preconfiged networknames:\n${networknames}\n\nThere is no need anymore, to set the parameters magicparam/addrformat/byronToShelleyEpochs for the preconfigured networks. Its enough to specify it for example with: network=\"preprod\"\nOf course you can still set them and also set a custom networkname like: network=\"vasil-dev\""; exit 1; fi
+
+
+#Preload the variables, based on the "network" name
+case "${network,,}" in
+
+	"mainnet" )
+		network="Mainnet"	#nicer name for info-display
+		_magicparam="--mainnet"	#MagicParameter Extension --mainnet / --testnet-magic xxx
+		_addrformat="--mainnet"	#Addressformat for the address generation, normally the same as magicparam
+		_byronToShelleyEpochs=208	#The number of Byron Epochs before the Chain forks to Shelley-Era
+		_tokenMetaServer="https://tokens.cardano.org/metadata/"		#Token Metadata API URLs -> autoresolve into ${tokenMetaServer}/
+		_transactionExplorer="https://cardanoscan.io/transaction/" 	#URLS for the Transaction-Explorers -> autoresolve into ${transactionExplorer}/
+		_koiosAPI="https://api.koios.rest/api/v0"	#Koios-API URLs -> autoresolve into ${koiosAPI}
+		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		;;
+
+
+	"legacy" )
+		network="Legacy"
+		_magicparam="--testnet-magic 1097911063"
+		_addrformat="--testnet-magic 1097911063"
+		_byronToShelleyEpochs=74
+		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
+		_transactionExplorer="https://testnet.cexplorer.io/tx"
+		_koiosAPI="https://testnet.koios.rest/api/v0"
+		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
+		;;
+
+
+	"preprod"|"pre-prod" )
+		network="PreProd"
+		_magicparam="--testnet-magic 1"
+		_addrformat="--testnet-magic 1"
+		_byronToShelleyEpochs=4
+		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
+		_transactionExplorer="https://testnet.cardanoscan.io/transaction"
+		_koiosAPI=
+		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
+		;;
+
+
+	"preview" )
+		network="Preview"
+		_magicparam="--testnet-magic 2"
+		_addrformat="--testnet-magic 2"
+		_byronToShelleyEpochs=0
+		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
+		_transactionExplorer=
+		_koiosAPI=
+		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
+		;;
+
+
+	"vasildev"|"vasil-dev" )
+		network="Vasil-Dev"
+		_magicparam="--testnet-magic 9"
+		_addrformat="--testnet-magic 9"
+		_byronToShelleyEpochs=0
+		_tokenMetaServer=
+		_transactionExplorer=
+		_koiosAPI=
+		_adahandlePolicyID=
+		;;
+
+esac
+
+
+#Pool-Importhelper Live-API-Helper
+poolImportAPI="https://api.crypto2099.io/v1/pool/"
+
+
+#Assign the values to the used variables if not defined before with an other value
+magicparam=${magicparam:-"${_magicparam}"}
+addrformat=${addrformat:-"${_addrformat}"}
+byronToShelleyEpochs=${byronToShelleyEpochs:-"${_byronToShelleyEpochs}"}
+tokenMetaServer=${tokenMetaServer:-"${_tokenMetaServer}"}
+transactionExplorer=${transactionExplorer:-"${_transactionExplorer}"}
+koiosAPI=${koiosAPI:-"${_koiosAPI}"}
+adahandlePolicyID=${adahandlePolicyID:-"${_adahandlePolicyID}"}
+
+#Check about the / at the end of the URLs
+if [[ "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer=${tokenMetaServer%?}; fi #make sure the last char is not a /
+if [[ "${koiosAPI: -1}" == "/" ]]; then koiosAPI=${koiosAPI%?}; fi #make sure the last char is not a /
+if [[ "${transactionExplorer: -1}" == "/" ]]; then transactionExplorer=${transactionExplorer%?}; fi #make sure the last char is not a /
+
+
+#Check about the needed chain params
+if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
+
+
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
 minNodeVersion="1.35.2"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="4.0.0"  #minimum version for the cardano-app on the Ledger hardwarewallet
-minTrezorCardanoAppVersion="2.4.3"  #minimum version for the cardano-app on the Trezor hardwarewallet
+minLedgerCardanoAppVersion="1.4.2"  #minimum version for the cardano-app on the Ledger HW-Wallet
+minTrezorCardanoAppVersion="2.4.3"  #minimum version for the firmware on the Trezor HW-Wallet
 minHardwareCliVersion="1.10.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
@@ -101,11 +213,6 @@ export CARDANO_NODE_SOCKET_PATH=${socket}
 #Set the bc linebreak to a big number so we can work with really biiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiig numbers
 export BC_LINE_LENGTH=1000
 
-#Other constants
-adahandlePolicyID_mainnet="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"
-adahandlePolicyID_testnet="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
-
-
 #Setting online/offline variables and offlineFile default value, versionInfo, tokenRegistryquery, tx output cropping to boolean values
 if [[ "${offlineMode^^}" == "YES" ]]; then offlineMode=true; onlineMode=false; else offlineMode=false; onlineMode=true; fi
 if [[ "${offlineFile}" == "" ]]; then offlineFile="./offlineTransfer.json"; fi
@@ -113,14 +220,6 @@ if [[ "${showVersionInfo^^}" == "NO" ]]; then showVersionInfo=false; else showVe
 if [[ "${queryTokenRegistry^^}" == "NO" ]]; then queryTokenRegistry=false; else queryTokenRegistry=true; fi
 if [[ "${cropTxOutput^^}" == "NO" ]]; then cropTxOutput=false; else cropTxOutput=true; fi
 
-#-------------------------------------------------------
-#DisplayMajorErrorMessage
-majorError() {
-echo -e "\e[97m\n"
-echo -e "         _ ._  _ , _ ._\n        (_ ' ( \`  )_  .__)\n      ( (  (    )   \`)  ) _)\n     (__ (_   (_ . _) _) ,__)\n         \`~~\`\\ ' . /\`~~\`\n              ;   ;\n              /   \\ \n_____________/_ __ \\___________________________________________\n"
-echo -e "\e[35m${1}\n\nIf you think all is right at your side, please check the GitHub repo if there\nis a newer version/bugfix available, thx: https://github.com/gitmachtl/scripts\e[0m\n"; exit 1;
-}
-#-------------------------------------------------------
 
 #-------------------------------------------------------------
 #Do a cli and node version check
@@ -166,7 +265,11 @@ if ${showVersionInfo}; then
 							if [ ! -e "${socket}" ]; then echo -ne "\n\n\e[35mWarning: Node-Socket does not exist !\e[0m"; fi
 				fi
 
-				if [[ "${magicparam}" == *"testnet"* ]]; then echo -ne "\t\t\e[0mTestnet-Magic: \e[91m$(echo ${magicparam} | cut -d' ' -f 2) \e[0m"; fi
+				if [[ "${magicparam}" == *"mainnet"* ]]; then
+					echo -ne "\t\t\e[32mMainnet\e[0m";
+				else
+					echo -ne "\t\t\e[91mTestnet: ${network} (magic $(echo ${magicparam} | awk {'print $2'}))\e[0m";
+				fi
 
 echo
 echo
@@ -177,15 +280,6 @@ fi
 if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
 if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
-
-
-#-------------------------------------------------------------
-#Do an additional check that the byronToShelley Epoch is set correctly for mainnet and the public testnet
-if [[ "${checkByronShelleyEpochs^^}" == "YES" ]]; then
-	if [[ "${magicparam}" == *"mainnet"* ]] && [[ ${byronToShelleyEpochs} -ne 208 ]]; then majorError "ByronToShelleyEpochs Setting ERROR - You've set the MagicParam to '${magicparam}', the Cardano Mainnet.\nThe ByronToShelleyEpoch-Parameter in your settings should be 208 and not ${byronToShelleyEpochs} !\nPlease set the correct value in your 00_common.sh / common.inc file.\n\nYou can disable this check via the checkByronShelleyEpochs=\"no\" parameter."; exit 1;
-	elif [[ "${magicparam}" == *"1097911063"* ]] && [[ ${byronToShelleyEpochs} -ne 74 ]]; then majorError "ByronToShelleyEpochs Setting ERROR - You've set the MagicParam to '${magicparam}', the Cardano Testnet.\nThe ByronToShelleyEpoch-Parameter in your settings should be 74 and not ${byronToShelleyEpochs} !\nPlease set the correct value in your 00_common.sh / common.inc file.\n\nYou can disable this check via the checkByronShelleyEpochs=\"no\" parameter."; exit 1;
-	fi
-fi
 
 
 #-------------------------------------------------------------
@@ -201,20 +295,6 @@ if ! exists xxd; then echo -e "\e[33mYou need the little tool 'xxd', its needed 
 tempDir=$(dirname $(mktemp tmp.XXXX -ut))
 
 
-#-------------------------------------------------------------
-#Setting Mainnet or Testnet Metadata Registry Server & transactionExplorer
-if [[ "${magicparam}" == *"mainnet"* ]]; then #mainnet
-					   	tokenMetaServer=${tokenMetaServer_mainnet};
-						transactionExplorer=${transactionExplorer_mainnet};
-						koiosAPI=${koiosAPI_mainnet};
-						adahandlePolicyID=${adahandlePolicyID_mainnet}
-					 else #testnet
-						tokenMetaServer=${tokenMetaServer_testnet};
-						transactionExplorer=${transactionExplorer_testnet};
-						koiosAPI=${koiosAPI_testnet};
-						adahandlePolicyID=${adahandlePolicyID_testnet}
-fi
-if [[ ! "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer="${tokenMetaServer}/"; fi #make sure the last char is a /
 
 
 #-------------------------------------------------------
@@ -297,12 +377,12 @@ ask_pass() {
 #Subroutines to set read/write flags for important files
 file_lock()
 {
-if [ -f "$1" ]; then chmod 400 $1; fi
+if [ -f "$1" ]; then chmod 400 "$1"; fi
 }
 
 file_unlock()
 {
-if [ -f "$1" ]; then chmod 600 $1; fi
+if [ -f "$1" ]; then chmod 600 "$1"; fi
 }
 #-------------------------------------------------------
 
@@ -380,7 +460,7 @@ echo ${currentTip}
 #Subroutines to calculate current TTL
 get_currentTTL()
 {
-echo $(( $(get_currentTip) + 100000 )) #changed from 10000 to 100000 so a little over a day to have time to collect witnesses if needed
+echo $(( $(get_currentTip) + 100000 )) #100000 so a little over a day to have time to collect witnesses and transmit the transaction
 }
 #-------------------------------------------------------
 
@@ -412,7 +492,7 @@ fi
 #Displays an Errormessage if parameter is not 0
 checkError()
 {
-if [[ $1 -ne 0 ]]; then echo -e "\n\n\e[35mERROR (Code $1) !\e[0m\n"; exit 1; fi
+if [[ $1 -ne 0 ]]; then echo -e "\n\n\e[35mERROR (Code $1) !\e[0m\n"; exit $1; fi
 }
 #-------------------------------------------------------
 
@@ -443,70 +523,6 @@ if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--babbage-era" ]]; 
 #-------------------------------------------------------
 
 
-#-------------------------------------------------------
-#Converts a raw UTXO query output into the new UTXO JSON style since 1.26.0, but with stringnumbers
-#Old Version that used jq to build up the json structur, was replaced by the new version
-generate_UTXO_old()  #Parameter1=RawUTXO, Parameter2=Address
-{
-
-  #Convert given bech32 address into a base16(hex) address, not needed in theses scripts, but to make a true 1:1 copy of the normal UTXO JSON output
-  #local utxoAddress=$(${cardanocli} address info --address ${2} 2> /dev/null | jq -r .base16); if [[ $? -ne 0 ]]; then local utxoAddress=${2}; fi
-  local utxoAddress=${2}
-  local utxoJSON="{}" #start with a blank JSON skeleton
-
-  while IFS= read -r line; do
-  IFS=' ' read -ra utxo_entry <<< "${line}" # utxo_entry array holds entire utxo string
-
-  local utxoHashIndex="${utxo_entry[0]}#${utxo_entry[1]}"
-
-  #There are lovelaces on the UTXO -> check if the name is "lovelace" or if there are just 3 arguments
-  if [[ "${utxo_entry[3]}" == "lovelace" ]] || [[ ${#utxo_entry[@]} -eq 3 ]]; then
-						local idx=5; #normal indexstart for the next checks
-    						local utxoAmountLovelaces=${utxo_entry[2]};
-					      else
-						local idx=2; #earlier indexstart, because no lovelaces present
-						local utxoAmountLovelaces=0;
-  fi
-
-  #Build the entry for each UtxoHashIndex
-  local utxoJSON=$( jq ".\"${utxoHashIndex}\".address = \"${utxoAddress}\"" <<< ${utxoJSON})
-  local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.lovelace = \"${utxoAmountLovelaces}\"" <<< ${utxoJSON})
-
-  local idxCompare=$(( ${idx} - 1 ))
-
-  #Add the Token entries if tokens available, also check for data (script) entries
-  if [[ ${#utxo_entry[@]} -gt ${idxCompare} ]]; then # contains tokens
-
-    while [[ ${#utxo_entry[@]} -gt ${idx} ]]; do  #check if there are more entries, and the amount is a number
-      local next_entry=${utxo_entry[${idx}]}
-
-      #if the next entry is a number -> process asset/tokendata
-      if [[ "${next_entry}" =~ ^[0-9]+$ ]]; then
-	      local asset_amount=${next_entry}
-	      local asset_hash_name="${utxo_entry[$((idx+1))]}"
-	      IFS='.' read -ra asset <<< "${asset_hash_name}"
-	      local asset_policy=${asset[0]}
-	      local asset_name=${asset[1]}
-#	      local asset_name=$(convert_assetNameASCII2HEX ${asset[1]}) #AssetNames in HEX testing
-	      #Add the Entry of the Token
-	      local utxoJSON=$( jq ".\"${utxoHashIndex}\".value.\"${asset_policy}\" += { \"${asset_name}\": \"${asset_amount}\" }" <<< ${utxoJSON})
-	      local idx=$(( ${idx} + 3 ))
-     #if its a data entry, add the data-key field to the json output
-     elif [[ "${next_entry}" == "TxOutDatumHash" ]] && [[ "${utxo_entry[$((idx+1))]}" == *"Data"* ]]; then
-	      local data_entry_hash=${utxo_entry[$((idx+2))]}
-	      local utxoJSON=$( jq ".\"${utxoHashIndex}\".datumhash = \"${data_entry_hash//\"/}\"" <<< ${utxoJSON})
-	      local idx=$(( ${idx} + 4 ))
-     else
-	      local idx=$(( ${idx} + 1 ))
-     fi
-
-    done
-  fi
-
-done < <(printf "${1}\n" | tail -n +3) #read in from parameter 1 (raw utxo) but cut first two lines
-echo "${utxoJSON}"
-}
-#-------------------------------------------------------
 
 #-------------------------------------------------------
 #Converts a raw UTXO query output into the new UTXO JSON style since 1.26.0, but with stringnumbers
@@ -559,7 +575,6 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 	      #Open up a policy if it is a different one
 	      if [[ "${asset_policy}" != "${old_asset_policy}" ]]; then #open up a new policy
 			if ${policy_open}; then local utxoJSON="${utxoJSON%?}}"; fi #close the previous policy first and remove the last , from the last assetname entry of the previous policy
-#			local utxoJSON="${utxoJSON}, \"${asset_policy}\": {"
 			local utxoJSON+=", \"${asset_policy}\": {"
 			local policy_open=true
 			local old_asset_policy=${asset_policy}
@@ -578,8 +593,12 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
 	      #Add the Entry for the data(datumhash)
               local utxoJSON+=",\"datumhash\": \"${data_entry_hash//\"/}\""
               local idx=$(( ${idx} + 4 ))
+
+     #stop the decoding if an entry related to a "Datum" is found that is not the "TxOutDatumHash" from above, can be extended in the future if needed
+     elif [[ "${next_entry^^}" == *"DATUM"* ]]; then break
+
      else
-              local idx=$(( ${idx} + 1 ))
+              local idx=$(( ${idx} + 1 ))  #go to the next entry of the array
      fi
     done
   fi
@@ -1145,6 +1164,9 @@ echo -ne "\e[33mPlease connect & unlock your Hardware-Wallet, open the Cardano-A
 local tmp=$(${cardanohwcli} device version 2> /dev/stdout)
 local pointStr="....."
 until [[ "${tmp}" == *"app version"* && ! "${tmp}" == *"undefined"* ]]; do
+
+	if [[ "${tmp}" == *"General error"* ]]; then tmp="Cardano App not opened?"; fi
+
 	local tmpCnt=6
 	while [[ ${tmpCnt} > 0 ]]; do
 	tmpCnt=$(( ${tmpCnt} - 1 ))
@@ -1157,16 +1179,21 @@ done
 local walletManu=$(echo "${tmp}" |& head -n 1 |& awk {'print $1'})
 local versionApp=$(echo "${tmp}" |& head -n 1 |& awk {'print $4'})
 
+#Check if the function was set to be only available on a specified manufacturer hw wallet
+if [ ! "${onlyForManu}" == "" ]  && [ ! "${onlyForManu}" == "${walletManu^^}" ]; then echo -e "\n\e[35mError - This function is NOT available on this type of Hardware-Wallet, only available on a ${onlyForManu} device at the moment!\e[0m\n"; exit 1; fi
+
 case ${walletManu^^} in
 
 	LEDGER ) #For Ledger Hardware-Wallets
 		versionCheck "${minLedgerCardanoAppVersion}" "${versionApp}"
 		if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a Cardano App version ${minLedgerCardanoAppVersion} or higher on your LEDGER Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+		echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m (HW-Cli Version \e[32m${versionHWCLI}\e[0m) found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
 		;;
 
         TREZOR ) #For Trezor Hardware-Wallets
                 versionCheck "${minTrezorCardanoAppVersion}" "${versionApp}"
                 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use Firmware version ${minTrezorCardanoAppVersion} or higher on your TREZOR Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+		echo -ne "\r\033[1A\e[0mFirmware-Version \e[32m${versionApp}\e[0m (HW-Cli Version \e[32m${versionHWCLI}\e[0m) found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
                 ;;
 
 	* ) #For any other Manuf.
@@ -1174,10 +1201,6 @@ case ${walletManu^^} in
 		;;
 esac
 
-#Check if the function was set to be only available on a specified manufacturer hw wallet
-if [ ! "${onlyForManu}" == "" ]  && [ ! "${onlyForManu}" == "${walletManu^^}" ]; then echo -e "\n\e[35mError - This function is NOT available on this type of Hardware-Wallet, only available on a ${onlyForManu} device at the moment!\e[0m\n"; exit 1; fi
-
-echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m (HW-Cli Version \e[32m${versionHWCLI}\e[0m) found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
 }
 
 #-------------------------------------------------------
