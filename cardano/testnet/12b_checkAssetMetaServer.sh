@@ -48,7 +48,7 @@ fi
 
 #Checking Mainnet or Testnet Metadata Registry Server
 echo -e "\e[0mChecking Token-Registry (${tokenMetaServer}/) for Asset-Subject: \e[32m${assetSubject}\e[0m\n"
-metaResponse=$(curl -sL -m 20 "${tokenMetaServer}//${assetSubject}")  #20 seconds timeout
+metaResponse=$(curl -sL -m 20 "${tokenMetaServer}/${assetSubject}")  #20 seconds timeout
 
 echo -ne "\e[0mServer Response: "
 #Display Error-Message if no valid JSON returned
