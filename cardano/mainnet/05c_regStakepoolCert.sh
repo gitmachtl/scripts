@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 #Check command line parameter
 case $# in
@@ -58,6 +54,7 @@ regCertFile=$(readJSONparam "regCertFile"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaUrl=$(readJSONparam "poolMetaUrl"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaHash=$(readJSONparam "poolMetaHash"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaTicker=$(readJSONparam "poolMetaTicker"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolIDbech=$(readJSONparam "poolIDbech"); if [[ ! $? == 0 ]]; then exit 1; fi
 regProtectionKey=$(jq -r .regProtectionKey <<< ${poolJSON} 2> /dev/null); if [[ "${regProtectionKey}" == null ]]; then regProtectionKey=""; fi
 
 #Checks for needed local files
@@ -78,9 +75,25 @@ if [[ "${regWitnessID}" == "" ]]; then
 	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = {}" <<< ${poolJSON});
 	poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = {}" <<< ${poolJSON});
 
-	#Force registration instead of re-registration via optional command line command "force"
+	#Force registration instead of re-registration via optional command line command "REG"
+	#Force re-registration instead of registration via optional command line command "REREG"
 	if [[ "${forceParam}" == "" ]]; then
 		deregSubmitted=$(jq -r .deregSubmitted <<< ${poolJSON} 2> /dev/null); if [[ ! "${deregSubmitted}" == null ]]; then echo -e "\n\e[35mERROR - I'am confused, the pool was registered and retired before. Please specify if you wanna register or reregister the pool now with the optional keyword REG or REREG !\e[0m\n"; exit 1; fi
+
+		#In Online-Mode check if the Pool is already registered on the chain, if so print an info that the method was forced to a REREG
+		if ${onlineMode}; then
+		        #check that the node is fully synced, otherwise the opcertcounter query could return a false state
+		        if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced, please let your node sync to 100% first !\e[0m\n"; exit 2; fi
+
+			#check if the poolIDbech is already on the chain
+			poolsInLedger=$(${cardanocli} query stake-pools ${magicparam} 2> /dev/null); checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not query if Pool-ID is already on the chain.\e[0m\n"; exit 1; fi
+			poolInLedgerCnt=$(grep  "${poolIDbech}" <<< ${poolsInLedger} | wc -l)
+			if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -e "Pool-ID is already on the chain, continue with a Re-Registration\e[0m\n"; regSubmitted="xxx";
+			elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "Pool-ID is not on the chain yet, continue with a normal Registration\e[0m\n"; regSubmitted="";
+			else echo -e "\e[35mERROR - The Pool-ID is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m\n"; exit 2;
+			fi
+		fi
+
 	elif [[ "${forceParam^^}" == "REG" ]]; then regSubmitted="";  	#force a new registration
 	elif [[ "${forceParam^^}" == "REREG" ]]; then regSubmitted="xxx";	#force a re-registration
 	fi
@@ -140,8 +153,14 @@ if [[ "${regWitnessID}" == "" ]]; then #New witness collection
 	fi
 fi
 
-echo -e "\e[0m(Re)Register StakePool Certificate\e[32m ${regCertFile}\e[0m and Owner-Delegations with funds from Address\e[32m ${regPayName}.addr\e[0m:"
-echo
+
+if [[ "${regSubmitted}" == "" ]]; then  #pool not registered before -> registration
+	echo -e "\e[0mRegister new StakePool Certificate\e[32m ${regCertFile}\e[0m and Owner-Delegations with funds from Address\e[32m ${regPayName}.addr\e[0m:"
+	echo
+				  else	#pool was registered before -> re-registration
+	echo -e "\e[0mRe-Register StakePool Certificate\e[32m ${regCertFile}\e[0m and Owner-Delegations with funds from Address\e[32m ${regPayName}.addr\e[0m:"
+	echo
+fi
 
 if ${onlineMode}; then
 
@@ -308,8 +327,8 @@ if [[ "${regWitnessID}" == "" ]]; then
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
                                 case ${assetHash} in
-                                        f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a )      #$adahandle
-                                                echo -e "\e[90m                           Asset: ${assetBech}  ADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                        "${adahandlePolicyID}" )      #$adahandle
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default
                                                 echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
@@ -344,7 +363,7 @@ if [[ "${regWitnessID}" == "" ]]; then
                         assetBech=${assetBechArray[${tmpCnt}]}
                         assetHashHex="${assetHashName//./}" #remove a . if present, we need a clean subject here for the registry request
 
-                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
+                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}/${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
                                 metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
                                 metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
                         fi
@@ -358,14 +377,14 @@ if [[ "${regWitnessID}" == "" ]]; then
 
 echo
 
-minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
+minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
 
 #------------------------------------------------------------------
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+0${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} transaction build-raw --cddl-format ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -438,10 +457,17 @@ poolJSON=$(jq ".regWitness.hardwareWalletIncluded = \"${hardwareWalletIncluded}\
 #Fill the witness count with the node-coldkey witness
 if [ -f "${poolName}.node.skey" ]; then #key is a normal one
 
+        #read the needed signing keys into ram
+        skeyJSON=$(read_skeyFILE "${poolName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
 	echo -ne "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ... "
-	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${poolName}.node.skey ${magicparam} --out-file /dev/stdout)
+	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	echo -e "\e[32mOK\n"
+
+        #forget the signing keys
+        unset skeyJSON
+
 	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
 
 elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
@@ -464,11 +490,19 @@ else
 fi
 
 #Fill the witnesses with the local payment witness, must be a normal cli skey
-echo -ne "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ... "
-tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${regPayName}.skey ${magicparam} --out-file /dev/stdout)
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-echo -e "\e[32mOK\n"
-poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witness in the poolJSON if its a new collection
+
+	#read the needed signing keys into ram
+        skeyJSON=$(read_skeyFILE "${regPayName}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
+	echo -ne "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ... "
+	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	echo -e "\e[32mOK\n"
+
+        #forget the signing keys
+        unset skeyJSON
+
+	poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witness in the poolJSON if its a new collection
 
 #Fill the witnesses with the local owner accounts, if you wanna do this in multiple steps you should set ownerWitness: "external" in the pool.json
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
@@ -483,10 +517,18 @@ do
 
 	#Fill the witnesses with the local owner witness
 	if [ -f "${ownerName}.staking.skey" ]; then #key is a normal one
+
+	        #read the needed signing keys into ram
+	        skeyJSON=$(read_skeyFILE "${ownerName}.staking.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
 	        echo -ne "\e[0mAdding the owner witness from a local signing key '\e[33m${ownerName}.skey\e[0m' ... "
-	        tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file ${ownerName}.staking.skey ${magicparam} --out-file /dev/stdout)
+	        tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
 	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		echo -e "\e[32mOK\n"
+
+	        #forget the signing keys
+	        unset skeyJSON
+
 	        poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON
 
 	elif [ -f "${ownerName}.staking.hwsfile" ]; then #key is a hardware wallet
@@ -642,8 +684,6 @@ maxTxSize=$(jq -r .maxTxSize <<< ${protocolParametersJSON})
 if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSize} bytes (max. ${maxTxSize})\n"
                                      else echo -e "\n\e[35mError - ${txSize} bytes Transaction-Size is too big! The maximum is currently ${maxTxSize} bytes.\e[0m\n"; exit 1; fi
 
-
-
 #Do temporary witness file cleanup
 for (( tmpCnt=0; tmpCnt<${witnessCnt}; tmpCnt++ ))
 do
@@ -697,7 +737,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                 #Show the TxID
                                 txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                if [[ ${magicparam^^} =~ (MAINNET|1097911063) ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}${txID}\n\e[0m"; fi
+                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 
 
 				#Display information to manually register the OwnerDelegationCertificates on the chain if a hardware-wallet is involved. With only cli based staking keys, we can include all the delegation certificates in one transaction

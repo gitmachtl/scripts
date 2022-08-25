@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 #Display usage instructions
 showUsage() {
