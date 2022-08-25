@@ -563,6 +563,18 @@ Also you can force the script to do a re-registration by adding the keyword RERE
 
 &nbsp;<br>
 </details>
+
+   
+<details><summary><b>05e_checkPoolOnChain.sh:</b> gives you Status Information if the specified PoolName or PoolID is registered on the chain:bookmark_tabs:</summary>
+
+<br>```./05e_checkPoolOnChain.sh <PoolNodeName or PoolID-Hex "5e12e18..." or PoolID-Bech "pool1...">``` 
+<br>```05e_checkPoolOnChain.sh mypool``` checks if the pool mypool is on the chain (it automatically checks the files mypool.pool.id, mypool.pool.id-bech, mypool.pool.json)
+<br>```05e_checkPoolOnChain.sh pool18yslg3q320jex6gsmetukxvzm7a20qd90wsll9anlkrfua38flr``` checks if the pool with the given bech pool-id is on the chain
+<br>```05e_checkPoolOnChain.sh 3921f4441153e5936910de57cb1982dfbaa781a57ba1ff97b3fd869e``` checks if the pool with the given hex pool-id is on the chain
+   
+&nbsp;<br>
+</details>
+   
    
 <details><summary><b>06_regDelegationCert.sh:</b> register a simple delegation (from 05b) name.deleg.cert:bookmark_tabs:</summary>
 
@@ -1648,7 +1660,9 @@ We want to make ourself a pool owner stake address with the nickname owner, we w
 1. Delegate to your own pool as owner -> **pledge** ```./05b_genDelegationCert.sh mypool owner``` this will generate the **owner.deleg.cert**
 1. :bulb: **Upload** the generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool smallwallet1```
-1. Optionally you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner``` if you don't see it instantly, wait a little and retry the same command
+1. Wait a minute so the transaction and stakepool registration is completed
+1. Check that the pool is successfully registered by running<br>```./05e_checkPoolOnChain.sh mypool```
+1. You can also verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner``` if you don't see it instantly, wait a little and retry the same command
 
 :warning: Make sure you transfer enough ADA to your new **owner.payment.addr** so you respect the registered Pledge amount, otherwise you will not get any rewards for you or your delegators!
 
@@ -1717,6 +1731,7 @@ ledgerowner as owner and also as rewards-account. We do the signing on the machi
 1. :bulb: **Upload** the generated ```mypool.metadata.json``` file **onto your webserver** so that it is reachable via the URL you specified in the poolMetaUrl entry! Otherwise the next step will abort with an error.
 1. Register your stakepool on the blockchain, smallwallet1 will pay for the registration fees<br>```./05c_regStakepoolCert.sh mypool smallwallet1```
 1. Wait a minute so the transaction and stakepool registration is completed
+1. Check that the pool is successfully registered by running<br>```./05e_checkPoolOnChain.sh mypool```
 1. Send all owner delegations to the blockchain. :bulb: Notice! This is different than before when using only CLI-Owner-Keys, if any owner is a HW-Wallet than you have to send the individual delegations after the stakepool registration. You can read more about it [here](#changes-to-the-operator-workflow-when-hardware-wallets-are-involved).<br>We have only one owner so lets do this by running the following command, **the HW-Wallet itself must pay for this**<br>```./06_regDelegationCert.sh ledgerowner ledgerowner.payment```
 1. Wait a minute so the transaction and delegation certificate is completed
 1. Verify that your owner delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it instantly, wait a little and retry the same command
@@ -1741,6 +1756,7 @@ We want to make ourself a pool owner stake address with the nickname ledgerowner
    See your options in the section [here](#choose-your-preferred-key-type-for-your-owner-pledge-accounts) to choose between CLI, HW and HYBRID keys.  
 1. Send some funds from your *smallwallet1* to your new *ledgerowner.payment* address for the stake key and delegation registration, 5 ADA should be ok for this ```./01_sendLovelaces.sh smallwallet1 ledgerowner.payment 5000000```
 1. Wait a minute so the transaction is completed   
+1. Check that the pool is successfully registered by running<br>```./05e_checkPoolOnChain.sh mypool```
 1. Register the ledgerowner stake key on the blockchain, **the hw-wallet itself must pay for this**<br>```./03b_regStakingAddrCert.sh ledgerowner ledgerowner.payment```
 1. Wait a minute so the transaction and stake key registration is completed
 1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it, wait a little and retry
@@ -2006,7 +2022,8 @@ It's similar to a single owner stake pool registration (example above). All owne
 <br>```./05b_genDelegationCert.sh mypool owner-1``` this will generate the owner-1.deleg.cert
 <br>```./05b_genDelegationCert.sh mypool owner-2``` this will generate the owner-2.deleg.cert
 1. Register your stakepool on the blockchain ```./05c_regStakepoolCert.sh mypool smallwallet1```    
-1. Optionally you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner-1``` and ```./03c_checkStakingAddrOnChain.sh owner-2``` if you don't see it instantly, wait a little and retry the same command
+1. Check that the pool is successfully registered by running<br>```./05e_checkPoolOnChain.sh mypool```
+1. Also you can verify that your delegation to your pool is ok by running<br>```./03c_checkStakingAddrOnChain.sh owner-1``` and ```./03c_checkStakingAddrOnChain.sh owner-2``` if you don't see it instantly, wait a little and retry the same command
 
 :warning: Don't forget to register your Rewards-Account on the Chain via script 03b if its different from an Owner-Account!
 
