@@ -97,7 +97,7 @@ Done, you have successfully installed the few little tools now on your Offline-M
 
 # How to Install the Cardano-Node
 
-We all worke closely together in the Cardano-Ecosystem, so there is no need that i repeat a How-To here. Instead i will point you to a few Tutorials that are already online and maintained. You can come back here after you have successfully installed the cardano-node. :smiley:
+We all work closely together in the Cardano-Ecosystem, so there is no need that i repeat a How-To here. Instead i will point you to a few Tutorials that are already online and maintained. You can come back here after you have successfully installed the cardano-node. :smiley:
 
 * [Cardano-Node-Installation-Guide](https://cardano-node-installation.stakepool247.eu/) by Stakepool247.eu
 * [How-to-build-a-Haskell-Stakepool-Node](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node) Coincashew-Tutorial
@@ -292,6 +292,7 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <br>```./01_sendLovelaces.sh addr1 addr1vyjz4gde3aqw7e2vgg6ftdu687pcnpyzal8ax37cjukq5fg3ng25m ALL``` send ALL lovelaces from addr1.addr to the given Bech32 address
 <br>```./01_sendLovelaces.sh addr1 '$adahandle' ALL``` send ALL lovelaces from addr1.addr to the address with the '$adahandle'
 <br>```./01_sendLovelaces.sh addr1 addr2 5000000 mymetadata.json``` to send 5 ADA from addr1.addr to addr2.addr and attach the metadata-file mymetadata.json
+<br>```./01_sendLovelaces.sh addr1 addr1 min myvoteregistration.cbor``` to send the metadata-file myvoteregistration.cbor and use the minimum required amount of lovelaces to do so
 
   :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 
@@ -344,10 +345,30 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 &nbsp;<br>
 </details>
 
+
+
+<details><summary><b>01_protectKey.sh</b> encrypts or decrypts a specified .skey file with a given password:bookmark_tabs:</summary>
+
+<br>```./01_protectKey.sh <ENC|ENCRYPT|DEC|DECRYPT> <Name of SKEY-File>```
+<br>```./01_protectKey.sh enc mywallet``` Encrypts the mywallet.skey file
+<br>```./01_protectKey.sh enc owner.payment``` Encrypts the owner.payment.skey file
+<br>```./01_protectKey.sh enc mypool.node.skey``` Encrypts the mypool.node.skey file
+<br>```./01_protectKey.sh dec mywallet``` Decrypts the mywallet.skey file
+<br>```./01_protectKey.sh dec owner.staking``` Decrypts the owner.staking.skey file
+<br>```./01_protectKey.sh dec mypool.vrf.skey``` Decrypts the mypool.vrf.skey file
+
+:bulb: There is no need to decrypt a file before usage, if an encrypted .skey file is used in a transaction, a password prompt shows up automatically!
+
+&nbsp;<br>
+</details>
+
+
+
 <details><summary><b>02_genPaymentAddrOnly.sh:</b> generates an "enterprise" address with the given name for just transfering funds:bookmark_tabs:</summary>
    
-<br>```./02_genPaymentAddrOnly.sh <name> <keymode: cli | hw> [optional Account# for HW-Wallet 0-1000]```**&sup1;**
+<br>```./02_genPaymentAddrOnly.sh <AddressName> <KeyType: cli | enc | hw> [Account# 0-1000 for HW-Wallet-Path, Default=0]```**&sup1;**
 <br>```./02_genPaymentAddrOnly.sh addr1 cli``` will generate the CLI-based files addr1.addr, addr1.skey, addr1.vkey
+<br>```./02_genPaymentAddrOnly.sh owner enc``` will generate the CLI-based and Password encrypted files addr1.addr, addr1.skey, addr1.vkey
 <br>```./02_genPaymentAddrOnly.sh addr1 hw``` will generate the HardwareWallet-based files addr1.addr, addr1.hwsfiles, addr1.vkey
 <br>```./02_genPaymentAddrOnly.sh addr2 hw 1``` will generate the HardwareWallet-based files addr2.addr, addr2.hwsfiles, addr2.vkey from subaccount #1 (default=0)<br>
 
@@ -358,15 +379,20 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
 <details><summary><b>03a_genStakingPaymentAddr.sh:</b> generates the base/payment address & staking address combo with the given name and also the stake address registration certificate:bookmark_tabs:</summary>
    
-<br>```./03a_genStakingPaymentAddr.sh <name> <keymode: cli | hw | hybrid> [optional Account# for HW-Wallet 0-1000]```**&sup1;**
+<br>```./03a_genStakingPaymentAddr.sh <AddressName> <KeyType: cli | enc | hw | hybrid | hybridenc> [Account# 0-1000 for HW-Wallet-Path, Default=0]```**&sup1;**
 
    ```./03a_genStakingPaymentAddr.sh owner cli``` will generate CLI-based files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert
+
+   ```./03a_genStakingPaymentAddr.sh owner enc``` will generate CLI-based and Password-Encrypted files owner.payment.addr, owner.payment.skey, owner.payment.vkey, owner.staking.addr, owner.staking.skey, owner.staking.vkey, owner.staking.cert
 
    ```./03a_genStakingPaymentAddr.sh owner hw``` will generate HardwareWallet-based files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey, owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
 
    ```./03a_genStakingPaymentAddr.sh owner hybrid``` will generate HardwareWallet-based payment files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey and CLI-based staking files owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
 
+   ```./03a_genStakingPaymentAddr.sh owner hybridenc``` will generate HardwareWallet-based payment files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey and CLI-based Password-Encrypted staking files owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert
+
    ```./03a_genStakingPaymentAddr.sh owner hw 5``` will generate HardwareWallet-based files owner.payment.addr, owner.payment.hwsfile, owner.payment.vkey, owner.staking.addr, owner.staking.hwsfile, owner.staking.vkey, owner.staking.cert using SubAccount #5 (Default=#0)
+
 
 :bulb: **&sup1; Expert-Option**: It is possible to specify SubAccounts on your Hardware-Wallet. Theses will derive to the Paths ```1852H/1815H/Account#/0/0``` for the payment-key and ```1852H/1815H/Account#/2/0``` for the staking-key. Be aware, not all Wallets support SubAccounts in this way! The default value is: 0
 
@@ -391,17 +417,19 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
    
 <details><summary><b>04a_genNodeKeys.sh:</b> generates the poolname.node.vkey and poolname.node.skey/hwsfile cold keys:bookmark_tabs:</summary>
 
-<br>```./04a_genNodeKeys.sh <poolname> <keytype: CLI or HW>```
-<br>```./04a_genNodeKeys.sh mypool cli``` to generate your pool/node cold keys via the cli [default]
-<br>```./04a_genNodeKeys.sh mypool hw``` to generate your pool/node cold keys via a Hardware-Wallet. The secure key stay in the Hardware-Wallet ! 
+<br>```./04a_genNodeKeys.sh <NodePoolName> <KeyType: cli | enc | hw>```
+<br>```./04a_genNodeKeys.sh mypool cli``` generates the node cold keys from standard CLI commands (was default before hw option)
+<br>```./04a_genNodeKeys.sh mypool enc``` generates the node cold keys from standard CLI commands but encrypted via a Password
+<br>```./04a_genNodeKeys.sh mypool hw``` generates the node cold keys by using a Ledger/Trezor HW-Wallet
 
 &nbsp;<br>
 </details>
    
 <details><summary><b>04b_genVRFKeys.sh:</b> generates the poolname.vrf.vkey/skey files:bookmark_tabs:</summary>
 
-<br>```./04b_genVRFKeys.sh <poolname>```
-<br>```./04b_genVRFKeys.sh mypool```
+<br>```./04b_genVRFKeys.sh <NodePoolName> <KeyType: cli | enc>```
+<br>```./04b_genVRFKeys.sh mypool cli``` generates the node VRF keys from standard CLI commands (was default before)
+<br>```./04b_genVRFKeys.sh mypool enc``` generates the node VRF keys from standard CLI commands but encrypted via a Password
 
 &nbsp;<br>
 </details>
@@ -409,8 +437,9 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 <details><summary><b>04c_genKESKeys.sh:</b> generates a new pair of poolname.kes-xxx.vkey/skey files, and updates the poolname.kes.counter file:bookmark_tabs:</summary>
    
 <br>Every time you generate a new keypair the number(xxx) autoincrements. To renew your kes/opcert before the keys of your node expires just rerun 04c and 04d!
-<br>```./04c_genKESKeys.sh <poolname>```
-<br>```./04c_genKESKeys.sh mypool```
+<br>```04c_genKESKeys.sh <NodePoolName> <KeyType: cli | enc>```
+<br>```./04c_genKESKeys.sh mypool cli``` generates the KES keys from standard CLI commands (was default before)
+<br>```./04c_genKESKeys.sh mypool enc``` generates the KES keys from standard CLI commands but encrypted via a Password
 
 &nbsp;<br>
 </details>
@@ -603,14 +632,15 @@ The script requires a poolname.pool.json file with values for at least the PoolN
 
 <details><summary><b>10_genPolicy.sh:</b> generate policy keys, signing script and id as files <b>name.policy.skey/hwsfile/vkey/script/id</b>. You need a policy for Token minting.:bookmark_tabs:</summary>
    
-<br>```./10_genPolicy.sh <PolicyName> <KeyType: cli | hw> [Optional valid xxx Slots (default=unlimited)]```
+<br>```./10_genPolicy.sh <PolicyName> <KeyType: cli | enc | hw> [Optional valid xxx Slots, Policy invalid after xxx Slots (default=unlimited)]```
   
 ```./10_genPolicy.sh mypolicy cli```<br>this will generate the policyfiles with name mypolicy.policy.skey, mypolicy.policy.vkey, mypolicy.policy.script & mypolicy.policy.id
   
 ```./10_genPolicy.sh assets/mypolicy2 hw```<br>this will generate the policyfiles with name mypolicy2.policy.skey, mypolicy2.policy.vkey, mypolicy2.policy.script & mypolicy2.policy.id in the 'assets' subdirectory on a hardware-wallet
   
 ```./10_genPolicy.sh assets/special cli 600```<br>this will generate the policyfiles with name special.policy.skey, special.policy.vkey, special.policy.script & special.policy.id in the 'assets' subdirectory with a limited minting/burning access of 600 seconds(10 mins). Within those 10 mins you can mint lets say 200000 Tokens. After this 10 mins you will not be able to mint more Tokens or burn any Tokens with that Policy. So the total amount of the Tokens made with this Policy is fixed on the chain. :smiley:
-  
+
+```./10_genPolicy.sh assets/mypolicy enc``` generates an unlimited Policy with CLI keys, but encrypted with a Password
 
 &nbsp;<br>
 </details>
@@ -834,7 +864,7 @@ The **policyName.assetName.asset** file is your Config- and Information Json for
 | Parameter | State | Description | Example |
 | :---      | :---: |    :---     | :---    |
 | metaName | **required** | Name of your NativeAsset (1-50chars) | SUPER Token |
-| metaDescription | optional | Description of your NativeAsset (max. 500chars) | This is the SUPER Token, once upon... |
+| metaDescription | **required** | Description of your NativeAsset (max. 500chars) | This is the SUPER Token, once upon... |
 | metaDecimals | optional | Number of Decimals for the Token | 0,1,2,...18 |
 | metaTicker | optional | ShortTicker Name (3-9chars) | MAX, SUPERcoin, Yeah |
 | metaUrl | optional | Secure Weblink, must start with https:// (max. 250chars) | https://wakandaforever.io |
@@ -1457,6 +1487,22 @@ If you wanna do a pool registration (next step) make sure that you have **at lea
 
 </details>
 
+## Generate some encrypted wallets for the daily operator work
+
+Similar to the example above you can directly encrypt your .skey files with a password. This enhances the security.
+
+<details>
+   <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
+   
+<br><b>Steps:</b>
+1. Create a new payment-only encrypted wallet by running<br>```./02_genPaymentAddrOnly.sh smallwallet1 enc```
+1. Fund the wallet with some ADA from your existing Daedalus or Eternl wallet. You can show the address and the current balance by running<br>
+```./01_queryAddress.sh smallwallet1```
+
+Remember, there is no need to decrypt the smallwallet1.skey file before using it. A password prompt will pop up automatically if an encrypted .skey file is detected. :smile:
+</details>
+
+
 ## Send some ADA/Lovelaces and also attach a Transaction-Message
 
 If you just wanna send some lovelaces from your smallwallet1 to your smallwallet2 or to anybody else, you can do that via the script 01_sendLovelaces.sh.<br>This script can do much more, but please checkout the Example below for a simple Transaction also with a Transaction-Message-Text. 
@@ -1562,8 +1608,8 @@ We want to make ourself a pool owner stake address with the nickname owner, we w
 1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh owner``` if you don't see it, wait a little and retry
 1. Generate the keys for your coreNode
    1. ```./04a_genNodeKeys.sh mypool cli``` ! Soon possible to also use the HW-Wallet for this via option hw !
-   1. ```./04b_genVRFKeys.sh mypool```
-   1. ```./04c_genKESKeys.sh mypool```
+   1. ```./04b_genVRFKeys.sh mypool cli```
+   1. ```./04c_genKESKeys.sh mypool cli```
    1. ```./04d_genNodeOpCert.sh mypool```
 1. Now you have all the key files to start your coreNode with them: **mypool.vrf.skey, mypool.kes-000.skey, mypool.node-000.opcert**
 1. Generate your stakepool certificate
@@ -1611,7 +1657,7 @@ We want to make ourself a pool owner stake address with the nickname owner, we w
 Done. :smiley:
 </details>
 
-## Create the StakePool with HW-Wallet-Owner-Keys (Ledger/Trezor)
+## Create the StakePool with HW-Wallet-Owner-Keys (Ledger/Trezor) and encrypted CLI-Keys
 
 We want to make ourself a pool owner stake address with the nickname ledgerowner by using a HW-Key, we want to register the pool with the poolname mypool. The poolname is only to keep the files on the harddisc in order, poolname is not a ticker!
 
@@ -1627,10 +1673,10 @@ We want to make ourself a pool owner stake address with the nickname ledgerowner
 1. Register the ledgerowner stake key on the blockchain, **the hw-wallet itself must pay for this**<br>```./03b_regStakingAddrCert.sh ledgerowner ledgerowner.payment```
 1. Wait a minute so the transaction and stake key registration is completed
 1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it, wait a little and retry
-1. Generate the keys for your coreNode
-   1. ```./04a_genNodeKeys.sh mypool cli```
-   1. ```./04b_genVRFKeys.sh mypool```
-   1. ```./04c_genKESKeys.sh mypool```
+1. Generate the keys for your coreNode and encrypt them via a password
+   1. ```./04a_genNodeKeys.sh mypool enc```
+   1. ```./04b_genVRFKeys.sh mypool enc```
+   1. ```./04c_genKESKeys.sh mypool enc```
    1. ```./04d_genNodeOpCert.sh mypool```
 1. Now you have all the key files to start your coreNode with them: **mypool.vrf.skey, mypool.kes-000.skey, mypool.node-000.opcert**
 1. Generate your stakepool certificate
@@ -1700,8 +1746,8 @@ We want to make ourself a pool owner stake address with the nickname ledgerowner
 1. Verify that your stake key in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh ledgerowner``` if you don't see it, wait a little and retry
 1. Generate the keys for your coreNode, we want to use the HW-Wallet to store the cold keys !
    1. ```./04a_genNodeKeys.sh mypool hw```
-   1. ```./04b_genVRFKeys.sh mypool```
-   1. ```./04c_genKESKeys.sh mypool```
+   1. ```./04b_genVRFKeys.sh mypool enc```
+   1. ```./04c_genKESKeys.sh mypool enc```
    1. ```./04d_genNodeOpCert.sh mypool```
 1. Now you have all the key files to start your coreNode with them: **mypool.vrf.skey, mypool.kes-000.skey, mypool.node-000.opcert**
 1. Generate your stakepool certificate
@@ -1898,7 +1944,7 @@ From time to time you have to rotate the so called HOT-Keys on your BlockProduce
    <summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 <br><b>Steps:</b>
-1. ```./04c_genKESKeys.sh mypool```
+1. ```./04c_genKESKeys.sh mypool cli```
 1. ```./04d_genNodeOpCert.sh mypool```
 
 Thats it, upload the new keys to your BlockProducer Node. Rename them or set the new right config, restart the BlockProducer Node to load the new keys.
@@ -1906,7 +1952,7 @@ Thats it, upload the new keys to your BlockProducer Node. Rename them or set the
 Done.  
 </details>
 
-## Generate & register a stake address, just delegate to a StakePool
+## Generate & register a stake address(encrypted), just delegate to a StakePool
 
 Lets say we wanna create a payment(base)/stake address combo with the nickname delegator and we wanna delegate the funds in the payment(base) address of that to the pool yourpool. (You'll need the yourpool.node.vkey for that.)
 
@@ -1914,7 +1960,7 @@ Lets say we wanna create a payment(base)/stake address combo with the nickname d
    <Summary><b>Show Example ... </b>:bookmark_tabs:<br></summary>
 
 <br><b>Steps:</b>
-1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator cli```
+1. Generate the delegator stake/payment combo with ```./03a_genStakingPaymentAddr.sh delegator enc```
 1. Send over some funds to that new address delegator.payment.addr to pay for the registration fees and to stake that also later
 1. Register the delegator stakeaddress on the blockchain ```./03b_regStakingAddrCert.sh delegator.staking delegator.payment```<br>Other example: ```./03b_regStakingAddrCert.sh delegator.staking smallwallet1``` Here you would use the funds in *smallwallet1* to pay for the fees.
 1. You can verify that your stakeaddress in now on the blockchain by running<br>```./03c_checkStakingAddrOnChain.sh delegator``` if you don't see it instantly, wait a little and retry the same command
@@ -2331,7 +2377,7 @@ You can of course use your already made and funded wallets for the following exa
 
 </details>
 
-## Create the StakePool offline with CLI-Owner-Keys
+## Create the StakePool offline with encrypted CLI-Owner-Keys and encrypted Pool-Keys
 
 We want to make a pool owner stake address the nickname owner, also we want to register a pool with the nickname mypool. The nickname is only to keep the files on the harddisc in order, nickname is not a ticker! We use the smallwallet1&2 to pay for the different fees in this process. Make sure you have enough funds on smallwallet1 & smallwallet2 for this registration.
 
@@ -2347,15 +2393,15 @@ We want to make a pool owner stake address the nickname owner, also we want to r
 
 **Offline-Machine:** (same steps like working online)
 
-1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner cli```
+1. Generate the owner stake/payment combo with ```./03a_genStakingPaymentAddr.sh owner enc```
 1. Attach the newly created payment and staking address into your offlineTransfer.json for later usage on the Online-Machine<br>```./01_workOffline.sh attach owner.payment.addr```<br>```./01_workOffline.sh attach owner.staking.addr```
 1. Generate the owner stakeaddress registration transaction and pay the fees with smallwallet1<br>```./03b_regStakingAddrCert.sh owner.staking smallwallet1```
-1. Generate the keys for your coreNode
-   1. ```./04a_genNodeKeys.sh mypool cli```
-   1. ```./04b_genVRFKeys.sh mypool```
-   1. ```./04c_genKESKeys.sh mypool```
+1. Generate encrypted keys for your Pool
+   1. ```./04a_genNodeKeys.sh mypool enc```
+   1. ```./04b_genVRFKeys.sh mypool enc```
+   1. ```./04c_genKESKeys.sh mypool enc```
    1. ```./04d_genNodeOpCert.sh mypool```
-1. Now you have all the key files to start your coreNode with them
+1. Now you have all the key files to start your Node with them (remember, before you can use them you have to decrypt them via 01_protectKey.sh)
 1. Generate your stakepool certificate
    1. ```./05a_genStakepoolCert.sh mypool```<br>will generate a prefilled mypool.pool.json file for you, edit it
    1. We want 200k ADA pledge, 10k ADA costs per epoch and 4% pool margin so let us set these and the Metadata values in the json file like
@@ -2453,10 +2499,10 @@ We use the smallwallet1 to pay for the different fees in this process. Make sure
 **Offline-Machine:**
 
 1. Generate the ledgerowner stake key registration on the blockchain, **the hw-wallet itself must pay for this**<br>```./03b_regStakingAddrCert.sh ledgerowner ledgerowner.payment```
-1. Generate the keys for your coreNode
+1. Generate the keys for your coreNode unencrypted (to encrypt them, change cli->enc)
    1. ```./04a_genNodeKeys.sh mypool cli```
-   1. ```./04b_genVRFKeys.sh mypool```
-   1. ```./04c_genKESKeys.sh mypool```
+   1. ```./04b_genVRFKeys.sh mypool cli```
+   1. ```./04c_genKESKeys.sh mypool cli```
    1. ```./04d_genNodeOpCert.sh mypool```
 1. Now you have all the key files to start your coreNode with them: **mypool.vrf.skey, mypool.kes-000.skey, mypool.node-000.opcert**
 1. You can include them also in the offlineTransfer.json to bring them over to your Online-Machine if you like by running<br>```./01_workOffline.sh attach mypool.vrf.skey```<br>```./01_workOffline.sh attach mypool.kes-000.skey```<br>```./01_workOffline.sh attach mypool.node-000.opcert```
@@ -2575,8 +2621,8 @@ We use the smallwallet1 to pay for the different fees in this process. Make sure
 1. Generate the ledgerowner stake key registration on the blockchain, **the hw-wallet itself must pay for this**<br>```./03b_regStakingAddrCert.sh ledgerowner ledgerowner.payment```
 1. Generate the keys for your coreNode, in this example with HW-Wallet secured node cold keys!
    1. ```./04a_genNodeKeys.sh mypool hw```
-   1. ```./04b_genVRFKeys.sh mypool```
-   1. ```./04c_genKESKeys.sh mypool```
+   1. ```./04b_genVRFKeys.sh mypool cli```  (to enycrypt the VRF keys, change cli->enc)
+   1. ```./04c_genKESKeys.sh mypool cli```  (to enycrypt the KES keys, change cli->enc)
    1. ```./04d_genNodeOpCert.sh mypool```
 1. Now you have all the key files to start your coreNode with them: **mypool.vrf.skey, mypool.kes-000.skey, mypool.node-000.opcert**
 1. You can include them also in the offlineTransfer.json to bring them over to your Online-Machine if you like by running<br>```./01_workOffline.sh attach mypool.vrf.skey```<br>```./01_workOffline.sh attach mypool.kes-000.skey```<br>```./01_workOffline.sh attach mypool.node-000.opcert```
