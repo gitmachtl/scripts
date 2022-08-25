@@ -9,8 +9,9 @@
 if [ $# -ge 3 ]; then
       fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr=${fromAddr};
-      policyName="$(echo $1 | cut -d. -f 1)";
-      assetMintName="$(echo $1 | cut -d. -f 2-)"; assetMintName=$(basename "${assetMintName}" .asset); assetMintInputName=${assetMintName}; #assetMintName=${assetMintName//./};
+      policyPath="$(dirname $1)"; namePart="$(basename $1 .asset)";
+      policyName="${policyPath}/${namePart%%.*}";  #path + first part of the name until the . char
+      assetMintName="${namePart##*.}"; assetMintInputName=${assetMintName}; #part of the name after the . char
       assetMintAmount="$2";
       else
       cat >&2 <<EOF
@@ -37,6 +38,7 @@ Note: If you wanna register your NativeAsset/Token on the TokenRegistry, use the
 
 EOF
   exit 1; fi
+
 
 #Check assetMintName for alphanummeric only, 32 chars max
 if [[ "${assetMintName}" == ".asset" ]]; then assetMintName="";
@@ -432,7 +434,8 @@ maxTxSize=$(jq -r .maxTxSize <<< ${protocolParametersJSON})
 if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSize} bytes (max. ${maxTxSize})\n"
                                      else echo -e "\n\e[35mError - ${txSize} bytes Transaction-Size is too big! The maximum is currently ${maxTxSize} bytes.\e[0m\n"; exit 1; fi
 
-if ask "\e[33mDoes this look good for you, continue ?" N; then
+#if ask "\e[33mDoes this look good for you, continue ?" N; then
+if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you, continue ?" N; then
         echo
         if ${onlineMode}; then  #onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node... "

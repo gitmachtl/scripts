@@ -15,8 +15,10 @@ fi
 
 case $# in
 
-  1 ) policyName="$(echo $1 | cut -d. -f 1)";
-      assetName="$(echo $1 | cut -d. -f 2-)"; assetName=$(basename "${assetName}" .asset); #assetName=${assetName//./};
+  1 )
+      policyPath="$(dirname $1)"; namePart="$(basename $1 .asset)";
+      policyName="${policyPath}/${namePart%%.*}";  #path + first part of the name until the . char
+      assetName="${namePart##*.}"; #part of the name after the . char
       ;;
 
   * ) cat >&2 <<EOF

@@ -9,8 +9,9 @@
 if [ $# -ge 3 ]; then
       fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//};
       toAddr=${fromAddr};
-      policyName="$(echo $1 | cut -d. -f 1)";
-      assetBurnName="$(echo $1 | cut -d. -f 2-)"; assetBurnName=$(basename "${assetBurnName}" .asset); assetBurnInputName=${assetBurnName}; #assetBurnName=${assetBurnName//./};
+      policyPath="$(dirname $1)"; namePart="$(basename $1 .asset)";
+      policyName="${policyPath}/${namePart%%.*}";  #path + first part of the name until the . char
+      assetBurnName="${namePart##*.}"; assetBurnInputName=${assetMintName}; #part of the name after the . char
       assetBurnAmount="$2";
       else
       cat >&2 <<EOF

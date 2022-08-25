@@ -12,8 +12,9 @@ if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!
 case $# in
 
   1 ) param1=${1,,}; #get the lowercase version
-      policyName="$(echo $1 | cut -d. -f 1)";
-      assetName="$(echo $1 | cut -d. -f 2-)"; assetName=$(basename "${assetName}" .asset); #assetName=${assetName//./};
+      policyPath="$(dirname $1)"; namePart="$(basename $1 .asset)";
+      policyName="${policyPath}/${namePart%%.*}";  #path + first part of the name until the . char
+      assetName="${namePart##*.}"; #part of the name after the . char
       ;;
 
   * ) cat >&2 <<EOF

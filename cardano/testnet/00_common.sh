@@ -1,4 +1,5 @@
 #!/bin/bash
+unset magicparam network addrformat
 
 ##############################################################################################################################
 #
@@ -58,13 +59,42 @@ cardanometa="./token-metadata-creator" #Path to your token-metadata-creator bina
 
 
 
-
-
-
 #--------- some other stuff -----
 showVersionInfo="yes"		#yes/no to show the version info and script mode on every script call
 queryTokenRegistry="yes"	#yes/no to query each native asset/token on the token registry server live
 cropTxOutput="yes"		#yes/no to crop the unsigned/signed txfile outputs on transactions to a max. of 4000chars
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -91,8 +121,6 @@ echo -e "         _ ._  _ , _ ._\n        (_ ' ( \`  )_  .__)\n      ( (  (    )
 echo -e "\e[35m${1}\n\nIf you think all is right at your side, please check the GitHub repo if there\nis a newer version/bugfix available, thx: https://github.com/gitmachtl/scripts\e[0m\n" > $(tty); exit 1;
 }
 #-------------------------------------------------------
-
-
 
 #API Endpoints and Network-Settings for the various chains
 
@@ -127,7 +155,7 @@ case "${network,,}" in
 		;;
 
 
-	"legacy" )
+	"legacy"|"testnet" )
 		network="Legacy"
 		_magicparam="--testnet-magic 1097911063"
 		_addrformat="--testnet-magic 1097911063"
@@ -151,13 +179,13 @@ case "${network,,}" in
 		;;
 
 
-	"preview" )
+	"preview"|"pre-view" )
 		network="Preview"
 		_magicparam="--testnet-magic 2"
 		_addrformat="--testnet-magic 2"
 		_byronToShelleyEpochs=0
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
-		_transactionExplorer=
+		_transactionExplorer="https://preview.cexplorer.io/tx"
 		_koiosAPI=
 		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
 		;;
@@ -176,7 +204,6 @@ case "${network,,}" in
 
 esac
 
-
 #Pool-Importhelper Live-API-Helper
 poolImportAPI="https://api.crypto2099.io/v1/pool/"
 
@@ -190,6 +217,7 @@ transactionExplorer=${transactionExplorer:-"${_transactionExplorer}"}
 koiosAPI=${koiosAPI:-"${_koiosAPI}"}
 adahandlePolicyID=${adahandlePolicyID:-"${_adahandlePolicyID}"}
 
+
 #Check about the / at the end of the URLs
 if [[ "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer=${tokenMetaServer%?}; fi #make sure the last char is not a /
 if [[ "${koiosAPI: -1}" == "/" ]]; then koiosAPI=${koiosAPI%?}; fi #make sure the last char is not a /
@@ -201,7 +229,7 @@ if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} =
 
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.35.2"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.35.3"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="1.4.2"  #minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.4.3"  #minimum version for the firmware on the Trezor HW-Wallet
@@ -745,13 +773,27 @@ if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage and above, new since bab
 
 	if [[ ${#asset_entry[@]} -eq 2 ]]; then #only lovelaces, no assets
 
-		#Build the tx-out cbor
+
+		case ${nodeEraParam,,} in
+
+		*"babbage"* ) #Build the tx-out cbor in babbage-tx format with maps
 		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
 		local cborStr+=$(to_cbor "map" 2) #map 2
 		local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
 		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
 		local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
 		local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
+		;;
+
+		* ) #Build the tx-out cbor in alonzo/shelley format with array
+		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
+		local cborStr+=$(to_cbor "array" 2) #array 2
+		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+		local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
+		;;
+
+		esac
+
 
 	else #assets involved
 
@@ -771,8 +813,6 @@ if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage and above, new since bab
 	          local asset_hash_hexname=${asset_hash:57}
 
 		  #collect the entries in individual lists to sort them later
-#		  local pidCollector="${pidCollector}${asset_hash_policy}\n"
-#		  local assetsCollector="${assetsCollector}amount=${asset_amount} pid=${asset_hash_policy} name=${asset_hash_hexname}\n"
 		  local pidCollector+="${asset_hash_policy}\n"
 		  local assetsCollector+="amount=${asset_amount} pid=${asset_hash_policy} name=${asset_hash_hexname}\n"
 
@@ -784,12 +824,26 @@ if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage and above, new since bab
 		local pidCollector=$(echo -ne "${pidCollector}" | sort | uniq -c)
 		local numPIDs=$(wc -l <<< "${pidCollector}")
 
-		#build the tx-out cbor
+
+		case ${nodeEraParam,,} in
+
+		*"babbage"* ) #Build the tx-out cbor in babbage-tx format with maps
+
 		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
 		local cborStr+=$(to_cbor "map" 2) #map 2
 		local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
 		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
 		local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
+		;;
+
+		* ) #Build the tx-out cbor in alonzo/shelley format with array
+		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
+		local cborStr+=$(to_cbor "array" 2) #array 2
+		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+		;;
+
+		esac
+
 		local cborStr+=$(to_cbor "array" 2) #array 2 -> first entry value of lovelaces, second is maps of assets
 		local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
 
@@ -1222,7 +1276,7 @@ byteLength() {
 
 #-------------------------------------------------------
 #Autocorrection of the TxBody to be in canonical order for HW-Wallet transactions
-autocorrect_TxBodyFile() {
+autocorrect_TxBodyFile_withoutAuxHashRepair() {
 
 local txBodyFile="${1}"
 local txBodyTmpFile="${1}-corrected"
@@ -1246,6 +1300,47 @@ mv ${txBodyTmpFile} ${txBodyFile}; if [[ $? -ne 0 ]]; then echo -e "\n\e[35mErro
 
 #all went well, now return the lastline output
 echo "${tmp_lastline}"; exit 0
+}
+#-------------------------------------------------------
+
+
+#-------------------------------------------------------
+#Autocorrection of the TxBody to be in canonical order for HW-Wallet transactions
+#Also repairs a maybe broken AuxDataHash!
+autocorrect_TxBodyFile() {
+
+local txBodyFile="${1}"
+local txBodyTmpFile="${1}-corrected"
+local auxHashStatus=""
+
+#check cardanohwcli presence and version
+if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
+versionHWCLI=$(${cardanohwcli} version 2> /dev/null |& head -n 1 |& awk {'print $6'})
+versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
+if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nYour version ${versionHWCLI} is no longer supported for security reasons or features, please upgrade - thx."; exit 1; fi
+
+#search for the auxmetadata and generate the current aux hash from it as a verification
+local currentAuxHash=$(cat ${txBodyFile} | sed -n "s/.*f5\(d90103.*\)\"/\1/p" | xxd -r -ps | b2sum -l 256 -b | awk {'print $1'}) #holds the expected auxhash
+local currentAuxHash=$(cat ${txBodyFile} | sed -n "s/.*\($currentAuxHash\).*/\1/p") #holds the auxhash if it was found in the txcbor as a proof
+
+#do the correction
+tmp=$(${cardanohwcli} transaction transform --tx-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #new cddl format
+if [[ $? -ne 0 ]]; then echo -e "\n${tmp}"; exit 1; fi
+tmp_lastline=$(echo "${tmp}" | tail -n 1)
+if [[ "${tmp_lastline^^}" =~ (ERROR) ]]; then echo -e "\n${tmp}"; exit 1; fi
+
+#generate the newAuxHash after the canonical order transformation
+local newAuxHash=$(cat ${txBodyTmpFile} | sed -n 's/.*f5\(d90103.*\)\"/\1/p' | xxd -r -ps | b2sum -l 256 -b | awk {'print $1'})
+if [[ "${currentAuxHash}" != "" && "${currentAuxHash}" != "${newAuxHash}" ]]; then #only do it when the currentAuxHash holds a hash (detection worked) and if the new one is different to the old one
+	sed -i "s/${currentAuxHash}/${newAuxHash}/g" ${txBodyTmpFile}; if [ $? -ne 0 ]; then echo -e "\nCouldn't write temporary ${txBodyTmpFile} with a corrected AuxHash!"; exit 1; fi
+	local auxHashStatus=" Corrected the AuxHash from '${currentAuxHash}' to '${newAuxHash}' too!"
+fi
+
+#ok, no error occured to this point. copy the generated new TxBody file over the original one
+mv ${txBodyTmpFile} ${txBodyFile}; if [[ $? -ne 0 ]]; then echo -e "\n\e[35mError: Could not write new TxBody File!"; exit 1; fi
+
+#all went well, now return the lastline output
+echo "${tmp_lastline}${auxHashStatus}"; exit 0
 }
 #-------------------------------------------------------
 
