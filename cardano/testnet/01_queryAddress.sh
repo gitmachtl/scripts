@@ -45,6 +45,8 @@ if [ ! -f "${addrName}.addr" ]; then
                                 fi
 fi
 
+showToAddr=${adahandleName:-"${addrName}.addr"} #shows the adahandle instead of the destination address file if available
+
 checkAddr=$(cat ${addrName}.addr)
 
 typeOfAddr=$(get_addressType "${checkAddr}"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
@@ -52,7 +54,7 @@ typeOfAddr=$(get_addressType "${checkAddr}"); checkError "$?"; if [ $? -ne 0 ]; 
 #What type of Address is it? Base&Enterprise or Stake
 if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO adresses
 
-	echo -e "\e[0mChecking UTXOs of Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
+	echo -e "\e[0mChecking UTXOs of Payment-Address\e[32m ${showToAddr}\e[0m: ${checkAddr}"
 	echo
 
 	echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"
@@ -182,7 +184,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
 elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
-	echo -e "\e[0mChecking Rewards on Stake-Address-File\e[32m ${addrName}.addr\e[0m: ${checkAddr}"
+	echo -e "\e[0mChecking Rewards on Stake-Address\e[32m ${showToAddr}\e[0m: ${checkAddr}"
 	echo
 
         echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"

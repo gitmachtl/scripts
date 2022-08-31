@@ -173,7 +173,7 @@ if [ ! -f "${toAddr}.addr" ]; then
 	                                utxo=$(${cardanocli} query utxo --address ${toAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 					if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
 						 echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
-					echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m"
+					echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m\n"
                                         echo "$(basename ${toAddr})" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
 
 				#otherwise post an error message
@@ -191,9 +191,16 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
                          else echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1; fi
 fi
 
-echo -e "\e[0mSending lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
-echo
+sendFromAddr=$(cat ${fromAddr}.addr)
+sendToAddr=$(cat ${toAddr}.addr)
 
+check_address "${sendFromAddr}"
+check_address "${sendToAddr}"
+
+showToAddr=${adahandleName:-"${toAddr}.addr"} #shows the adahandle instead of the destination address file if available
+
+echo -e "\e[0mSending lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${showToAddr}\e[0m:"
+echo
 
 #get live values
 currentTip=$(get_currentTip)
@@ -203,14 +210,9 @@ currentEPOCH=$(get_currentEpoch)
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[invalid_hereafter] to ${ttl})"
 echo
 
-sendFromAddr=$(cat ${fromAddr}.addr)
-sendToAddr=$(cat ${toAddr}.addr)
-
-check_address "${sendFromAddr}"
-check_address "${sendToAddr}"
 
 echo -e "\e[0mSource Address ${fromAddr}.addr:\e[32m ${sendFromAddr} \e[90m"
-echo -e "\e[0mDestination Address ${toAddr}.addr:\e[32m ${sendToAddr} \e[90m"
+echo -e "\e[0mDestination Address ${showToAddr}:\e[32m ${sendToAddr} \e[90m"
 echo
 
 #
@@ -405,10 +407,10 @@ case "${lovelacesToSend}" in
         "ALLFUNDS" )    #If keyword ALLFUNDS was used, send all lovelaces and all assets to the destination address - rxcnt=1
 			lovelacesToSend=$(( ${totalLovelaces} - ${fee} ))
                         minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
-			echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m ${lovelacesToSend} lovelaces \e[90m"
+			echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m ${lovelacesToSend} lovelaces \e[90m"
 			if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
 			if [[ ${totalAssetsCnt} -gt 0 ]]; then	#assets are also send completly over, so display them
-				echo -ne "\e[0m   Assets to send to ${toAddr}.addr: \e[33m "
+				echo -ne "\e[0m   Assets to send to ${showToAddr}: \e[33m "
 				for (( tmpCnt=0; tmpCnt<${totalAssetsCnt}; tmpCnt++ ))
                         	do
                         	assetHashName=$(jq -r "keys[${tmpCnt}]" <<< ${totalAssetsJSON})
@@ -426,21 +428,21 @@ case "${lovelacesToSend}" in
 								minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendFromAddr}+1000000${assetsOutString}")
 								lovelacesToSend=$(( ${totalLovelaces} - ${fee} - ${minOutUTXO} )) #so send less over to
 								lovelacesToReturn=${minOutUTXO} #minimum amount to return all the assets to the source address
-                                                                echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
+                                                                echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
                                                                 echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m (to preserve all the assets)"
                                                                 if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
                                                           else
                                                                 #no assets on the address, so just send over all the lovelaces, rxcnt=1
 								minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
                         					lovelacesToSend=$(( ${totalLovelaces} - ${fee} ))
-                        					echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
+                        					echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
 								if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
                                                           fi;;
 
         "MIN" )         #If keyword MIN was used, send just the minimal possible amount of lovelces to the destination address, rest will be returned to the source address, rxcnt=2
 			minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
 			lovelacesToSend=${minOutUTXO}
-                        echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
+                        echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
 			lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
                         echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m"
 			minReturnUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendFromAddr}+1000000${assetsOutString}")
@@ -452,7 +454,7 @@ case "${lovelacesToSend}" in
 
         * )             #If no keyword was used, its just the amount of lovelacesToSend to the destination address, rest will be returned to the source address, rxcnt=2
 			minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
-                        echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
+                        echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
                         if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough lovelaces to send to the destination! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
 			lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
                         echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m"
