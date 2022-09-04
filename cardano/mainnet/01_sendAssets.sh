@@ -114,7 +114,7 @@ if [ ${paramCnt} -ge 2 ]; then
                                         utxo=$(${cardanocli} query utxo --address ${toAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                         if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
                                                  echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
-                                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m"
+                                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m\n"
                                         echo "$(basename ${toAddr})" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
 
                                 #otherwise post an error message
@@ -340,7 +340,11 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
                          else echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1; fi
 fi
 
-echo -e "\e[0mSending assets from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${toAddr}.addr\e[0m:"
+
+showToAddr=${adahandleName:-"${toAddr}.addr"} #shows the adahandle instead of the destination address file if available
+
+
+echo -e "\e[0mSending assets from Address\e[32m ${fromAddr}.addr\e[0m to Address\e[32m ${showToAddr}\e[0m:"
 echo
 
 #get live values
@@ -352,7 +356,7 @@ echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[invalid
 echo
 
 echo -e "\e[0mSource Address ${fromAddr}.addr:\e[32m ${sendFromAddr} \e[90m"
-echo -e "\e[0mDestination Address ${toAddr}.addr:\e[32m ${sendToAddr} \e[90m"
+echo -e "\e[0mDestination Address ${showToAddr}:\e[32m ${sendToAddr} \e[90m"
 echo
 
 #
@@ -606,7 +610,7 @@ echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[3
 echo -e "\e[0mMinimum UTXO value for sending the asset: \e[32m ${minOutUTXO} lovelaces \e[90m"
 echo
 if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then lovelacesToSend=${minOutUTXO}; fi
-echo -e "\e[0mLovelaces to send to ${toAddr}.addr: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
+echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
 
 lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
 echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m"

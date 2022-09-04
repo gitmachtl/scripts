@@ -175,7 +175,7 @@ case "${network,,}" in
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://testnet.cardanoscan.io/transaction"
 		_koiosAPI=
-		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
+		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
 
 
@@ -187,7 +187,7 @@ case "${network,,}" in
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://preview.cexplorer.io/tx"
 		_koiosAPI=
-		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
+		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
 
 
@@ -203,9 +203,6 @@ case "${network,,}" in
 		;;
 
 esac
-
-#Pool-Importhelper Live-API-Helper
-poolImportAPI="https://api.crypto2099.io/v1/pool/"
 
 
 #Assign the values to the used variables if not defined before with an other value
@@ -1276,7 +1273,7 @@ byteLength() {
 
 #-------------------------------------------------------
 #Autocorrection of the TxBody to be in canonical order for HW-Wallet transactions
-autocorrect_TxBodyFile_withoutAuxHashRepair() {
+autocorrect_TxBodyFile_withoutAuxHashCorrection() {
 
 local txBodyFile="${1}"
 local txBodyTmpFile="${1}-corrected"
@@ -1319,9 +1316,10 @@ versionHWCLI=$(${cardanohwcli} version 2> /dev/null |& head -n 1 |& awk {'print 
 versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nYour version ${versionHWCLI} is no longer supported for security reasons or features, please upgrade - thx."; exit 1; fi
 
-#search for the auxmetadata and generate the current aux hash from it as a verification
+#search for the auxmetadata and generate the current aux hash from it as a verification.
+#this is a fast simple solution by searching for the hexbytes f5d90103 as the mark of the auxdata beginning, there is no deep cbor analysis behind it
 local currentAuxHash=$(cat ${txBodyFile} | sed -n "s/.*f5\(d90103.*\)\"/\1/p" | xxd -r -ps | b2sum -l 256 -b | awk {'print $1'}) #holds the expected auxhash
-local currentAuxHash=$(cat ${txBodyFile} | sed -n "s/.*\($currentAuxHash\).*/\1/p") #holds the auxhash if it was found in the txcbor as a proof
+local currentAuxHash=$(cat ${txBodyFile} | sed -n "s/.*\($currentAuxHash\).*/\1/p") #holds the auxhash if it was found in the txcbor as a proof that the auxdata was found correctly
 
 #do the correction
 tmp=$(${cardanohwcli} transaction transform --tx-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #new cddl format
@@ -1333,7 +1331,7 @@ if [[ "${tmp_lastline^^}" =~ (ERROR) ]]; then echo -e "\n${tmp}"; exit 1; fi
 local newAuxHash=$(cat ${txBodyTmpFile} | sed -n 's/.*f5\(d90103.*\)\"/\1/p' | xxd -r -ps | b2sum -l 256 -b | awk {'print $1'})
 if [[ "${currentAuxHash}" != "" && "${currentAuxHash}" != "${newAuxHash}" ]]; then #only do it when the currentAuxHash holds a hash (detection worked) and if the new one is different to the old one
 	sed -i "s/${currentAuxHash}/${newAuxHash}/g" ${txBodyTmpFile}; if [ $? -ne 0 ]; then echo -e "\nCouldn't write temporary ${txBodyTmpFile} with a corrected AuxHash!"; exit 1; fi
-	local auxHashStatus=" Corrected the AuxHash from '${currentAuxHash}' to '${newAuxHash}' too!"
+	local auxHashStatus="\e[91m\nCorrected the AuxHash from '${currentAuxHash}' to '${newAuxHash}' too!"
 fi
 
 #ok, no error occured to this point. copy the generated new TxBody file over the original one
