@@ -564,7 +564,7 @@ file_lock ${poolFile}.pool.json
 fi # regWitnessID was empty / new witness collection
 
 #--------------------------------------------------------------
-# witness collection with the local files/hardware wallets was collected and writen in the poolJSON
+# witness collection with the local files/hardware wallets was collected and written into the poolJSON
 # we land here also if a witness was created before
 
 regWitnessID=$(jq -r ".regWitness.id" <<< ${poolJSON})

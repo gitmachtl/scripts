@@ -127,7 +127,7 @@ do
 	if [[ "${poolRelayEntryPort}" == null || "${poolRelayEntryPort}" == "" ]]; then echo "ERROR - Parameter \"relayPort\" in ${poolFile}.pool.json poolRelays-Array does not exist or is empty!"; exit 1; fi
 	poolRelays="${poolRelays} --single-host-pool-relay ${poolRelayEntryContent} --pool-relay-port ${poolRelayEntryPort}";;
 
-  MULTISRV) #generate a dns SRV multi-relay entry
+  MULTISRV|SRV) #generate a dns SRV multi-relay entry
 	#No port needed
         poolRelays="${poolRelays} --multi-host-pool-relay ${poolRelayEntryContent}";;
 

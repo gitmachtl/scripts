@@ -1,13 +1,10 @@
 #!/bin/bash
-# Script is brought to you by ATADA_Stakepool, Telegram @atada_stakepool
 
-#load variables from common.sh
-#       socket          Path to the node.socket (also exports socket to CARDANO_NODE_SOCKET_PATH)
-#       genesisfile     Path to the genesis.json
-#       magicparam      TestnetMagic parameter
-#       cardanocli      Path to the cardano-cli executable
-#       cardanonode     Path to the cardano-node executable
+# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+
+#load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
+
 
 case $# in
 
@@ -24,49 +21,95 @@ Example1: $(basename $0) mypool 5ca96bc27be2bdde3ec11b9f696cf21fad39e49097be9b01
           This would import the pool settings from the pool with id '5ca96bc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6b572'
     	  in the folder 'mypool' as mypool.pool.json together with the keys for owner, rewards, ...
 
+
+Example2  $(basename $0) mypool 5ca96bc27be2bdde3ec11b9f696cf21fad39e49097be9b0193e6b572 poolinfo.json
+
+          This would export the Pool information on an online machine to the file poolinfo.json. So it can be imported
+          on an offline machine.
+
+
 Example2  $(basename $0) mypool poolinfo.json
 
           This would import the pool settings from the poolinfo.json file. You have to generate this poolinfo.json file before
 	  on an online machine if you are working in offlineMode. Please check the README on Github for more details on how to do this.
+
 EOF
   exit 1;;
 esac
 
-echo -e "\e[0mUsing the following name for the import process: '\e[32m${poolName}\e[0m'\n";
-
-#Ask to continue if the destination directory exists
-if [ -d "${poolName}" ] && ! ask "\e[33mThe destination import Directory '${poolName}' exists, do you wanna continue?" N; then echo; exit 1; fi
-
-#Check if the destination directory exists, if not, try to make it
-if [ ! -d "${poolName}" ]; then echo -ne "\e[0mCreating Directory with name: '\e[32m${poolName}\e[0m' ... "; mkdir -p ${poolName}; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi; echo -e "\e[32mOK\e[0m\n"; fi
-
-#Check if json file exists
-if [ -f "${poolName}/${poolName}.pool.json" ]; then echo -e "\n\e[33mERROR - \"${poolName}/${poolName}.pool.json\" already exist, please delete it first or choose another name.\e[0m"; exit 1; fi;
-
 #Check if importParameter is an actual json file, otherwise try to fetch the information online
 if [ -f "${importParameter}" ]; then
-			   echo -ne "\e[0mReading Pooldata from file: '\e[32m${importParameter}\e[0m' ... ";
-			   importJSON=$(jq . <${importParameter} 2> /dev/null)
-			   if [[ $? -ne 0 ]]; then echo "ERROR - ${importJSON} is not a valid JSON file"; exit 1; fi
-			   poolMetaUrl=$(jq -r ".meta.url" <<< ${importJSON})
-                           if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[33mERROR, the JSON file does not contain a a valid Metadata-URL!\e[0m\n"; exit 1; fi
-                           echo -e "\e[32mOK\e[0m\n";
+			echo -ne "\e[0mReading Pooldata from file: '\e[32m${importParameter}\e[0m' ... ";
+			importJSON=$(jq . <${importParameter} 2> /dev/null)
+			if [[ $? -ne 0 ]]; then echo "ERROR - ${importJSON} is not a valid JSON file"; exit 1; fi
+			poolMetaUrl=$(jq -r ".meta_url" <<< ${importJSON})  #we use the metadata url entry to verify the online export worked fine before
+                        if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[33mERROR, the JSON file does not contain a a valid Metadata-URL!\e[0m\n"; exit 1; fi
+                        echo -e "\e[32mOK\e[0m\n";
+
 elif ${onlineMode}; then
-			   echo -ne "\e[0mFetching Pooldata online for PoolID: '\e[32m${importParameter}\e[0m' ... ";
-			   magicNumber=$(echo -n "${magicparam} " | cut -d' ' -f 2)
-        		   importJSON=$(curl -sL "${poolImportAPI}${importParameter}?magic=${magicNumber}" 2> /dev/null)
-			   if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR, can't fetch the current online pool data!\e[0m\n"; exit 1; fi
-			   poolMetaUrl=$(jq -r ".meta.url" <<< ${importJSON})
-			   if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[33mERROR, not a valid Metadata-URL found in the online pool data!\e[0m\n"; exit 1; fi
-			   echo -e "\e[32mOK\e[0m\n";
-			   echo -ne "\e[0mFetching Metadata online from URL: '\e[32m${poolMetaUrl}\e[0m' ... ";
-        		   poolMetaJSON=$(curl -sL "${poolMetaUrl}" 2> /dev/null)
-			   if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR, can't fetch the current online pool data!\e[0m\n"; exit 1; fi
-		           importJSON=$(jq ".metadata = ${poolMetaJSON}" 2> /dev/null <<< ${importJSON}); #Adding the actuall Metadata content to teh importJSON
-			   if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR, not a valid Metadata JSON file found at '${poolMetaUrl}'!\e[0m\n"; exit 1; fi
-			   echo -e "\e[32mOK\e[0m\n";
+
+			poolID="${importParameter}"
+
+			#Check if the provided Pool-Identification is a Hex-PoolID(length56), a Bech32-PoolID(length56 and starting with pool1) or something else
+			if [[ "${poolID//[![:xdigit:]]}" == "${poolID}" && ${#poolID} -eq 56 ]]; then #parameter is a hex-poolid
+
+			        #converting the Hex-PoolID into a Bech-PoolID
+			        poolIDBech=$(${bech32_bin} "pool" <<< ${poolID} | tr -d '\n')
+			        checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not convert the given Hex-PoolID \"${poolID}\" into a Bech Pool-ID.\e[0m\n"; exit 1; fi
+			        echo -e "\e[0mConverted '${poolID}' to the Bech-PoolID:\e[32m ${poolIDBech}\e[0m"
+			        echo
+
+			elif [[ "${poolID:0:5}" == "pool1" && ${#poolID} -eq 56 ]]; then #parameter is most likely a bech32-poolid
+
+			        #lets do some further testing by converting the bech32 pool-id into a hex-pool-id
+			        tmp=$(${bech32_bin} 2> /dev/null <<< "${poolID}") #will have returncode 0 if the bech was valid
+			        if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - \"${poolID}\" is not a valid Bech Pool-ID.\e[0m\n"; exit 1; fi
+			        poolIDBech=${poolID}
+
+			else	#not a hex pool id, not a bech pool id, not an existing file
+
+				echo -e "\n\e[35mERROR - \"${poolID}\" is not a valid Pool-ID or a JSON-File.\e[0m\n"; exit 1;
+
+			fi
+
+			echo -ne "\e[0mFetching Pooldata online via koios for PoolID: '\e[32m${poolIDBech}\e[0m' ... ";
+			#query poolinfo via poolid on koios
+	                importJSON=$(curl -s -m 10 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolIDBech}\"]}" 2> /dev/null)
+	                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+	                if [[ $(jq ". | length" 2> /dev/null <<< ${importJSON}) -ne 1 ]]; then echo -e "\e[33mERROR, can't fetch the current online pool data from '${koiosAPI}/pool_info' !\e[0m\n"; exit 1; fi
+
+			#reduce the json to be not in an array, we only work with one pool
+			importJSON=$(jq -r .[0] <<< ${importJSON});
+
+			poolMetaUrl=$(jq -r ".meta_url" <<< ${importJSON})
+			if [[ ! "${poolMetaUrl}" =~ https?://.* || ${#poolMetaUrl} -gt 64 ]]; then echo -e "\e[33mERROR, not a valid Metadata-URL found in the online pool data!\e[0m\n"; exit 1; fi
+			echo -e "\e[32mOK\e[0m\n";
+
+
+			echo -ne "\e[0mFetching latest Pool-Update online via koios for PoolID: '\e[32m${poolIDBech}\e[0m' ... ";
+			#query poolinfo via poolid on koios
+	                latestUpdateJSON=$(curl -s -m 10 -X GET "${koiosAPI}/pool_updates?_pool_bech32=${poolIDBech}" -H "Accept: application/json" 2> /dev/null | jq -r .[0] 2> /dev/null)
+	                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+	                if [[ ${latestUpdateJSON} == "" ]]; then echo -e "\e[33mERROR, can't fetch the latest pool update from '${koiosAPI}/pool_updates' !\e[0m\n"; exit 1; fi
+
+			latestUpdateTime=$(jq -r ".block_time | select (.!=null)" <<< ${latestUpdateJSON})
+			if [[ "$((${latestUpdateTime}+0))" -ne "${latestUpdateTime}" ]]; then echo -e "\e[33mERROR, not a valid block_time entry!\e[0m\n"; exit 1; fi
+			echo -e "\e[32mOK\e[0m\n";
+		        importJSON=$(jq ".lastupdate_time = ${latestUpdateTime}" 2> /dev/null <<< ${importJSON}); #Adding the actual Metadata content to teh importJSON
+
+			latestUpdateEpoch=$(jq -r ".active_epoch_no | select (.!=null)" <<< ${latestUpdateJSON})
+			if [[ "$((${active_epoch_no}+0))" -ne "${active_epoch_no}" ]]; then echo -e "\e[33mERROR, not a valid active_epoch_no entry!\e[0m\n"; exit 1; fi
+			echo -e "\e[32mOK\e[0m\n";
+		        importJSON=$(jq ".lastupdate_epoch = ${latestUpdateEpoch}" 2> /dev/null <<< ${importJSON}); #Adding the actual Metadata content to teh importJSON
+
+			echo -ne "\e[0mFetching Metadata online from URL: '\e[32m${poolMetaUrl}\e[0m' ... "; #the poolinfo request via koios does not return the complete metadata information, so we grap it directly from the pool-server
+        		poolMetaJSON=$(curl -sL "${poolMetaUrl}" 2> /dev/null)
+			if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR, can't fetch the current online pool data!\e[0m\n"; exit 1; fi
+		        importJSON=$(jq ".metadata = ${poolMetaJSON}" 2> /dev/null <<< ${importJSON}); #Adding the actual Metadata content to teh importJSON
+			if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR, not a valid Metadata JSON file found at '${poolMetaUrl}'!\e[0m\n"; exit 1; fi
+			echo -e "\e[32mOK\e[0m\n";
 else
-			   echo -e "\e[33mERROR, can't use PoolID in OfflineMode or import json file not found. Please fetch the import.json first\non an online machine and import the import.json instead of using a PoolID!\e[0m\n"; exit 1;
+			echo -e "\e[33mERROR, can't use PoolID in OfflineMode or import json file not found. Please fetch the import.json first\non an online machine and import the import.json instead of using a PoolID!\e[0m\n"; exit 1;
 fi
 
 #Export the merged InfoJSON to an external file if parameter was provided
@@ -107,6 +150,17 @@ if [[ ! "${exportFile}" == "" ]]; then
 				  exit 1;
 fi
 
+echo -e "\e[0mUsing the following name for the import process: '\e[32m${poolName}\e[0m'\n";
+
+#Ask to continue if the destination directory exists
+if [ -d "${poolName}" ] && ! ask "\e[33mThe destination import Directory '${poolName}' exists, do you wanna continue?" N; then echo; exit 1; fi
+
+#Check if the destination directory exists, if not, try to make it
+if [ ! -d "${poolName}" ]; then echo -ne "\e[0mCreating Directory with name: '\e[32m${poolName}\e[0m' ... "; mkdir -p ${poolName}; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi; echo -e "\e[32mOK\e[0m\n"; fi
+
+#Check if json file exists
+if [ -f "${poolName}/${poolName}.pool.json" ]; then echo -e "\n\e[33mERROR - \"${poolName}/${poolName}.pool.json\" already exist, please delete it first or choose another name.\e[0m"; exit 1; fi;
+
 
 #InfoJSON about the pool data is held in the importJSON variable at this point
 
@@ -121,14 +175,19 @@ echo "${param}"
 
 #Read the base data
 poolPledge=$(readJSONparam "pledge"); if [[ ! $? == 0 ]]; then exit 1; fi
-poolCost=$(readJSONparam "cost"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolCost=$(readJSONparam "fixed_cost"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMargin=$(readJSONparam "margin"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaName=$(readJSONparam "metadata.name"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaDescription=$(readJSONparam "metadata.description"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaTicker=$(readJSONparam "metadata.ticker"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaHomepage=$(readJSONparam "metadata.homepage"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaExtendedMetaUrl=$(jq -r ".metadata.extended" <<< ${importJSON}); if [[ "${poolMetaExtendedMetaUrl}" == null ]]; then poolMetaExtendedMetaUrl=""; fi
-poolNodeCounter=$(readJSONparam "counter"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolNodeCounter=$(readJSONparam "op_cert_counter"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolStatus=$(readJSONparam "pool_status"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolLastUpdateTime=$(readJSONparam "lastupdate_time"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolLastUpdateEpoch=$(readJSONparam "lastupdate_epoch"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolID=$(readJSONparam "pool_id_hex"); if [[ ! $? == 0 ]]; then exit 1; fi
+poolIDbech=$(readJSONparam "pool_id_bech32"); if [[ ! $? == 0 ]]; then exit 1; fi
 
 #Build the Skeleton
 poolJSON=$(echo "
@@ -148,7 +207,9 @@ poolJSON=$(echo "
   \"poolMetaHomepage\": \"${poolMetaHomepage}\",
   \"poolMetaUrl\": \"${poolMetaUrl}\",
   \"poolExtendedMetaUrl\": \"${poolMetaExtendedMetaUrl}\",
-  \"---\": \"--- DO NOT EDIT OR DELETE BELOW THIS LINE ---\"
+  \"---\": \"--- DO NOT EDIT OR DELETE BELOW THIS LINE ---\",
+  \"poolID\": \"${poolID}\",
+  \"poolIDbech\": \"${poolIDbech}\"
 }
 ")
 
@@ -158,26 +219,31 @@ poolJSON=$(echo "
 poolRelayCnt=$(jq -r '.relays | length' <<< ${importJSON})
 for (( tmpCnt=0; tmpCnt<${poolRelayCnt}; tmpCnt++ ))
 do
-  poolRelayEntryContent=$(jq -r .relays[${tmpCnt}].entry <<< ${importJSON} 2> /dev/null);
+
+  #get the entry value that is not null and not from key port
+  poolRelayEntryContent=$(jq -r ".relays[${tmpCnt}] | to_entries[] | select ((.value != null) and (.key != \"port\")) | .value" <<< ${importJSON} 2> /dev/null);
   if [[ "${poolRelayEntryContent}" == null || "${poolRelayEntryContent}" == "" ]]; then echo "ERROR - Parameter \"entry\" in your Registration does not exist or is empty!"; exit 1;
   elif [[ ${#poolRelayEntryContent} -gt 64 ]]; then echo -e "\e[0mERROR - The relayEntry parameter with content \"${poolRelayEntryContent}\" in your ${poolFile}.pool.json is too long. Max. 64chars allowed !\e[0m"; exit 1; fi
 
-  #Load relay port data, verify later depending on the need (multihost does not need a port)
-  poolRelayEntryPort=$(jq -r .relays[${tmpCnt}].port <<< ${importJSON} 2> /dev/null);
-
-  poolRelayEntryType=$(jq -r .relays[${tmpCnt}].type <<< ${importJSON} 2> /dev/null);
+  #get the keyname = type of the entry that is not null and not from key port
+  poolRelayEntryType=$(jq -r ".relays[${tmpCnt}] | to_entries[] | select ((.value != null) and (.key != \"port\")) | .key" <<< ${importJSON} 2> /dev/null);
   if [[ "${poolRelayEntryType}" == null || "${poolRelayEntryType}" == "" ]]; then echo "ERROR - Parameter \"type\" does not exist or is empty!"; exit 1; fi
+
+  #Load relay port data, verify later depending on the need (multihost does not need a port)
+  poolRelayEntryPort=$(jq -r ".relays[${tmpCnt}].port | select (.!=null)" <<< ${importJSON} 2> /dev/null);
 
   #Add the entry to the List
   poolJSON=$( jq ".poolRelays += [ { relayType: \"${poolRelayEntryType}\", relayEntry: \"${poolRelayEntryContent}\", relayPort: \"${poolRelayEntryPort}\" } ]" <<< ${poolJSON})
 
 done
 
-#Add current date as regSubmitted entry, because the pool is already registered on the chain
-poolJSON=$(jq ".regEpoch = \"?\"" <<< ${poolJSON})
-poolJSON=$(jq ".regSubmitted = \"$(date -R)\"" <<< ${poolJSON})
+#Add current date as regSubmitted entry, if because the pool is already registered on the chain
+if [[ "${poolStatus}" == "registered" ]]; then
+	poolJSON=$(jq ".regEpoch = \"${poolLastUpdateEpoch}\"" <<< ${poolJSON})
+	poolJSON=$(jq ".regSubmitted = \"$(date -R --date=@${poolLastUpdateTime})\"" <<< ${poolJSON})
+fi
 
-echo -e "\e[0mThe following content was prepared for the '\e[32m${poolName}/${poolName}.pool.json\e[0m' file but not written yet:\n";
+echo -e "\e[0mThe following content was prepared for the '\e[32m${poolName}/${poolName}.pool.json\e[0m' file, but not written yet:\n";
 echo -e "\e[90m${poolJSON}\e[0m\n"
 
 
@@ -207,11 +273,15 @@ importNodeSkey() {
         echo -e "\e[32mOK\e[0m" >&2;
 
         #Generate the node counter file
+
+	echo -e "\e[0mCurrent OpCertCounter on Chain: \e[32m${poolNodeCounter}\e[0m" >&2;
+	poolNodeCounter=$((${poolNodeCounter}+1))
+	echo -e "\e[0mNew OpCertCounter for this import: \e[32m${poolNodeCounter}\e[0m" >&2;
         echo -ne "\e[0mGenerating file '\e[32m${poolName}/${poolName}.node.counter\e[0m' ... " >&2;
-	${cardanocli} node new-counter --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --counter-value $((${poolNodeCounter}+1)) --operational-certificate-issue-counter-file "${poolName}/${poolName}.node.counter"
+	${cardanocli} node new-counter --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --counter-value ${poolNodeCounter} --operational-certificate-issue-counter-file "${poolName}/${poolName}.node.counter"
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         #NodeCounter file was written, now add the description in the file to reflect the next node counter number
-        newCounterJSON=$(jq ".description = \"Next certificate issue number: $((${poolNodeCounter}+1))\"" < "${poolName}/${poolName}.node.counter")
+        newCounterJSON=$(jq ".description = \"Next certificate issue number: ${poolNodeCounter}\"" < "${poolName}/${poolName}.node.counter")
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo "${newCounterJSON}" > "${poolName}/${poolName}.node.counter"
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -248,6 +318,12 @@ importVrfSkey() {
         #Check the right type
         if [[ ! "$(jq -r .type $1)" == *"SigningKey"* ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid vrf.skey file.\e[0m\n" >&2; exit 1; fi;
 
+	#Probe the given VRF key hash with the one that is online
+	newVRFstring=$(${cardanocli} key verification-key --signing-key-file "${1}" --verification-key-file /dev/stdout | jq -r .cborHex) #the maybe new vrf string
+	newVRFhash=$(${cardanocli} node key-hash-VRF --verification-key "${newVRFstring:4}") #crop the first 4 chars before handing over the string
+	oldVRFhash=$(jq -r ".vrf_key_hash" 2> /dev/null <<< ${importJSON} )
+	if [[ ! "${newVRFhash}" == "${oldVRFhash}" ]]; then echo -e "\n\e[35mWARNING - VRF KeyHash does not match up with the one that is online right now!\e[0m\n" >&2; exit 1; fi;
+
         #Copy the source to the new destination file
         echo
         echo -ne "\n\e[0mCopying the file '\e[32m$1\e[0m' to new destination '\e[32m${poolName}/${poolName}.vrf.skey\e[0m' ... " >&2;
@@ -260,12 +336,6 @@ importVrfSkey() {
         ${cardanocli} key verification-key --signing-key-file "${poolName}/${poolName}.vrf.skey" --verification-key-file "${poolName}/${poolName}.vrf.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${poolName}/${poolName}.vrf.vkey
         echo -e "\e[32mOK\e[0m\n" >&2;
-
-
-	#Compare the generated VRF key hash with the one that is online
-	newVRFhash=$(${cardanocli} node key-hash-VRF --verification-key-file "${poolName}/${poolName}.vrf.vkey")
-	oldVRFhash=$(jq -r ".vrf_key_hash" 2> /dev/null <<< ${importJSON} )
-	if [[ ! "${newVRFhash}" == "${oldVRFhash}" ]]; then echo -e "\n\e[35mWARNING - VRF KeyHash does not match up with the one that is online right now!\e[0m\n" >&2; fi;
 
 exit 0
 }
@@ -433,14 +503,14 @@ while [[ ! "${ownerName}" == "" ]]; do
 			ownerAddr=$(cat "${poolName}/${ownerName}.staking.addr")
 
 			#If the Address is part of the owners then add the owner
-			tmp=$(jq -r "[ .owners[] | select(.address == \"${ownerAddr}\") ] | length" 2> /dev/null <<< ${importJSON} )
-			if [[ ${tmp} -gt 0 ]]; then
+			tmp=$(jq -r ".owners[] | select(. == \"${ownerAddr}\")" 2> /dev/null <<< ${importJSON} )
+			if [[ ${tmp} != "" ]]; then
 				poolJSON=$( jq ".poolOwner += [ { ownerName: \"${ownerName}\", ownerWitness: \"local\" } ]" <<< ${poolJSON})
 			        echo -e "\n\t\e[0mAdded '\e[32m${ownerName}\e[0m' as an owner in the ${poolName}.pool.json file. ";
 			fi
 
                         #If the Address is also the rewards account, add it as the rewards account
-			tmp=$(jq -r ".rewards.address" 2> /dev/null <<< ${importJSON} )
+			tmp=$(jq -r ".reward_addr" 2> /dev/null <<< ${importJSON} )
                         if [[ "${tmp}" == "${ownerAddr}" ]]; then
 				poolJSON=$(jq ".poolRewards = \"${ownerName}\"" <<< ${poolJSON})
 	                        echo -e "\t\e[0mAdded '\e[32m${ownerName}\e[0m' as the rewards-account in ${poolName}.pool.json file. ";

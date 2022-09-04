@@ -37,13 +37,18 @@ case ${1} in
 
   new|execute|clear )
 		action="${1}";
-		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; fi
+		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; #exit if command is called in offline mode, needs to be in online mode
+		elif [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mYour online Node must be fully synced!\e[0m\n"; exit 1; #check that the node is fully synced
+		fi
+
                 if [[ $# -eq 2 ]]; then executeCue=${2}; else executeCue=1; fi
 		;;
 
   add )
 		action="${1}";
-		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; fi
+		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; #exit if command is called in offline mode, needs to be in online mode
+		elif [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mYour online Node must be fully synced!\e[0m\n"; exit 1; #check that the node is fully synced
+		fi
 		if [[ $# -eq 2 ]]; then addrName="$(dirname $2)/$(basename $2 .addr)"; addrName=${addrName/#.\//}; else echo -e "\e[35mMissing AddressName for the Address!\e[0m\n"; showUsage; exit 1; fi
 		if [ ! -f "${addrName}.addr" ]; then echo -e "\e[35mNo ${addrName}.addr file found for the Address!\e[0m\n"; showUsage; exit 1; fi
 		;;
@@ -426,7 +431,7 @@ if [[ ${transactionsCnt} -eq 0 ]]; then echo -e "\e[33mNo pending transactions f
 
 #Check that the online and offline cli version is the same
 offlineVersionCLI=$(jq -r ".general.offlineCLI" <<< ${offlineJSON})
-if [[ ! "${offlineVersionCLI}" == "${versionCLI}" ]]; then echo -e "\e[33mWARNING - Online(${versionCLI}) and Offline(${offlineVersionCLI}) CLI version mismatch!\e[0m\n"; fi
+if [[ ! "${offlineVersionCLI}" == "${versionCLI}" ]]; then echo -e "\e[33mWARNING - Online(${versionCLI}) and Offline(${offlineVersionCLI}) CLI version mismatch, but will try to continue.\e[0m\n"; fi
 
 if [[ ${executeCue} -gt 0 && ${executeCue} -le ${transactionsCnt} ]]; then transactionCue=${executeCue}; else echo -e "\e[35mERROR - There is no cued transaction with ID=${executeCue} available!\e[0m\n"; exit 1; fi
 transactionIdx=$(( ${transactionCue} - 1 ));
@@ -439,7 +444,7 @@ echo
 
 #Check that the protocol era is still the same
 transactionEra=$(jq -r ".transactions[${transactionIdx}].era" <<< ${offlineJSON})
-if [[ ! "${transactionEra}" == "$(get_NodeEra)" ]]; then echo -e "\e[35mERROR - Online($(get_NodeEra)) and Offline(${transactionEra}) Era mismatch!\e[0m\n"; exit 1; fi
+if [[ ! "${transactionEra}" == "$(get_NodeEra)" ]]; then echo -e "\e[33mWARNING - Online($(get_NodeEra)) and Offline(${transactionEra}) Era mismatch, but will try to continue.\e[0m\n";fi
 
 transactionType=$(jq -r ".transactions[${transactionIdx}].type" <<< ${offlineJSON})
 transactionDate=$(jq -r ".transactions[${transactionIdx}].date" <<< ${offlineJSON})
