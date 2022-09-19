@@ -126,7 +126,7 @@ if [[ "${currentKESperiod}" -lt 0 ]]; then currentKESperiod=0; fi
 echo -e "\e[0mCurrent KES period:\e[32m ${currentKESperiod}\e[0m"
 
 #Reading kesVkeyFile cborHex to show the Vkey-Bech32-String
-kesVkeyBech=$(jq -r .cborHex ${kesVkeyFile} 2> /dev/null | tail -c +5 | ./bech32 "kes_vk" 2> /dev/null)
+kesVkeyBech=$(jq -r .cborHex ${kesVkeyFile} 2> /dev/null | tail -c +5 | ${bech32_bin} "kes_vk" 2> /dev/null)
 echo -e "\e[0mKES-vKey-File Bech:\e[32m ${kesVkeyBech}\e[0m"
 
 #Show PoolID from node.vkey file

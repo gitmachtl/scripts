@@ -365,7 +365,6 @@ if [ -f "${policyName}.policy.hwsfile" ] || [ -f "${fromAddr}.hwsfile" ]; then
 
 	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 	echo
-
 fi
 
 echo -e "\e[0mSign the Tx-Body with the \e[32m${fromAddr}.skey|hwsfile\e[0m and \e[32m${policyName}.policy.skey|hwsfile\e[0m: \e[32m ${txFile} \e[90m"
@@ -416,7 +415,6 @@ else #generate the payment witness via the cli
         unset skeyJSON
 
 fi
-
 
 #Assemble all witnesses into the final TxBody
 rm ${txFile} 2> /dev/null
