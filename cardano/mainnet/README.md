@@ -125,7 +125,8 @@ You have now made the folder 'stakepoolscripts' in your HOME directory, also you
 
 **Git-Clone the Repository into your fixed directory**
 ``` console
-git clone https://github.com/gitmachtl/scripts.git $HOME/stakepoolscripts
+cd $HOME/stakepoolscripts
+git init && git remote add origin https://github.com/gitmachtl/scripts.git
 ```
 
 Now its time to **choose** if you wanna use the **Mainnet-Scripts or the Testnet-Scripts**. You have to copy the right ones into the 'bin' subdirectory of your $HOME/stakepoolscripts:
