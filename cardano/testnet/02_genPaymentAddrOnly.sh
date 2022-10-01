@@ -7,32 +7,45 @@
 
 
 #Check command line parameter
-if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|ENC)$ ]]; then
+if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|ENC|HWMULTI)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw> [Account# 0-1000 for HW-Wallet-Path, Default=0]
+ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti> [Acc# 0-1000 for HW-Wallet-Path, Default=0] [Idx# 0-1000 for HW-Wallet-Path, Default=0]
 
 Examples:
 $(basename $0) owner cli              ... generates a PaymentOnly Address via cli (was default method before)
 $(basename $0) owner enc              ... generates a PaymentOnly Address via cli and encrypt it with a Password
-$(basename $0) owner hw               ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet
+$(basename $0) owner hw               ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet with normal path 1852H/1815H/<Acc>/0/<Idx>
+$(basename $0) owner hwmulti          ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet with multisig path 1854H/1815H/<Acc>/0/<Idx>
+
 
 Optional with Hardware-Account-Numbers:
-$(basename $0) owner hw 1   ... generates a PaymentOnly Address  by using a Leder/Trezor HW-Wallet and SubAccount #1 (Default=0)
-$(basename $0) owner hw 5   ... generates a PaymentOnly Address  by using a Leder/Trezor HW-Wallet and SubAccount #5 (Default=0)
+$(basename $0) owner hw 1    ... generates a PaymentOnly Address  by using a Leder/Trezor HW-Wallet and SubAccount #1 (Default=0)
+$(basename $0) owner hw 5 1  ... generates a PaymentOnly Address  by using a Leder/Trezor HW-Wallet, SubAccount #5, Index #1
 
 EOF
 exit 1;
 else
-addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
-keyType=$2;
-        accountNo=0;
-        if [ $# -eq 3 ]; then
-        accountNo=$3;
-        #Check if the given accountNo is a number and in the range. limit it to 1000 and below. actually the limit is 2^31-1, but thats ridiculous
-	if [ "${accountNo}" == null ] || [ -z "${accountNo##*[!0-9]*}" ] || [ "${accountNo}" -lt 0 ] || [ "${accountNo}" -gt 1000 ]; then echo -e "\e[35mERROR - Account# for the HardwarePath is out of range (0-1000, warnings above 100)!\e[0m"; exit 2; fi
+	addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
+	keyType=$2;
+	accNo=0;
+	idxNo=0;
+
+        if [ $# -ge 3 ]; then
+        accNo=$3;
+        #Check if the given accNo is a number and in the range. limit it to 1000 and below. actually the limit is 2^31-1, but thats ridiculous
+	if [ "${accNo}" == null ] || [ -z "${accNo##*[!0-9]*}" ] || [ "${accNo}" -lt 0 ] || [ "${accNo}" -gt 1000 ]; then echo -e "\e[35mERROR - Account# for the HardwarePath is out of range (0-1000, warnings above 100)!\e[0m"; exit 2; fi
+        fi
+
+        if [ $# -eq 4 ]; then
+        idxNo=$4;
+        #Check if the given idxNo is a number and in the range. limit it to 1000 and below. actually the limit is 2^31-1, but thats ridiculous
+	if [ "${idxNo}" == null ] || [ -z "${idxNo##*[!0-9]*}" ] || [ "${idxNo}" -lt 0 ] || [ "${idxNo}" -gt 1000 ]; then echo -e "\e[35mERROR - Index# for the HardwarePath is out of range (0-1000, warnings above 100)!\e[0m"; exit 2; fi
         fi
 
 fi
+
+
+
 
 #trap to delete the produced files if aborted via CTRL+C(INT) or SIGINT
 terminate(){
@@ -156,12 +169,11 @@ elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli and encrypt t
 
 	echo -e "\e[0m\n"
 
-else #Building it from HW-Keys
-
+elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from HW-Keys
 
         #We need a enterprise paymentonly keypair with vkey and hwsfile from a Hardware-Key, so lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/${accountNo}H/0/0 --verification-key-file ${addrName}.vkey --hw-signing-file ${addrName}.hwsfile 2> /dev/stdout)
+        tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/${accNo}H/0/${idxNo} --verification-key-file ${addrName}.vkey --hw-signing-file ${addrName}.hwsfile 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
@@ -171,10 +183,42 @@ else #Building it from HW-Keys
         file_lock ${addrName}.vkey
         file_lock ${addrName}.hwsfile
 
-	echo -e "\e[0mPaymentOnly(Enterprise)-Verification-Key (Account# ${accountNo}): \e[32m ${addrName}.vkey \e[90m"
+	echo -e "\e[0mPaymentOnly(Enterprise)-Verification-Key (Account# ${accNo}, Index# ${idxNo}): \e[32m ${addrName}.vkey \e[90m"
         cat ${addrName}.vkey
         echo
-        echo -e "\e[0mPaymentOnly(Enterprise)-HardwareSigning-File (Account# ${accountNo}): \e[32m ${addrName}.hwsfile \e[90m"
+        echo -e "\e[0mPaymentOnly(Enterprise)-HardwareSigning-File (Account# ${accNo}, Index# ${idxNo}): \e[32m ${addrName}.hwsfile \e[90m"
+        cat ${addrName}.hwsfile
+        echo
+
+        #Building a Payment Address
+        ${cardanocli} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        file_lock ${addrName}.addr
+
+        echo -e "\e[0mPaymentOnly(Enterprise)-Address built: \e[32m ${addrName}.addr \e[90m"
+        cat ${addrName}.addr
+        echo
+
+        echo -e "\e[0m\n"
+
+else #Building from HW-Keys with MultiSig-Path "HWMULTI"
+
+        #We need a enterprise paymentonly keypair with vkey and hwsfile from a Hardware-Key, so lets' create them
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        tmp=$(${cardanohwcli} address key-gen --path 1854H/1815H/${accNo}H/0/${idxNo} --verification-key-file ${addrName}.vkey --hw-signing-file ${addrName}.hwsfile 2> /dev/stdout)
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #Edit the description in the vkey file to mark this as a hardware verification key
+        vkeyJSON=$(cat ${addrName}.vkey | jq ".description = \"Payment Hardware Verification Key\" ")
+        echo "${vkeyJSON}" > ${addrName}.vkey
+        file_lock ${addrName}.vkey
+        file_lock ${addrName}.hwsfile
+
+	echo -e "\e[0mPaymentOnly(Enterprise)-Verification-Key (MultiSig, Account# ${accNo}, Index# ${idxNo}): \e[32m ${addrName}.vkey \e[90m"
+        cat ${addrName}.vkey
+        echo
+        echo -e "\e[0mPaymentOnly(Enterprise)-HardwareSigning-File (MultiSig, Account# ${accNo}, Index# ${idxNo}): \e[32m ${addrName}.hwsfile \e[90m"
         cat ${addrName}.hwsfile
         echo
 
