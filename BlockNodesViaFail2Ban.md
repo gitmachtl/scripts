@@ -46,6 +46,7 @@ failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
             ^.*"address":"<HOST>:.*HardForkEncoderDisabledEra.*$
             ^.*version data mismatch.*"address":"<HOST>:.*$
             ^.*"address":"<HOST>:.*version data mismatch.*$
+            ^.*"address":"<HOST>:.*VersionMismatch.*$
 
 ```
 
