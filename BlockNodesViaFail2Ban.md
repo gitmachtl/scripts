@@ -46,6 +46,7 @@ failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
             ^.*"address":"<HOST>:.*HardForkEncoderDisabledEra.*$
             ^.*version data mismatch.*"address":"<HOST>:.*$
             ^.*"address":"<HOST>:.*version data mismatch.*$
+            ^.*"address":"<HOST>:.*VersionMismatch.*$
 
 ```
 
@@ -65,6 +66,7 @@ failregex = ^.*HardForkEncoderDisabledEra.*"address":"<HOST>:.*$
             ^.*"address":"<HOST>:.*HardForkEncoderDisabledEra.*$
             ^.*version data mismatch.*"address":"<HOST>:.*$
             ^.*"address":"<HOST>:.*version data mismatch.*$
+            ^.*"address":"<HOST>:.*VersionMismatch.*$
 
 journalmatch = _SYSTEMD_UNIT=<your systemd service name, i.e. cardano-node.service>
 ```
