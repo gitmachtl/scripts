@@ -4,7 +4,7 @@
 
 | | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.35.3</b><br><sub>**git checkout tags/1.35.3**</sub> | <b>1.10.0</b><br><sub>**if you use hw-wallets** | <b>4.1.2</b><br><sub>**if you use hw-wallets** | <b>2.4.3</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.35.4</b><br><sub>**git checkout tags/1.35.4**</sub> | <b>1.12.0</b><br><sub>**if you use hw-wallets** | <b>4.1.2</b><br><sub>**if you use hw-wallets** | <b>2.5.2</b><br><sub>**if you use hw-wallets** |
 
 > :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://book.world.dev.cardano.org/environments.html), choose PREPROD, PREVIEW or LEGACY! 
 
