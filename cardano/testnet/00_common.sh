@@ -36,6 +36,8 @@ offlineFile="./offlineTransfer.json" 	#path to the filename (JSON) that will be 
 jcli_bin="./jcli"               #Path to your jcli binary you wanna use. If your binary is present in the Path just set it to "jcli" without the "./" infront
 catalyst_toolbox_bin="./catalyst-toolbox"	#Path to your catalyst-toolbox binary you wanna use. If your binary is present in the Path just set it to "catalyst-toolbox" without the "./" infront
 voter_registration_bin="./voter-registration"	#Path to your voter-registration binary you wanna use. If your binary is present in the Path just set it to "voter-registration" without the "./" infront
+cardanosigner="./cardano-signer"		#Path to your cardano-signer binary you wanna use. If your binary is present in the Path just set it to "cardano-signer" without the "./" infront
+cardanoaddress="./cardano-address"		#Path to your cardano-address binary you wanna use. If your binary is present in the Path just set it to "cardano-address" without the "./" infront
 
 
 #--------- Only needed if you wanna use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
@@ -51,7 +53,6 @@ cardanometa="./token-metadata-creator" #Path to your token-metadata-creator bina
 #network="Mainnet" 	#Mainnet (Default)
 #network="PreProd" 	#PreProd (new default Testnet)
 #network="Preview"	#Preview (new fast Testnet)
-#network="Vasil-Dev"	#Vasil-Dev TestChain
 #network="Legacy"	#Legacy TestChain (formally known as Public-Testnet)
 
 #--------- You can of course specify your own values by setting a new network=, magicparam=, addrformat= and byronToShelleyEpochs= parameter :-)
@@ -191,16 +192,16 @@ case "${network,,}" in
 		;;
 
 
-	"vasildev"|"vasil-dev" )
-		network="Vasil-Dev"
-		_magicparam="--testnet-magic 9"
-		_addrformat="--testnet-magic 9"
-		_byronToShelleyEpochs=0
-		_tokenMetaServer=
-		_transactionExplorer=
-		_koiosAPI=
-		_adahandlePolicyID=
-		;;
+#	"vasildev"|"vasil-dev" )
+#		network="Vasil-Dev"
+#		_magicparam="--testnet-magic 9"
+#		_addrformat="--testnet-magic 9"
+#		_byronToShelleyEpochs=0
+#		_tokenMetaServer=
+#		_transactionExplorer=
+#		_koiosAPI=
+#		_adahandlePolicyID=
+#		;;
 
 esac
 
@@ -224,13 +225,12 @@ if [[ "${transactionExplorer: -1}" == "/" ]]; then transactionExplorer=${transac
 #Check about the needed chain params
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
-
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.34.1"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.35.4"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="1.4.2"  #minimum version for the cardano-app on the Ledger HW-Wallet
-minTrezorCardanoAppVersion="2.4.3"  #minimum version for the firmware on the Trezor HW-Wallet
-minHardwareCliVersion="1.10.0" #minimum version for the cardano-hw-cli
+minLedgerCardanoAppVersion="4.1.2"  #minimum version for the cardano-app on the Ledger HW-Wallet
+minTrezorCardanoAppVersion="2.5.2"  #minimum version for the firmware on the Trezor HW-Wallet
+minHardwareCliVersion="1.12.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -542,7 +542,7 @@ if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else node
 
 #Temporary fix to lock the transaction build-raw to alonzo era for
 #Hardware-Wallet operations. Babbage-Era is not yet supported, so we will lock this for now
-if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--babbage-era" ]]; then nodeEraParam="--alonzo-era"; fi
+#if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--babbage-era" ]]; then nodeEraParam="--alonzo-era"; fi
 
 
 #-------------------------------------------------------
@@ -1273,7 +1273,7 @@ byteLength() {
 
 #-------------------------------------------------------
 #Autocorrection of the TxBody to be in canonical order for HW-Wallet transactions
-autocorrect_TxBodyFile_withoutAuxHashCorrection() {
+autocorrect_TxBodyFile() {
 
 local txBodyFile="${1}"
 local txBodyTmpFile="${1}-corrected"
@@ -1304,7 +1304,7 @@ echo "${tmp_lastline}"; exit 0
 #-------------------------------------------------------
 #Autocorrection of the TxBody to be in canonical order for HW-Wallet transactions
 #Also repairs a maybe broken AuxDataHash!
-autocorrect_TxBodyFile() {
+autocorrect_TxBodyFile_withAuxDataHashCorrection() {
 
 local txBodyFile="${1}"
 local txBodyTmpFile="${1}-corrected"
