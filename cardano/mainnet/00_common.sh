@@ -51,9 +51,10 @@ cardanometa="./token-metadata-creator" #Path to your token-metadata-creator bina
 #          Using a preconfigured network name automatically loads and sets the magicparam, addrformat and byronToShelleyEpochs parameters, also API-URLs, etc.
 
 #network="Mainnet" 	#Mainnet (Default)
-#network="PreProd" 	#PreProd (new default Testnet)
-#network="Preview"	#Preview (new fast Testnet)
+#network="PreProd" 	#PreProd Testnet (new default Testnet)
+#network="Preview"	#Preview Testnet (new fast Testnet)
 #network="Legacy"	#Legacy TestChain (formally known as Public-Testnet)
+#network="GuildNet"	#GuildNet Testnet
 
 #--------- You can of course specify your own values by setting a new network=, magicparam=, addrformat= and byronToShelleyEpochs= parameter :-)
 #network="new-devchain"; magicparam="--testnet-magic 11111"; addrformat="--testnet-magic 11111"; byronToShelleyEpochs=6 #Custom Chain settings
@@ -163,7 +164,7 @@ case "${network,,}" in
 		_byronToShelleyEpochs=74
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://testnet.cexplorer.io/tx"
-		_koiosAPI="https://testnet.koios.rest/api/v0"
+		_koiosAPI=
 		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
 		;;
 
@@ -175,7 +176,7 @@ case "${network,,}" in
 		_byronToShelleyEpochs=4
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://testnet.cardanoscan.io/transaction"
-		_koiosAPI=
+		_koiosAPI="https://preprod.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
 
@@ -187,21 +188,21 @@ case "${network,,}" in
 		_byronToShelleyEpochs=0
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://preview.cexplorer.io/tx"
-		_koiosAPI=
+		_koiosAPI="https://preview.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
 
 
-#	"vasildev"|"vasil-dev" )
-#		network="Vasil-Dev"
-#		_magicparam="--testnet-magic 9"
-#		_addrformat="--testnet-magic 9"
-#		_byronToShelleyEpochs=0
-#		_tokenMetaServer=
-#		_transactionExplorer=
-#		_koiosAPI=
-#		_adahandlePolicyID=
-#		;;
+	"guildnet"|"guild-net" )
+		network="GuildNet"
+		_magicparam="--testnet-magic 141"
+		_addrformat="--testnet-magic 141"
+		_byronToShelleyEpochs=2
+		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
+		_transactionExplorer=
+		_koiosAPI="https://guild.koios.rest/api/v0"
+		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		;;
 
 esac
 
@@ -225,13 +226,12 @@ if [[ "${transactionExplorer: -1}" == "/" ]]; then transactionExplorer=${transac
 #Check about the needed chain params
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
-
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.35.3"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.35.4"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
 minLedgerCardanoAppVersion="4.1.2"  #minimum version for the cardano-app on the Ledger HW-Wallet
-minTrezorCardanoAppVersion="2.4.3"  #minimum version for the firmware on the Trezor HW-Wallet
-minHardwareCliVersion="1.11.0" #minimum version for the cardano-hw-cli
+minTrezorCardanoAppVersion="2.5.2"  #minimum version for the firmware on the Trezor HW-Wallet
+minHardwareCliVersion="1.12.0" #minimum version for the cardano-hw-cli
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -342,6 +342,13 @@ ${cardanocli} address info --address $1 2> /dev/null | jq -r .era
 
 addrTypePayment="payment"
 addrTypeStake="stake"
+
+#-------------------------------------------------------
+#AdaHandle Format check (exits with true or false)
+checkAdaHandleFormat() {
+	#AdaHandles with optional SubHandles
+	if [[ "${1,,}" =~ ^\$[a-z0-9_.-]{1,15}(@[a-z0-9_.-]{1,15})?$ ]]; then true; else false; fi
+}
 
 
 #-------------------------------------------------------------
@@ -543,7 +550,7 @@ if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else node
 
 #Temporary fix to lock the transaction build-raw to alonzo era for
 #Hardware-Wallet operations. Babbage-Era is not yet supported, so we will lock this for now
-if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--babbage-era" ]]; then nodeEraParam="--alonzo-era"; fi
+#if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--babbage-era" ]]; then nodeEraParam="--alonzo-era"; fi
 
 
 #-------------------------------------------------------

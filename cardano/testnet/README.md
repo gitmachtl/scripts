@@ -284,7 +284,7 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
          
 <details><summary><b>01_sendLovelaces.sh:</b> sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address:bookmark_tabs:</summary>
             
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or HASH or '$adahandle'> <lovelaces> [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup2;** (you can send to an HASH address too)
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or HASH or '$adahandle'> <lovelaces> [Opt: metadata.json/cbor] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup2;** (you can send to an HASH address too)
    
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./01_sendLovelaces.sh addr1 addr2 2000000 "msg: here is your money"``` to send 2000000 lovelaces from addr1.addr to addr2.addr and add the transaction message "here is your money"
@@ -337,9 +337,11 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
    
 <details><summary><b>01_claimRewards.sh</b> claims all rewards from the given stake address and sends it to a receiver address:bookmark_tabs:</summary>
 
-<br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddr> [optional <feePaymentAddr>] [Opt: selected UTXOs]```**&sup1;**
+<br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddrName or HASH or '$adahandle'> [Opt: <feePaymentAddr>] [Opt: metadata.json/cbor] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**
 <br>```./01_claimRewards.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
 <br>```./01_claimRewards.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
+<br>```./01_claimRewards.sh owner.staking myrewards "msg: rewards for epoch xxx"``` sends the rewards from owner.staking.addr to the myrewards.addr. Also add the message "rewards from epoch xxx" to it.
+<br>```./01_claimRewards.sh owner.staking '$adahandle' myfunds``` sends the rewards from owner.staking.addr to the address with the adahandle. The transaction fees will be paid from the myfunds.addr
 
 :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
 

@@ -19,7 +19,7 @@ if [ ! -f "${addrName}.addr" ]; then
                                 if [[ ${typeOfAddr} == ${addrTypePayment} || ${typeOfAddr} == ${addrTypeStake} ]]; then echo "$(basename ${addrName})" > ${tempDir}/tempAddr.addr; addrName="${tempDir}/tempAddr";
 
                                 #check if its an adahandle
-                                elif [[ "${addrName,,}" =~ ^\$[a-z0-9_.-]{1,15}$ ]]; then
+                                elif checkAdaHandleFormat "${addrName}"; then
                                         if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
                                         adahandleName=${addrName,,}
                                         assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})

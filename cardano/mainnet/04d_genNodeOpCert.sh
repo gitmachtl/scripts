@@ -174,7 +174,7 @@ elif [ -f "${nodeName}.node.hwsfile" ]; then #key is a hardware wallet
                 start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		file_unlock ${opcertFile}
 		file_unlock ${nodeName}.node.counter
-                tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${kesVkeyFile} --kes-period ${currentKESperiod} --operational-certificate-issue-counter ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${opcertFile} 2> /dev/stdout)
+                tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${kesVkeyFile} --kes-period ${currentKESperiod} --operational-certificate-issue-counter-file ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${opcertFile} 2> /dev/stdout)
                 if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; file_lock ${opcertFile}; file_lock ${nodeName}.node.counter; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
 		file_lock ${opcertFile}
 		file_lock ${nodeName}.node.counter

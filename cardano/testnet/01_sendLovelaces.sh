@@ -156,7 +156,7 @@ if [ ! -f "${toAddr}.addr" ]; then
 				if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo";
 
 				#check if its an adahandle
-				elif [[ "${toAddr,,}" =~ ^\$[a-z0-9_.-]{1,15}$ ]]; then
+                                elif checkAdaHandleFormat "${toAddr}"; then
 					if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
 					adahandleName=${toAddr,,}
 					assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})

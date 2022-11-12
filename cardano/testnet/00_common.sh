@@ -51,9 +51,10 @@ cardanometa="./token-metadata-creator" #Path to your token-metadata-creator bina
 #          Using a preconfigured network name automatically loads and sets the magicparam, addrformat and byronToShelleyEpochs parameters, also API-URLs, etc.
 
 #network="Mainnet" 	#Mainnet (Default)
-#network="PreProd" 	#PreProd (new default Testnet)
-#network="Preview"	#Preview (new fast Testnet)
+#network="PreProd" 	#PreProd Testnet (new default Testnet)
+#network="Preview"	#Preview Testnet (new fast Testnet)
 #network="Legacy"	#Legacy TestChain (formally known as Public-Testnet)
+#network="GuildNet"	#GuildNet Testnet
 
 #--------- You can of course specify your own values by setting a new network=, magicparam=, addrformat= and byronToShelleyEpochs= parameter :-)
 #network="new-devchain"; magicparam="--testnet-magic 11111"; addrformat="--testnet-magic 11111"; byronToShelleyEpochs=6 #Custom Chain settings
@@ -163,7 +164,7 @@ case "${network,,}" in
 		_byronToShelleyEpochs=74
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://testnet.cexplorer.io/tx"
-		_koiosAPI="https://testnet.koios.rest/api/v0"
+		_koiosAPI=
 		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
 		;;
 
@@ -175,7 +176,7 @@ case "${network,,}" in
 		_byronToShelleyEpochs=4
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://testnet.cardanoscan.io/transaction"
-		_koiosAPI=
+		_koiosAPI="https://preprod.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
 
@@ -187,21 +188,21 @@ case "${network,,}" in
 		_byronToShelleyEpochs=0
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://preview.cexplorer.io/tx"
-		_koiosAPI=
+		_koiosAPI="https://preview.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
 
 
-#	"vasildev"|"vasil-dev" )
-#		network="Vasil-Dev"
-#		_magicparam="--testnet-magic 9"
-#		_addrformat="--testnet-magic 9"
-#		_byronToShelleyEpochs=0
-#		_tokenMetaServer=
-#		_transactionExplorer=
-#		_koiosAPI=
-#		_adahandlePolicyID=
-#		;;
+	"guildnet"|"guild-net" )
+		network="GuildNet"
+		_magicparam="--testnet-magic 141"
+		_addrformat="--testnet-magic 141"
+		_byronToShelleyEpochs=2
+		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
+		_transactionExplorer=
+		_koiosAPI="https://guild.koios.rest/api/v0"
+		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		;;
 
 esac
 
@@ -341,6 +342,13 @@ ${cardanocli} address info --address $1 2> /dev/null | jq -r .era
 
 addrTypePayment="payment"
 addrTypeStake="stake"
+
+#-------------------------------------------------------
+#AdaHandle Format check (exits with true or false)
+checkAdaHandleFormat() {
+	#AdaHandles with optional SubHandles
+	if [[ "${1,,}" =~ ^\$[a-z0-9_.-]{1,15}(@[a-z0-9_.-]{1,15})?$ ]]; then true; else false; fi
+}
 
 
 #-------------------------------------------------------------

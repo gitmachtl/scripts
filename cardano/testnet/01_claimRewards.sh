@@ -5,49 +5,214 @@
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
 
+if [ $# -ge 2 ]; then
+		stakeAddr="$(dirname $1)/$(basename $1 .staking).staking"; stakeAddr=${stakeAddr/#.\//}
+		toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//}
+                else
+                 cat >&2 <<EOF
 
-case $# in
-  2|3|4 ) stakeAddr="$(dirname $1)/$(basename $1 .staking).staking"; stakeAddr=${stakeAddr/#.\//}
-	toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//};;
-  * ) cat >&2 <<EOF
-Usage:  $(basename $0) <StakeAddressName> <To AddressName> [optional: <FeePaymentAddressName>] [optional: list of UTXOs to use]
-Ex.: $(basename $0) owner.staking owner.payment        (claims the rewards from owner.staking.addr and sends them to owner.payment.addr, owner.payment.addr pays the fees)
-Ex.: $(basename $0) owner.staking owner.payment funds  (claims the rewards from owner.staking.addr and sends them to owner.payment.addr, funds.addr pays the fees)
+Usage:  $(basename $0) <StakeAddressName> <To AddressName or HASH or '\$adahandle'> [Opt: <FeePaymentAddressName>]
 
-Optional parameter UTXO List:
+        [Opt: Message comment, starting with "msg: ...", | is the separator]
+        [Opt: list of UTXOs to use, | is the separator]
+        [Opt: no of input UTXOs limitation, starting with "utxolimit: ..."]
+        [Opt: skip input UTXOs that contain assets (hex-format), starting with "skiputxowithasset: <policyID>(assetName)", | is the separator]
+        [Opt: only input UTXOs that contain assets (hex-format), starting with "onlyutxowithasset: <policyID>(assetName)", | is the separator]
 
-In rare cases you wanna define the exact UTXOs that should be used for sending Assets out, you can do that as a 6th parameter in the scheme:
-"UTXO1#Index" ... to specify one UTXO, must be in "..."
-"UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in "..."
+
+Examples:
+	$(basename $0) owner.staking owner.payment        (claims the rewards from owner.staking.addr and sends them to owner.payment.addr, owner.payment.addr pays the fees)
+	$(basename $0) owner.staking owner.payment "msg: rewards for epoch xxx" (claims the rewards like the first example, but also adds a transaction message)
+	$(basename $0) owner.staking owner.payment funds  (claims the rewards from owner.staking.addr and sends them to owner.payment.addr, funds.addr pays the fees)
+
+Optional parameters:
+
+- If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
+   You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
+   "msg: This is a short comment for the transaction" ... that would be a one-liner comment
+   "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
+
+- If you wanna attach a Metadata JSON:
+   You can add a Metadata.json (Auxilierydata) filename as a parameter to send it alone with the transaction.
+   There will be a simple basic check that the transaction-metadata.json file is valid.
+
+- If you wanna attach a Metadata CBOR:
+   You can add a Metadata.cbor (Auxilierydata) filename as a parameter to send it along with the transaction.
+   Catalyst-Voting for example is done via the voting_metadata.cbor file.
+
+- In rare cases you wanna define the exact UTXOs that should be used for sending Funds out:
+   "UTXO1#Index" ... to specify one UTXO, must be in quotes "..."
+   "UTXO1#Index|UTXO2#Index" ... to specify more UTXOs provide them with the | as separator, must be in quotes "..."
+
+- In rare cases you wanna define the maximum count of input UTXOs that will be used for building the Transaction:
+   "utxolimit: xxx" ... to specify xxx number of input UTXOs to be used as maximum
+   "utxolimit: 300" ... to specify a maximum of 300 input UTXOs that will be used for the transaction
+
+- In rare cases you wanna skip input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:
+   "skiputxowithasset: yyy" ... to skip all input UTXOs that contains assets with the policyID yyy
+   "skiputxowithasset: yyy|zzz" ... to skip all input UTXOs that contains assets with the policyID yyy or zzz
+
+- In rare cases you wanna only use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:
+   "onlyutxowithasset: yyy" ... to skip all input UTXOs that contains assets with the policyID yyy
+   "onlyutxowithasset: yyy|zzz" ... to skip all input UTXOs that contains assets with the policyID yyy or zzz
 
 EOF
-  exit 1;; esac
+  exit 1; fi
 
-#Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
-if [ ! -f "${toAddr}.addr" ]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
+#Check all optional parameters about there types and set the corresponding variables
+#Starting with the 4th parameter (index3) up to the last parameter
+metafileParameter=""; metafile=""; filterForUTXO=""; transactionMessage="{}"; adahandleName= ; fromAddr= ; #Setting defaults
 
-#Check if an optional fee payment address is given and different to the receiver address
-fromAddr=${toAddr}
+paramCnt=$#;
 
-if [ $# -ge 3 ] && [[ ! "${3^^}" == *"#"* ]] && [[ ! ${3} == "" ]]; then fromAddr="$(dirname $3)/$(basename $3 .addr)"; fromAddr=${fromAddr/#.\//}; fi
-if [[ "${fromAddr}" == "${toAddr}" ]]; then rxcnt="1"; else rxcnt="2"; fi
+allParameters=( "$@" )
+for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
+ do
+        paramValue=${allParameters[$tmpCnt]}
+        #echo "${tmpCnt}: ${paramValue} -> "
 
-#Checks for needed files
-if [ ! -f "${toAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${toAddr}.addr\" does not exist!\e[0m"; exit 1; fi
+        #Check if an additional payment address or metadata.json/.cbor was set as parameter (not a Message, not a UTXO#IDX, not empty, not a number)
+        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+
+		#Check if its a payment address file
+		_fromAddr="$(dirname ${paramValue})/$(basename ${paramValue} .addr)"; _fromAddr=${_fromAddr/#.\//};
+		if [[ -f "${_fromAddr}.addr" ]]; then fromAddr=${_fromAddr}; unset _fromAddr; #ok we found a payment file
+		else #if it was not a paymentfile, the only option left is that it is a metadata file, lets check about that
+	             metafile=${paramValue}; metafileExt=${metafile##*.}
+	             if [[ -f "${metafile}" && "${metafileExt^^}" == "JSON" ]]; then #its a json file
+	                #Do a simple basic check if the metadatum is in the 0..65535 range
+	                metadatum=$(jq -r "keys_unsorted[0]" "${metafile}" 2> /dev/null)
+	                if [[ $? -ne 0 ]]; then echo "ERROR - '${metafile}' is not a valid JSON file"; exit 1; fi
+	                #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
+	                if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then
+	                        echo "ERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!"; exit 1; fi
+	                metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
+	             elif [[ -f "${metafile}" && "${metafileExt^^}" == "CBOR" ]]; then #its a cbor file
+	                metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
+	             else echo -e "The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again."; exit 1;
+	             fi
+
+		fi
+
+        #Check if an additional UTXO#IDX filter was set as parameter "hex#num(|)" at least 1 time, but can be more often}
+        elif [[ "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]]; then filterForUTXO="${paramValue}";
+
+        #Check it its a MessageComment. Adding it to the JSON array if the length is <= 64 chars
+        elif [[ "${paramValue,,}" =~ ^msg:(.*)$ ]]; then #if the parameter starts with "msg:" then add it
+                msgString=$(trimString "${paramValue:4}");
+
+                #Split the messages within the parameter at the "|" char
+                IFS='|' read -ra allMessages <<< "${msgString}"
+
+                #Add each message to the transactionMessage JSON
+                for (( tmpCnt2=0; tmpCnt2<${#allMessages[@]}; tmpCnt2++ ))
+                do
+                        tmpMessage=${allMessages[tmpCnt2]}
+                        if [[ $(byteLength "${tmpMessage}") -le 64 ]]; then
+                                                transactionMessage=$( jq ".\"674\".msg += [ \"${tmpMessage}\" ]" <<< ${transactionMessage} 2> /dev/null);
+                                                if [ $? -ne 0 ]; then echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" contain invalid chars for a JSON!\n\e[0m"; exit 1; fi
+                        else echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" is too long, max. 64 bytes allowed, yours is $(byteLength "${tmpMessage}") bytes long!\n\e[0m"; exit 1;
+                        fi
+                done
+
+        #Check if its an utxo amount limitation
+        elif [[ "${paramValue,,}" =~ ^utxolimit:(.*)$ ]]; then #if the parameter starts with "utxolimit:" then set the utxolimit
+                utxoLimitCnt=$(trimString "${paramValue:10}");
+                if [[ ${utxoLimitCnt} -le 0 ]]; then echo -e "\n\e[35mUTXO-Limit-ERROR: Please use a number value greater than zero!\n\e[0m"; exit 1; fi
+
+        #Check if its an skipUtxoWithPolicy set
+        elif [[ "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]]; then #if the parameter starts with "skiputxowithasset:" then set the skipUtxoWithAsset variable
+                skipUtxoWithAssetTmp=$(trimString "${paramValue:18}"); skipUtxoWithAssetTmp=${skipUtxoWithAssetTmp,,}; #read the value and convert it to lowercase
+                if [[ ! "${skipUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then
+                        echo -e "\n\e[35mSkip-UTXO-With-Asset-ERROR: The given asset '${skipUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
+                skipUtxoWithAssetTmp=${skipUtxoWithAssetTmp//|/ }; #replace the | with a space so it can be read as an array
+                skipUtxoWithAsset=""
+                #Check each entry (separated via a | char) if they contain also assethex-parts, if so place a . in the middle. Concate the final string.
+                for tmpEntry in ${skipUtxoWithAssetTmp}; do
+                if [[ ${#tmpEntry} -gt 56 ]]; then skipUtxoWithAsset+="${tmpEntry:0:56}.${tmpEntry:56}|"; else skipUtxoWithAsset+="${tmpEntry}|"; fi #representation in the rawquery output is <hexPolicyID>.<hexAssetName>
+                done
+                skipUtxoWithAsset=${skipUtxoWithAsset%?}; #remove the last char "|"
+
+        #Check if its an onlyUtxoWithPolicy set
+        elif [[ "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]]; then #if the parameter starts with "onylutxowithasset:" then set the onlyUtxoWithAsset variable
+                onlyUtxoWithAssetTmp=$(trimString "${paramValue:18}"); onlyUtxoWithAssetTmp=${onlyUtxoWithAssetTmp,,}; #read the value and convert it to lowercase
+                if [[ ! "${onlyUtxoWithAssetTmp}" =~ ^(([[:xdigit:]][[:xdigit:]]){28,60}+(\|?)){1,}$ ]]; then
+                        echo -e "\n\e[35mOnly-UTXO-With-Asset-ERROR: The given asset '${onlyUtxoWithAssetTmp}' is not a valid policy(+assetname) hex string!\n\e[0m"; exit 1; fi
+                onlyUtxoWithAssetTmp=${onlyUtxoWithAssetTmp//|/ }; #replace the | with a space so it can be read as an array
+                onlyUtxoWithAsset=""
+                #Check each entry (separated via a | char) if they contain also assethex-parts, if so place a . in the middle. Concate the final string.
+                for tmpEntry in ${onlyUtxoWithAssetTmp}; do
+                if [[ ${#tmpEntry} -gt 56 ]]; then onlyUtxoWithAsset+="${tmpEntry:0:56}.${tmpEntry:56}|"; else onlyUtxoWithAsset+="${tmpEntry}|"; fi #representation in the rawquery output is <hexPolicyID>.<hexAssetName>
+                done
+                onlyUtxoWithAsset=${onlyUtxoWithAsset%?}; #remove the last char "|"
+
+        fi #end of different parameters check
+
+done
 
 if [ ! -f "${stakeAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.addr\" does not exist!\e[0m"; exit 1; fi
 if ! [[ -f "${stakeAddr}.skey" || -f "${stakeAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.skey/hwsfile\" Staking Signing Key or HardwareFile does not exist! Please create it first with script 03a.\e[0m"; exit 2; fi
 
-if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist!\e[0m"; exit 1; fi
-if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+#Check if toAddr file does not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
+if [ ! -f "${toAddr}.addr" ]; then
+                                toAddr=$(trimString "${toAddr}") #trim it if spaces present
+
+                                #check if its a regular cardano payment address
+                                typeOfAddr=$(get_addressType "${toAddr}");
+                                if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo";
+
+                                #check if its an adahandle
+                                elif checkAdaHandleFormat "${toAddr}"; then
+                                        if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
+                                        adahandleName=${toAddr,,}
+                                        assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
+                                        #query adahandle asset holding address via koios
+                                        showProcessAnimation "Query Adahandle into holding address: " &
+                                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
+                                        stopProcessAnimation;
+                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve \$adahandle '${adahandleName}' to an address.\n\e[0m"; exit 1; fi
+                                        toAddr=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
+                                        typeOfAddr=$(get_addressType "${toAddr}");
+                                        if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
+                                        showProcessAnimation "Verify Adahandle is on resolved address: " &
+                                        utxo=$(${cardanocli} query utxo --address ${toAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
+                                                 echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
+                                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m\n"
+                                        echo "$(basename ${toAddr})" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
+
+                                #otherwise post an error message
+                                else echo -e "\n\e[35mERROR - Destination Address can't be resolved. Maybe filename wrong, or not a payment-address.\n\e[0m"; exit 1;
+
+                                fi
+
+else #there is a toAddr file present, lets check if a fromAddr was provided. if not, set it to the toAddr as default
+	if [[ "${fromAddr}" == "" ]]; then fromAddr=${toAddr};
+	echo "Set payment address to the destination address"
+	fi
+fi
+
+#Check if there is a fromAddr present at this stage, its either a copy of the destination toAddr or it was provided via an optional parameter
+if [[ "${fromAddr}" == "" ]]; then echo -e "\n\e[35mERROR - Fee Payment Address not provided. If you use for example an adahandle as the destination address, please specify an additional Fee Payment Address.\n\e[0m"; exit 1; fi
+
+#Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list
+if [[ ! "${transactionMessage}" == "{}" ]]; then
+        transactionMessageMetadataFile="${tempDir}/$(basename ${fromAddr}).transactionMessage.json";
+        tmp=$( jq . <<< ${transactionMessage} 2> /dev/null)
+        if [ $? -eq 0 ]; then echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
+                         else echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1; fi
+fi
+
+sendFromAddr=$(trimString $(cat "${fromAddr}.addr")); check_address "${sendFromAddr}"
+sendToAddr=$(trimString $(cat "${toAddr}.addr")); check_address "${sendToAddr}"
+showToAddr=${adahandleName:-"${toAddr}.addr"} #shows the adahandle instead of the destination address file if available
+
+stakingAddr=$(cat ${stakeAddr}.addr); check_address "${stakingAddr}"
 
 
-
-echo -e "\e[0mClaim Staking Rewards from Address\e[32m ${stakeAddr}.addr\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
+echo -e "\e[0mClaim Staking Rewards from Address\e[32m ${stakeAddr}.addr\e[0m to Address\e[32m ${showToAddr}\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
 echo
-
-lastCallParam=${@: -1};
-if [ $# -ge 3 ] && [[ "${lastCallParam}" == *"#"* ]]; then filterForUTXO="${lastCallParam}"; else filterForUTXO=""; fi
 
 #get live values
 currentTip=$(get_currentTip)
@@ -55,16 +220,14 @@ ttl=$(get_currentTTL)
 currentEPOCH=$(get_currentEpoch)
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
-
-sendFromAddr=$(cat ${fromAddr}.addr); check_address "${sendFromAddr}"
-sendToAddr=$(cat ${toAddr}.addr); check_address "${sendToAddr}"
-stakingAddr=$(cat ${stakeAddr}.addr); check_address "${stakingAddr}"
-
 echo
 echo -e "Claim all rewards from Address ${stakeAddr}.addr: \e[32m${stakingAddr}\e[0m"
 echo
-echo -e "Send the rewards to Address ${toAddr}.addr: \e[32m${sendToAddr}\e[0m"
+echo -e "Send the rewards to Address ${showToAddr}: \e[32m${sendToAddr}\e[0m"
 echo -e "Pay fees from Address ${fromAddr}.addr: \e[32m${sendFromAddr}\e[0m"
+
+if [[ "${sendFromAddr}" == "${sendToAddr}" ]]; then rxcnt="1"; else rxcnt="2"; echo -e "\e[33mRewards-Destination-Address and Fee-Payment-Address are not the same.\e[0m"; fi
+
 echo
 
         #Get rewards state data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
@@ -120,6 +283,9 @@ echo
         if ${onlineMode}; then
                                 showProcessAnimation "Query-UTXO: " &
                                 utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
+                                if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
+                                if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
                           else
@@ -237,6 +403,13 @@ echo
         fi
 echo
 
+#There are metadata file attached, list them:
+if [[ ! "${metafileList}" == "" ]]; then echo -e "\e[0mInclude Metadata-File(s):\e[32m ${metafileList}\e[0m\n"; fi
+
+#There are transactionMessages attached, show the metadatafile:
+if [[ ! "${transactionMessage}" == "{}" ]]; then echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m"; fi
+
+
 #Read ProtocolParameters
 if ${onlineMode}; then
                         protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
@@ -256,10 +429,10 @@ withdrawal="${stakingAddr}+${rewardsSum}"
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendFromAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendFromAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
@@ -300,9 +473,9 @@ echo
 #Building unsigned transaction body
 
 if [[ ${rxcnt} == 1 ]]; then
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			else
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --tx-out ${sendToAddr}+${rewardsSum} --invalid-hereafter ${ttl} --fee ${fee} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --tx-out ${sendToAddr}+${rewardsSum} --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi

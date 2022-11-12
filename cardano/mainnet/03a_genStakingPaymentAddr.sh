@@ -7,35 +7,48 @@
 
 
 #Check command line parameter
-if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|HYBRID|ENC|HYBRIDENC)$ ]]; then
+if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|HWMULTI|HYBRID|HYBRIDMULTI|ENC|HYBRIDENC|HYBRIDMULTIENC)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hybrid | hybridenc> [Account# 0-1000 for HW-Wallet-Path, Default=0]
+ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti | hybrid | hybridmulti | hybridenc | hybridmultienc> [Acc# 0-1000 for HW-Wallet, Def=0] [Idx# 0-1000 for HW-Wallet, Def=0]
 
 Examples:
-$(basename $0) owner cli        ... generates Payment & Staking keys via cli (was default method before)
-$(basename $0) owner enc        ... generates Payment & Staking keys via cli and encrypted via a Password
-$(basename $0) owner hw         ... generates Payment & Staking keys using Ledger/Trezor HW-Keys
-$(basename $0) owner hybrid     ... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli (comfort mode for multiowner pools)
-$(basename $0) owner hybridenc  ... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli and encrypted via a Password
+$(basename $0) owner cli             ... generates Payment & Staking keys via cli (was default method before)
+$(basename $0) owner enc             ... generates Payment & Staking keys via cli and encrypted via a Password
+$(basename $0) owner hw              ... generates Payment & Staking keys using Ledger/Trezor HW-Keys (Normal-Path 1852H/1815H/<Acc>/0,2/<Idx>)
+$(basename $0) owner hwmulti         ... generates Payment & Staking keys using Ledger/Trezor HW-Keys (MultiSig-Path 1854H/1815H/<Acc>/0,2/<Idx>)
+$(basename $0) owner hybrid          ... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli (comfort mode for multiowner pools)
+$(basename $0) owner hybridenc       ... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli and encrypted via a Password
+$(basename $0) owner hybridmulti     ... generates Payment keys using Ledger/Trezor HW-Keys (MultiSig-Path 1854H/1815H/<Acc>/0/<Idx>), Staking keys via cli
+$(basename $0) owner hybridmultienc  ... generates Payment keys using Ledger/Trezor HW-Keys (MultiSig-Path 1854H/1815H/<Acc>/0/<Idx>), Staking keys via cli and encrypted via a Password
 
 
-Optional with Hardware-Account-Numbers:
-$(basename $0) owner hw 1        ... generates Payment & Staking keys using Ledger/Trezor HW-Keys and SubAccount #1 (Default=0)
-$(basename $0) owner hybrid 5    ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount #5, Staking keys via cli (comfort mode for multiowner pools)
-$(basename $0) owner hybridenc 7 ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount #7, Staking keys via cli and encrypted via a Password
+Optional with Hardware-Account/Index-Numbers:
+$(basename $0) owner hw 1        ... generates Payment & Staking keys using Ledger/Trezor HW-Keys and SubAccount# 1, Index# 0
+$(basename $0) owner hybrid 5    ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount# 5, Index# 0, Staking keys via cli (comfort mode for multiowner pools)
+$(basename $0) owner hybrid 3 1  ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount# 3, Index# 1, Staking keys via cli
+$(basename $0) owner hybridenc 7 ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount# 7, Index# 0, Staking keys via cli and encrypted via a Password
 
 
 EOF
 exit 1;
 else
-addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
-keyType=$2;
-	accountNo=0;
-	if [ $# -eq 3 ]; then
-	accountNo=$3;
-	#Check if the given accountNo is a number and in the range. limit it to 1000 and below. actually the limit is 2^31-1, but thats ridiculous
-	if [ "${accountNo}" == null ] || [ -z "${accountNo##*[!0-9]*}" ] || [ "${accountNo}" -lt 0 ] || [ "${accountNo}" -gt 1000 ]; then echo -e "\e[35mERROR - Account# for the HardwarePath is out of range (0-1000, warnings above 100)!\e[0m"; exit 2; fi
+	addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
+	keyType=$2;
+	accNo=0;
+	idxNo=0;
+
+	if [ $# -ge 3 ]; then
+	accNo=$3;
+	#Check if the given accNo is a number and in the range. limit it to 1000 and below. actually the limit is 2^31-1, but thats ridiculous
+	if [ "${accNo}" == null ] || [ -z "${accNo##*[!0-9]*}" ] || [ "${accNo}" -lt 0 ] || [ "${accNo}" -gt 1000 ]; then echo -e "\e[35mERROR - Account# for the HardwarePath is out of range (0-1000, warnings above 100)!\e[0m"; exit 2; fi
 	fi
+
+        if [ $# -eq 4 ]; then
+        idxNo=$4;
+        #Check if the given idxNo is a number and in the range. limit it to 1000 and below. actually the limit is 2^31-1, but thats ridiculous
+        if [ "${idxNo}" == null ] || [ -z "${idxNo##*[!0-9]*}" ] || [ "${idxNo}" -lt 0 ] || [ "${idxNo}" -gt 1000 ]; then echo -e "\e[35mERROR - Index# for the HardwarePath is out of range (0-1000, warnings above 100)!\e[0m"; exit 2; fi
+        fi
+
 fi
 
 
@@ -62,6 +75,15 @@ if [ -f "${addrName}.staking.vkey" ]; then echo -e "\e[35mWARNING - ${addrName}.
 if [[ -f "${addrName}.staking.skey" ||  -f "${addrName}.staking.hwsfile" ]]; then echo -e "\e[35mWARNING - ${addrName}.staking.skey/hwsfile already present, delete it or use another name. Only one instance allowed !\e[0m"; exit 2; fi
 if [ -f "${addrName}.staking.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.staking.addr already present, delete it or use another name !\e[0m"; exit 2; fi
 if [ -f "${addrName}.staking.cert" ]; then echo -e "\e[35mWARNING - ${addrName}.staking.cert already present, delete it or use another name !\e[0m"; exit 2; fi
+
+#switching to multisig HW-RootPath if needed
+if [[ "${keyType^^}" == *"MULTI"* ]]; then
+	hwRootPath="1854";
+	multiSigPrefix="MultiSig-";
+	else
+	hwRootPath="1852";
+	multiSigPrefix="";
+fi
 
 
 ##############################
@@ -158,7 +180,7 @@ else  #Payment Keys via HW-Wallet, also for HYBRID and HYBRIDENC
 
 	#We need a payment(base) keypair with vkey and hwsfile from a Hardware-Key, sol lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-  	tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/${accountNo}H/0/0 --verification-key-file ${addrName}.payment.vkey --hw-signing-file ${addrName}.payment.hwsfile 2> /dev/stdout)
+  	tmp=$(${cardanohwcli} address key-gen --path ${hwRootPath}H/1815H/${accNo}H/0/${idxNo} --verification-key-file ${addrName}.payment.vkey --hw-signing-file ${addrName}.payment.hwsfile 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
@@ -168,10 +190,11 @@ else  #Payment Keys via HW-Wallet, also for HYBRID and HYBRIDENC
 
         file_lock ${addrName}.payment.vkey
         file_lock ${addrName}.payment.hwsfile
-        echo -e "\e[0mPayment(Base)-Verification-Key (Account# ${accountNo}): \e[32m ${addrName}.payment.vkey \e[90m"
+
+        echo -e "\e[0m${multiSigPrefix}Payment(Base)-Verification-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${addrName}.payment.vkey \e[90m"
         cat ${addrName}.payment.vkey
         echo
-        echo -e "\e[0mPayment(Base)-HardwareSigning-File (Account# ${accountNo}): \e[32m ${addrName}.payment.hwsfile \e[90m"
+        echo -e "\e[0m${multiSigPrefix}Payment(Base)-HardwareSigning-File (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${addrName}.payment.hwsfile \e[90m"
         cat ${addrName}.payment.hwsfile
         echo
 
@@ -183,7 +206,7 @@ echo
 #### Building the Staking Keys
 ##############################
 
-if [[ "${keyType^^}" == "CLI" || "${keyType^^}" == "HYBRID" ]]; then #Staking Keys via CLI (unencrypted)
+if [[ "${keyType^^}" == "CLI" || "${keyType^^}" == "HYBRID" || "${keyType^^}" == "HYBRIDMULTI" ]]; then #Staking Keys via CLI (unencrypted)
 
 	#Building the StakeAddress Keys from CLI for the normal CLI type or when HYBRID was choosen
 	${cardanocli} stake-address key-gen --verification-key-file "${addrName}.staking.vkey" --signing-key-file "${addrName}.staking.skey"
@@ -199,7 +222,7 @@ if [[ "${keyType^^}" == "CLI" || "${keyType^^}" == "HYBRID" ]]; then #Staking Ke
 	echo
 
 
-elif [[ "${keyType^^}" == "ENC" || "${keyType^^}" == "HYBRIDENC" ]]; then #Staking Keys via CLI (encrypted)
+elif [[ "${keyType^^}" == "ENC" || "${keyType^^}" == "HYBRIDENC" || "${keyType^^}" == "HYBRIDMULTIENC" ]]; then #Staking Keys via CLI (encrypted)
 
 	#Building the StakeAddress Keys from CLI for the normal CLI type or when HYBRID was choosen
 	skeyJSON=$(${cardanocli} stake-address key-gen --verification-key-file "${addrName}.staking.vkey" --signing-key-file /dev/stdout 2> /dev/null)
@@ -273,9 +296,9 @@ elif [[ "${keyType^^}" == "ENC" || "${keyType^^}" == "HYBRIDENC" ]]; then #Staki
 
 else  #Staking Keys via HW-Wallet
 
-        #We need the staking keypair with vkey and hwsfile from a Hardware-Key, sol lets' create them
+        #We need the staking keypair with vkey and hwsfile from a Hardware-Key, so lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/${accountNo}H/2/0 --verification-key-file ${addrName}.staking.vkey --hw-signing-file ${addrName}.staking.hwsfile 2> /dev/stdout)
+        tmp=$(${cardanohwcli} address key-gen --path ${hwRootPath}H/1815H/${accNo}H/2/0 --verification-key-file ${addrName}.staking.vkey --hw-signing-file ${addrName}.staking.hwsfile 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
@@ -286,10 +309,10 @@ else  #Staking Keys via HW-Wallet
         file_lock ${addrName}.staking.vkey
         file_lock ${addrName}.staking.hwsfile
 
-        echo -e "\e[0mVerification(Rewards)-Staking-Key (Account# ${accountNo}): \e[32m ${addrName}.staking.vkey \e[90m"
+        echo -e "\e[0m${multiSigPrefix}Verification(Rewards)-Staking-Key (Acc# ${accNo}, Idx# 0): \e[32m ${addrName}.staking.vkey \e[90m"
         cat ${addrName}.staking.vkey
         echo
-        echo -e "\e[0mSigning(Rewards)-HardwareSigning-File (Account# ${accountNo}): \e[32m ${addrName}.staking.hwsfile \e[90m"
+        echo -e "\e[0m${multiSigPrefix}Signing(Rewards)-HardwareSigning-File (Acc# ${accNo}, Idx# 0): \e[32m ${addrName}.staking.hwsfile \e[90m"
         cat ${addrName}.staking.hwsfile
         echo
 
