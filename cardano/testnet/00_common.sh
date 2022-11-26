@@ -175,7 +175,7 @@ case "${network,,}" in
 		_addrformat="--testnet-magic 1"
 		_byronToShelleyEpochs=4
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
-		_transactionExplorer="https://testnet.cardanoscan.io/transaction"
+		_transactionExplorer="https://preprod.cardanoscan.io/transaction"
 		_koiosAPI="https://preprod.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
@@ -187,7 +187,7 @@ case "${network,,}" in
 		_addrformat="--testnet-magic 2"
 		_byronToShelleyEpochs=0
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
-		_transactionExplorer="https://preview.cexplorer.io/tx"
+		_transactionExplorer="https://preview.cardanoscan.io/transaction"
 		_koiosAPI="https://preview.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
