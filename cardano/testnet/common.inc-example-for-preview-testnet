@@ -1,0 +1,17 @@
+# OVERWRITE FOR THE preview TESTNET
+network="preview"
+
+#Path to your cardano-node socket for machines in online-mode. Another example would be "$HOME/cnode/sockets/node.socket"
+socket="db-preview/node.socket" 
+
+#Shelley-Genesis path, you can also use the placeholder $HOME to specify your home directory
+genesisfile="configuration-preview/preview-shelley-genesis.json"
+
+#Byron-Genesis path, you can also use the placeholder $HOME to specify your home directory
+genesisfile_byron="configuration-preview/preview-byron-genesis.json"
+
+#There is no need anymore to manually set these parameters when using one of the preconfiged networks: legacy, preview, preview, ...
+#But you can set them to your own needs of course
+#magicparam="--testnet-magic 2"
+#addrformat="--testnet-magic 2"
+#byronToShelleyEpochs=0 #0 for the preview testnet

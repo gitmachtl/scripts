@@ -2,13 +2,13 @@
 network="preprod"
 
 #Path to your cardano-node socket for machines in online-mode. Another example would be "$HOME/cnode/sockets/node.socket"
-socket="db-testnet/node.socket" 
+socket="db-preprod/node.socket" 
 
 #Shelley-Genesis path, you can also use the placeholder $HOME to specify your home directory
-genesisfile="configuration-testnet/testnet-shelley-genesis.json"
+genesisfile="configuration-preprod/preprod-shelley-genesis.json"
 
 #Byron-Genesis path, you can also use the placeholder $HOME to specify your home directory
-genesisfile_byron="configuration-testnet/testnet-byron-genesis.json"
+genesisfile_byron="configuration-preprod/preprod-byron-genesis.json"
 
 #There is no need anymore to manually set these parameters when using one of the preconfiged networks: legacy, preprod, preview, ...
 #But you can set them to your own needs of course

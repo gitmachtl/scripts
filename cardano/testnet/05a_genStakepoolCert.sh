@@ -256,18 +256,32 @@ echo "
 
         fi
 
-	#If ITN Keys are present, generate ITN-Witness entries
+	#If ITN Keys are present, generate ITN-Witness entries. Using cardano-signer as a jcli substitute
 	if [[ -f "${poolFile}.itn.skey" && -f "${poolFile}.itn.vkey" ]];
 		then #Ok, itn secret and public key files are present
 
-		#JCLI check
-		jcliCheck=$(${jcli_bin} --version)
-		if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - You're trying to include your ITN Witness, but your 'jcli' binary is not present with the right path (00_common.sh) !\e[0m\n\n"; exit 1; fi
+                        #Check the cardano-signer binary existance and version
+                        if ! exists "${cardanosigner}"; then
+                                #Try the one in the scripts folder
+                                if [[ -f "${scriptDir}/cardano-signer" ]]; then cardanosigner="${scriptDir}/cardano-signer";
+                                else majorError "Path ERROR - Path to the 'cardano-signer' binary is not correct or 'cardano-singer' binaryfile is missing!\nYou can find it here: https://github.com/gitmachtl/cardano-signer/releases\nThis is needed to generate the signed Metadata. Also please check your 00_common.sh or common.inc settings."; exit 1; fi
+                        fi
+                        cardanosignerCheck=$(${cardanosigner} --version 2> /dev/null)
+                        if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'cardano-signer' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
+                        cardanosignerVersion=$(echo ${cardanosignerCheck} | cut -d' ' -f 2)
+                        versionCheck "${minCardanoSignerVersion}" "${cardanosignerVersion}"
+                        if [[ $? -ne 0 ]]; then majorError "Version ${cardanosignerVersion} ERROR - Please use a cardano-signer version ${minCardanoSignerVersion} or higher !\nOld versions are not compatible, please upgrade - thx."; exit 1; fi
 
-		itnWitnessSign=$(${jcli_bin} key sign --secret-key ${poolFile}.itn.skey ${poolFile}.pool.id); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-		itnWitnessOwner=$(cat ${poolFile}.itn.vkey)
-                itnJSON=$(echo "{}" | jq ".itn += {owner: \"${itnWitnessOwner}\"}|.itn += {witness: \"${itnWitnessSign}\"}")
-		extendedMetaEntry=",\n  \"extended\": \"${poolExtendedMetaUrl}\""
+                        echo -e "\e[0mSigning ITN-Wittness with Cardano-Signer Version: \e[32m${cardanosignerVersion}\e[0m";
+                        showProcessAnimation "Signing " &
+                        itnWitnessSign=$(${cardanosigner} sign --jcli --secret-key ${poolFile}.itn.skey --data-file "${poolFile}.pool.id" 2> /dev/stdout | awk {'print $1'})
+                        stopProcessAnimation;
+                        if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n"; exit $?; fi
+
+			itnWitnessOwner=$(cat ${poolFile}.itn.vkey)
+	                itnJSON=$(echo "{}" | jq ".itn += {owner: \"${itnWitnessOwner}\"}|.itn += {witness: \"${itnWitnessSign}\"}")
+			extendedMetaEntry=",\n  \"extended\": \"${poolExtendedMetaUrl}\""
+
 	fi
 fi
 
