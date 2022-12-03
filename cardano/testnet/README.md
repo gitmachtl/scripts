@@ -4,7 +4,7 @@
 
 | | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.35.4</b><br><sub>**git checkout tags/1.35.4**</sub> | <b>1.12.0</b><br><sub>**if you use hw-wallets** | <b>4.1.2</b><br><sub>**if you use hw-wallets** | <b>2.5.2</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.35.4</b><br><sub>**git checkout tags/1.35.4**</sub> | <b>1.12.0</b><br><sub>**if you use hw-wallets** | <b>5.0.0</b><br><sub>**if you use hw-wallets** | <b>2.5.3</b><br><sub>**if you use hw-wallets** |
 
 > :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://book.world.dev.cardano.org/environments.html), choose PREPROD, PREVIEW or LEGACY! 
 
@@ -20,7 +20,9 @@ Some scripts are using **jq, curl, bc & xxd** so make sure you have it installed
 **Contacts**: Telegram - [@atada_stakepool](https://t.me/atada_stakepool), Twitter - [@ATADA_Stakepool](https://twitter.com/ATADA_Stakepool), Homepage - https://stakepool.at 
 
 If you can't hold back and wanna give me a little Tip, here's my MainNet Shelley Ada Address, thx! :-)
-```addr1q9vlwp87xnzwywfamwf0xc33e0mqc9ncznm3x5xqnx4qtelejwuh8k0n08tw8vnncxs5e0kustmwenpgzx92ee9crhxqvprhql```
+```addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54```<br>
+```Adahandle: $gitmachtl```
+
 
 &nbsp;<br>&nbsp;<br> 
 # Online-Mode vs. Offline-Mode
@@ -284,7 +286,7 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
          
 <details><summary><b>01_sendLovelaces.sh:</b> sends a given amount of lovelaces or ALL lovelaces or ALLFUNDS lovelaces+tokens from one address to another, uses always all UTXOs of the source address:bookmark_tabs:</summary>
             
-<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or HASH or '$adahandle'> <lovelaces> [Opt: metadata.json/cbor] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup2;** (you can send to an HASH address too)
+<br>```./01_sendLovelaces.sh <fromAddr> <toAddrName or HASH or '$adahandle'> <lovelaces> [Opt: metadata.json/cbor] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup2;**```[Opt: "enc: encryptionmode]```**&sup3;**```[Opt: "pass:<passphrase"]```**&sup3;** (you can send to an HASH address too)
    
 <br>```./01_sendLovelaces.sh addr1 addr2 1000000``` to send 1000000 lovelaces from addr1.addr to addr2.addr
 <br>```./01_sendLovelaces.sh addr1 addr2 2000000 "msg: here is your money"``` to send 2000000 lovelaces from addr1.addr to addr2.addr and add the transaction message "here is your money"
@@ -302,13 +304,15 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
   :bulb: **&sup2; Expert-Option**: In rare cases you wanna **skip** input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"skiputxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to skip all input UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"skiputxowithasset: yyy|zzz"``` to skip all input UTXOs that contains assets with the policyID yyy or zzz
 
   :bulb: **&sup2; Expert-Option**: In rare cases you **only** wanna use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"onlyutxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to use only UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"onlyutxowithasset: yyy|zzz"``` to only use input UTXOs that contains assets with the policyID yyy or zzz
- 
+
+  :bulb: **&sup3; Security-Option**: You can encrypt your transactions message (provided via the "msg: ..." parameter), by enabling the encryption mode. To do so, add ```"enc: basic"``` to the parameters. If you wanna change the default passphrase from `cardano` to an own one, you can provide it via the ```"pass:<passphrase>"``` parameter. Be aware, the passphrase starts right after the : char, so spaces are also included in a passphrase!
+  
 &nbsp;<br>
 </details>            
 
 <details><summary><b>01_sendAssets.sh:</b> sends Assets(Tokens) and optional a given amount of lovelaces from one address to another:bookmark_tabs:</summary>
    
-<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH|'$adahandle'> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL>```**&sup1;** ```[Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup2;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup3;**
+<br>```./01_sendAssets.sh <fromAddr> <toAddress|HASH|'$adahandle'> <PolicyID.Name|<PATHtoNAME>.asset|bech32-Assetname> <AmountOfAssets|ALL>```**&sup1;** ```[Opt: Amount of lovelaces to attach] [Opt: metadata.json] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup2;**```[Opt: "utxolimit:"] [Opt: "skiputxowithasset:"] [Opt: "onlyutxowithasset:"]```**&sup3;**```[Opt: "enc: encryptionmode]```<sup>4</sup>```[Opt: "pass:<passphrase"]```<sup>4</sup>
 
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 15```<br>to send 15 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached
 <br>```./01_sendAssets.sh addr1 addr2 mypolicy.SUPERTOKEN 20 "msg: here are your tokens"```<br>to send 20 SUPERTOKEN from addr1.addr to addr2.addr with minimum lovelaces attached, also with the transaction message "here are your tokens"
@@ -331,19 +335,23 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
   :bulb: **&sup3; Expert-Option**: In rare cases you wanna **skip** input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"skiputxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to skip all input UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"skiputxowithasset: yyy|zzz"``` to skip all input UTXOs that contains assets with the policyID yyy or zzz
 
   :bulb: **&sup3; Expert-Option**: In rare cases you **only** wanna use input UTXOs that contains one or more defined Assets policyIDs(+assetName) in hex-format:<br> ```"onlyutxowithasset: 34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304"``` to use only UTXOs that contains assets(hexformat) '34250edd1e9836f5378702fbf9416b709bc140e04f668cc35520851801020304'<br>```"onlyutxowithasset: yyy|zzz"``` to only use input UTXOs that contains assets with the policyID yyy or zzz   
-   
+
+ :bulb: **<sup>4</sup> Security-Option**: You can encrypt your transactions message (provided via the "msg: ..." parameter), by enabling the encryption mode. To do so, add ```"enc: basic"``` to the parameters. If you wanna change the default passphrase from `cardano` to an own one, you can provide it via the ```"pass:<passphrase>"``` parameter. Be aware, the passphrase starts right after the : char, so spaces are also included in a passphrase!
+
 &nbsp;<br>
 </details>
    
 <details><summary><b>01_claimRewards.sh</b> claims all rewards from the given stake address and sends it to a receiver address:bookmark_tabs:</summary>
 
-<br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddrName or HASH or '$adahandle'> [Opt: <feePaymentAddr>] [Opt: metadata.json/cbor] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**
+<br>```./01_claimRewards.sh <nameOfStakeAddr> <toAddrName or HASH or '$adahandle'> [Opt: <feePaymentAddr>] [Opt: metadata.json/cbor] [Opt: "msg: messages"] [Opt: selected UTXOs]```**&sup1;**```[Opt: "enc: encryptionmode]```**&sup2;**```[Opt: "pass:<passphrase"]```**&sup2;**
 <br>```./01_claimRewards.sh owner.staking owner.payment``` sends the rewards from owner.staking.addr to the owner.payment.addr. The transaction fees will also be paid from the owner.payment.addr
 <br>```./01_claimRewards.sh owner.staking myrewards myfunds``` sends the rewards from owner.staking.addr to the myrewards.addr. The transaction fees will be paid from the myfunds.addr
 <br>```./01_claimRewards.sh owner.staking myrewards "msg: rewards for epoch xxx"``` sends the rewards from owner.staking.addr to the myrewards.addr. Also add the message "rewards from epoch xxx" to it.
 <br>```./01_claimRewards.sh owner.staking '$adahandle' myfunds``` sends the rewards from owner.staking.addr to the address with the adahandle. The transaction fees will be paid from the myfunds.addr
 
 :bulb: **&sup1; Expert-Option**: It is possible to specify the exact UTXOs the script should use for the transfer, you can provide these as an additional parameter within quotes like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0"``` to specify one UTXO and like ```"5cf85f03990804631a851f0b0770e613f9f86af303bfdb106374c6093924916b#0|6ab045e549ec9cb65e70f544dfe153f67aed451094e8e5c32f179a4899d7783c#1"``` to specify two UTXOs separated via a `|` char.
+
+:bulb: **&sup2; Security-Option**: You can encrypt your transactions message (provided via the "msg: ..." parameter), by enabling the encryption mode. To do so, add ```"enc: basic"``` to the parameters. If you wanna change the default passphrase from `cardano` to an own one, you can provide it via the ```"pass:<passphrase>"``` parameter. Be aware, the passphrase starts right after the : char, so spaces are also included in a passphrase!
 
 &nbsp;<br>
 </details>
@@ -663,7 +671,7 @@ The script requires a poolname.pool.json file with values for at least the PoolN
 <details><summary><b>11a_mintAsset.sh:</b> mint/generate new Assets(Token) on a given payment address with a policyName (or hexencoded {...}) generated before.:bookmark_tabs:</summary>
    
 <br>This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
-<br>```./11a_mintAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages]```
+<br>```./11a_mintAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages] [Opt: "enc: encryptionmode]```**&sup1;**```[Opt: "pass:<passphrase"]```**&sup1;**
   
 ```./11a_mintAsset.sh mypolicy.SUPERTOKEN 1000 mywallet```<br>this will mint 1000 new SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
   
@@ -677,13 +685,15 @@ The script requires a poolname.pool.json file with values for at least the PoolN
   
 It generally depends on the Policy-Type (made by the script 10a) if you can mint unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be more.
 
+:bulb: **&sup1; Security-Option**: You can encrypt your transactions message (provided via the "msg: ..." parameter), by enabling the encryption mode. To do so, add ```"enc: basic"``` to the parameters. If you wanna change the default passphrase from `cardano` to an own one, you can provide it via the ```"pass:<passphrase>"``` parameter. Be aware, the passphrase starts right after the : char, so spaces are also included in a passphrase!
+
 &nbsp;<br>
 </details>
    
 <details><summary><b>11b_burnAsset.sh:</b> burnes Assets(Token) on a given payment address with a policyName you own the keys for.:bookmark_tabs:</summary>
    
 <br>This updates the Token Status File **policyname.assetname.asset** for later usage when sending/burning Tokens.
-<br>```./11b_burnAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages]```
+<br>```./11b_burnAsset.sh <PolicyName.AssetName> <AssetAmount to mint> <nameOfPaymentAddr> [Opt: Metadata JSON to include] [Opt: transaction-messages] [Opt: "enc: encryptionmode]```**&sup1;**```[Opt: "pass:<passphrase"]```**&sup1;**
   
 ```./11b_burnAsset.sh mypolicy.SUPERTOKEN 22 mywallet```<br>this will burn 22 SUPERTOKEN with policy 'mypolicy' on the payment address mywallet.addr
   
@@ -694,6 +704,8 @@ It generally depends on the Policy-Type (made by the script 10a) if you can mint
 ```./11b_burnAsset.sh mypolicy.{01020304} 23 mywallet```<br>this will burn 23 binary/hexencoded tokens 0x01020304 with policy 'mypolicy' on the payment address mywallet.addr
 
 It generally depends on the Policy-Type (made by the script 10) if you can burn unlimited Tokens or if you are Time-Limited so a fixed Value of Tokens exists and there will never be less.
+
+:bulb: **&sup1; Security-Option**: You can encrypt your transactions message (provided via the "msg: ..." parameter), by enabling the encryption mode. To do so, add ```"enc: basic"``` to the parameters. If you wanna change the default passphrase from `cardano` to an own one, you can provide it via the ```"pass:<passphrase>"``` parameter. Be aware, the passphrase starts right after the : char, so spaces are also included in a passphrase!
 
 &nbsp;<br>
 </details>
@@ -1542,7 +1554,13 @@ So as you can see, you can use the "msg: xxx" parameter multiple times. You can 
    let me send you a little tip here
    ciao :-)
    ```
-   
+
+<br><b>Send an encrypted Message:</b>
+1. We want to send 5 ADA (5000000 lovelaces) from smallwallet1 to smallwallet2 and also the message "this is an encrypted message" with it. This message should be encrypted with the default passphrase 'cardano'. We can do this by running:<br>
+   ```./01_sendLovelaces.sh smallwallet1 smallwallet2 5000000 "msg: this is an encrypted message" "enc: basic"```
+
+Thats it, along with your 5 ADA, the script automatically creates a metadata.json for you that includes the encrypted message and includes it into the transaction.
+
 </details>
 
 
