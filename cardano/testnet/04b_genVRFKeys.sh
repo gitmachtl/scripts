@@ -53,9 +53,8 @@ if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli (unencrypted)
 
 elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli (encrypted)
 
-        ${cardanocli} node key-gen-VRF --verification-key-file "${nodeName}.vrf.vkey" --signing-key-file "${nodeName}.vrf.skey" #workaround because the key-gen-VRF command cannot output to /dev/stdout
+        skeyJSON=$(${cardanocli} node key-gen-VRF --verification-key-file "${nodeName}.vrf.vkey" --signing-key-file /dev/stdout)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-	skeyJSON=$(cat "${nodeName}.vrf.skey"); rm -f "${nodeName}.vrf.skey" #workaround because the key-gen-VRF command cannot output to /dev/stdout
 	file_lock ${nodeName}.vrf.vkey
 
 	echo -e "\e[0mNode operational VRF-Verification-Key:\e[32m ${nodeName}.vrf.vkey \e[90m"
