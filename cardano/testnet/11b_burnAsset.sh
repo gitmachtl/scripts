@@ -65,7 +65,7 @@ if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e
 
 #Check all optional parameters about there types and set the corresponding variables
 #Starting with the 4th parameter (index3) up to the last parameter
-metafileParameter=""; metafile=""; filterForUTXO=""; transactionMessage="{}"; enc=""; passphrase="cardano" #Setting defaults
+metafileParameter=""; metafile=""; filterForUTXO=""; transactionMessage="{}"; enc=""; passphrase="cardano"; #Setting defaults
 
 paramCnt=$#;
 allParameters=( "$@" )

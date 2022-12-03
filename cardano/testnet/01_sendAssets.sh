@@ -15,6 +15,8 @@ Usage:  $(basename $0) <From AddressName> <To AddressName or HASH or '\$adahandl
         [Opt: Transaction-Metadata.json/.cbor]
         [Opt: list of UTXOs to use, | is the separator]
         [Opt: Message comment, starting with "msg: ...", | is the separator]
+        [Opt: encrypted message mode "enc:basic". Currently only 'basic' mode is available.]
+        [Opt: passphrase for encrypted message mode "pass:<passphrase>", the default passphrase is 'cardano' is not provided]
         [Opt: no of input UTXOs limitation, starting with "utxolimit: ..."]
         [Opt: skip input UTXOs that contain assets (hex-format), starting with "skiputxowithasset: <policyID>(assetName)", | is the separator]
         [Opt: only use input UTXOs that contain assets (hex-format), starting with "onlyutxowithasset: <policyID>(assetName)", | is the separator]
@@ -46,6 +48,9 @@ Optional parameters:
    You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
    "msg: This is a short comment for the transaction" ... that would be a one-liner comment
    "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
+
+   If you also wanna encrypt it, set the encryption mode to basic by adding "enc: basic" to the parameters.
+   To change the default passphrase 'cardano' to you own, add the passphrase via "pass:<passphrase>"
 
 - You can attach a transaction-metadata.json by adding the filename of the .json file to the parameters
 
@@ -237,7 +242,7 @@ fi
 
 #Check all optional parameters about there types and set the corresponding variables
 #Starting with the 5th parameter (normally index4) up to the last parameter
-metafileParameter=""; metafile=""; lovelacesToSend=0; filterForUTXO=""; transactionMessage="{}"; #Setting defaults
+metafileParameter=""; metafile=""; lovelacesToSend=0; filterForUTXO=""; transactionMessage="{}"; enc=""; passphrase="cardano" #Setting defaults
 
 for (( tmpCnt=${optionalParameterIdxStart}; tmpCnt<${paramCnt}; tmpCnt++ ))
  do
@@ -245,10 +250,10 @@ for (( tmpCnt=${optionalParameterIdxStart}; tmpCnt<${paramCnt}; tmpCnt++ ))
 	#echo -n "${tmpCnt}: ${paramValue} -> "
 
         #Check if an additional amount of lovelaces was set as parameter (not a message, not an UTXO#IDX, not empty, beeing a number)
-	if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^keeppolicy:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ ! -z "${paramValue##*[!0-9]*}" ]; then lovelacesToSend=${paramValue};
+	if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^enc:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^pass:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^keeppolicy:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ ! -z "${paramValue##*[!0-9]*}" ]; then lovelacesToSend=${paramValue};
 
         #Check if an additional metadata.json/.cbor was set as parameter (not a message, not an UTXO#IDX, not empty, not beeing a number)
-        elif [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^keeppolicy:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+        elif [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^enc:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^pass:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^keeppolicy:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
 
              metafile=${paramValue}; metafileExt=${metafile##*.}
@@ -327,17 +332,47 @@ for (( tmpCnt=${optionalParameterIdxStart}; tmpCnt<${paramCnt}; tmpCnt++ ))
                         echo -e "\n\e[35mKeepAsset-Policy-ERROR: The given policy '${keepAssetPolicy}' is not a valid policy hex string!\n\e[0m"; exit 1;
                 fi
 
+        #Check if its a transaction encryption
+        elif [[ "${paramValue,,}" =~ ^enc:(.*)$ ]]; then #if the parameter starts with "enc:" then set the encryption variable
+                encryption=$(trimString "${paramValue:4}");
+
+        #Check if its a transaction encryption passphrase
+        elif [[ "${paramValue,,}" =~ ^pass:(.*)$ ]]; then #if the parameter starts with "passphrase:" then set the passphrase variable
+                passphrase="${paramValue:5}"; #don't do a trimstring here, because also spaces are a valid passphrase !
+
 	fi #end of different parameters check
 
 done
 
-
-#Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list
+#Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list. Encrypt it if enabled.
 if [[ ! "${transactionMessage}" == "{}" ]]; then
+
         transactionMessageMetadataFile="${tempDir}/$(basename ${fromAddr}).transactionMessage.json";
         tmp=$( jq . <<< ${transactionMessage} 2> /dev/null)
-        if [ $? -eq 0 ]; then echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
-                         else echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1; fi
+        if [ $? -eq 0 ]; then #json is valid, so no bad chars found
+
+                #Check if encryption is enabled, encrypt the msg part
+                if [[ "${encryption,,}" == "basic" ]]; then
+                        #check openssl
+                        if ! exists openssl; then
+                                echo -e "\e[33mYou need 'openssl', its needed to encrypt the transaction messages !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install openssl\n\n\e[33mThx! :-)\e[0m\n";
+                                exit 2;
+                        fi
+                        msgPart=$( jq -crM ".\"674\".msg" <<< ${transactionMessage} 2> /dev/null )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        encArray=$( openssl enc -e -aes-256-cbc -pbkdf2 -iter 10000 -a -k "${passphrase}" <<< ${msgPart} | awk {'print "\""$1"\","'} | sed '$ s/.$//' )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        #compose new transactionMessage by using the encArray as the msg and also add the encryption mode 'basic' entry
+                        tmp=$( jq ".\"674\".msg = [ ${encArray} ]" <<< '{"674":{"enc":"basic"}}' )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                fi
+
+                echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
+
+        else
+                echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1;
+        fi
+
 fi
 
 
@@ -572,7 +607,14 @@ echo
 if [[ ! "${metafileList}" == "" ]]; then echo -e "\e[0mInclude Metadata-File(s):\e[32m ${metafileList}\e[0m\n"; fi
 
 #There are transactionMessages attached, show the metadatafile:
-if [[ ! "${transactionMessage}" == "{}" ]]; then echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m"; fi
+if [[ ! "${transactionMessage}" == "{}" ]]; then
+        if [[ "${encArray}" ]]; then #if there is an encryption, show the original Metadata first with the encryption paramteters
+        echo -e "\e[0mOriginal Transaction-Message:\n\e[90m"; jq -rM <<< ${transactionMessage}; echo -e "\e[0m";
+        echo -e "\e[0mEncrypted Transaction-Message mode \e[32m${encryption,,}\e[0m with Passphrase '\e[32m${passphrase}\e[0m'";
+        echo
+        fi
+        echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m";
+fi
 
 
 #
