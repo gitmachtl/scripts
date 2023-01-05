@@ -318,7 +318,7 @@ if ! exists xxd; then echo -e "\e[33mYou need the little tool 'xxd', its needed 
 
 #-------------------------------------------------------------
 #Searching for the temp directory (used for transactions files)
-tempDir=$(dirname $(mktemp tmp.XXXX -ut))
+tempDir=$(dirname $(mktemp -ut tmp.XXXX))
 
 
 
