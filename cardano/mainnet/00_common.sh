@@ -165,7 +165,7 @@ case "${network,,}" in
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://testnet.cexplorer.io/tx"
 		_koiosAPI=
-		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
+		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
 
 
@@ -227,9 +227,9 @@ if [[ "${transactionExplorer: -1}" == "/" ]]; then transactionExplorer=${transac
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.35.4"  #minimum allowed node version for this script-collection version
+minNodeVersion="1.35.5"  #minimum allowed node version for this script-collection version
 maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="4.1.2"  #minimum version for the cardano-app on the Ledger HW-Wallet
+minLedgerCardanoAppVersion="5.0.0"  #minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.5.2"  #minimum version for the firmware on the Trezor HW-Wallet
 minHardwareCliVersion="1.12.0" #minimum version for the cardano-hw-cli
 
