@@ -11,7 +11,7 @@ if [ $# -ge 3 ]; then
       toAddr=${fromAddr};
       policyPath="$(dirname $1)"; namePart="$(basename $1 .asset)";
       policyName="${policyPath}/${namePart%%.*}";  #path + first part of the name until the . char
-      assetBurnName="${namePart##*.}"; assetBurnInputName=${assetMintName}; #part of the name after the . char
+      assetBurnName="${namePart##*.}"; assetBurnInputName=${assetBurnName}; #part of the name after the . char
       assetBurnAmount="$2";
       else
       cat >&2 <<EOF
@@ -469,7 +469,8 @@ if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSi
                                      else echo -e "\n\e[35mError - ${txSize} bytes Transaction-Size is too big! The maximum is currently ${maxTxSize} bytes.\e[0m\n"; exit 1; fi
 
 
-if ask "\e[33mDoes this look good for you, continue ?" N; then
+#if ask "\e[33mDoes this look good for you, continue ?" N; then
+if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\e[33mDoes this look good for you, continue ?" N; then
         echo
         if ${onlineMode}; then  #onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node... "
