@@ -184,12 +184,18 @@ poolMetaDescription=$(readJSONparam "metadata.description"); if [[ ! $? == 0 ]];
 poolMetaTicker=$(readJSONparam "metadata.ticker"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaHomepage=$(readJSONparam "metadata.homepage"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaExtendedMetaUrl=$(jq -r ".metadata.extended" <<< ${importJSON}); if [[ "${poolMetaExtendedMetaUrl}" == null ]]; then poolMetaExtendedMetaUrl=""; fi
-poolNodeCounter=$(readJSONparam "op_cert_counter"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolStatus=$(readJSONparam "pool_status"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolLastUpdateTime=$(readJSONparam "lastupdate_time"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolLastUpdateEpoch=$(readJSONparam "lastupdate_epoch"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolID=$(readJSONparam "pool_id_hex"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolIDbech=$(readJSONparam "pool_id_bech32"); if [[ ! $? == 0 ]]; then exit 1; fi
+
+#get the last used op_cert_counter on chain
+poolNodeCounter=$(jq -r ".op_cert_counter" <<< "${importJSON}" 2> /dev/null)
+if [[ "${poolNodeCounter}" == null ]]; then #no block minted on the chain until now. setting the NodeCounter to -1 so it will be incremented by 1 later on to match a NodeCounter=0
+	echo -e "\e[0mInfo: No block minted on the blockchain yet by this poolID.\n"
+	poolNodeCounter=-1;
+fi
 
 #Build the Skeleton
 poolJSON=$(echo "

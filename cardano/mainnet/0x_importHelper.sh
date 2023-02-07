@@ -75,6 +75,7 @@ elif ${onlineMode}; then
 			echo -ne "\e[0mFetching Pooldata online via koios for PoolID: '\e[32m${poolIDBech}\e[0m' ... ";
 			#query poolinfo via poolid on koios
 	                importJSON=$(curl -s -m 10 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolIDBech}\"]}" 2> /dev/null)
+
 	                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
 	                if [[ $(jq ". | length" 2> /dev/null <<< ${importJSON}) -ne 1 ]]; then echo -e "\e[33mERROR, can't fetch the current online pool data from '${koiosAPI}/pool_info' !\e[0m\n"; exit 1; fi
 
@@ -105,7 +106,8 @@ elif ${onlineMode}; then
 			echo -ne "\e[0mFetching Metadata online from URL: '\e[32m${poolMetaUrl}\e[0m' ... "; #the poolinfo request via koios does not return the complete metadata information, so we grap it directly from the pool-server
         		poolMetaJSON=$(curl -sL "${poolMetaUrl}" 2> /dev/null)
 			if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR, can't fetch the current online pool data!\e[0m\n"; exit 1; fi
-		        importJSON=$(jq ".metadata = ${poolMetaJSON}" 2> /dev/null <<< ${importJSON}); #Adding the actual Metadata content to teh importJSON
+			poolMetaJSON=$(echo "${poolMetaJSON}" | jq -M) #Always bring it in a nice format
+		        importJSON=$(jq ".metadata = ${poolMetaJSON}" 2> /dev/null <<< "${importJSON}"); #Adding the actual Metadata content to teh importJSON
 			if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR, not a valid Metadata JSON file found at '${poolMetaUrl}'!\e[0m\n"; exit 1; fi
 			echo -e "\e[32mOK\e[0m\n";
 else
@@ -182,12 +184,18 @@ poolMetaDescription=$(readJSONparam "metadata.description"); if [[ ! $? == 0 ]];
 poolMetaTicker=$(readJSONparam "metadata.ticker"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaHomepage=$(readJSONparam "metadata.homepage"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolMetaExtendedMetaUrl=$(jq -r ".metadata.extended" <<< ${importJSON}); if [[ "${poolMetaExtendedMetaUrl}" == null ]]; then poolMetaExtendedMetaUrl=""; fi
-poolNodeCounter=$(readJSONparam "op_cert_counter"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolStatus=$(readJSONparam "pool_status"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolLastUpdateTime=$(readJSONparam "lastupdate_time"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolLastUpdateEpoch=$(readJSONparam "lastupdate_epoch"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolID=$(readJSONparam "pool_id_hex"); if [[ ! $? == 0 ]]; then exit 1; fi
 poolIDbech=$(readJSONparam "pool_id_bech32"); if [[ ! $? == 0 ]]; then exit 1; fi
+
+#get the last used op_cert_counter on chain
+poolNodeCounter=$(jq -r ".op_cert_counter" <<< "${importJSON}" 2> /dev/null)
+if [[ "${poolNodeCounter}" == null ]]; then #no block minted on the chain until now. setting the NodeCounter to -1 so it will be incremented by 1 later on to match a NodeCounter=0
+	echo -e "\e[0mInfo: No block minted on the blockchain yet by this poolID.\n"
+	poolNodeCounter=-1;
+fi
 
 #Build the Skeleton
 poolJSON=$(echo "
