@@ -23,7 +23,11 @@ fi
 
 nodeName="${1}"
 keyType="${2}"
+keyIndex=0
 
+if [ $# -ge 3 ]; then
+  keyIndex="${3}"
+fi
 
 #trap to delete the produced files if aborted via CTRL+C(INT) or SIGINT
 terminate(){
@@ -146,7 +150,7 @@ else #Building it from HW-Keys
 
 	#This function is currently limited to Ledger HW-Wallets only, so call the start_HwWallet function with a restriction to Ledger only
         start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} node key-gen --path 1853H/1815H/0H/0H --cold-verification-key-file ${nodeName}.node.vkey --hw-signing-file ${nodeName}.node.hwsfile --operational-certificate-issue-counter-file ${nodeName}.node.counter 2> /dev/stdout)
+        tmp=$(${cardanohwcli} node key-gen --path 1853H/1815H/0H/${keyIndex}H --cold-verification-key-file ${nodeName}.node.vkey --hw-signing-file ${nodeName}.node.hwsfile --operational-certificate-issue-counter-file ${nodeName}.node.counter 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${nodeName}.node.vkey
