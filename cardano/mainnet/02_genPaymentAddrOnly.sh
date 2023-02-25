@@ -9,7 +9,7 @@
 #Check command line parameter
 if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|ENC|HWMULTI)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti> [Acc# 0-1000 for HW-Wallet-Path, Default=0] [Idx# 0-1000 for HW-Wallet-Path, Default=0]
+ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti> [Acc# 0-2147483647 for HW-Wallet-Path, Default=0] [Idx# 0-2147483647 for HW-Wallet-Path, Default=0]
 
 Examples:
 $(basename $0) owner cli              ... generates a PaymentOnly Address via cli (was default method before)
@@ -32,14 +32,14 @@ else
 
         if [ $# -ge 3 ]; then
         accNo=$3;
-        #Check if the given accNo is a number and in the range. limit it to 1000 and below. actually the limit is 2^31-1, but thats ridiculous
-	if [ "${accNo}" == null ] || [ -z "${accNo##*[!0-9]*}" ] || [ "${accNo}" -lt 0 ] || [ "${accNo}" -gt 1000 ]; then echo -e "\e[35mERROR - Account# for the HardwarePath is out of range (0-1000, warnings above 100)!\e[0m"; exit 2; fi
+        #Check if the given accNo is a number and in the range. limit is 2^31-1 (2147483647)
+	if [ "${accNo}" == null ] || [ -z "${accNo##*[!0-9]*}" ] || [ $(bc <<< "${accNo} < 0") -eq 1 ] || [ $(bc <<< "${accNo} > 2147483647") -eq 1 ]; then echo -e "\e[35mERROR - Account# for the HardwarePath is out of range (0-2147483647, warnings above 100)!\e[0m"; exit 2; fi
         fi
 
         if [ $# -eq 4 ]; then
         idxNo=$4;
-        #Check if the given idxNo is a number and in the range. limit it to 1000 and below. actually the limit is 2^31-1, but thats ridiculous
-	if [ "${idxNo}" == null ] || [ -z "${idxNo##*[!0-9]*}" ] || [ "${idxNo}" -lt 0 ] || [ "${idxNo}" -gt 1000 ]; then echo -e "\e[35mERROR - Index# for the HardwarePath is out of range (0-1000, warnings above 100)!\e[0m"; exit 2; fi
+        #Check if the given idxNo is a number and in the range. limit is 2^31-1 (2147483647)
+	if [ "${idxNo}" == null ] || [ -z "${idxNo##*[!0-9]*}" ] || [ $(bc <<< "${idxNo} < 0") -eq 1 ] || [ $(bc <<< "${idxNo} > 2147483647") -eq 1 ]; then echo -e "\e[35mERROR - Index# for the HardwarePath is out of range (0-2147483647) !\e[0m"; exit 2; fi
         fi
 
 fi
