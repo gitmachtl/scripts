@@ -428,10 +428,11 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
    
 <details><summary><b>04a_genNodeKeys.sh:</b> generates the poolname.node.vkey and poolname.node.skey/hwsfile cold keys:bookmark_tabs:</summary>
 
-<br>```./04a_genNodeKeys.sh <NodePoolName> <KeyType: cli | enc | hw>```
+<br>```./04a_genNodeKeys.sh <NodePoolName> <KeyType: cli | enc | hw> [ColdKeyIndex# for HW-Wallet, Def=0]```
 <br>```./04a_genNodeKeys.sh mypool cli``` generates the node cold keys from standard CLI commands (was default before hw option)
 <br>```./04a_genNodeKeys.sh mypool enc``` generates the node cold keys from standard CLI commands but encrypted via a Password
-<br>```./04a_genNodeKeys.sh mypool hw``` generates the node cold keys by using a Ledger/Trezor HW-Wallet
+<br>```./04a_genNodeKeys.sh mypool hw``` generates the node cold keys by using a Ledger HW-Wallet
+<br>```./04a_genNodeKeys.sh mypool hw 35``` generates the node cold keys by using a Ledger HW-Wallet, with coldKeyIndex = 35
 
 &nbsp;<br>
 </details>
@@ -1692,7 +1693,7 @@ We want to make ourself a pool owner stake address with the nickname owner, we w
 Done. :smiley:
 </details>
 
-## Create the StakePool with HW-Wallet-Owner-Keys (Ledger/Trezor) and encrypted CLI-Keys
+## Create the StakePool with HW-Wallet-Owner-Keys (Ledger) and encrypted CLI-Keys
 
 We want to make ourself a pool owner stake address with the nickname ledgerowner by using a HW-Key, we want to register the pool with the poolname mypool. The poolname is only to keep the files on the harddisc in order, poolname is not a ticker!
 

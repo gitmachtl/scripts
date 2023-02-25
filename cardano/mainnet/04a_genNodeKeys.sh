@@ -10,12 +10,15 @@
 #Check command line parameter
 if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|ENC)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <NodePoolName> <KeyType: cli | enc | hw>
+ERROR - Usage: $(basename $0) <NodePoolName> <KeyType: cli | enc | hw> [ColdKeyIndex# for HW-Wallet, Def=0]
 
 Examples:
 $(basename $0) mypool cli   ... generates the node cold keys from standard CLI commands (was default before hw option)
 $(basename $0) mypool enc   ... generates the node cold keys from standard CLI commands but encrypted via a Password
-$(basename $0) mypool hw    ... generates the node cold keys by using a Ledger/Trezor HW-Wallet
+$(basename $0) mypool hw    ... generates the node cold keys by using a Ledger HW-Wallet
+
+Optional:
+$(basename $0) mypool hw 3  ... generates the node cold keys by using a Ledger HW-Wallet with ColdKeyIndex = 3
 
 EOF
 exit 1;
@@ -142,11 +145,34 @@ elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli (encrypted)
 else #Building it from HW-Keys
 
         echo -e "\e[0mCreating Node Cold/Offline Keys (HW)\e[32m ${nodeName}.node.vkey/hwsfile\e[0m and Issue.Counter File\e[32m ${nodeName}.node.counter"
+
+	coldKeyIndex=0 #defaults to 0H
+	#Check about an optional coldKeyIndex parameter
+        if [ $# -ge 3 ]; then
+
+	        coldKeyIndex=$3;
+	        #Check if the given index is number and in the range with the limit of 2^31-1 (2147483647)
+	        if [ "${coldKeyIndex}" == null ] || [ -z "${coldKeyIndex##*[!0-9]*}" ] || [ $(bc <<< "${coldKeyIndex} < 0") -eq 1 ] || [ $(bc <<< "${coldKeyIndex} > 2147483647") -eq 1 ]; then echo -e "\e[35mERROR - ColdKeyIndex# for the Derivation-Path is out of range (max. 2147483647) or not a number!\e[0m\n"; exit 2; fi
+
+		#Ask to continue with an coldKeyIndex != 0
+		if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mColdKeyIndex is not default(0), continue ?" N; then
+			echo
+		        echo -e "\e[0mUsing ColdKeyIndex:\e[32m ${coldKeyIndex}\e[0m"
+		else
+			echo -e "\e[0m\n"
+			echo
+			exit 1
+		fi
+
+        fi
+
         echo
+	echo -e "\e[0mDerivation-Path:\e[32m 1853H/1815H/0H/${coldKeyIndex}H\e[0m"
+	echo
 
 	#This function is currently limited to Ledger HW-Wallets only, so call the start_HwWallet function with a restriction to Ledger only
         start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} node key-gen --path 1853H/1815H/0H/0H --cold-verification-key-file ${nodeName}.node.vkey --hw-signing-file ${nodeName}.node.hwsfile --operational-certificate-issue-counter-file ${nodeName}.node.counter 2> /dev/stdout)
+        tmp=$(${cardanohwcli} node key-gen --path 1853H/1815H/0H/${coldKeyIndex}H --cold-verification-key-file ${nodeName}.node.vkey --hw-signing-file ${nodeName}.node.hwsfile --operational-certificate-issue-counter-file ${nodeName}.node.counter 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${nodeName}.node.vkey
