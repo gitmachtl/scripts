@@ -8,8 +8,8 @@ Starting with Catalyst Fund10, the on-chain registration format for Catalyst is 
 
 The rewards payout address is now a regular payment (base or enterprise) address and not a stake address anymore! Also, you can delegate your Voting-Power to more than one Voting-Key. You can basically split your Voting-Power up to multiple Voting-Keys. Also starting with Fund10 there will be a Web-based **Catalyst Voting Center** for dApp Wallets in parallel with the existing **Catalyst Voting App** for mobile devices.
 
-**⚠ Special Voting Event in April 2023:**<br>
-We can use this new format also for the SpecialVotingEvent in April 2023, only restriction is to NOT split the Voting-Power to multiple Voting-Keys. So only a delegation with 100% Voting-Power is allowed. Also, the normal Catalyst Voting App will be used as usual, so you'll need a new QR-Code. Please note, there will not be any reward payout for the Special Voting Event!
+**⚠ Special Voting Event - Coming soon, before Fund10:**<br>
+We can use this new format also for the SpecialVotingEvent soon, before Fund10, only restriction is to NOT split the Voting-Power to multiple Voting-Keys. So only a delegation with 100% Voting-Power is allowed. Also, the normal Catalyst Voting App will be used as usual, so you'll need a new QR-Code. Please note, there will not be any reward payout for the Special Voting Event!
 
 Below you will find a list of methods on how to do the registration in the new format. I have put this together to help you guys. Please report back any issues if you find some ... 🙂
 
@@ -147,7 +147,7 @@ You have successfully transmitted your voting registration onto the chain. To do
 
 ⚠ Your Voting-Power will be displayed in the Voting-App once the voting is open. 
 
-⚠ With the Special Voting Event in April 2023, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So all the examples above are doing that. The description will be updated again for Fund10 to also give example on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
+⚠ With the Special Voting Event before Fund10, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So all the examples above are doing that. The description will be updated again for Fund10 to also give example on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
 
 <br>&nbsp;<br>
 
@@ -305,7 +305,7 @@ File that has been created:
 
 In the example above we have used the minimal set of parameters to generate the correct data for Cardano-Mainnet. It defaults to vote-purpose = 0 (catalyst) and it also calculates the nonce from the current machine time. With CIP36 we also have the possibility to split the Voting-Power associated with a stake key to multiple Vote-Public-Keys. The above example only includes one Vote-Public-Key, so it defaults to 100% Voting-Power to the Vote-Public-Key. 
 
-⚠ With the Special Voting Event in April 2023, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So the example above is just doing that. The description will be updated again for Fund10 to also give example on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
+⚠ With the Special Voting Event before Fund10, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So the example above is just doing that. The description will be updated again for Fund10 to also give example on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
 
 ℹ You can find a much more detailed description of the CIP36 signing feature of cardano-signer [here](https://github.com/gitmachtl/cardano-signer#cip-36-mode-catalyst-voting-registration--votingpower-delegation)
 
@@ -350,7 +350,7 @@ File that has been created:
 
 In the example above we have used the minimal set of parameters to generate the correct data for Cardano-Mainnet. It defaults to vote-purpose = 0 (catalyst). With CIP36 we also have the possibility to split the Voting-Power associated with a stake key to multiple Vote-Public-Keys. The above example only includes one Vote-Public-Key, so it defaults to 100% Voting-Power to the Vote-Public-Key. 
 
-⚠ With the Special Voting Event in April 2023, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So the example above is just doing that. The description will be updated again for Fund10 to also give examples on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
+⚠ With the Special Voting Event before Fund10, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So the example above is just doing that. The description will be updated again for Fund10 to also give examples on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
 
 ℹ You can find a much more detailed description of the parameters for cardano-hw-cli [here](https://github.com/vacuumlabs/cardano-hw-cli/tree/develop/docs)
 
@@ -512,7 +512,7 @@ This will generate the QR code as the file **myvote.qrcode.png**
 
 ⚠ Your Voting-Power will be displayed in the Voting-App once the voting is open. 
 
-⚠ With the Special Voting Event in April 2023, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So all the examples above are doing that. The description will be updated again for Fund10 to also give example on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
+⚠ With the Special Voting Event before Fund10, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So all the examples above are doing that. The description will be updated again for Fund10 to also give example on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
 
 <br>&nbsp;<br>
 
