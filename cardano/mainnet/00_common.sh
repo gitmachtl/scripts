@@ -32,12 +32,12 @@ offlineFile="./offlineTransfer.json" 	#path to the filename (JSON) that will be 
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-#--------- Only needed if you wanna do catalyst voting or if you wanna include your itn witness for your pool-ticker
-jcli_bin="./jcli"               #Path to your jcli binary you wanna use. If your binary is present in the Path just set it to "jcli" without the "./" infront
-catalyst_toolbox_bin="./catalyst-toolbox"	#Path to your catalyst-toolbox binary you wanna use. If your binary is present in the Path just set it to "catalyst-toolbox" without the "./" infront
-voter_registration_bin="./voter-registration"	#Path to your voter-registration binary you wanna use. If your binary is present in the Path just set it to "voter-registration" without the "./" infront
+#--------- Only needed if you wanna do catalyst voting or include your itn witness for your pool-ticker
 cardanosigner="./cardano-signer"		#Path to your cardano-signer binary you wanna use. If your binary is present in the Path just set it to "cardano-signer" without the "./" infront
-cardanoaddress="./cardano-address"		#Path to your cardano-address binary you wanna use. If your binary is present in the Path just set it to "cardano-address" without the "./" infront
+
+
+#--------- Only needed if you wanna do catalyst voting
+catalyst_toolbox_bin="./catalyst-toolbox"	#Path to your catalyst-toolbox binary you wanna use. If your binary is present in the Path just set it to "catalyst-toolbox" without the "./" infront
 
 
 #--------- Only needed if you wanna use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
@@ -157,25 +157,13 @@ case "${network,,}" in
 		;;
 
 
-	"legacy"|"testnet" )
-		network="Legacy"
-		_magicparam="--testnet-magic 1097911063"
-		_addrformat="--testnet-magic 1097911063"
-		_byronToShelleyEpochs=74
-		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
-		_transactionExplorer="https://testnet.cexplorer.io/tx"
-		_koiosAPI=
-		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
-		;;
-
-
 	"preprod"|"pre-prod" )
 		network="PreProd"
 		_magicparam="--testnet-magic 1"
 		_addrformat="--testnet-magic 1"
 		_byronToShelleyEpochs=4
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
-		_transactionExplorer="https://testnet.cardanoscan.io/transaction"
+		_transactionExplorer="https://preprod.cardanoscan.io/transaction"
 		_koiosAPI="https://preprod.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
@@ -187,7 +175,7 @@ case "${network,,}" in
 		_addrformat="--testnet-magic 2"
 		_byronToShelleyEpochs=0
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
-		_transactionExplorer="https://preview.cexplorer.io/tx"
+		_transactionExplorer="https://preview.cardanoscan.io/transaction"
 		_koiosAPI="https://preview.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		;;
@@ -202,6 +190,18 @@ case "${network,,}" in
 		_transactionExplorer=
 		_koiosAPI="https://guild.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		;;
+
+
+	"legacy"|"testnet" ) #Only for documentation purpose, network is inactive
+		network="Legacy"
+		_magicparam="--testnet-magic 1097911063"
+		_addrformat="--testnet-magic 1097911063"
+		_byronToShelleyEpochs=74
+		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
+		_transactionExplorer="https://testnet.cexplorer.io/tx"
+		_koiosAPI=
+		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
 		;;
 
 esac
@@ -227,11 +227,14 @@ if [[ "${transactionExplorer: -1}" == "/" ]]; then transactionExplorer=${transac
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.35.5"  #minimum allowed node version for this script-collection version
-maxNodeVersion="9.99.9"  #maximum allowed node version, 9.99.9 = no limit so far
-minLedgerCardanoAppVersion="5.0.0"  #minimum version for the cardano-app on the Ledger HW-Wallet
-minTrezorCardanoAppVersion="2.5.2"  #minimum version for the firmware on the Trezor HW-Wallet
-minHardwareCliVersion="1.12.0" #minimum version for the cardano-hw-cli
+minNodeVersion="1.35.5"  		#minimum allowed node version for this script-collection version
+maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
+minLedgerCardanoAppVersion="5.0.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
+minTrezorCardanoAppVersion="2.6.0"  	#minimum version for the firmware on the Trezor HW-Wallet
+minHardwareCliVersion="1.13.0" 		#minimum version for the cardano-hw-cli
+minCardanoSignerVersion="1.13.0"	#minimum version for the cardano-signer binary
+minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
+
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -266,7 +269,7 @@ if ${showVersionInfo}; then echo -ne "\n\e[0mVersion-Info: \e[32mcli ${versionCL
 
 #Check cardano-node only in online mode
 if ${onlineMode}; then
-	if ! exists "${cardanonode}"; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!\nYour current set path is: ${cardanocli}"; exit 1; fi
+	if ! exists "${cardanonode}"; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!\nYour current set path is: ${cardanonode}"; exit 1; fi
 	versionNODE=$(${cardanonode} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
 	versionCheck "${minNodeVersion}" "${versionNODE}"
 	if [[ $? -ne 0 ]]; then majorError "Version ${versionNODE} ERROR - Please use a cardano-node version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
@@ -344,10 +347,15 @@ addrTypePayment="payment"
 addrTypeStake="stake"
 
 #-------------------------------------------------------
-#AdaHandle Format check (exits with true or false)
-checkAdaHandleFormat() {
+#AdaHandle Format checks (exits with true or false)
+checkAdaRootHandleFormat() {
 	#AdaHandles with optional SubHandles
-	if [[ "${1,,}" =~ ^\$[a-z0-9_.-]{1,15}(@[a-z0-9_.-]{1,15})?$ ]]; then true; else false; fi
+	if [[ "${1,,}" =~ ^\$[a-z0-9_.-]{1,15}$ ]]; then true; else false; fi
+}
+
+checkAdaSubHandleFormat() {
+	#AdaHandles with optional SubHandles
+	if [[ "${1,,}" =~ ^\$[a-z0-9_.-]{1,15}@[a-z0-9_.-]{1,15}$ ]]; then true; else false; fi
 }
 
 
@@ -1211,7 +1219,9 @@ fi
 #Get the hardware-wallet ready, check the cardano-app version
 start_HwWallet() {
 
-local onlyForManu=${1^^}
+local onlyForManu=${1^^} #If set, Paramter 1 can limit the function to be only available for the provided Manufacturer (LEDGER or TREZOR)
+local minLedgerCardanoAppVersion=${2:-"${minLedgerCardanoAppVersion}"} #Parameter 2 can overwrite the minLedgerCardanoAppVersion
+local minTrezorCardanoAppVersion=${3:-"${minTrezorCardanoAppVersion}"} #Parameter 3 can overwrite the minTrezorCardanoAppVersion
 
 if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
 
@@ -1235,6 +1245,7 @@ until [[ "${tmp}" == *"app version"* && ! "${tmp}" == *"undefined"* ]]; do
 tmp=$(${cardanohwcli} device version 2> /dev/stdout)
 done
 
+#Get the current HW-Wallet Manufacturer and the used CardanoApp/Firmware version
 local walletManu=$(echo "${tmp}" |& head -n 1 |& awk {'print $1'})
 local versionApp=$(echo "${tmp}" |& head -n 1 |& awk {'print $4'})
 
@@ -1245,13 +1256,13 @@ case ${walletManu^^} in
 
 	LEDGER ) #For Ledger Hardware-Wallets
 		versionCheck "${minLedgerCardanoAppVersion}" "${versionApp}"
-		if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a Cardano App version ${minLedgerCardanoAppVersion} or higher on your LEDGER Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+		if [[ $? -ne 0 ]]; then echo -e "\n\n\e[35mVersion ERROR - Please use Cardano App version ${minLedgerCardanoAppVersion} or higher on your LEDGER Hardware-Wallet for this action!\nOlder versions like your current ${versionApp} do not support this function, please upgrade - thx.\n\n\e[33mInfo: If the needed Cardano-App Version is not available on the Ledger Live Application, you can enable the Experimental Features like:\n-> Settings -> Experimental Features -> My Ledger provider -> Enable it and set it to 4\nAfter that, you should see a newer version. Usage at own risk of course. :-)\e[0m\n"; exit 1; fi
 		echo -ne "\r\033[1A\e[0mCardano App Version \e[32m${versionApp}\e[0m (HW-Cli Version \e[32m${versionHWCLI}\e[0m) found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
 		;;
 
         TREZOR ) #For Trezor Hardware-Wallets
                 versionCheck "${minTrezorCardanoAppVersion}" "${versionApp}"
-                if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use Firmware version ${minTrezorCardanoAppVersion} or higher on your TREZOR Hardware-Wallet!\nOlder versions like your current ${versionApp} are not supported, please upgrade - thx."; exit 1; fi
+		if [[ $? -ne 0 ]]; then echo -e "\n\n\e[35mVersion ERROR - Please use Firmware version ${minTrezorCardanoAppVersion} or higher on your TREZOR Hardware-Wallet for this action!\nOlder versions like your current ${versionApp} do not support this function, please upgrade - thx.\n\e[0m"; exit 1; fi
 		echo -ne "\r\033[1A\e[0mFirmware-Version \e[32m${versionApp}\e[0m (HW-Cli Version \e[32m${versionHWCLI}\e[0m) found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
                 ;;
 
