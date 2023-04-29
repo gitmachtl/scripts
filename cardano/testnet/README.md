@@ -4,7 +4,7 @@
 
 | | [cardano-node & cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware |
 | :---  |    :---:     |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>1.35.5</b><br><sub>**git checkout tags/1.35.5**</sub> | <b>1.12.0</b><br><sub>**if you use hw-wallets** | <b>5.0.0</b><br><sub>**if you use hw-wallets** | <b>2.5.3</b><br><sub>**if you use hw-wallets** |
+| *Required<br>version<br><sub>or higher</sub>* | <b>1.35.5</b><br><sub>**git checkout tags/1.35.5**</sub> | <b>1.13.0</b><br><sub>**if you use hw-wallets** | <b>6.0.3</b><br><sub>**if you use hw-wallets** | <b>2.5.3</b><br><sub>**if you use hw-wallets** |
 
 > :bulb: PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://book.world.dev.cardano.org/environments.html), choose PREPROD, PREVIEW or LEGACY! 
 
@@ -635,22 +635,36 @@ The script requires a poolname.pool.json file with values for at least the PoolN
 &nbsp;<br>
 </details>
 
-<details><summary><b>09a_catalystVote.sh:</b> Script for generating Catalyst-Registration Data and the QR Code for the Voting-App:bookmark_tabs:</summary>
+<details><summary><b>09a_catalystVote.sh:</b> Script for generating CIP36-Catalyst-Registration Data, Mnemonics and the QR Code for the Voting-App:bookmark_tabs:</summary>
 
-<br>```09a_catalystVote.sh new <voteKeyName>```generates a new VotingKeyPair with the given name
-<br>```09a_catalystVote.sh new myvote``` generates a new VotingKeyPair myvote.voting.skey/pkey
+<br>```09a_catalystVote.sh new cli <voteKeyName>```                          ... Generates a new 24-Words-Mnemonic and derives the VotingKeyPair with the given name
+<br>```09a_catalystVote.sh new cli <voteKeyName> "<24-words-mnenonics>"```   ... Generates a new VotingKeyPair with the given name from an existing 24-Words-Mnemonic
+<br>```09a_catalystVote.sh new hw  <voteKeyName>```                          ... Generates a new VotingKeyPair with the given name from a HW-Wallet
 
-<br>```09a_catalystVote.sh qrcode <voteKeyName> <4-Digit-PinCode>``` shows the QR code for the Catalyst-App with the given 4-digit PinCode
-<br>```09a_catalystVote.sh qrcode myvote 1234``` shows the QR code for the VotingKey 'myvote' and protects it with the PinCode '1234'
+<br>```09a_catalystVote.sh genmeta <delegate_to_voteKeyName|voteBechPublicKey> <stakeAccountName> <rewardsPayoutPaymentName or bech adress>```
+          ... Generates the Catalyst-Registration-Metadata(cbor) to delegate the full VotingPower of the given stakeAccountName to the voteKeyName
+              or votePublicKey, rewards will be paid out to the rewardsPayoutPaymentName
 
-<br>```09a_catalystVote.sh genmeta <voteKeyName> <stakeName-to-register> [Optional: <rewardsPayoutStakeAddr>]``` generates the Catalyst-Registration-Metadata(cbor) for the given name, stakeAccountName and optional different rewardsPayoutStakeAddr
+<br>```09a_catalystVote.sh genmeta "<delegate_to_voteKeyName|voteBechPublicKey> <weight>|..." <stakeAccountName> <rewardsPayoutPaymentName or bech adress>```
+          ... Generates the Catalyst-Registration-Metadata(cbor) to delegate to multiple voteKeyNames or votePublicKeys with the given amount of weight,
+              rewards will be paid out to the rewardsPayoutPaymentName. The weight values are relative ones to each other.
 
-<br>```09a_catalystVote.sh genmeta myvote owner``` generates the Catalyst-Registration-Metadata(cbor) for the myvote VotingKey, amountToRegister via owner.staking,
-              RewardsPayout to the Address owner.staking.addr. With HW-Wallets, the RewardsPayout-Addr must be one of the HW-Wallet itself!
+<br>```09a_catalystVote.sh qrcode <voteKeyName> <4-Digit-PinCode>```         ... Shows the QR code for the Catalyst-Voting-App protected via a 4-digit PinCode
 
-<br>```09a_catalystVote.sh genmeta myvote owner myrewards``` generates the Catalyst-Registration-Metadata(cbor) for the myvote VotingKey, amountToRegister via owner.staking,
-              RewardsPayout to the Address myrewards.payment.addr. With HW-Wallets, the RewardsPayout-Addr must be one of the HW-Wallet itself!
-  
+
+Examples:
+
+<br>```09a_catalystVote.sh new cli myvote```
+          ... Generates a new VotingKeyPair myvote.voting.skey/vkey, writes Mnemonics to myvote.voting.mnemonics
+
+<br>```09a_catalystVote.sh genmeta myvote owner myrewards```
+          ... Generates the Catalyst-Registration-Metadata(cbor) to delegate the full VotingPower of owner.staking to the myvote.voting votePublicKey,
+              VotingRewards payout to the Address myrewards.addr.
+
+<br>```09a_catalystVote.sh qrcode myvote 1234```
+          ... Shows the QR code for the VotingKey 'myvote' and protects it with the PinCode '1234'. This QR code can be scanned
+              with the Catalyst-Voting-App on your mobile phone if you don't wanna use the Catalyst-Voting-Center
+
 &nbsp;<br>
 </details>
 
@@ -1279,145 +1293,136 @@ Yep, it was that simple.
 
 </details>
 
-
 &nbsp;<br>&nbsp;<br>
 
 # Catalyst-Voting-Registration
 
-## Catalyst-Voting with your HW-Wallet
+Starting with Catalyst Fund10, the on-chain registration format for Catalyst is using a new specification. This specification is described in [CIP36](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0036) and it includes a few important changes.
 
-It is possible to also vote with funds on HW-Wallets, like your SPO-Pledge funds or any other funds your have stored on a secure HW-Wallet. Since Fund4-Catalyst-Voting you can do this with a stake-account on a HW-Wallet. **IMPORTANT**, the rewards-account (stake-address) for the voting-rewards must also be on **THE SAME** HW-Wallet. But more about that later.
-   
-Important - you need the [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases) version **1.5.0** or above for that!
+The rewards payout address is now a regular payment (base or enterprise) address and not a stake address anymore! Also, you can delegate your Voting-Power to more than one Voting-Key. You can basically split your Voting-Power up to multiple Voting-Keys. Also starting with Fund10 there will be a Web-based **Catalyst Voting Center** for dApp Wallets in parallel with the existing **Catalyst Voting App** for mobile devices.
 
-<details>
-   <Summary><b>See the 4 simple Steps needed to generate the Voting-Registration-Data and QR-Code ... </b>:bookmark_tabs:<br></summary>
+If you are already using the SPO-Scripts, you're set to do it the simple way. If not, please copy/clone them from the [SPO-Scripts-Mainnet](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet) folder. All required executables/binaries are included in the repo. You still need your running cardano-node and cardano-cli of course. A detailed [README.md](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#readme) about the feature and how to install/use the scripts can be found in the repo.
 
-### 1. Generate a Voting-KeyPair
+## Register funds of CLI-Keys, HYBRID-Keys or Hardware-Wallets
 
-You need a Voting-KeyPair, this is a **name**.voting.skey/pkey file pair. This will represent your Vote on the Catalyst Voting, so it will also hold your "Voting-Power". You can link your Voting-KeyPair with more than one Stake-Address to combine your "Voting-Power" if you like, but you need at least one such Voting-KeyPair. Also you can keep this Voting-KeyPair for future Votings, not needed to regenerate this again later. So lets create a Voting-KeyPair with the name **myvote**.
+The SPO-Scripts repo contains the following binaries:
+* [bech32](https://github.com/input-output-hk/bech32/releases/latest) v1.1.2
+* [cardano-signer](https://github.com/gitmachtl/cardano-signer/releases/latest) v1.13.0
+* [catalyst-toolbox](https://github.com/input-output-hk/catalyst-toolbox/releases/latest) v0.5.0
+
+In case you wanna register funds from your **Hardware-Wallet**, please make sure to also install:
+* [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) v1.13.0
+   and the Cardano-App on the HW-Wallet should be v6.0.3 or above for Ledger-HW-Wallets, and v2.5.3 for Trezor Model-T devices.<br>:warning: In case there is no public release available yet for Cardano-App v6.0.3 via the Ledger-Live Desktop application, you can get it by opening up your Ledger-Live Desktop Application and change the following:<br>**`-> Settings -> Experimental Features -> My Ledger provider -> Enable it and set it to 4`**.<br>After that you should see a new available version which you can update to.<br>? You can find further information [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#how-to-prepare-your-system-before-using-a-hardware-wallet) on how to prepare your system to work with Hardware-Wallets.
+
+<br>To **generate your Voting-Registration**, the **09a_catalystVote.sh script** from the MainNet Repo is used, below are the 4 simple steps:
+1. **[Generate a Voting-KeyPair](#1-generate-a-voting-keypair)**
+2. **[Generate the VotingRegistration-Metadata-CBOR](#2-generate-the-votingregistration-metadata-cbor)**
+3. **[Transmit the VotingRegistration-Metadata-CBOR file on chain](#3-transmit-the-votingregistration-metadata-cbor-file-on-the-chain)**
+4. **[Generate the QR-Code for the Catalyst-Voting-App](#4-generate-the-qr-code-for-the-catalyst-voting-app)**
+
+&nbsp;<br>
+
+
+## 1. Generate a Voting-KeyPair
+
+You need a Voting-KeyPair that gets the delegations of your "Voting-Power", these will be files saved as **name**.voting.skey/vkey/pkey. The Vote-Public-Key represents your Voting-Power on Catalyst. If you like, you can link your Voting-KeyPair with more than one Stake-Key to combine your "Voting-Power", but you need at least one such Voting-KeyPair. Also you can keep this Voting-KeyPair for future Votings, not needed to regenerate this again later. So lets create a Voting-Key with the name **myvote**.
 
 <br><b>Steps:</b>
-1. Run the following command<br>```./09a_catalystVote.sh new myvote```<br>to generate your Voting-KeyPair files **myvote**.voting.skey and **myvote**.voting.pkey
-1. Done
+1. Run the following command to generate your Voting-KeyPair files and also a new Mnemonics to use it with a dApp Wallet:
+``` console
+./09a_catalystVote.sh new myvote
+```
+2. Done
+
+Files that have been created and derived from the CIP36 path `1694H/1815H/0H/0/0`:
+* `myvote.voting.skey`: the vote secret key in json format `CIP36VoteExtendedSigningKey_ed25519`
+* `myvote.voting.vkey`: the vote public key in json format `CIP36VoteVerificationKey_ed25519`
+* `myvote.voting.pkey`: the vote public key in bech format, starting with `cvote_vk1...`
+* `myvote.voting.mnemonics`: the 24-word mnemonics to use on a dApp enabled Wallet (like [eternl](https://eternl.io), [typhon](https://typhonwallet.io/)...)
+
+:warning: Starting with Fund10, the voting will be available via the **Catalyst Voting Center** and transactions/signing confirmed via a dApp Wallet. For that you can generate the voting key on the CLI like above and use the generated Mnemonics.
 
 &nbsp;<br>
 
-### 2. Generate a VotingRegistration-Metadata-CBOR
+## 2. Generate the VotingRegistration-Metadata-CBOR
 
-You need to generate a VotingRegistration-Metadata CBOR file for each of your Stake-Addresses your wanna vote with. In this step you must specify the Voting-KeyPair (from Step 1) and also your Stake-Address-Account on your HW-Wallet. Lets say we wanna vote with our Pool-Owner HW-StakeAccount **hw-owner**, and we want to get the rewards back also to this account.
+You need to generate a VotingRegistration-Metadata CBOR file for each of your Stake-Keys your wanna vote with. In this step you must specify the following information:
+* **Vote-Public-Key**: This can be the one from Step1 or an already existing Vote-Public-Key from somewhere else (f.e. exported from your dApp Wallet). The Vote-Public-Key will get the Voting-Power associated with the Stake-Key(s)
+* **Stake-Account**: Thats a normal stake-file in SPO-Scripts format. It can be a CLI based `*.skey*` file, or a HW-Wallet based `*.hwsfile*` 
+* **Reward-Payout-Account**: This can be one in the SPO-Scripts format, an Adahandle like `'$gitmachtl'` or a bech address like `addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54`
 
-<br><b>Steps for Rewards back onto the same Stake-Account:</b>
-1. Run the following command<br>```./09a_catalystVote.sh genmeta myvote hw-owner```<br>to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.pkey and your Stake-Account **hw-owner**.staking.hwsfile
-1. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
-1. Done, you have created one or more **xxx.vote-metadata.cbor** files (*myvote_hw-owner.vote-metadata.cbor* in this example)
-
-&nbsp;<br>
-
-If you want your Voting-Rewards to be paid back to you onto a different Stake-Address, you can specify this as an extra argument to the script call. IMPORTANT, the Stake-Address must also be on THE SAME hardware wallet as your voting Stake-Account. If you don't have an extra account on your hardware-wallet for that yet, you can create one with the script 03a like<br>```./03a_genStakingPaymentAddr.sh catalyst-rewards hw 2```. This would generate a new additional StakingAccount on your HW-Wallet with Account #2. Don't forget to register this new StakingAccount also on the chain via script 03b!
-
-<br><b>Steps for Rewards back onto a different Stake-Account on the same Hardware-Wallet:</b>
-1. Run the following command<br>```./09a_catalystVote.sh genmeta myvote hw-owner catalyst-rewards```<br>to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.skey and your Stake-Account **hw-owner**.staking.hwsfile. Rewards will be paid back to your **catalyst-rewards**.staking.hwsfile account.
-1. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
-1. Done, you have created one or more **xxx.vote-metadata.cbor** files (*myvote_hw-owner.vote-metadata.cbor* in this example)
-
-&nbsp;<br>
-
-### 3. Transmit the vote-metadata.cbor file on the chain
-
-The last thing you have to do to complete your VotingRegistration is to submit the generated VotingRegistration-Metadata CBOR file in a transaction on the chain. This can be any transaction like sending some lovelaces around, or sending some assets. The most simple command is to just send yourself 1 ADA (minUTXOValue) and include the CBOR file in that transaction. Lets say we wanna do this with a wallet-account with the name **mywallet**, you can also do this with the HW-Wallet itself of course, but you don't have to use the HW-Wallet for this.
-
-<br><b>Steps for transmitting the registration:</b>
-1. Run the following command<br>```./01_sendLovelaces.sh mywallet mywallet 1000000 myvote_hw-owner.vote-metadata.cbor```<br>to transmit the generated VotingRegistration Metadata CBOR file on the chain and to complete your Voting-Registration
-1. Done
-
-The transaction can be made like any other transaction in **online** or in **offline** mode!
-
-&nbsp;<br>
-
-### 4. Generate the QR-Code for the Catalyst-Voting-App
-
-You have successfully transmitted your voting registration onto the chain. To do the voting, you need a special QR-Code that you can scan with your Mobile-Phone and the Catalyst-Voting App to get access to your Voting-Power. Lets say we wanna use the Voting-Account from above in theses examples with the name **myvote** for that, and we wanna protect the Voting-App with the Pin-Code **4321**.
-
-<br><b>Steps for creating the QR-Code:</b>
-1. Run the following command<br>```./09a_catalystVote.sh qrcode myvote 4321```<br>to generate your CatalystApp-QR-Code for the Voting-Account **myvote**.voting.skey with the PinCode **4321**
-1. The QR-Code will be visable on the display. Also you can find a file **myvote**.catalyst-qrcode.png in the directory for later usage.
-1. Scan the QR-Code with the latest version of the Catalyst-Voting-App on your mobile phone to get access to your Voting-Power
-
-
-:warning: Your Voting-Power will be displayed in the Voting-App once the voting is open. The **Voting-Rewards will be paid out from IOHK like Staking-Rewards**, so you must claim them like normal Staking-Rewards from your Rewards-Address by using the script ```01_claimRewards.sh``` as usual.
-
-</details>
-
-&nbsp;<br>&nbsp;<br>
-
-## Catalyst-Voting with your CLI-Keys or HYBRID-Keys
-
-It is possible to also vote with funds on your CLI- and HYBRID-Keys, like your SPO-Pledge funds or any other funds.
-   
-Important - you need the [voter-registration tool](https://github.com/input-output-hk/voting-tools/releases/latest) version **0.2.0.0** or above for that!
-
-<details>
-   <Summary><b>See the 4 simple Steps needed to generate the Voting-Registration-Data and QR-Code ... </b>:bookmark_tabs:<br></summary>
-
-### 1. Generate a Voting-KeyPair
-
-You need a Voting-KeyPair, this is a **name**.voting.skey/pkey file pair. This will represent your Vote on the Catalyst Voting, so it will also hold your "Voting-Power". You can link your Voting-KeyPair with more than one Stake-Address to combine your "Voting-Power" if you like, but you need at least one such Voting-KeyPair. Also you can keep this Voting-KeyPair for future Votings, not needed to regenerate this again later. So lets create a Voting-KeyPair with the name **myvote**.
+<br>Lets say we wanna vote with our Pool-Owner CLI-StakeAccount **cli-owner**, and we want to get the rewards back to the account **myrewards**.
 
 <br><b>Steps:</b>
-1. Run the following command<br>```./09a_catalystVote.sh new myvote```<br>to generate your Voting-KeyPair files **myvote**.voting.skey and **myvote**.voting.pkey
-1. Done
+1. Run the following command to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.vkey/pkey and your Stake-Account **cli-owner**.staking.skey:
+``` console
+./09a_catalystVote.sh genmeta myvote cli-owner myrewards
+```
+2. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
+3. Done
+
+File that has been created:
+* `cli-owner_230409185855.vote-registration.cbor`: contains the signed registration data in binary cbor format (230409185855 is just the current timestamp)
+
+<br>Another example, lets say we wanna vote with our HW-Account on the Ledger-HW-Wallet **hw-wallet**, and we want to get the rewards back to the account **myrewards**. The signing will be done on the HW-Wallet, so make sure to have it connected and the Cardano-App on the HW-Wallet is opened too.
+
+<br><b>Steps:</b>
+1. Run the following command to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.vkey/pkey and your Stake-Account **hw-wallet**.staking.hwsfile: 
+``` console
+./09a_catalystVote.sh genmeta myvote hw-wallet myrewards
+```
+2. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
+
+File that has been created:
+* `hw-wallet_230409185855.vote-registration.cbor`: contains the signed registration data in binary cbor format (230409185855 is just the current timestamp)
+
+<br>Last example, lets say we wanna vote with a CLI-StakeAccount **acct4**, we want to delegate the Voting-Power to the Vote-Public-Key `cvote_vk1wntweq76kqy824ggzfhgtm9k0uydvu6zf09m2td58f2kune3ezws8jd2sw` and we want to get the rewards back to the address `addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54`.
+
+<br><b>Steps:</b>
+1. Run the following command to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.vkey/pkey, your Stake-Account **acct4**.staking.skey and the rewards will be paid out to the address addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54:
+``` console
+./09a_catalystVote.sh genmeta cvote_vk1wntweq76kqy824ggzfhgtm9k0uydvu6zf09m2td58f2kune3ezws8jd2sw acct4 addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54
+```
+2. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
+
+File that has been created:
+* `acct4_230409185855.vote-registration.cbor`: contains the signed registration data in binary cbor format (230409185855 is just the current timestamp)
 
 &nbsp;<br>
 
-### 2. Generate a VotingRegistration-Metadata-CBOR
+## 3. Transmit the VotingRegistration-Metadata-CBOR file on the chain
 
-You need to generate a VotingRegistration-Metadata CBOR file for each of your Stake-Addresses your wanna vote with. In this step you must specify the Voting-KeyPair (from Step 1) and also your Stake-Address-Account. Lets say we wanna vote with our Pool-Owner CLI-StakeAccount **cli-owner**, and we want to get the rewards back also to this account. This can also be HYBRID Stake-Keys popular for SPOs having there Pledge on a HW Wallet, but the Stake-Keys on the CLI.
+The last thing you have to do to complete your VotingRegistration is to submit the generated VotingRegistration-Metadata CBOR file in a transaction on the chain. This can be any transaction like sending some lovelaces around, or sending some assets. The most simple command is to just send yourself the minimum amount of ADA (minUTXOValue) and include the CBOR file in that transaction. Lets say we wanna do this with a wallet-account with the name **mywallet**, you can also do this with a HW-Wallet account of course.
 
-<br><b>Steps for Rewards back onto the same Stake-Account:</b>
-1. Run the following command<br>```./09a_catalystVote.sh genmeta myvote cli-owner```<br>to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.pkey and your Stake-Account **cli-owner**.staking.skey
-1. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
-1. Done, you have created one or more **xxx.vote-metadata.cbor** files (*myvote_cli-owner.vote-metadata.cbor* in this example)
+<br><b>Steps for transmitting the registration with minUTXOValue(min):</b>
+1. Run the following command to transmit the generated VotingRegistration Metadata CBOR file (generated above) on the chain to complete the registration process:
+``` console
+./01_sendLovelaces.sh mywallet mywallet min cli-owner_230409185855.vote-registration.cbor
+```
+2. Done
 
-&nbsp;<br>
-
-If you want your Voting-Rewards to be paid back to you onto a different Stake-Address, you can specify this as an extra argument to the script call. Don't forget to have teh Voting-Rewards Stake-Address registered on the chain before doing the Voting-Registration!
-
-<br><b>Steps for Rewards back onto a different Stake-Account:</b>
-1. Run the following command<br>```./09a_catalystVote.sh genmeta myvote cli-owner catalyst-rewards```<br>to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.skey and your Stake-Account **cli-owner**.staking.skey. Rewards will be paid back to your **catalyst-rewards**.staking account.
-1. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
-1. Done, you have created one or more **xxx.vote-metadata.cbor** files (*myvote_cli-owner.vote-metadata.cbor* in this example)
+The transaction can be made like any other transaction in **online** or in **offline** mode with the SPO-Scripts!
 
 &nbsp;<br>
 
-### 3. Transmit the vote-metadata.cbor file on the chain
+## 4. Generate the QR-Code for the Catalyst-Voting-App
 
-The last thing you have to do to complete your VotingRegistration is to submit the generated VotingRegistration-Metadata CBOR file in a transaction on the chain. This can be any transaction like sending some lovelaces around, or sending some assets. The most simple command is to just send yourself 1 ADA (minUTXOValue) and include the CBOR file in that transaction. Lets say we wanna do this with a wallet-account with the name **mywallet**, you can also do this with a HW-Wallet account of course.
-
-<br><b>Steps for transmitting the registration:</b>
-1. Run the following command<br>```./01_sendLovelaces.sh mywallet mywallet 1000000 myvote_cli-owner.vote-metadata.cbor```<br>to transmit the generated VotingRegistration Metadata CBOR file on the chain and to complete your Voting-Registration
-1. Done
-
-The transaction can be made like any other transaction in **online** or in **offline** mode!
-
-&nbsp;<br>
-
-### 4. Generate the QR-Code for the Catalyst-Voting-App
-
-You have successfully transmitted your voting registration onto the chain. To do the voting, you need a special QR-Code that you can scan with your Mobile-Phone and the Catalyst-Voting App to get access to your Voting-Power. Lets say we wanna use the Voting-Account from above in theses examples with the name **myvote** for that, and we wanna protect the Voting-App with the Pin-Code **8765**.
+You have successfully transmitted your voting registration onto the chain. To do the voting, we currently need a special QR-Code that you can scan with your Mobile-Phone and the Catalyst-Voting App to get access to your Voting-Power. Lets say we wanna use the Voting-Account from above in theses examples with the name **myvote** for that, and we wanna protect the Voting-App with the Pin-Code **8765**.
 
 <br><b>Steps for creating the QR-Code:</b>
-1. Run the following command<br>```./09a_catalystVote.sh qrcode myvote 8765```<br>to generate your CatalystApp-QR-Code for the Voting-Account **myvote**.voting.skey with the PinCode **8765**
-1. The QR-Code will be visable on the display. Also you can find a file **myvote**.catalyst-qrcode.png in the directory for later usage.
-1. Scan the QR-Code with the latest version of the Catalyst-Voting-App on your mobile phone to get access to your Voting-Power
+1. Run the following command to generate your CatalystApp-QR-Code for the Voting-Account **myvote**.voting.skey with the PinCode **8765**:
+ ``` console
+ ./09a_catalystVote.sh qrcode myvote 8765
+ ```
+2. The QR-Code will be visable on the display. Also you can find a file **myvote**.catalyst-qrcode.png in the directory for later usage.
+3. Scan the QR-Code with the latest version of the Catalyst-Voting-App on your mobile phone to get access to your Voting-Power
+4. Done 
 
+:warning: Your Voting-Power will be displayed in the Voting-App once the voting is open. 
 
-:warning: Your Voting-Power will be displayed in the Voting-App once the voting is open. The **Voting-Rewards will be paid out from IOHK like Staking-Rewards**, so you must claim them like normal Staking-Rewards from your Rewards-Address by using the script ```01_claimRewards.sh``` as usual.
-
-</details>
+:warning: With the Special Voting Event in April 2023, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So all the examples above are doing that. The description will be updated again for Fund10 to also give example on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
 
 &nbsp;<br>&nbsp;<br>
-
 
 # Import your existing Pool from CLI-Keys or Tutorials
 
