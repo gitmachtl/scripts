@@ -132,19 +132,19 @@ case ${1,,} in
 
 		   cli )
 
-			#Check the cardano-address binary existance and version
-			if ! exists "${cardanoaddress}"; then
-			                                #Try to find it via "which"
-			                                cardanoaddress=$(which cardano-address)
-							if ! exists "${cardanoaddress}"; then majorError "Path ERROR - Path to the 'cardano-address' binary is not correct or 'cardano-address' binaryfile is missing!\nYou can find it here: https://github.com/input-output-hk/cardano-addresses"; exit 1; fi
+			#Check the cardano-signer binary existance and version
+			if ! exists "${cardanosigner}"; then
+                                #Try the one in the scripts folder
+                                if [[ -f "${scriptDir}/cardano-signer" ]]; then cardanosigner="${scriptDir}/cardano-signer";
+                                else majorError "Path ERROR - Path to the 'cardano-signer' binary is not correct or 'cardano-singer' binaryfile is missing!\nYou can find it here: https://github.com/gitmachtl/cardano-signer/releases\nThis is needed to generate the signed Metadata. Also please check your 00_common.sh or common.inc settings."; exit 1; fi
 			fi
-			cardanoaddressCheck=$(${cardanoaddress} --version 2> /dev/null)
-			if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'cardano-address' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
-			cardanoaddressVersion=$(echo ${cardanoaddressCheck} | cut -d' ' -f 1)
-			versionCheck "${minCardanoAddressVersion}" "${cardanoaddressVersion}"
-			if [[ $? -ne 0 ]]; then majorError "Version ${cardanoaddressVersion} ERROR - Please use a cardano-address version ${minCardanoAddressVersion} or higher !\nOld versions are not compatible, please upgrade - thx."; exit 1; fi
+			cardanosignerCheck=$(${cardanosigner} --version 2> /dev/null)
+			if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'cardano-signer' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
+			cardanosignerVersion=$(echo ${cardanosignerCheck} | cut -d' ' -f 2)
+			versionCheck "${minCardanoSignerVersion}" "${cardanosignerVersion}"
+			if [[ $? -ne 0 ]]; then majorError "Version ${cardanosignerVersion} ERROR - Please use a cardano-signer version ${minCardanoSignerVersion} or higher !\nOld versions are not compatible, please upgrade - thx."; exit 1; fi
 
-			echo -e "\e[0mUsing Cardano-Address Version: \e[32m${cardanoaddressVersion}\e[0m\n";
+			echo -e "\e[0mUsing Cardano-Signer Version: \e[32m${cardanosignerVersion}\e[0m\n";
 
 	                if [[ ${paramCnt} -ge 4 ]]; then
 				mnemonics="${allParameters[3]}" #read the mnemonics
@@ -155,56 +155,31 @@ case ${1,,} in
 
 			if [[ ${mnemonics} != "" ]]; then #use the provided mnemonics
 				echo -e "\e[0mUsing Mnemonics:\e[32m ${mnemonics}\e[0m"
-			else #build new mnemonics
-				if [ -f "${voteKeyName}.voting.mnemonics" ]; then echo -e "\e[35mError - ${voteKeyName}.voting.mnemonics already exists, please delete it first if you wanna overwrite it !\e[0m\n"; exit 1; fi
-				mnemonics=$(${cardanoaddress} recovery-phrase generate --size=24);
+				#Generate the Vote-Key-Files with given mnemonics
+				voteKeyJSON=$(${cardanosigner} keygen --cip36 --mnemonics "${mnemonics}" --json-extended --out-skey "${voteKeyName}.voting.skey" --out-vkey "${voteKeyName}.voting.vkey")
 				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			else
+				#Generate the Vote-Key-Files and new mnemonics
+				voteKeyJSON=$(${cardanosigner} keygen --cip36 --json-extended --out-skey "${voteKeyName}.voting.skey" --out-vkey "${voteKeyName}.voting.vkey")
+				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+				mnemonics=$(jq -r ".mnemonics" <<< ${voteKeyJSON})
 				echo -e "\e[0mCreated Mnemonics:\e[32m ${mnemonics}\e[0m"
 			fi
 
 			echo
 
-			#get the bech root_xsk key via cardano-address binary
-			root_xsk=$(${cardanoaddress} key from-recovery-phrase Shelley <<< ${mnemonics} 2> /dev/null)
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
-			#derive the keys from voting-key-path 1694H/1815H (CIP-36)
-			voting_xsk=$(${cardanoaddress} key child 1694H/1815H/${accountNo}H/${payPath}/${indexNo} <<< "${root_xsk}")
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-			unset root_xsk #forget it, not needed after this line
-
-			skeyJSON=$(${cardanocli} key convert-cardano-address-key --shelley-payment-key --signing-key-file <(echo "${voting_xsk}") --out-file /dev/stdout 2> /dev/null)
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
-			#generate the extended vkey
-			vkeyJSON=$(${cardanocli} key verification-key --signing-key-file <(echo "${skeyJSON}") --verification-key-file /dev/stdout 2> /dev/null)
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
-			#Edit the type and description
-			skeyJSON=$(jq " .type = \"CIP36VoteExtendedSigningKey_ed25519\" | .description = \"Catalyst Vote Signing Key\" " <<< ${skeyJSON})
-			echo "${skeyJSON}" > "${voteKeyName}.voting.skey" 2> /dev/null
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			file_lock ${voteKeyName}.voting.skey
 			echo -e "\e[0mVoting-Signing(Secret)-Key: \e[32m ${voteKeyName}.voting.skey \e[90m"
 			cat "${voteKeyName}.voting.skey"
-			echo
-			unset skeyJSON #forget it, not needed after this line
+			echo -e "\e[0m"
 
-			#convert the extended vkey into a non-extended one, we don't need an extended vkey
-			vkeyJSON=$(${cardanocli} key non-extended-key --extended-verification-key-file <(echo "${vkeyJSON}") --verification-key-file /dev/stdout 2> /dev/null)
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
-			#Edit the type and description
-			vkeyJSON=$(jq " .type = \"CIP36VoteVerificationKey_ed25519\" | .description = \"Catalyst Vote Verification Key\" " <<< ${vkeyJSON})
-			echo "${vkeyJSON}" > "${voteKeyName}.voting.vkey" 2> /dev/null
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	                file_lock ${voteKeyName}.voting.vkey
 			echo -e "\e[0mVoting-Verification(Public)-Key: \e[32m ${voteKeyName}.voting.vkey \e[90m"
 			cat "${voteKeyName}.voting.vkey"
 			echo -e "\e[0m"
 
 			#generate the vkey(publickey) also in the bech cvote_vk format, for other tools/usage
-			vkeyBECH=$(jq -r .cborHex <<< ${vkeyJSON} | cut -c 5- | ${bech32_bin} "cvote_vk")
+			vkeyBECH=$(jq -r .publicKeyBech <<< ${voteKeyJSON})
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			echo "${vkeyBECH}" > "${voteKeyName}.voting.pkey" 2> /dev/null
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -228,7 +203,7 @@ case ${1,,} in
 		   hw )
 
 			#We need a voting keypair with vkey and hwsfile from a Hardware-Key, so lets create them
-			start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			start_HwWallet "" "6.0.3" ""; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			tmp=$(${cardanohwcli} address key-gen --path 1694H/1815H/${accountNo}H/${payPath}/${indexNo} --verification-key-file "${voteKeyName}.voting.vkey" --hw-signing-file "${voteKeyName}.voting.hwsfile" 2> /dev/stdout)
 			if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -278,7 +253,8 @@ case ${1,,} in
 		stakingName=$(basename ${stakeAcct} .staking) #contains the name before the .staking.addr extension
 
 		#Output filename for the Voting-Registration-CBOR-Metadata
-		votingMetaFile="${stakingName}.vote-registration.cbor"
+		datestr=$(date +"%y%m%d%H%M%S")
+		votingMetaFile="${stakingName}_${datestr}.vote-registration.cbor"
 		if [ -f "${votingMetaFile}" ]; then echo -e "\e[35mError - ${votingMetaFile} already exists, please delete it first if you wanna overwrite it !\e[0m\n"; exit 1; fi
 
                 echo -e "\e[0mGenerating the Catalyst-Registration-MetadataFile(cbor): \e[32m${votingMetaFile}\e[0m"
@@ -293,27 +269,40 @@ case ${1,,} in
 			typeOfAddr=$(get_addressType "${rewardsPayoutAddr}"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 			if [[ ! ${typeOfAddr} == ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - \"${rewardsAcct}.addr\" does not contain a valid payment address!\e[0m"; exit 1; fi
 
-		elif checkAdaHandleFormat "${rewardsAcct}"; then #if is an adahandle, check it
-
+                #check if its an root adahandle (without a @ char)
+                elif checkAdaRootHandleFormat "${rewardsAcct}"; then
 			addrName=${allParameters[3]}
-			if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
-			adahandleName=${addrName,,}
-			assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
-			#query adahandle asset holding address via koios
-			showProcessAnimation "Query Adahandle into holding address: " &
-			response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
-			stopProcessAnimation;
-			#check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-			if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
-			addrName=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
-			typeOfAddr=$(get_addressType "${addrName}");
-			if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${addrName}' is not a valid payment address.\n\e[0m"; exit 1; fi;
-			showProcessAnimation "Verify Adahandle is on resolved address: " &
-			utxo=$(${cardanocli} query utxo --address ${addrName} ${magicparam} ); checkError "$?"; if [ $? -ne 0 ]; then stopProcessAnimation; exit $?; fi; stopProcessAnimation;
-			if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
-				echo -e "\n\e[35mERROR - Resolved address '${addrName}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
-			echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${addrName}\e[0m\n"
+                        if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
+                        adahandleName=${addrName,,}
+                        assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
+                        #query classic cip-25 adahandle asset holding address via koios
+                        showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
+                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
+                        stopProcessAnimation;
+                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+	                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then
+                                        #query classic cip-68 adahandle asset holding address via koios
+                                        showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
+                                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=000de140${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
+                                        stopProcessAnimation;
+                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
+                                        assetNameHex="000de140${assetNameHex}"
+                                fi
+                        addrName=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
+                        typeOfAddr=$(get_addressType "${addrName}");
+                        if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${addrName}' is not a valid payment address.\n\e[0m"; exit 1; fi;
+                        showProcessAnimation "Verify Adahandle is on resolved address: " &
+                        utxo=$(${cardanocli} query utxo --address ${addrName} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
+                                echo -e "\n\e[35mERROR - Resolved address '${addrName}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
+                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${addrName}\e[0m\n"
 			rewardsPayoutAddr=${addrName}
+
+
+                elif checkAdaSubHandleFormat "${addrName}"; then
+                        echo -e "\n\e[33mINFO - AdaSubHandles are not supported yet.\n\e[0m"; exit 1;
+
 
 		else #try it as a direct payment bech address
 			rewardsPayoutAddr=$(trimString "${allParameters[3]}")
@@ -411,7 +400,7 @@ case ${1,,} in
 			echo -e "\e[0mNonce (current slotHeight): \e[32m${currentTip}\e[0m"
 			echo
 
-			start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			start_HwWallet "" "6.0.3" ""; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			tmp=$(${cardanohwcli} vote registration-metadata ${cardanoHwCliParameters} --stake-signing-key-hwsfile "${stakeAcct}.hwsfile" --metadata-cbor-out-file "${votingMetaFile}" 2> /dev/stdout)
 			if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -454,7 +443,8 @@ case ${1,,} in
 
 	                if [ -f "${votingMetaFile}" ]; then #all good
 				echo -e "\e[0mThe Metadata-Registration-CBOR File \"\e[32m${votingMetaFile}\e[0m\" was generated. :-)\n\nYou can now submit it on the chain by including it in a transaction with Script: 01_sendLovelaces.sh\nExample:\e[33m 01_sendLovelaces.sh mywallet mywallet min ${votingMetaFile}\n\e[0m";
-				if checkAdaHandleFormat "${rewardsAcct}"; then echo -e "\e[33mBe aware, the rewards address is now fixed. Moving the adahandle to another address will not change the rewards address!!!\e[0m\n"; fi
+				if checkAdaRootHandleFormat "${rewardsAcct}"; then echo -e "\e[33mBe aware, the rewards address is now fixed. Moving the rootAdaHandle to another address will not change the rewards address!!!\e[0m\n"; fi
+				if checkAdaSubHandleFormat "${rewardsAcct}"; then echo -e "\e[33mBe aware, the rewards address is now fixed. Moving the subAdaHandle to another address will not change the rewards address!!!\e[0m\n"; fi
 				echo
 						       else #hmm, something went wrong
 				echo -e "\e[35mError - Something went wrong while generating the \"${votingMetaFile}\" metadata file !\e[0m\n"; exit 1;

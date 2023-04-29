@@ -18,17 +18,25 @@ if [ ! -f "${addrName}.addr" ]; then
                                 typeOfAddr=$(get_addressType "${addrName}");
                                 if [[ ${typeOfAddr} == ${addrTypePayment} || ${typeOfAddr} == ${addrTypeStake} ]]; then echo "$(basename ${addrName})" > ${tempDir}/tempAddr.addr; addrName="${tempDir}/tempAddr";
 
-                                #check if its an adahandle
-                                elif checkAdaHandleFormat "${addrName}"; then
+                                #check if its an root adahandle (without a @ char)
+                                elif checkAdaRootHandleFormat "${addrName}"; then
                                         if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
                                         adahandleName=${addrName,,}
                                         assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
-                                        #query adahandle asset holding address via koios
-                                        showProcessAnimation "Query Adahandle into holding address: " &
+                                        #query classic cip-25 adahandle asset holding address via koios
+                                        showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
                                         response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
                                         stopProcessAnimation;
                                         #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
+                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then
+	                                        #query classic cip-68 adahandle asset holding address via koios
+	                                        showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
+	                                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=000de140${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
+	                                        stopProcessAnimation;
+	                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+	                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
+						assetNameHex="000de140${assetNameHex}"
+					fi
                                         addrName=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
                                         typeOfAddr=$(get_addressType "${addrName}");
                                         if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${addrName}' is not a valid payment address.\n\e[0m"; exit 1; fi;
@@ -38,6 +46,9 @@ if [ ! -f "${addrName}.addr" ]; then
                                                  echo -e "\n\e[35mERROR - Resolved address '${addrName}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
                                         echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${addrName}\e[0m\n"
                                         echo "$(basename ${addrName})" > ${tempDir}/adahandle-resolve.addr; addrName="${tempDir}/adahandle-resolve";
+
+                                elif checkAdaSubHandleFormat "${addrName}"; then
+                                        echo -e "\n\e[33mINFO - AdaSubHandles are not supported yet.\n\e[0m"; exit 1;
 
                                 #otherwise post an error message
                                 else echo -e "\n\e[35mERROR - Destination Address can't be resolved. Maybe filename wrong, or not a payment-address.\n\e[0m"; exit 1;
@@ -132,6 +143,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
 				case ${assetHash} in
 					"${adahandlePolicyID}" )	#$adahandle
+						if [[ ${assetTmpName:1:8} == "000de140" ]]; then assetName=${assetName:8}; fi #if it is a cip-68 adahandle, cut the first 4 bytes (8 chars in hex format)
 						echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
 						;;
 					* ) #default
