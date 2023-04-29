@@ -18,6 +18,8 @@ if [ $# -ge 3 ]; then
 Usage:  $(basename $0) <PolicyName.AssetName> <AssetAmount> <PaymentAddressName>
         [Opt: Transaction-Metadata.json - this is not the TokenRegistryServer Metadata!]
         [Opt: Message comment, starting with "msg: ...", | is the separator]
+        [Opt: encrypted message mode "enc:basic". Currently only 'basic' mode is available.]
+        [Opt: passphrase for encrypted message mode "pass:<passphrase>", the default passphrase is 'cardano' is not provided]
 
 
 Examples: $(basename $0) mypolicy.mytoken 100 myfunds.addr ... to mint 100 mytoken on the payment address myfunds
@@ -65,7 +67,7 @@ if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e
 
 #Check all optional parameters about there types and set the corresponding variables
 #Starting with the 4th parameter (index3) up to the last parameter
-metafileParameter=""; metafile=""; filterForUTXO=""; transactionMessage="{}"; #Setting defaults
+metafileParameter=""; metafile=""; filterForUTXO=""; transactionMessage="{}"; enc=""; passphrase="cardano" #Setting defaults
 
 paramCnt=$#;
 allParameters=( "$@" )
@@ -75,7 +77,7 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
         #echo -n "${tmpCnt}: ${paramValue} -> "
 
         #Check if an additional metadata.json/.cbor was set as parameter (not a message, not an UTXO#IDX, not empty, not beeing a number)
-        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^enc:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^pass:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
 
              metafile=${paramValue}; metafileExt=${metafile##*.}
@@ -114,18 +116,48 @@ for (( tmpCnt=3; tmpCnt<${paramCnt}; tmpCnt++ ))
                         fi
                 done
 
+        #Check if its a transaction encryption
+        elif [[ "${paramValue,,}" =~ ^enc:(.*)$ ]]; then #if the parameter starts with "enc:" then set the encryption variable
+                encryption=$(trimString "${paramValue:4}");
+
+        #Check if its a transaction encryption passphrase
+        elif [[ "${paramValue,,}" =~ ^pass:(.*)$ ]]; then #if the parameter starts with "passphrase:" then set the passphrase variable
+                passphrase="${paramValue:5}"; #don't do a trimstring here, because also spaces are a valid passphrase !
+
         fi #end of different parameters check
 
  done
 
-#Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list
+#Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list. Encrypt it if enabled.
 if [[ ! "${transactionMessage}" == "{}" ]]; then
+
         transactionMessageMetadataFile="${tempDir}/$(basename ${fromAddr}).transactionMessage.json";
         tmp=$( jq . <<< ${transactionMessage} 2> /dev/null)
-        if [ $? -eq 0 ]; then echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
-                         else echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1; fi
-fi
+        if [ $? -eq 0 ]; then #json is valid, so no bad chars found
 
+                #Check if encryption is enabled, encrypt the msg part
+                if [[ "${encryption,,}" == "basic" ]]; then
+                        #check openssl
+                        if ! exists openssl; then
+                                echo -e "\e[33mYou need 'openssl', its needed to encrypt the transaction messages !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install openssl\n\n\e[33mThx! :-)\e[0m\n";
+                                exit 2;
+                        fi
+                        msgPart=$( jq -crM ".\"674\".msg" <<< ${transactionMessage} 2> /dev/null )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        encArray=$( openssl enc -e -aes-256-cbc -pbkdf2 -iter 10000 -a -k "${passphrase}" <<< ${msgPart} | awk {'print "\""$1"\","'} | sed '$ s/.$//' )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        #compose new transactionMessage by using the encArray as the msg and also add the encryption mode 'basic' entry
+                        tmp=$( jq ".\"674\".msg = [ ${encArray} ]" <<< '{"674":{"enc":"basic"}}' )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                fi
+
+                echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
+
+        else
+                echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1;
+        fi
+
+fi
 
 
 #Sending ALL lovelaces, so only 1 receiver addresses
@@ -302,8 +334,14 @@ echo
 if [[ ! "${metafileList}" == "" ]]; then echo -e "\e[0mInclude Metadata-File(s):\e[32m ${metafileList}\e[0m\n"; fi
 
 #There are transactionMessages attached, show the metadatafile:
-if [[ ! "${transactionMessage}" == "{}" ]]; then echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m"; fi
-
+if [[ ! "${transactionMessage}" == "{}" ]]; then
+        if [[ "${encArray}" ]]; then #if there is an encryption, show the original Metadata first with the encryption paramteters
+        echo -e "\e[0mOriginal Transaction-Message:\n\e[90m"; jq -rM <<< ${transactionMessage}; echo -e "\e[0m";
+        echo -e "\e[0mEncrypted Transaction-Message mode \e[32m${encryption,,}\e[0m with Passphrase '\e[32m${passphrase}\e[0m'";
+        echo
+        fi
+        echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m";
+fi
 
 #Read ProtocolParameters
 if ${onlineMode}; then
