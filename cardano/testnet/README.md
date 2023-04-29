@@ -1303,6 +1303,9 @@ The rewards payout address is now a regular payment (base or enterprise) address
 
 If you are already using the SPO-Scripts, you're set to do it the simple way. If not, please copy/clone them from the [SPO-Scripts-Mainnet](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet) folder. All required executables/binaries are included in the repo. You still need your running cardano-node and cardano-cli of course. A detailed [README.md](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#readme) about the feature and how to install/use the scripts can be found in the repo.
 
+<details>
+   <summary><b>Checkout the few easy Steps to do the Registration/Delegation ... </b>:bookmark_tabs:</summary>
+
 ## Register funds of CLI-Keys, HYBRID-Keys or Hardware-Wallets
 
 The SPO-Scripts repo contains the following binaries:
@@ -1421,6 +1424,8 @@ You have successfully transmitted your voting registration onto the chain. To do
 :warning: Your Voting-Power will be displayed in the Voting-App once the voting is open. 
 
 :warning: With the Special Voting Event in April 2023, its only allowed to use CIP36 registration format to do a 100% Voting-Power delegation. So all the examples above are doing that. The description will be updated again for Fund10 to also give example on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for the Special Voting Event, thx!
+
+</details>
 
 &nbsp;<br>&nbsp;<br>
 
