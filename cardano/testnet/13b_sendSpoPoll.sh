@@ -167,7 +167,6 @@ if ! [[ -f "${nodeName}.node.skey" ]]; then
 fi
 
 
-
 #Check if toAddr file does not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "${toAddr}.addr" ]; then
 				toAddr=$(trimString "${toAddr}") #trim it if spaces present
@@ -442,20 +441,15 @@ case "${lovelacesToSend}" in
 			rxcnt=2;;
 esac
 
-
-echo
-echo -e ${metafileParameter}
-echo
-
-
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
+dummyRequiredHash="12345678901234567890123456789012345678901234567890123456"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
@@ -539,6 +533,13 @@ txWitnessFile="${tempDir}/$(basename ${fromAddr}).txwitness"
 txNodeWitnessFile="${tempDir}/$(basename ${nodeName}).txnodewitness"
 txFile="${tempDir}/$(basename ${fromAddr}).tx"
 
+
+#read the needed signing keys into ram
+echo
+skeyNodeJSON=$(read_skeyFILE "${nodeName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyNodeJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+vkeyNodeHash=$(${cardanocli} key verification-key  --signing-key-file <(echo "${skeyNodeJSON}") --verification-key-file /dev/stdout | jq -r .cborHex | tail -c +5 | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1)
+echo -e "\e[0mBuilding the VKEY-Hash (Pool-ID) for the required signer field: \e[32m${vkeyNodeHash}\e[0m"
+
 echo
 echo -e "\e[0mBuilding the unsigned transaction body: \e[32m ${txBodyFile} \e[90m"
 echo
@@ -546,10 +547,10 @@ echo
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			else  #Sending chosen amount (rxcnt=2), return the rest(incl. assets)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
 			#echo -e "\n\n\n${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out \"${sendFromAddr}+${lovelacesToReturn}${assetsOutString}\" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}\n\n\n"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
@@ -603,10 +604,6 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[0mWitnessed\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-
-        #read the needed signing keys into ram
-	skeyNodeJSON=$(read_skeyFILE "${nodeName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyNodeJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
-
         echo -ne "\e[0mAdding the pool node witness '\e[33m${nodeName}.node.skey\e[0m' ... "
         tmp=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyNodeJSON}") ${magicparam} --out-file ${txNodeWitnessFile} 2> /dev/stdout)
         checkError "$?"; if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; fi
@@ -620,7 +617,6 @@ else
 
 	#read the needed signing keys into ram and sign the transaction
 	skeyJSON=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
-	skeyNodeJSON=$(read_skeyFILE "${nodeName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyNodeJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
 	echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m and \e[32m${nodeName}.node.skey\e[0m: \e[32m ${txFile}\e[0m"
 	echo
