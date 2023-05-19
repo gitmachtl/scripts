@@ -173,7 +173,7 @@ currentTip=$(get_currentTip);
 
 #set timetolife (inherent hereafter) to the currentTTL or to the value set in the policy.script for the "before" slot (limited policy lifespan)
 ttlFromScript=$(cat ${policyName}.policy.script | jq -r ".scripts[] | select(.type == \"before\") | .slot" 2> /dev/null || echo "unlimited")
-if [[ ! ${ttlFromScript} == "unlimited" ]]; then ttl=${ttlFromScript}; else ttl=$(get_currentTTL); fi
+if [[ ! ${ttlFromScript} == "unlimited" && ! ${ttlFromScript} == "" ]]; then ttl=${ttlFromScript}; else ttl=$(get_currentTTL); fi
 echo
 echo -e "\e[0mPolicy valid before Slot-Height:\e[33m ${ttlFromScript}\e[0m"
 echo
