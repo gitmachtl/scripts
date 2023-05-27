@@ -57,7 +57,7 @@ You need a Voting-KeyPair that gets the delegations of your "Voting-Power", thes
 <br><b>Steps:</b>
 1. Run the following command to generate your Voting-KeyPair files and also a new Mnemonics to use it with a dApp Wallet:
 ``` console
-./09a_catalystVote.sh new myvote
+./09a_catalystVote.sh new cli myvote
 ```
 2. Done
 
