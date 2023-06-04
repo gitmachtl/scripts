@@ -6,7 +6,7 @@
 <img src="https://projectcatalyst.org/large-thumbnail.png" width=50% align=right></img>
 Starting with Catalyst Fund10, the on-chain registration format for Catalyst is using a new specification. This specification is described in [CIP36](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0036) and it includes a few important changes.
 
-The rewards payout address is now a regular **payment** (base or enterprise) address and not a stake address anymore! Also, you can delegate your Voting-Power to more than one Voting-Key. You can basically split your Voting-Power up to multiple Voting-Keys. Also starting with Fund10 there will be a Web-based **Catalyst Voting Center** for dApp Wallets in parallel with the existing **Catalyst Voting App** for mobile devices.
+The rewards payout address is now a regular **payment** (base or enterprise) address and not a stake address anymore! Also, you can delegate your Voting-Power to more than one Voting-Key. You can basically split your Voting-Power up to multiple Voting-Keys. Starting with Fund11 there will be a Web-based **Catalyst Voting Center** for dApp Wallets in parallel with the existing **Catalyst Voting App** for mobile devices.
 
 **⚠ Attention using CIP36 for Fund10:**<br>
 We can use this new format for Fund10, only restriction is to NOT split the Voting-Power to multiple Voting-Keys. So only a delegation with 100% Voting-Power is allowed. Also, the normal Catalyst Voting App will be used as usual, so you'll need a new QR-Code.
