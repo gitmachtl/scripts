@@ -20,7 +20,7 @@ If you wanna test things out on the testnets, also with the latest alpha/beta sc
 
 * Telegram - @atada_stakepool<br>
 * Twitter - [@ATADA_Stakepool](https://twitter.com/ATADA_Stakepool)<br>
-* Discord - [gitmachtl](https://discordapp.com/users/gitmachtl)
+* Discord - [atada_stakepool](https://discordapp.com/users/atada_stakepool)
 * Cardano24 - [ATADA](https://cardano24.social/ATADA) &amp; [SPO-Scripts-Page](https://cardano24.social/pages/spo_scripts)
 * Email - stakepool@stakepool.at<br>
 * Homepage - https://stakepool.at
