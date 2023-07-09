@@ -6,7 +6,7 @@
 <img src="https://projectcatalyst.org/large-thumbnail.png" width=50% align=right></img>
 Starting with Catalyst Fund10, the on-chain registration format for Catalyst is using a new specification. This specification is described in [CIP36](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0036) and it includes a few important changes.
 
-The rewards payout address is now a regular **payment** (base or enterprise) address and not a stake address anymore! Also, you can delegate your Voting-Power to more than one Voting-Key. You can basically split your Voting-Power up to multiple Voting-Keys. Starting with Fund11 there will be a Web-based **Catalyst Voting Center** for dApp Wallets in parallel with the existing **Catalyst Voting App** for mobile devices.
+The rewards payout address is now a regular **payment** (base or enterprise) address and not a stake address anymore! With Fund11 you will be able to delegate your Voting-Power to more than one Voting-Key. You can basically split your Voting-Power up to multiple Voting-Keys. Starting with Fund11 there will be a Web-based **Catalyst Voting Center** for dApp Wallets in parallel with the existing **Catalyst Voting App** for mobile devices.
 
 **⚠ Attention using CIP36 for Fund10:**<br>
 We can use this new format for Fund10, only restriction is to NOT split the Voting-Power to multiple Voting-Keys. So only a delegation with 100% Voting-Power is allowed. Also, the normal Catalyst Voting App will be used as usual, so you'll need a new QR-Code.
@@ -38,8 +38,8 @@ The SPO-Scripts repo contains the following binaries:
 * [catalyst-toolbox](https://github.com/input-output-hk/catalyst-toolbox/releases/latest) v0.5.0
 
 In case you wanna register funds from your **Hardware-Wallet**, please make sure to also install:
-* [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) v1.13.0
-   and the Cardano-App on the HW-Wallet should be v6.0.3 or above for Ledger-HW-Wallets, and v2.6.0 for Trezor Model-T devices.<br>⚠ In case there is no public release available yet for Cardano-App v6.0.3 via the Ledger-Live Desktop application, you can get it by opening up your Ledger-Live Desktop Application and change the following:<br>**`-> Settings -> Experimental Features -> My Ledger provider -> Enable it and set it to 4`**.<br>After that you should see a new available version which you can update to.<br>ℹ You can find further information [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#how-to-prepare-your-system-before-using-a-hardware-wallet) on how to prepare your system to work with Hardware-Wallets.
+* [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/tag/v1.12.0) **v1.12.0**
+   and the Cardano-App on the HW-Wallet should be v5.0.1 for Ledger-HW-Wallets, and v2.6.0 for Trezor Model-T devices.<br>⚠ Please make sure to use those **exact versions**! In case there is a new release of the Cardano-App v6.0.3 via the Ledger-Live Desktop application, these documentation and the Voting-Script will get an update !<br>ℹ You can find further information [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#how-to-prepare-your-system-before-using-a-hardware-wallet) on how to prepare your system to work with Hardware-Wallets.
 
 <br>To **generate your Voting-Registration**, the **09a_catalystVote.sh script** from the MainNet Repo is used, below are the 4 simple steps:
 1. **[Generate a Voting-KeyPair](#1-generate-a-voting-keypair)**
@@ -91,12 +91,12 @@ You need to generate a VotingRegistration-Metadata CBOR file for each of your St
 File that has been created:
 * `cli-owner_230409185855.vote-registration.cbor`: contains the signed registration data in binary cbor format (230409185855 is just the current timestamp)
 
-<br>Another example, lets say we wanna vote with our HW-Account on the Ledger-HW-Wallet **hw-wallet**, and we want to get the rewards back to the account **myrewards**. The signing will be done on the HW-Wallet, so make sure to have it connected and the Cardano-App on the HW-Wallet is opened too.
+<br>Another example, lets say we wanna vote with our HW-Account on the Ledger-HW-Wallet **hw-wallet**, the rewards must also be paid back to the same HW-Wallet! The signing will be done on the HW-Wallet, so make sure to have it connected and the Cardano-App on the HW-Wallet is opened too.
 
 <br><b>Steps:</b>
-1. Run the following command to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.vkey/pkey and your Stake-Account **hw-wallet**.staking.hwsfile: 
+1. Run the following command to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.vkey/pkey and your Stake-Account **hw-wallet**.staking.hwsfile. Rewards should be paid out to **hw-wallet**.payment.addr: 
 ``` console
-./09a_catalystVote.sh genmeta myvote hw-wallet myrewards
+./09a_catalystVote.sh genmeta myvote hw-wallet hw-wallet.payment
 ```
 2. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
 
@@ -164,8 +164,8 @@ You will need the following software/binaries with the given minimal versions:
 * [catalyst-toolbox](https://github.com/input-output-hk/catalyst-toolbox/releases/latest) v0.5.0
 
 In case you wanna register funds from your **Hardware-Wallet**, please make sure to also install:
-* [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) v1.13.0
-   and the Cardano-App on the HW-Wallet should be v6.0.3 or above for Ledger-HW-Wallets, and v2.6.0 for Trezor Model-T devices.<br>⚠ In case there is no public release available yet for Cardano-App v6.0.3 via the Ledger-Live Desktop application, you can get it by opening up your Ledger-Live Desktop Application and change the following:<br>**`-> Settings -> Experimental Features -> My Ledger provider -> Enable it and set it to 4`**.<br>After that you should see a new available version which you can update to.<br>ℹ You can find further information [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#how-to-prepare-your-system-before-using-a-hardware-wallet) on how to prepare your system to work with Hardware-Wallets.
+* [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/tag/v1.12.0) **v1.12.0**
+   and the Cardano-App on the HW-Wallet should be v5.0.1 for Ledger-HW-Wallets, and v2.6.0 for Trezor Model-T devices.<br>⚠ Please make sure to use those **exact versions**! In case there is a new release of the Cardano-App v6.0.3 via the Ledger-Live Desktop application, these documentation and the Voting-Script will get an update !<br>ℹ You can find further information [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#how-to-prepare-your-system-before-using-a-hardware-wallet) on how to prepare your system to work with Hardware-Wallets.
 
 <br>Below you will find the 4 easy steps:
 1. **[Generate a Voting-KeyPair with Cardano-Signer](#1-generate-a-voting-keypair-with-cardano-signer)**
@@ -313,18 +313,23 @@ In the example above we have used the minimal set of parameters to generate the 
 
 ### 2b. Using Cardano-HW-Cli for signing with Hardware-Keys
 
-Lets say we wanna register our Hardware-Ledger-Key **hwstake.hwsfile**, and we want to get the rewards back to the address **addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54**.  We wanna use the vote-key that we generated in step 1. Make sure to have your HW-Wallet connected and ready.
+Lets say we wanna register our Hardware-Ledger-Key **hwstake.hwsfile**, and we want to get the rewards back to the address **addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54**, which is also on the Hardware Wallet.  We wanna use the vote-key that we generated in step 1. Make sure to have your HW-Wallet connected and ready.
 
 <br><b>Steps:</b>
-1. If you already have your `*.hwsfile` and other files generated via cardano-hw-cli, you can skip to step #2 , otherwise you can run this simple command to get your hwstake.* files: 
+1. If you already have your `*.hwsfile` and other files generated via cardano-hw-cli, you can skip to step #2 , otherwise you can run this simple command to get your `hwstake.*` / `hwpayment.*` files: 
 ``` console
 cardano-hw-cli address key-gen \
      --path 1852H/1815H/0H/2/0 \
      --verification-key-file hwstake.vkey \
      --hw-signing-file hwstake.hwsfile
+
+cardano-hw-cli address key-gen \
+     --path 1852H/1815H/0H/0/0 \
+     --verification-key-file hwpayment.vkey \
+     --hw-signing-file hwpayment.hwsfile
 ```
 
-2. Get the current tip of the chain, we use it as nonce value
+2. Get the current tip of the chain, we use it as the nonce value in step 3:
 ```console
 #via cardano-cli
 cardano-cli query tip --mainnet
@@ -334,21 +339,25 @@ curl -s -X GET "https://api.koios.rest/api/v0/tip"  -H "accept: application/json
 89501224
 ```
 
-3. Run the following command to generate the vote-registration.cbor CBOR file, use the nonce from step 2.
+3. Run the following command to generate the vote-registration.cbor CBOR file, **use the nonce from step 2**.<br>
+Make sure to use cardano-hw-cli version **1.12.0**! The newer version 1.13.0 is not compatible with the current Ledger-App 5.0.1!
+
 ``` console
-cardano-hw-cli vote registration-metadata --mainnet \
-    --payment-address "addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54" \
-    --vote-public-key-file myvote.voting.vkey \
-    --stake-signing-key-hwsfile hwstake.hwsfile \
-    --nonce 89501224 \
-    --metadata-cbor-out-file vote-registration.cbor
+cardano-hw-cli catalyst voting-key-registration-metadata --mainnet \
+        --reward-address "addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54" \
+        --reward-address-signing-key hwstake.hwsfile \
+        --reward-address-signing-key hwpayment.hwsfile \
+        --vote-public-key <(cat myvote.voting.vkey | jq -r .cborHex | cut -c 5- | bech32 "ed25519e_pk") \
+        --stake-signing-key hwstake.hwsfile \
+        --nonce 89501224 \
+        --metadata-cbor-out-file "${votingMetaFile}"
 ```
 4. Done
 
 File that has been created:
 * `vote-registration.cbor`: contains the signed registration data in binary cbor format
 
-In the example above we have used the minimal set of parameters to generate the correct data for Cardano-Mainnet. It defaults to vote-purpose = 0 (catalyst). With CIP36 we also have the possibility to split the Voting-Power associated with a stake key to multiple Vote-Public-Keys. The above example only includes one Vote-Public-Key, so it defaults to 100% Voting-Power to the Vote-Public-Key. 
+In the example above we have used the set of parameters to generate the correct data for Cardano-Mainnet. For Ledger HW-Wallets and the current cardano-app 5.0.1 we are limited to use a rewards payout address that is also on the same HW-Wallet than you're registering the stake key from. 
 
 ⚠ With the Fund10 Voting Event, its only allowed to use CIP36 registration format with 100% Voting-Power delegation to a single VotingKey. So all the examples above are doing that. The description will be updated again for Fund11 to also give example on how to delegate your Voting-Power to multiple Vote-Public-Keys. But for now, please don't use that function for Fund10, thx!
 
