@@ -231,7 +231,7 @@ minNodeVersion="1.35.5"  		#minimum allowed node version for this script-collect
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion="5.0.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.6.0"  	#minimum version for the firmware on the Trezor HW-Wallet
-minHardwareCliVersion="1.13.0" 		#minimum version for the cardano-hw-cli
+minHardwareCliVersion="1.12.0" 		#minimum version for the cardano-hw-cli
 minCardanoSignerVersion="1.13.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
