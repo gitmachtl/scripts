@@ -350,7 +350,7 @@ cardano-hw-cli catalyst voting-key-registration-metadata --mainnet \
         --vote-public-key <(cat myvote.voting.vkey | jq -r .cborHex | cut -c 5- | bech32 "ed25519e_pk") \
         --stake-signing-key hwstake.hwsfile \
         --nonce 89501224 \
-        --metadata-cbor-out-file "${votingMetaFile}"
+        --metadata-cbor-out-file vote-registration.cbor
 ```
 4. Done
 
