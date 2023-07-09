@@ -313,7 +313,7 @@ In the example above we have used the minimal set of parameters to generate the 
 
 ### 2b. Using Cardano-HW-Cli for signing with Hardware-Keys
 
-Lets say we wanna register our Hardware-Ledger-Key **hwstake.hwsfile**, and we want to get the rewards back to the address **addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54**, which is also on the Hardware Wallet.  We wanna use the vote-key that we generated in step 1. Make sure to have your HW-Wallet connected and ready.
+Lets say we wanna register our Hardware-Ledger-Key **hwstake.hwsfile**, and we want to get the rewards back to the address **addr1qp6fwmz547h5gnmu6jvmmpge4tr9j2cnkg4e6kqh7rd9c5sr6gz4xgyf45hhs95f9ch0g2zfk76j0z8yrvlagwnwq88sq0cm9e**, which is also on the Hardware Wallet.  We wanna use the vote-key that we generated in step 1. Make sure to have your HW-Wallet connected and ready.
 
 <br><b>Steps:</b>
 1. If you already have your `*.hwsfile` and other files generated via cardano-hw-cli, you can skip to step #2 , otherwise you can run this simple command to get your `hwstake.*` / `hwpayment.*` files: 
@@ -344,7 +344,7 @@ Make sure to use cardano-hw-cli version **1.12.0**! The newer version 1.13.0 is 
 
 ``` console
 cardano-hw-cli catalyst voting-key-registration-metadata --mainnet \
-        --reward-address "addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54" \
+        --reward-address "addr1qp6fwmz547h5gnmu6jvmmpge4tr9j2cnkg4e6kqh7rd9c5sr6gz4xgyf45hhs95f9ch0g2zfk76j0z8yrvlagwnwq88sq0cm9e" \
         --reward-address-signing-key hwstake.hwsfile \
         --reward-address-signing-key hwpayment.hwsfile \
         --vote-public-key <(cat myvote.voting.vkey | jq -r .cborHex | cut -c 5- | bech32 "ed25519e_pk") \
