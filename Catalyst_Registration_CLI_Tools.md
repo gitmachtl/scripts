@@ -1,4 +1,4 @@
-# Catalyst Voting Registration via CLI tools
+# Catalyst Voting Registration via CLI tools - Fund10 
 
 &nbsp;<br>
 
@@ -41,7 +41,7 @@ In case you wanna register funds from your **Hardware-Wallet**, please make sure
 * [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/tag/v1.12.0) **v1.12.0**
    and the Cardano-App on the HW-Wallet should be v5.0.1 for Ledger-HW-Wallets, and v2.6.0 for Trezor Model-T devices.<br>⚠ Please make sure to use those **exact versions**! In case there is a new release of the Cardano-App v6.0.3 via the Ledger-Live Desktop application, these documentation and the Voting-Script will get an update !<br>ℹ You can find further information [here](https://github.com/gitmachtl/scripts/tree/master/cardano/mainnet#how-to-prepare-your-system-before-using-a-hardware-wallet) on how to prepare your system to work with Hardware-Wallets.
 
-<br>To **generate your Voting-Registration**, the **09a_catalystVote.sh script** from the MainNet Repo is used, below are the 4 simple steps:
+<br>To **generate your Voting-Registration**, the **09a_catalystVoteF10.sh script** from the MainNet Repo is used, below are the 4 simple steps:
 1. **[Generate a Voting-KeyPair](#1-generate-a-voting-keypair)**
 2. **[Generate the VotingRegistration-Metadata-CBOR](#2-generate-the-votingregistration-metadata-cbor)**
 3. **[Transmit the VotingRegistration-Metadata-CBOR file on chain](#3-transmit-the-votingregistration-metadata-cbor-file-on-the-chain)**
@@ -57,7 +57,7 @@ You need a Voting-KeyPair that gets the delegations of your "Voting-Power", thes
 <br><b>Steps:</b>
 1. Run the following command to generate your Voting-KeyPair files and also a new Mnemonics to use it with a dApp Wallet:
 ``` console
-./09a_catalystVote.sh new cli myvote
+./09a_catalystVoteF10.sh new cli myvote
 ```
 2. Done
 
@@ -83,7 +83,7 @@ You need to generate a VotingRegistration-Metadata CBOR file for each of your St
 <br><b>Steps:</b>
 1. Run the following command to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.vkey/pkey and your Stake-Account **cli-owner**.staking.skey:
 ``` console
-./09a_catalystVote.sh genmeta myvote cli-owner myrewards
+./09a_catalystVoteF10.sh genmeta myvote cli-owner myrewards
 ```
 2. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
 3. Done
@@ -96,7 +96,7 @@ File that has been created:
 <br><b>Steps:</b>
 1. Run the following command to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.vkey/pkey and your Stake-Account **hw-wallet**.staking.hwsfile. Rewards should be paid out to **hw-wallet**.payment.addr: 
 ``` console
-./09a_catalystVote.sh genmeta myvote hw-wallet hw-wallet.payment
+./09a_catalystVoteF10.sh genmeta myvote hw-wallet hw-wallet.payment
 ```
 2. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
 
@@ -108,7 +108,7 @@ File that has been created:
 <br><b>Steps:</b>
 1. Run the following command to generate the VotingRegistration-Metadata CBOR file for your VotingKey-Account **myvote**.voting.vkey/pkey, your Stake-Account **acct4**.staking.skey and the rewards will be paid out to the address addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54:
 ``` console
-./09a_catalystVote.sh genmeta cvote_vk1wntweq76kqy824ggzfhgtm9k0uydvu6zf09m2td58f2kune3ezws8jd2sw acct4 addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54
+./09a_catalystVoteF10.sh genmeta cvote_vk1wntweq76kqy824ggzfhgtm9k0uydvu6zf09m2td58f2kune3ezws8jd2sw acct4 addr1v9alunnka0sjm2px9ltwufrrj82yjy9qu45dpa7rze2h7agenhx54
 ```
 2. Repeat the above step as often as you like to combine more Stake-Accounts into one Voting-Power (myvote)
 
@@ -139,7 +139,7 @@ You have successfully transmitted your voting registration onto the chain. To do
 <br><b>Steps for creating the QR-Code:</b>
 1. Run the following command to generate your CatalystApp-QR-Code for the Voting-Account **myvote**.voting.skey with the PinCode **8765**:
  ``` console
- ./09a_catalystVote.sh qrcode myvote 8765
+ ./09a_catalystVoteF10.sh qrcode myvote 8765
  ```
 2. The QR-Code will be visable on the display. Also you can find a file **myvote**.catalyst-qrcode.png in the directory for later usage.
 3. Scan the QR-Code with the latest version of the Catalyst-Voting-App on your mobile phone to get access to your Voting-Power
