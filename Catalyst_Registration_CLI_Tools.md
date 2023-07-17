@@ -428,7 +428,7 @@ cardano-cli transaction build-raw \
     --tx-out $(cat payment.addr)+0 \
     --invalid-hereafter 0 \
     --fee 0 \
-    --metadata-cbor-file vote-registration.cbor
+    --metadata-cbor-file vote-registration.cbor \
     --out-file tx.draft \
 
 export FEE=$(cardano-cli transaction calculate-min-fee \
@@ -452,7 +452,7 @@ cardano-cli transaction build-raw \
     --tx-out $PAYMENT_ADDR+$AMT_OUT \
     --invalid-hereafter $TTL \
     --fee $FEE \
-    --metadata-cbor-file vote-registration.cbor
+    --metadata-cbor-file vote-registration.cbor \
     --out-file tx.raw
 ```
 
