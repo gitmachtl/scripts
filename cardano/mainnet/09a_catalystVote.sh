@@ -575,9 +575,9 @@ case ${1,,} in
 
 			#get the stakeaddress from the vkey hash
 			if [[ "${magicparam}" == *"mainnet"* ]]; then
-				delegator_stakeaddress=$(echo -n "e1$(xxd -r -ps <<< "${delegator_vkey}" | b2sum -l 224 -b | cut -d' ' -f 1)" | ./bech32 "stake");
+				delegator_stakeaddress=$(echo -n "e1$(xxd -r -ps <<< "${delegator_vkey}" | b2sum -l 224 -b | cut -d' ' -f 1)" | ${bech32_bin} "stake");
 			else
-				delegator_stakeaddress=$(echo -n "e0$(xxd -r -ps <<< "${delegator_vkey}" | b2sum -l 224 -b | cut -d' ' -f 1)" | ./bech32 "stake_test");
+				delegator_stakeaddress=$(echo -n "e0$(xxd -r -ps <<< "${delegator_vkey}" | b2sum -l 224 -b | cut -d' ' -f 1)" | ${bech32_bin} "stake_test");
 			fi
 
 			echo -e "\e[0m        Delegator: $(( ${tmpCnt} + 1))\e[0m"
