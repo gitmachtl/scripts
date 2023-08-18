@@ -151,6 +151,29 @@ You have successfully transmitted your voting registration onto the chain. To do
 
 <br>&nbsp;<br>
 
+## (5. Query your Catalyst Voting-Key registration)
+
+This step is optional and the current API is under development, but after you have transmitted your registration with Step-3, you can query the successful registration.
+
+<br><b>Run the following command to verify your registration:</b>
+1. Run the following command to verify your registration for the Voting-Account **myvote**.voting.skey:
+ ``` console
+ ./09a_catalystVoteF10.sh query myvote
+ ```
+2. Done 
+
+You should now see your registered Voting-Power. If it does not show up yet, please let the Catalyst-API grap your registration first. This happens every few hours, so it could take some time.
+
+ℹ️ You can also query the Voting-Key/Power for Keys in the bech format and hex format like:
+ ``` console
+ ./09a_catalystVoteF10.sh query cvote_vk1clzzuhduakxg9wvrdv5m9zfsr4c5qljthntuv3j78unez2dgkd0qya8rlp
+ or
+ ./09a_catalystVoteF10.sh query c7c42e5dbced8c82b9836b29b289301d71407e4bbcd7c6465e3f279129a8b35e
+ ```
+
+<br>&nbsp;<br>
+
+
 # The step-by-step way on the CLI :new:
 
 <img src="https://user-images.githubusercontent.com/47434720/190806957-114b1342-7392-4256-9c5b-c65fc0068659.png" width=40% align=right></img>
