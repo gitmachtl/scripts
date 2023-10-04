@@ -7,12 +7,18 @@
 
 
 #Check command line parameter
-if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|HWMULTI|HYBRID|HYBRIDMULTI|ENC|HYBRIDENC|HYBRIDMULTIENC)$ ]]; then
+if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|HWMULTI|HYBRID|HYBRIDMULTI|ENC|HYBRIDENC|HYBRIDMULTIENC|MNEMONICS)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti | hybrid | hybridmulti | hybridenc | hybridmultienc> [Acc# 0-2147483647 for HW-Wallet, Def=0] [Idx# 0-2147483647 for HW-Wallet, Def=0]
+ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti | hybrid | hybridmulti | hybridenc | hybridmultienc | mnemonics>
+
+Optional parameters:
+
+   ["Idx: 0-2147483647"] Sets the IndexNo of the DerivationPath for HW-Keys and CLI-Mnemonics: 1852H/1815H/*H/*/IndexNo (default: 0)
+   ["Acc: 0-2147483647"] Sets the AccountNo of the DerivationPath for HW-KEys and CLI-Mnemonics: 1852H/1815H/<AccountNo>H/*/* (default: 0)
+   ["Mnemonics: 24-words-mnemonics"] To provide a given set of 24 mnemonic words to derive the CLI-Mnemonics keys, otherwise new ones will be generated.
 
 Examples:
-$(basename $0) owner cli             ... generates Payment & Staking keys via cli (was default method before)
+$(basename $0) owner cli             ... generates Payment & Staking keys via cli (this is the normal mode)
 $(basename $0) owner enc             ... generates Payment & Staking keys via cli and encrypted via a Password
 $(basename $0) owner hw              ... generates Payment & Staking keys using Ledger/Trezor HW-Keys (Normal-Path 1852H/1815H/<Acc>/0,2/<Idx>)
 $(basename $0) owner hwmulti         ... generates Payment & Staking keys using Ledger/Trezor HW-Keys (MultiSig-Path 1854H/1815H/<Acc>/0,2/<Idx>)
@@ -20,34 +26,59 @@ $(basename $0) owner hybrid          ... generates Payment keys using Ledger/Tre
 $(basename $0) owner hybridenc       ... generates Payment keys using Ledger/Trezor HW-Keys, Staking keys via cli and encrypted via a Password
 $(basename $0) owner hybridmulti     ... generates Payment keys using Ledger/Trezor HW-Keys (MultiSig-Path 1854H/1815H/<Acc>/0/<Idx>), Staking keys via cli
 $(basename $0) owner hybridmultienc  ... generates Payment keys using Ledger/Trezor HW-Keys (MultiSig-Path 1854H/1815H/<Acc>/0/<Idx>), Staking keys via cli and encrypted via a Password
+$(basename $0) owner mnemonics       ... generates Payment & Staking keys via cli and also generates Mnemonics for LightWallet import possibilities
 
+Examples with Hardware-Account/Index-Numbers:
+$(basename $0) owner hw "acc:1"        ... generates Payment & Staking keys using Ledger/Trezor HW-Keys and SubAccount# 1, Index# 0
+$(basename $0) owner hybrid "acc:5"    ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount# 5, Index# 0, Staking keys via cli (comfort mode for multiowner pools)
+$(basename $0) owner hybrid "acc:3" "idx:1"  ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount# 3, Index# 1, Staking keys via cli
+$(basename $0) owner hybridenc "acc:7" ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount# 7, Index# 0, Staking keys via cli and encrypted via a Password
 
-Optional with Hardware-Account/Index-Numbers:
-$(basename $0) owner hw 1        ... generates Payment & Staking keys using Ledger/Trezor HW-Keys and SubAccount# 1, Index# 0
-$(basename $0) owner hybrid 5    ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount# 5, Index# 0, Staking keys via cli (comfort mode for multiowner pools)
-$(basename $0) owner hybrid 3 1  ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount# 3, Index# 1, Staking keys via cli
-$(basename $0) owner hybridenc 7 ... generates Payment keys using Ledger/Trezor HW-Keys with SubAccount# 7, Index# 0, Staking keys via cli and encrypted via a Password
+Example with Mnemonics:
+$(basename $0) owner mnemonics "mnemonics: word1 word2 ... word24"  ... generates Payment & Staking keys via cli from the given 24 Mnemonic words (Path 1852H/1815H/<Acc>/0,2/<Idx>)
+$(basename $0) owner mnemonics "acc:4" "idx:3"  ... generates Payment & Staking keys via cli and new Mnemonics for the path 1852H/1815H/H4/0,2/3
 
 
 EOF
 exit 1;
 else
+
+	#Set the addrName and the choosen keyType
 	addrName="$(dirname $1)/$(basename $1 .addr)"; addrName=${addrName/#.\//};
-	keyType=$2;
+	keyType=${2^^};
+
+	#set default values for the derivation path accountNumber and indexNumber
 	accNo=0;
 	idxNo=0;
+	mnemonics="";
 
-	if [ $# -ge 3 ]; then
-	accNo=$3;
-	#Check if the given accNo is a number and in the range. limit is 2^31-1 (2147483647)
-	if [ "${accNo}" == null ] || [ -z "${accNo##*[!0-9]*}" ] || [ $(bc <<< "${accNo} < 0") -eq 1 ] || [ $(bc <<< "${accNo} > 2147483647") -eq 1 ]; then echo -e "\e[35mERROR - Account# for the HardwarePath is out of range (0-2147483647, warnings above 100)!\e[0m"; exit 2; fi
-	fi
+	#Check all optional parameters about there types and set the corresponding variables
+	#Starting with the 3th parameter (index=2) up to the last parameter
+	paramCnt=$#;
+	allParameters=( "$@" )
+	for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
+	do
+        	paramValue=${allParameters[$tmpCnt]}
 
-        if [ $# -eq 4 ]; then
-        idxNo=$4;
-	#Check if the given idxNo is a number and in the range. limit is 2^31-1 (2147483647)
-        if [ "${idxNo}" == null ] || [ -z "${idxNo##*[!0-9]*}" ] || [ $(bc <<< "${idxNo} < 0") -eq 1 ] || [ $(bc <<< "${idxNo} > 2147483647") -eq 1 ]; then echo -e "\e[35mERROR - Index# for the HardwarePath is out of range (0-2147483647) !\e[0m"; exit 2; fi
-        fi
+		#Check if its an accountNo parameter
+	        if [[ "${paramValue,,}" =~ ^acc:(.*)$ ]]; then
+	                accNo=$(trimString "${paramValue:4}");
+			if [ "${accNo}" == null ] || [ -z "${accNo##*[!0-9]*}" ] || [ $(bc <<< "${accNo} < 0") -eq 1 ] || [ $(bc <<< "${accNo} > 2147483647") -eq 1 ]; then echo -e "\e[35mERROR - Account# is out of range (0-2147483647)!\e[0m"; exit 1; fi
+
+		#Check if its an indexNo parameter
+	        elif [[ "${paramValue,,}" =~ ^idx:(.*)$ ]]; then
+                	idxNo=$(trimString "${paramValue:4}");
+			if [ "${idxNo}" == null ] || [ -z "${idxNo##*[!0-9]*}" ] || [ $(bc <<< "${idxNo} < 0") -eq 1 ] || [ $(bc <<< "${idxNo} > 2147483647") -eq 1 ]; then echo -e "\e[35mERROR - Account# is out of range (0-2147483647)!\e[0m"; exit 1; fi
+
+	        #Check if mnemonics are provided
+	        elif [[ "${paramValue,,}" =~ ^mnemonics:(.*)$ ]]; then #if the parameter starts with "enc:" then set the encryption variable
+                	mnemonics=$(trimString "${paramValue:10}");
+			mnemonics=$(tr -s ' ' <<< ${mnemonics,,}) #convert to lowercase and remove multispaces between words
+			mnemonicsWordcount=$(wc -w <<< ${mnemonics})
+			if [[ ${mnemonicsWordcount} -ne 24 ]]; then echo -e "\e[35mERROR - Please provide 24 mnemonic words and not ${mnemonicsWordcount} words. The words must be space separated.\e[0m\n"; exit 1; fi
+
+	        fi #end of different parameters check
+	done
 
 fi
 
@@ -77,7 +108,7 @@ if [ -f "${addrName}.staking.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.
 if [ -f "${addrName}.staking.cert" ]; then echo -e "\e[35mWARNING - ${addrName}.staking.cert already present, delete it or use another name !\e[0m"; exit 2; fi
 
 #switching to multisig HW-RootPath if needed
-if [[ "${keyType^^}" == *"MULTI"* ]]; then
+if [[ "${keyType}" == *"MULTI"* ]]; then
 	hwRootPath="1854";
 	multiSigPrefix="MultiSig-";
 	else
@@ -90,7 +121,7 @@ fi
 #### Building the Payment Keys
 ##############################
 
-if [[ "${keyType^^}" == "CLI" ]]; then #Payment Keys via CLI (unencrypted)
+if [[ "${keyType}" == "CLI" ]]; then #Payment Keys via CLI (unencrypted)
 
 	#We need a normal payment(base) keypair with vkey and skey, so let's create that one
 	${cardanocli} address key-gen --verification-key-file "${addrName}.payment.vkey" --signing-key-file "${addrName}.payment.skey"
@@ -105,7 +136,74 @@ if [[ "${keyType^^}" == "CLI" ]]; then #Payment Keys via CLI (unencrypted)
 	echo
 
 
-elif [[ "${keyType^^}" == "ENC" ]]; then #Payment Keys via CLI (encrypted)
+
+elif [[ "${keyType}" == "MNEMONICS" ]]; then #Payment Keys via Mnemonics (unencrypted)
+
+	#Check warnings
+	if [ -f "${addrName}.payment.mnemonics" ]; then echo -e "\e[35mWARNING - ${addrName}.payment.mnemonics already present, delete it or use another name !\e[0m"; exit 1; fi
+
+	echo
+	echo -e "\e[0mGenerating CLI Payment-Keys via Derivation-Path:\e[32m ${hwRootPath}H/1815H/${accNo}H/0/${idxNo}\e[0m"
+	echo
+
+	#Check the cardano-signer binary existance and version
+	if ! exists "${cardanosigner}"; then
+	#Try the one in the scripts folder
+	if [[ -f "${scriptDir}/cardano-signer" ]]; then cardanosigner="${scriptDir}/cardano-signer";
+	else majorError "Path ERROR - Path to the 'cardano-signer' binary is not correct or 'cardano-singer' binaryfile is missing!\nYou can find it here: https://github.com/gitmachtl/cardano-signer/releases\nThis is needed to generate the signed Metadata. Also please check your 00_common.sh or common.inc settings."; exit 1; fi
+	fi
+	cardanosignerCheck=$(${cardanosigner} --version 2> /dev/null)
+	if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'cardano-signer' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
+	cardanosignerVersion=$(echo ${cardanosignerCheck} | cut -d' ' -f 2)
+	versionCheck "${minCardanoSignerVersion}" "${cardanosignerVersion}"
+	if [[ $? -ne 0 ]]; then majorError "Version ${cardanosignerVersion} ERROR - Please use a cardano-signer version ${minCardanoSignerVersion} or higher !\nOld versions are not compatible, please upgrade - thx."; exit 1; fi
+
+	echo -e "\e[0mUsing Cardano-Signer Version: \e[32m${cardanosignerVersion}\e[0m\n";
+
+	if [[ ${mnemonics} != "" ]]; then #use the provided mnemonics
+		echo -e "\e[0mUsing Mnemonics:\e[32m ${mnemonics}\e[0m"
+		#Generate the Files with given mnemonics
+		signerJSON=$(${cardanosigner} keygen --path "${hwRootPath}H/1815H/${accNo}H/0/${idxNo}" --mnemonics "${mnemonics}" --with-chain-code --json-extended --out-skey "${addrName}.payment.skey" 2> /dev/stdout)
+	        if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${signerJSON}\e[0m\n\n"; exit 1; fi
+        else
+                #Generate the Files and read the mnemonics
+		signerJSON=$(${cardanosigner} keygen --path "${hwRootPath}H/1815H/${accNo}H/0/${idxNo}" --with-chain-code --json-extended --out-skey "${addrName}.payment.skey" 2> /dev/stdout)
+	        if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${signerJSON}\e[0m\n\n"; exit 1; fi
+		mnemonics=$(jq -r ".mnemonics" <<< ${signerJSON} 2> /dev/null)
+		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		echo -e "\e[0mCreated Mnemonics:\e[32m ${mnemonics}\e[0m"
+
+        fi
+	echo -e "${mnemonics}" > "${addrName}.payment.mnemonics"
+        if [ $? -ne 0 ]; then 
+		echo -e "\e[35mERROR - Couldn't write file '${addrName}.payment.mnemonics'\e[0m\n\n"; exit 1;
+	else
+		echo -e "\e[0mMnemonics written to file:\e[32m ${addrName}.payment.mnemonics\e[0m"
+	fi
+	echo
+
+	vkeyJSON=$(jq -r ".output.vkey" <<< ${signerJSON} 2> /dev/null)
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	vkeyJSON=$(${cardanocli} key non-extended-key --extended-verification-key-file <(echo "${vkeyJSON}") --verification-key-file /dev/stdout) #convert the extended vkey into a normal one
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	vkeyJSON=$(jq ".description = \"Payment Verification Key\"" <<< ${vkeyJSON} 2> /dev/null)
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	echo -e "${vkeyJSON}" > "${addrName}.payment.vkey"
+        if [ $? -ne 0 ]; then echo -e "\e[35mERROR - Couldn't write file '${addrName}.payment.vkey'\e[0m\n\n"; exit 1; fi
+
+	file_lock ${addrName}.payment.mnemonics
+	file_lock ${addrName}.payment.vkey
+	file_lock ${addrName}.payment.skey
+	echo -e "\e[0mPayment(Base)-Verification-Key: \e[32m ${addrName}.payment.vkey \e[90m"
+	cat ${addrName}.payment.vkey
+	echo
+	echo -e "\e[0mPayment(Base)-Signing-Key: \e[32m ${addrName}.payment.skey \e[90m"
+	cat ${addrName}.payment.skey
+	echo
+
+
+
+elif [[ "${keyType}" == "ENC" ]]; then #Payment Keys via CLI (encrypted)
 
 	#We need a normal payment(base) keypair with vkey and skey, so let's create that one
         skeyJSON=$(${cardanocli} address key-gen --verification-key-file "${addrName}.payment.vkey" --signing-key-file /dev/stdout 2> /dev/null)
@@ -178,6 +276,9 @@ elif [[ "${keyType^^}" == "ENC" ]]; then #Payment Keys via CLI (encrypted)
 
 else  #Payment Keys via HW-Wallet, also for HYBRID and HYBRIDENC
 
+	echo -e "\e[0mGenerating HW PaymentKeys via Derivation-Path:\e[32m ${hwRootPath}H/1815H/${accNo}H/0/${idxNo}\e[0m"
+	echo
+
 	#We need a payment(base) keypair with vkey and hwsfile from a Hardware-Key, sol lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
   	tmp=$(${cardanohwcli} address key-gen --path ${hwRootPath}H/1815H/${accNo}H/0/${idxNo} --verification-key-file ${addrName}.payment.vkey --hw-signing-file ${addrName}.payment.hwsfile 2> /dev/stdout)
@@ -206,7 +307,7 @@ echo
 #### Building the Staking Keys
 ##############################
 
-if [[ "${keyType^^}" == "CLI" || "${keyType^^}" == "HYBRID" || "${keyType^^}" == "HYBRIDMULTI" ]]; then #Staking Keys via CLI (unencrypted)
+if [[ "${keyType}" == "CLI" || "${keyType}" == "HYBRID" || "${keyType}" == "HYBRIDMULTI" ]]; then #Staking Keys via CLI (unencrypted)
 
 	#Building the StakeAddress Keys from CLI for the normal CLI type or when HYBRID was choosen
 	${cardanocli} stake-address key-gen --verification-key-file "${addrName}.staking.vkey" --signing-key-file "${addrName}.staking.skey"
@@ -222,7 +323,43 @@ if [[ "${keyType^^}" == "CLI" || "${keyType^^}" == "HYBRID" || "${keyType^^}" ==
 	echo
 
 
-elif [[ "${keyType^^}" == "ENC" || "${keyType^^}" == "HYBRIDENC" || "${keyType^^}" == "HYBRIDMULTIENC" ]]; then #Staking Keys via CLI (encrypted)
+
+elif [[ "${keyType}" == "MNEMONICS" ]]; then #Payment Keys via Mnemonics (unencrypted)
+
+	echo -e "\e[0mGenerating CLI Staking-Keys via Derivation-Path:\e[32m ${hwRootPath}H/1815H/${accNo}H/2/0\e[0m"
+	echo
+
+	echo -e "\e[0mUsing Cardano-Signer Version: \e[32m${cardanosignerVersion}\e[0m\n";
+
+	#After the payment key generation with or without given mnemonics, at this point there are mnemonics available via
+	#the ${mnemonics} variable
+
+	#Generate the Files with mnemonics
+	signerJSON=$(${cardanosigner} keygen --path "${hwRootPath}H/1815H/${accNo}H/2/${idxNo}" --mnemonics "${mnemonics}" --with-chain-code --json-extended --out-skey "${addrName}.staking.skey" 2> /dev/stdout)
+        if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${signerJSON}\e[0m\n\n"; exit 1; fi
+
+	vkeyJSON=$(jq -r ".output.vkey" <<< ${signerJSON} 2> /dev/null)
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	vkeyJSON=$(${cardanocli} key non-extended-key --extended-verification-key-file <(echo "${vkeyJSON}") --verification-key-file /dev/stdout) #convert the extended vkey into a normal one
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	vkeyJSON=$(jq ".description = \"Stake Verification Key\"" <<< ${vkeyJSON} 2> /dev/null)
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	echo -e "${vkeyJSON}" > "${addrName}.staking.vkey"
+        if [ $? -ne 0 ]; then echo -e "\e[35mERROR - Couldn't write file '${addrName}.staking.vkey'\e[0m\n\n"; exit 1; fi
+
+	file_lock ${addrName}.staking.vkey
+	file_lock ${addrName}.staking.skey
+
+	echo -e "\e[0mVerification(Rewards)-Staking-Key: \e[32m ${addrName}.staking.vkey \e[90m"
+	cat ${addrName}.staking.vkey
+	echo
+	echo -e "\e[0mSigning(Rewards)-Staking-Key: \e[32m ${addrName}.staking.skey \e[90m"
+	cat ${addrName}.staking.skey
+	echo
+
+
+
+elif [[ "${keyType}" == "ENC" || "${keyType}" == "HYBRIDENC" || "${keyType}" == "HYBRIDMULTIENC" ]]; then #Staking Keys via CLI (encrypted)
 
 	#Building the StakeAddress Keys from CLI for the normal CLI type or when HYBRID was choosen
 	skeyJSON=$(${cardanocli} stake-address key-gen --verification-key-file "${addrName}.staking.vkey" --signing-key-file /dev/stdout 2> /dev/null)
@@ -295,6 +432,9 @@ elif [[ "${keyType^^}" == "ENC" || "${keyType^^}" == "HYBRIDENC" || "${keyType^^
 
 
 else  #Staking Keys via HW-Wallet
+
+	echo -e "\e[0mGenerating HW Staking-Keys via Derivation-Path:\e[32m ${hwRootPath}H/1815H/${accNo}H/2/0\e[0m"
+	echo
 
         #We need the staking keypair with vkey and hwsfile from a Hardware-Key, so lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

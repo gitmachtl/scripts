@@ -6,32 +6,213 @@
 . "$(dirname "$0")"/00_common.sh
 
 
-case $# in
-  2 ) delegName="$(dirname $1)/$(basename $1 .staking)"; delegName=${delegName/#.\//};
-      regPayName="$(dirname $2)/$(basename $2 .addr)"; regPayName=${regPayName/#.\//};;
-  * ) cat >&2 <<EOF
+#Check command line parameter
+if [ $# -lt 2 ]; then
+cat >&2 <<EOF
 
-Usage:  $(basename $0) <DelegatorName> <PaymentAddrForRegistration>
+Usage:  $(basename $0) <StakeAddressName> <Base/PaymentAddressName (paying for the registration fees)>
 
-Ex.: $(basename $0) owner owner.payment   (reg. owner.staking.addr with owner.deleg.cert, owner.payment.addr is paying the fees)
-Ex.: $(basename $0) delegator1 myfunds    (reg. delegator1.staking.addr with delegator1.deleg.cert, myfunds.addr is payming the fees)
+        [Opt: Message comment, starting with "msg: ...", | is the separator]
+        [Opt: encrypted message mode "enc:basic". Currently only 'basic' mode is available.]
+        [Opt: passphrase for encrypted message mode "pass:<passphrase>", the default passphrase if 'cardano' is not provided]
+
+Optional parameters:
+
+- If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
+   You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
+   "msg: This is a short comment for the transaction" ... that would be a one-liner comment
+   "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
+
+   If you also wanna encrypt it, set the encryption mode to basic by adding "enc: basic" to the parameters.
+   To change the default passphrase 'cardano' to you own, add the passphrase via "pass:<passphrase>"
+
+- If you wanna attach a Metadata JSON:
+   You can add a Metadata.json (Auxilierydata) filename as a parameter to send it alone with the transaction.
+   There will be a simple basic check that the transaction-metadata.json file is valid.
+
+- If you wanna attach a Metadata CBOR:
+   You can add a Metadata.cbor (Auxilierydata) filename as a parameter to send it along with the transaction.
+   Catalyst-Voting for example is done via the voting_metadata.cbor file.
+
+Examples:
+
+   $(basename $0) owner owner.payment
+   -> Register the Delegation Certificate for 'owner', the wallet 'owner.payment' is paying for the transaction
+
+   $(basename $0) owner owner.payment "msg: Delegation of owner to Stakepool xxx"
+   -> Same as above, but with an additional transaction message to keep track of your transactions
 
 EOF
-  exit 1;; esac
+exit 1;
+fi
 
-if [ ! -f "${delegName}.deleg.cert" ]; then echo -e "\n\e[35mERROR - \"${delegName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 1; fi
-if ! [[ -f "${delegName}.staking.skey" || -f "${delegName}.staking.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${delegName}.staking.skey/hwsfile\" does not exist! Please create it first with script 03a & 03b.\e[0m"; exit 1; fi
-if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
-if ! [[ -f "${regPayName}.skey" || -f "${regPayName}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
+#At least 2 parameters were provided, use them
+delegName="$(dirname $1)/$(basename $1 .staking)"; delegName=${delegName/#.\//};
+regPayName="$(dirname $2)/$(basename $2 .addr)"; regPayName=${regPayName/#.\//};
 
+#Check about required files: Delegation Certificate, Stake-Signing Key, Stake-Address for OnlineCheck, Payment Signing Key and Address of the payment Account
+#For StakeKeyDelegation
+if [ ! -f "${delegName}.deleg.cert" ]; then echo -e "\n\e[35mERROR - \"${delegName}.deleg.cert\" does not exist! Please create it first with script 05b.\n\e[0m"; exit 1; fi
+if ! [[ -f "${delegName}.staking.skey" || -f "${delegName}.staking.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${delegName}.staking.skey/hwsfile\" does not exist! Please create it first with script 03a & 03b.\n\e[0m"; exit 1; fi
+#For payment
+if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a.\n\e[0m"; exit 1; fi
+if ! [[ -f "${regPayName}.skey" || -f "${regPayName}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a.\n\e[0m"; exit 1; fi
+
+#Setting default variables
+metafileParameter=""; metafile=""; transactionMessage="{}"; enc=""; passphrase="cardano" #Setting defaults
+
+#Check all optional parameters about there types and set the corresponding variables
+#Starting with the 3th parameter (index=2) up to the last parameter
+paramCnt=$#;
+allParameters=( "$@" )
+for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
+ do
+        paramValue=${allParameters[$tmpCnt]}
+        #echo -n "${tmpCnt}: ${paramValue} -> "
+
+        #Check if an additional metadata.json/.cbor was set as parameter (not a Message, not a UTXO#IDX, not empty, not a number)
+        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^enc:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^pass:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+
+             metafile=${paramValue}; metafileExt=${metafile##*.}
+             if [[ -f "${metafile}" && "${metafileExt^^}" == "JSON" ]]; then #its a json file
+                #Do a simple basic check if the metadatum is in the 0..65535 range
+                metadatum=$(jq -r "keys_unsorted[0]" "${metafile}" 2> /dev/null)
+                if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - '${metafile}' is not a valid JSON file!\n\e[0m"; exit 1; fi
+                #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
+                if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then
+                        echo -e "\n\e[35mERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!\n\e[0m"; exit 1; fi
+                metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
+             elif [[ -f "${metafile}" && "${metafileExt^^}" == "CBOR" ]]; then #its a cbor file
+                metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
+             else echo -e "\n\e[35mERROR - The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again.\n\e[0m"; exit 1;
+             fi
+
+        #Check it its a MessageComment. Adding it to the JSON array if the length is <= 64 chars
+        elif [[ "${paramValue,,}" =~ ^msg:(.*)$ ]]; then #if the parameter starts with "msg:" then add it
+                msgString=$(trimString "${paramValue:4}");
+
+                #Split the messages within the parameter at the "|" char
+                IFS='|' read -ra allMessages <<< "${msgString}"
+
+                #Add each message to the transactionMessage JSON
+                for (( tmpCnt2=0; tmpCnt2<${#allMessages[@]}; tmpCnt2++ ))
+                do
+                        tmpMessage=${allMessages[tmpCnt2]}
+                        if [[ $(byteLength "${tmpMessage}") -le 64 ]]; then
+                                                transactionMessage=$( jq ".\"674\".msg += [ \"${tmpMessage}\" ]" <<< ${transactionMessage} 2> /dev/null);
+                                                if [ $? -ne 0 ]; then echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" contain invalid chars for a JSON!\n\e[0m"; exit 1; fi
+                        else echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" is too long, max. 64 bytes allowed, yours is $(byteLength "${tmpMessage}") bytes long!\n\e[0m"; exit 1;
+                        fi
+                done
+
+        #Check if its a transaction message encryption type
+        elif [[ "${paramValue,,}" =~ ^enc:(.*)$ ]]; then #if the parameter starts with "enc:" then set the encryption variable
+                encryption=$(trimString "${paramValue:4}");
+
+        #Check if its a transaction message encryption passphrase
+        elif [[ "${paramValue,,}" =~ ^pass:(.*)$ ]]; then #if the parameter starts with "pass:" then set the passphrase variable
+                passphrase="${paramValue:5}"; #don't do a trimstring here, because also spaces are a valid passphrase !
+
+        fi #end of different parameters check
+
+done
+
+#Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list. Encrypt it if enabled.
+if [[ ! "${transactionMessage}" == "{}" ]]; then
+
+        transactionMessageMetadataFile="${tempDir}/$(basename ${regPayName}).transactionMessage.json";
+        tmp=$( jq . <<< ${transactionMessage} 2> /dev/null)
+        if [ $? -eq 0 ]; then #json is valid, so no bad chars found
+
+                #Check if encryption is enabled, encrypt the msg part
+                if [[ "${encryption,,}" == "basic" ]]; then
+                        #check openssl
+                        if ! exists openssl; then
+                                echo -e "\e[33mYou need 'openssl', its needed to encrypt the transaction messages !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install openssl\n\n\e[33mThx! :-)\e[0m\n";
+                                exit 2;
+                        fi
+                        msgPart=$( jq -crM ".\"674\".msg" <<< ${transactionMessage} 2> /dev/null )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        encArray=$( openssl enc -e -aes-256-cbc -pbkdf2 -iter 10000 -a -k "${passphrase}" <<< ${msgPart} | awk {'print "\""$1"\","'} | sed '$ s/.$//' )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        #compose new transactionMessage by using the encArray as the msg and also add the encryption mode 'basic' entry
+                        tmp=$( jq ".\"674\".msg = [ ${encArray} ]" <<< '{"674":{"enc":"basic"}}' )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+                elif [[ "${encryption}" != "" ]]; then #another encryption method provided
+                        echo -e "\n\e[35mERROR - The given encryption mode '${encryption,,}' is not on the supported list of encryption methods. Only 'basic' from CIP-0083 is currently supported\n\n\e[0m"; exit 1;
+
+                fi
+
+                echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
+
+        else
+                echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1;
+        fi
+
+fi
+
+#Extracting infos directly from the delegation certificate
+delegCBOR=$(jq -r ".cborHex" < "${delegName}.deleg.cert" 2> /dev/null)
+delegPoolID=${delegCBOR: -56}
+
+echo
 echo -e "\e[0mRegister Delegation Certificate\e[32m ${delegName}.deleg.cert\e[0m with funds from Address\e[32m ${regPayName}.addr\e[0m:"
 echo
+echo -e "\e[0mDelegating \e[32m${delegName}\e[0m to pool with ID:\e[32m ${delegPoolID}\e[0m"
+echo
 
-#get values to register the staking address on the blockchain
+#If in online mode, do a check it the StakeAddress is registered on the chain
+if ${onlineMode}; then
+
+	#get the bech stakeaddress for mainnet/testnets
+	if [[ "${magicparam}" == *"mainnet"* ]]; then
+		checkAddr=$(echo -n "e1${delegCBOR:12:56}" | ${bech32_bin} "stake");
+	else
+		checkAddr=$(echo -n "e0${delegCBOR:12:56}" | ${bech32_bin} "stake_test");
+	fi
+
+        echo -e "\e[0mChecking OnChain-Status for the Stake-Address:\e[32m ${checkAddr}\e[0m"
+        echo
+
+	#check ledger-state
+	showProcessAnimation "Query-Ledger-State: " &
+        rewardsAmount=$(${cardanocli} query stake-address-info --address ${checkAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
+        checkError "$?"; if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\n\e[35mERROR - Could not query stake-address info from the chain.\e[0m\n"; exit 1; fi
+	stopProcessAnimation;
+
+        #Checking about the content
+        if [[ ${rewardsAmount} == null ]]; then echo -e "\e[33mStaking Address is NOT on the chain, please register it first to do a delegation !\e[0m\n"; exit 1;
+                                           else echo -e "\e[0mStaking Address is registered on the chain, we continue ...\n"
+        fi
+
+	#get the bech poolID
+        poolIDBech=$(${bech32_bin} "pool" <<< ${delegPoolID} | tr -d '\n')
+        checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not convert the given Hex-PoolID \"${poolID}\" into a Bech Pool-ID.\e[0m\n"; exit 1; fi
+
+	echo -e "\e[0mChecking OnChain-Status for the Bech-PoolID:\e[32m ${poolIDBech}\e[0m"
+	echo
+
+	#check ledger-state
+	showProcessAnimation "Query-Ledger-State: " &
+	poolsInLedger=$(${cardanocli} query stake-pools ${magicparam} 2> /dev/null); checkError "$?"; if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\n\e[35mERROR - Could not query stake-pools from the chain.\e[0m\n"; exit 1; fi
+	stopProcessAnimation;
+
+	#now lets see how often the poolIDBech is listed: 0->Not on the chain, 1->On the chain, any other value -> ERROR
+	poolInLedgerCnt=$(grep  "${poolIDBech}" <<< ${poolsInLedger} | wc -l)
+
+	if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -e "\e[0mPool is registered on the chain, we continue ...\n";
+	elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "\e[33mPool is NOT on the chain, please register it first to do the delegation!\e[0m\n"; exit 1;
+	else echo -e "\e[35mERROR - The Pool-ID is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m"; exit 1;
+	fi
+
+fi
+
+
+#get values to register the delegation certificate on the blockchain
 #get live values
 currentTip=$(get_currentTip)
 ttl=$(get_currentTTL)
-currentEPOCH=$(get_currentEpoch)
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
 
@@ -172,6 +353,20 @@ echo
 
 echo
 
+
+#There are metadata file(s) attached, list them:
+if [[ ! "${metafileList}" == "" ]]; then echo -e "\e[0mInclude Metadata-File(s):\e[32m ${metafileList}\e[0m\n"; fi
+
+#There are transactionMessages attached, show the metadatafile:
+if [[ ! "${transactionMessage}" == "{}" ]]; then
+        if [[ "${encArray}" ]]; then #if there is an encryption, show the original Metadata first with the encryption paramteters
+        echo -e "\e[0mOriginal Transaction-Message:\n\e[90m"; jq -rM <<< ${transactionMessage}; echo -e "\e[0m";
+        echo -e "\e[0mEncrypted Transaction-Message mode \e[32m${encryption,,}\e[0m with Passphrase '\e[32m${passphrase}\e[0m'";
+        echo
+        fi
+        echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m";
+fi
+
 #Read ProtocolParameters
 if ${onlineMode}; then
                         protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
@@ -187,7 +382,7 @@ minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000$
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 --certificate ${delegName}.deleg.cert --out-file ${txBodyFile}
+${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --certificate ${delegName}.deleg.cert --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
@@ -219,7 +414,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} --certificate ${delegName}.deleg.cert --out-file ${txBodyFile}
+${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --certificate ${delegName}.deleg.cert --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -253,9 +448,7 @@ if [[ -f "${regPayName}.hwsfile" && -f "${delegName}.staking.hwsfile" && "${paym
         echo -e "Assembled ... \e[32mDONE\e[0m\n";
 
 
-
 elif [[ -f "${delegName}.staking.skey" && -f "${regPayName}.skey" ]]; then #with the normal cli skey
-
 
         #read the needed signing keys into ram and sign the transaction
         skeyJSON1=$(read_skeyFILE "${regPayName}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON1}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
@@ -293,7 +486,7 @@ if ask "\e[33mDoes this look good for you ?" N; then
         if ${onlineMode}; then  #onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node... "
                                 ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
-                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                                if [ $? -ne 0 ]; then echo -e "\n\e[35mError - Make sure the pool is already registered.\n\e[0m\n"; exit $?; fi
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID

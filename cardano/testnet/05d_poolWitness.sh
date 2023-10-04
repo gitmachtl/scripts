@@ -30,6 +30,7 @@ regWitnessType=$(jq -r ".regWitness.type" <<< ${poolJSON})
 regWitnessTxBody=$(jq -r ".regWitness.txBody" <<< ${poolJSON})
 regWitnessPayName=$(jq -r ".regWitness.regPayName" <<< ${poolJSON})
 poolMetaTicker=$(jq -r ".poolMetaTicker" <<< ${poolJSON})
+regWitnessMetadataFilesList=$(jq -r ".regWitness.metadataFilesList" <<< ${poolJSON})
 
 currentTip=$(get_currentTip)
 ttl=$(jq -r ".regWitness.ttl" <<< ${poolJSON})
@@ -46,6 +47,8 @@ fi
 echo -e "\e[0m          Type: \e[32m${regWitnessType}\e[0m"
 echo -e "\e[0mpoolMetaTicker: \e[32m${poolMetaTicker}\e[0m"
 echo -e "\e[0m   Payment via: \e[32m${regWitnessPayName}\e[0m"
+echo
+echo -e "\e[0m MetadataFiles: \e[32m${regWitnessMetadataFilesList}\e[0m"
 echo
 witnessCnt=$(jq ".regWitness.witnesses | length" <<< ${poolJSON})
 echo -e "\e[0m Witnesses-Cnt: \e[32m${witnessCnt}\e[0m"
@@ -202,6 +205,7 @@ case ${action} in
 		regWitnessType=$(jq -r ".regWitness.type" <<< ${poolJSON})
 		regWitnessTxBody=$(jq -r ".regWitness.txBody" <<< ${poolJSON})
 		regWitnessPayName=$(jq -r ".regWitness.regPayName" <<< ${poolJSON})
+		regWitnessMetadataFilesList=$(jq -r ".regWitness.metadataFilesList" <<< ${poolJSON})
 		poolMetaTicker=$(jq -r ".poolMetaTicker" <<< ${poolJSON})
 
 		currentTip=$(get_currentTip)
@@ -219,6 +223,8 @@ case ${action} in
 		echo -e "\e[0m          Type: \e[32m${regWitnessType}\e[0m"
 		echo -e "\e[0mpoolMetaTicker: \e[32m${poolMetaTicker}\e[0m"
 		echo -e "\e[0m   Payment via: \e[32m${regWitnessPayName}\e[0m"
+		echo
+		echo -e "\e[0m MetadataFiles: \e[32m${regWitnessMetadataFilesList}\e[0m"
 		echo
 		echo -ne "\e[0mImporting a Witness for \e[32m${witnessSigningName} (${witnessSignedDate})\e[0m ... \e[0m"
 
@@ -351,6 +357,7 @@ case ${action} in
 		witnessSigningName=$(jq -r ".\"signing-name\"" <<< ${witnessJSON})
 		witnessSigningVkey=$(jq -r ".\"signing-vkey\"" <<< ${witnessJSON} | jq .)
 		poolMetaTicker=$(jq -r ".poolMetaTicker" <<< ${witnessJSON})
+		regWitnessMetadataFilesList=$(jq -r ".metadataFilesList" <<< ${witnessJSON})
 		currentTip=$(get_currentTip)
 
 		echo -e "\e[0mSigning Witness in the witnessFile \e[32m${witnessFile}\e[0m with the signing key: \e[32m${signingKey}\e[0m"
@@ -364,6 +371,9 @@ case ${action} in
 		fi
 		echo -e "\e[0m          Type: \e[32m${witnessType}\e[0m"
 		echo -e "\e[0mpoolMetaTicker: \e[32m${poolMetaTicker}\e[0m"
+		echo
+		echo -e "\e[0m MetadataFiles: \e[32m${regWitnessMetadataFilesList}\e[0m"
+		echo
 		echo -ne "\e[0m Generated for: \e[32m${witnessSigningName}\e[0m"
 		if [[ ! "${signingKey}" == "${witnessSigningName}" ]]; then echo -e " \e[33m(Name mismatch, but maybe the VKEY is ok, lets check)\e[0m"; fi
 		echo

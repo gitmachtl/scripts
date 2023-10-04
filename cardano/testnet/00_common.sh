@@ -154,6 +154,7 @@ case "${network,,}" in
 		_transactionExplorer="https://cardanoscan.io/transaction/" 	#URLS for the Transaction-Explorers -> autoresolve into ${transactionExplorer}/
 		_koiosAPI="https://api.koios.rest/api/v0"	#Koios-API URLs -> autoresolve into ${koiosAPI}
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		_catalystAPI="https://api.testnet.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		;;
 
 
@@ -166,6 +167,7 @@ case "${network,,}" in
 		_transactionExplorer="https://preprod.cardanoscan.io/transaction"
 		_koiosAPI="https://preprod.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		_catalystAPI="https://api.testnet.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		;;
 
 
@@ -178,6 +180,7 @@ case "${network,,}" in
 		_transactionExplorer="https://preview.cardanoscan.io/transaction"
 		_koiosAPI="https://preview.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		;;
 
 
@@ -190,6 +193,7 @@ case "${network,,}" in
 		_transactionExplorer=
 		_koiosAPI="https://guild.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		;;
 
 
@@ -199,9 +203,10 @@ case "${network,,}" in
 		_addrformat="--testnet-magic 1097911063"
 		_byronToShelleyEpochs=74
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
-		_transactionExplorer="https://testnet.cexplorer.io/tx"
+		_transactionExplorer=
 		_koiosAPI=
 		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
+		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		;;
 
 esac
@@ -215,12 +220,14 @@ tokenMetaServer=${tokenMetaServer:-"${_tokenMetaServer}"}
 transactionExplorer=${transactionExplorer:-"${_transactionExplorer}"}
 koiosAPI=${koiosAPI:-"${_koiosAPI}"}
 adahandlePolicyID=${adahandlePolicyID:-"${_adahandlePolicyID}"}
+catalystAPI=${catalystAPI:-"${_catalystAPI}"}
 
 
 #Check about the / at the end of the URLs
 if [[ "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer=${tokenMetaServer%?}; fi #make sure the last char is not a /
 if [[ "${koiosAPI: -1}" == "/" ]]; then koiosAPI=${koiosAPI%?}; fi #make sure the last char is not a /
 if [[ "${transactionExplorer: -1}" == "/" ]]; then transactionExplorer=${transactionExplorer%?}; fi #make sure the last char is not a /
+if [[ "${catalystAPI: -1}" == "/" ]]; then catalystAPI=${catalystAPI%?}; fi #make sure the last char is not a /
 
 
 #Check about the needed chain params
@@ -231,7 +238,7 @@ minNodeVersion="1.35.5"  		#minimum allowed node version for this script-collect
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion="5.0.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.6.0"  	#minimum version for the firmware on the Trezor HW-Wallet
-minHardwareCliVersion="1.13.0" 		#minimum version for the cardano-hw-cli
+minHardwareCliVersion="1.12.0" 		#minimum version for the cardano-hw-cli
 minCardanoSignerVersion="1.13.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
@@ -558,7 +565,7 @@ if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else node
 
 #Temporary fix to lock the transaction build-raw to alonzo era for
 #Hardware-Wallet operations. Babbage-Era is not yet supported, so we will lock this for now
-#if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--babbage-era" ]]; then nodeEraParam="--alonzo-era"; fi
+if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--conway-era" ]]; then nodeEraParam="--babbage-era"; fi
 
 
 #-------------------------------------------------------

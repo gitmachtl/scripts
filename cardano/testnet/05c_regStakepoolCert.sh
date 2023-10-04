@@ -6,16 +6,156 @@
 . "$(dirname "$0")"/00_common.sh
 
 
-#Check command line parameter
-case $# in
-  2|3) regPayName="$(dirname $2)/$(basename $2 .addr)"; regPayName=${regPayName/#.\//}
-      poolFile="$(dirname $1)/$(basename $(basename $1 .json) .pool)"; poolFile=${poolFile/#.\//};;
-  * ) cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <PoolNodeName> <PaymentAddrForRegistration> [optional keyword REG to force a registration, REREG to force a re-registration]
-EOF
-  exit 1;; esac
 
-if [[ $# -eq 3 ]]; then  forceParam=$3; else forceParam=""; fi
+#Check command line parameter
+if [ $# -lt 2 ]; then
+cat >&2 <<EOF
+
+Usage:  $(basename $0) <PoolNodeName> <PaymentAddrForRegistration>
+
+	[Opt: force a registration "type: REG", force a re-registration "type: REREG"]
+        [Opt: Message comment, starting with "msg: ...", | is the separator]
+        [Opt: encrypted message mode "enc:basic". Currently only 'basic' mode is available.]
+        [Opt: passphrase for encrypted message mode "pass:<passphrase>", the default passphrase is 'cardano' if not provided]
+
+Optional parameters:
+
+- If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
+   You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
+   "msg: This is a short comment for the transaction" ... that would be a one-liner comment
+   "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
+
+   If you also wanna encrypt it, set the encryption mode to basic by adding "enc: basic" to the parameters.
+   To change the default passphrase 'cardano' to you own, add the passphrase via "pass:<passphrase>"
+
+- If you wanna attach a Metadata JSON:
+   You can add a Metadata.json (Auxilierydata) filename as a parameter to send it alone with the transaction.
+   There will be a simple basic check that the transaction-metadata.json file is valid.
+
+- If you wanna attach a Metadata CBOR:
+   You can add a Metadata.cbor (Auxilierydata) filename as a parameter to send it along with the transaction.
+   Catalyst-Voting for example is done via the voting_metadata.cbor file.
+
+Examples:
+
+   $(basename $0) myPool myWallet
+   -> Register the pool 'myPool' on Chain, Payment via the myWallet wallet
+
+   $(basename $0) myPool myWallet "type: REREG"
+   -> Same as above, but force a Re-Registration in case the pool.json was edited and the script is confused
+
+   $(basename $0) myPool myWallet "msg: Pool Registration for pool xxx with wallet myWallet"
+   -> Register the pool 'myPool' with the myWallet wallet and adding a Transaction-Message
+
+EOF
+exit 1;
+fi
+
+#At least 2 parameters were provided, use them
+regPayName="$(dirname $2)/$(basename $2 .addr)"; regPayName=${regPayName/#.\//};
+poolFile="$(dirname $1)/$(basename $(basename $1 .json) .pool)"; poolFile=${poolFile/#.\//};
+
+#Setting default variables
+metafileParameter=""; metafile=""; transactionMessage="{}"; enc=""; passphrase="cardano"; forceParam="" #Setting defaults
+
+#Check all optional parameters about there types and set the corresponding variables
+#Starting with the 3th parameter (index=2) up to the last parameter
+paramCnt=$#;
+allParameters=( "$@" )
+for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
+ do
+        paramValue=${allParameters[$tmpCnt]}
+        #echo -n "${tmpCnt}: ${paramValue} -> "
+
+        #Check if an additional metadata.json/.cbor was set as parameter (not a Message, not a UTXO#IDX, not empty, not a number)
+        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^enc:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^pass:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^type:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+
+             metafile=${paramValue}; metafileExt=${metafile##*.}
+             if [[ -f "${metafile}" && "${metafileExt^^}" == "JSON" ]]; then #its a json file
+                #Do a simple basic check if the metadatum is in the 0..65535 range
+                metadatum=$(jq -r "keys_unsorted[0]" "${metafile}" 2> /dev/null)
+                if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - '${metafile}' is not a valid JSON file!\n\e[0m"; exit 1; fi
+                #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
+                if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then
+                        echo -e "\n\e[35mERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!\n\e[0m"; exit 1; fi
+                metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
+             elif [[ -f "${metafile}" && "${metafileExt^^}" == "CBOR" ]]; then #its a cbor file
+                metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
+             else echo -e "\n\e[35mERROR - The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again.\n\e[0m"; exit 1;
+             fi
+
+        #Check it its a MessageComment. Adding it to the JSON array if the length is <= 64 chars
+        elif [[ "${paramValue,,}" =~ ^msg:(.*)$ ]]; then #if the parameter starts with "msg:" then add it
+                msgString=$(trimString "${paramValue:4}");
+
+                #Split the messages within the parameter at the "|" char
+                IFS='|' read -ra allMessages <<< "${msgString}"
+
+                #Add each message to the transactionMessage JSON
+                for (( tmpCnt2=0; tmpCnt2<${#allMessages[@]}; tmpCnt2++ ))
+                do
+                        tmpMessage=${allMessages[tmpCnt2]}
+                        if [[ $(byteLength "${tmpMessage}") -le 64 ]]; then
+                                                transactionMessage=$( jq ".\"674\".msg += [ \"${tmpMessage}\" ]" <<< ${transactionMessage} 2> /dev/null);
+                                                if [ $? -ne 0 ]; then echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" contain invalid chars for a JSON!\n\e[0m"; exit 1; fi
+                        else echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" is too long, max. 64 bytes allowed, yours is $(byteLength "${tmpMessage}") bytes long!\n\e[0m"; exit 1;
+                        fi
+                done
+
+        #Check if its a transaction message encryption type
+        elif [[ "${paramValue,,}" =~ ^enc:(.*)$ ]]; then #if the parameter starts with "enc:" then set the encryption variable
+                encryption=$(trimString "${paramValue:4}");
+
+        #Check if its a transaction message encryption passphrase
+        elif [[ "${paramValue,,}" =~ ^pass:(.*)$ ]]; then #if the parameter starts with "pass:" then set the passphrase variable
+                passphrase="${paramValue:5}"; #don't do a trimstring here, because also spaces are a valid passphrase !
+
+        #Check if its a registration type "type: REG" or "type: REREG"
+        elif [[ "${paramValue,,}" =~ ^type:(.*)$ ]]; then #if the parameter starts with "type:" then set the variable
+		forceParam=$(trimString "${paramValue:5}"); forceParam=${forceParam^^}
+		if [[ "${forceParam}" != "REG" ]] && [[ "${forceParam}" != "REREG" ]]; then
+			echo -e "\n\e[35mRegistartion-Type-ERROR: \"${forceParam}\" is not a supported type, please choose 'REG' or 'REREG'!\n\e[0m"; exit 1;
+		fi
+
+        fi #end of different parameters check
+
+done
+
+#Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list. Encrypt it if enabled.
+if [[ ! "${transactionMessage}" == "{}" ]]; then
+
+        transactionMessageMetadataFile="${tempDir}/$(basename ${regPayName}).transactionMessage.json";
+        tmp=$( jq . <<< ${transactionMessage} 2> /dev/null)
+        if [ $? -eq 0 ]; then #json is valid, so no bad chars found
+
+                #Check if encryption is enabled, encrypt the msg part
+                if [[ "${encryption,,}" == "basic" ]]; then
+                        #check openssl
+                        if ! exists openssl; then
+                                echo -e "\e[33mYou need 'openssl', its needed to encrypt the transaction messages !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install openssl\n\n\e[33mThx! :-)\e[0m\n";
+                                exit 2;
+                        fi
+                        msgPart=$( jq -crM ".\"674\".msg" <<< ${transactionMessage} 2> /dev/null )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        encArray=$( openssl enc -e -aes-256-cbc -pbkdf2 -iter 10000 -a -k "${passphrase}" <<< ${msgPart} | awk {'print "\""$1"\","'} | sed '$ s/.$//' )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        #compose new transactionMessage by using the encArray as the msg and also add the encryption mode 'basic' entry
+                        tmp=$( jq ".\"674\".msg = [ ${encArray} ]" <<< '{"674":{"enc":"basic"}}' )
+                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+                elif [[ "${encryption}" != "" ]]; then #another encryption method provided
+                        echo -e "\n\e[35mERROR - The given encryption mode '${encryption,,}' is not on the supported list of encryption methods. Only 'basic' from CIP-0083 is currently supported\n\n\e[0m"; exit 1;
+
+                fi
+
+                echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; metafileList="${metafileList}'${transactionMessageMetadataFile}' " #add it to the list of metadata.jsons to attach
+
+        else
+                echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1;
+        fi
+
+fi
+
 
 
 #Check if referenced JSON file exists
@@ -78,7 +218,7 @@ if [[ "${regWitnessID}" == "" ]]; then
 	#Force registration instead of re-registration via optional command line command "REG"
 	#Force re-registration instead of registration via optional command line command "REREG"
 	if [[ "${forceParam}" == "" ]]; then
-		deregSubmitted=$(jq -r .deregSubmitted <<< ${poolJSON} 2> /dev/null); if [[ ! "${deregSubmitted}" == null ]]; then echo -e "\n\e[35mERROR - I'am confused, the pool was registered and retired before. Please specify if you wanna register or reregister the pool now with the optional keyword REG or REREG !\e[0m\n"; exit 1; fi
+		deregSubmitted=$(jq -r .deregSubmitted <<< ${poolJSON} 2> /dev/null); if [[ ! "${deregSubmitted}" == null ]]; then echo -e "\n\e[35mERROR - I'am confused, the pool was registered and retired before. Please specify if you wanna register or reregister the pool now with the optional parameter "type:REG" or "type:REREG" !\e[0m\n"; exit 1; fi
 
 		#In Online-Mode check if the Pool is already registered on the chain, if so print an info that the method was forced to a REREG
 		if ${onlineMode}; then
@@ -99,11 +239,18 @@ if [[ "${regWitnessID}" == "" ]]; then
 	fi
 
 else #WitnessID and data already in the poolJSON
-       storedRegPayName=$(jq -r .regWitness.regPayName <<< ${poolJSON}) #load data from already started witness collection
-       if [[ ! "${forceParam}" == "" ]]; then #if a force parameter was given but there is already a witness in the poolJSON, exit with an error, not allowed, you have to start a new witness
+	storedRegPayName=$(jq -r .regWitness.regPayName <<< ${poolJSON}) #load data from already started witness collection
+
+	if [[ ! "${forceParam}" == "" ]]; then #if a force parameter was given but there is already a witness in the poolJSON, exit with an error, not allowed, you have to start a new witness
                 echo -e "\e[35mERROR - You already started a witness collection. If you wanna change the Registration-Type (reg or rereg) now,\nyou have to start all over again by running:\e[33m 05d_poolWitness.sh clear ${poolFile}\e[35m\n\nIf you just wanna complete your started poolRegistration run:\e[33m 05c_regStakepoolCert ${poolFile} ${storedRegPayName}\n\e[35mwithout the REG or REREG keyword. :-)\e[0m\n";
 		exit 1;
-       fi
+	fi
+
+	if [[ ! "${metafileParameter}" == "" ]]; then #if a metadatafile was given or a transaction message was added and there is already a witness in the poolJSON, exit with an error, not allowed, you have to start a new witness
+                echo -e "\e[35mERROR - You already started a witness collection. If you wanna add metadata (JSON/CBOR/Messages) now,\nyou have to start all over again by running:\e[33m 05d_poolWitness.sh clear ${poolFile}\e[35m\n\nIf you just wanna complete your started poolRegistration run:\e[33m 05c_regStakepoolCert ${poolFile} ${storedRegPayName}\n\e[35mwithout the REG or REREG keyword. :-)\e[0m\n";
+		exit 1;
+	fi
+
 fi
 
 ownerCnt=$(jq -r '.poolOwner | length' <<< ${poolJSON})
@@ -166,7 +313,7 @@ if ${onlineMode}; then
 
 	#Check if the regProtectionKey is correct, this is a service to not have any duplicated Tickers on the Chain. If you know how to code you can see that it is easy, just a little protection for Noobs
 	echo -ne "\e[0m\x54\x69\x63\x6B\x65\x72\x20\x50\x72\x6F\x74\x65\x63\x74\x69\x6F\x6E\x20\x43\x68\x65\x63\x6B\x20\x66\x6F\x72\x20\x54\x69\x63\x6B\x65\x72\x20'\e[32m${poolMetaTicker}\e[0m': "
-	checkResult=$(curl -m 5 -s $(echo -e "\x68\x74\x74\x70\x73\x3A\x2F\x2F\x6D\x79\x2D\x69\x70\x2E\x61\x74\x2F\x63\x68\x65\x63\x6B\x74\x69\x63\x6B\x65\x72\x3F\x74\x69\x63\x6B\x65\x72\x3D${poolMetaTicker}&key=${regProtectionKey}") );
+	checkResult=$(curl -L -m 20 -s $(echo -e "\x68\x74\x74\x70\x73\x3A\x2F\x2F\x6D\x79\x2D\x69\x70\x2E\x61\x74\x2F\x63\x68\x65\x63\x6B\x74\x69\x63\x6B\x65\x72\x3F\x74\x69\x63\x6B\x65\x72\x3D${poolMetaTicker}&key=${regProtectionKey}") );
 	if [[ $? -ne 0 ]]; then echo -e "\e[33m\x50\x72\x6F\x74\x65\x63\x74\x69\x6F\x6E\x20\x53\x65\x72\x76\x69\x63\x65\x20\x6F\x66\x66\x6C\x69\x6E\x65\e[0m";
 			   else
 				if [[ ! "${checkResult}" == "OK" ]]; then
@@ -377,6 +524,20 @@ if [[ "${regWitnessID}" == "" ]]; then
 
 echo
 
+
+#There are metadata file(s) attached, list them:
+if [[ ! "${metafileList}" == "" ]]; then echo -e "\e[0mInclude Metadata-File(s):\e[32m ${metafileList}\e[0m\n"; fi
+
+#There are transactionMessages attached, show the metadatafile:
+if [[ ! "${transactionMessage}" == "{}" ]]; then
+        if [[ "${encArray}" ]]; then #if there is an encryption, show the original Metadata first with the encryption paramteters
+        echo -e "\e[0mOriginal Transaction-Message:\n\e[90m"; jq -rM <<< ${transactionMessage}; echo -e "\e[0m";
+        echo -e "\e[0mEncrypted Transaction-Message mode \e[32m${encryption,,}\e[0m with Passphrase '\e[32m${passphrase}\e[0m'";
+        echo
+        fi
+        echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m";
+fi
+
 minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
 
 #------------------------------------------------------------------
@@ -384,7 +545,7 @@ minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000$
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -424,7 +585,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -453,6 +614,7 @@ poolJSON=$(jq ".regWitness.regPayAmount = ${minRegistrationFees}" <<< ${poolJSON
 poolJSON=$(jq ".regWitness.regPayReturn = ${lovelacesToSend}" <<< ${poolJSON})
 poolJSON=$(jq ".regWitness.type = \"${registrationType}\"" <<< ${poolJSON})
 poolJSON=$(jq ".regWitness.hardwareWalletIncluded = \"${hardwareWalletIncluded}\"" <<< ${poolJSON})
+poolJSON=$(jq ".regWitness.metadataFilesList = \"${metafileList}\"" <<< ${poolJSON})
 
 #Fill the witness count with the node-coldkey witness
 if [ -f "${poolName}.node.skey" ]; then #key is a normal one
@@ -574,6 +736,7 @@ regWitnessTxBody=$(jq -r ".regWitness.txBody" <<< ${poolJSON})
 regWitnessHardwareWalletIncluded=$(jq -r ".regWitness.hardwareWalletIncluded" <<< ${poolJSON})
 regWitnessPayAmount=$(jq -r ".regWitness.regPayAmount" <<< ${poolJSON})
 regWitnessPayReturn=$(jq -r ".regWitness.regPayReturn" <<< ${poolJSON})
+regWitnessMetadataFilesList=$(jq -r ".regWitness.metadataFilesList" <<< ${poolJSON})
 
 echo
 echo -e "Lovelaces you have to pay: \e[32m $(convertToADA ${regWitnessPayAmount}) ADA / ${regWitnessPayAmount} lovelaces\e[0m"
@@ -581,6 +744,10 @@ echo -e " Lovelaces to be returned: \e[32m $(convertToADA ${regWitnessPayReturn}
 echo
 echo -e "\e[0mThis will be a: \e[32m${regWitnessType}\e[0m";
 echo
+
+#If there are metadata file(s) included, list them:
+if [[ ! "${regWitnessMetadataFilesList}" == "" ]]; then echo -e "\e[0mIncluded Metadata-File(s):\e[32m ${regWitnessMetadataFilesList}\e[0m\n"; fi
+
 echo -e "\e[0mWitness-Collection with ID \e[32m${regWitnessID}\e[0m, lets check about the needed Witnesses for the \e[32m${regWitnessType}\e[0m:\n"
 echo -e "\e[0mWitness-Collection creation date: \e[32m${regWitnessDate}\e[0m"
 echo
@@ -597,7 +764,7 @@ do
   else
 	missingWitness="yes"
 	extWitnessFile="${poolFile}_$(basename ${witnessName} .staking)_${regWitnessID}.witness"
-        extWitness=$(jq . <<< "{ \"id\": ${regWitnessID}, \"date-created\": \"${regWitnessDate}\", \"ttl\": ${ttl}, \"type\": \"${regWitnessType}\", \"poolFile\": \"${poolFile}\", \"poolMetaTicker\": \"${poolMetaTicker}\", \"signing-name\": \"${witnessName}\", \"signing-vkey\": $(cat ${witnessName}.vkey), \"txBody\": ${regWitnessTxBody}, \"signedWitness\": {}, \"date-signed\": {} }")
+        extWitness=$(jq . <<< "{ \"id\": ${regWitnessID}, \"date-created\": \"${regWitnessDate}\", \"ttl\": ${ttl}, \"type\": \"${regWitnessType}\", \"metadataFilesList\": \"${regWitnessMetadataFilesList}\", \"poolFile\": \"${poolFile}\", \"poolMetaTicker\": \"${poolMetaTicker}\", \"signing-name\": \"${witnessName}\", \"signing-vkey\": $(cat ${witnessName}.vkey), \"txBody\": ${regWitnessTxBody}, \"signedWitness\": {}, \"date-signed\": {} }")
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	if [ ! -f "${extWitnessFile}" ]; then #Write it only if file is not present
 		echo "${extWitness}" > ${extWitnessFile}
