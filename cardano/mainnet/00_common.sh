@@ -180,7 +180,7 @@ case "${network,,}" in
 		_transactionExplorer="https://preview.cardanoscan.io/transaction"
 		_koiosAPI="https://preview.koios.rest/api/v0"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
-		_catalystAPI="https://api.testnet.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		;;
 
 
@@ -203,7 +203,7 @@ case "${network,,}" in
 		_addrformat="--testnet-magic 1097911063"
 		_byronToShelleyEpochs=74
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
-		_transactionExplorer="https://testnet.cexplorer.io/tx"
+		_transactionExplorer=
 		_koiosAPI=
 		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
 		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
