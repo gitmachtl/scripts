@@ -24,7 +24,7 @@ if [[ "${toPoolID//[![:xdigit:]]}" == "${toPoolID}" && ${#toPoolID} -eq 56 ]]; t
 	echo -e "\e[0mCreate a delegation registration certificate for Delegator\e[32m ${delegateStakeAddr}.staking.vkey\e[0m \nto the Pool with Hex-ID\e[32m ${toPoolID}\e[90m:"
 	echo
 	file_unlock ${delegateStakeAddr}.deleg.cert
-	${cardanocli} stake-address delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --stake-pool-id ${toPoolID} --out-file ${delegateStakeAddr}.deleg.cert
+	${cardanocli} ${cliEra} stake-address stake-delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --stake-pool-id ${toPoolID} --out-file ${delegateStakeAddr}.deleg.cert
 	checkError "$?"; if [ $? -ne 0 ]; then file_lock ${delegateStakeAddr}.deleg.cert; exit $?; fi
 	file_lock ${delegateStakeAddr}.deleg.cert
 
@@ -38,7 +38,7 @@ elif [[ "${toPoolID:0:5}" == "pool1" && ${#toPoolID} -eq 56 ]]; then #parameter 
         echo -e "\e[0mCreate a delegation registration certificate for Delegator\e[32m ${delegateStakeAddr}.staking.vkey\e[0m \nto the Pool with Bech32-ID\e[32m ${toPoolID}\e[90m:"
         echo
         file_unlock ${delegateStakeAddr}.deleg.cert
-        ${cardanocli} stake-address delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --stake-pool-id ${toPoolID} --out-file ${delegateStakeAddr}.deleg.cert
+        ${cardanocli} ${cliEra} stake-address stake-delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --stake-pool-id ${toPoolID} --out-file ${delegateStakeAddr}.deleg.cert
         checkError "$?"; if [ $? -ne 0 ]; then file_lock ${delegateStakeAddr}.deleg.cert; exit $?; fi
         file_lock ${delegateStakeAddr}.deleg.cert
 
@@ -47,7 +47,7 @@ elif [ -f "${toPoolNodeName}.node.vkey" ]; then #parameter is a pool verificatio
 	echo -e "\e[0mCreate a delegation registration certificate for Delegator\e[32m ${delegateStakeAddr}.staking.vkey\e[0m \nto the Pool with the Key-File\e[32m ${toPoolNodeName}.node.vkey\e[90m:"
 	echo
 	file_unlock ${delegateStakeAddr}.deleg.cert
-	${cardanocli} stake-address delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --cold-verification-key-file ${toPoolNodeName}.node.vkey --out-file ${delegateStakeAddr}.deleg.cert
+	${cardanocli} ${cliEra} stake-address stake-delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --cold-verification-key-file ${toPoolNodeName}.node.vkey --out-file ${delegateStakeAddr}.deleg.cert
 	checkError "$?"; if [ $? -ne 0 ]; then file_lock ${delegateStakeAddr}.deleg.cert; exit $?; fi
 	file_lock ${delegateStakeAddr}.deleg.cert
 

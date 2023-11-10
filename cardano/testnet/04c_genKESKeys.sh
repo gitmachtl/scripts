@@ -79,7 +79,7 @@ if [ -f "${nodeName}.kes-${nextKESnumber}.skey" ]; then echo -e "\e[35mWARNING -
 #Build KES Keys unencrypted or encrypted
 if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli (unencrypted)
 
-	${cardanocli} node key-gen-KES --verification-key-file "${nodeName}.kes-${nextKESnumber}.vkey" --signing-key-file "${nodeName}.kes-${nextKESnumber}.skey"
+	${cardanocli} ${cliEra} node key-gen-KES --verification-key-file "${nodeName}.kes-${nextKESnumber}.vkey" --signing-key-file "${nodeName}.kes-${nextKESnumber}.skey"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock "${nodeName}.kes-${nextKESnumber}.vkey"
 	file_lock "${nodeName}.kes-${nextKESnumber}.skey"
@@ -91,7 +91,7 @@ if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli (unencrypted)
 elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli (encrypted)
 
 
-        skeyJSON=$(${cardanocli} node key-gen-KES --verification-key-file "${nodeName}.kes-${nextKESnumber}.vkey" --signing-key-file /dev/stdout 2> /dev/null)
+        skeyJSON=$(${cardanocli} ${cliEra} node key-gen-KES --verification-key-file "${nodeName}.kes-${nextKESnumber}.vkey" --signing-key-file /dev/stdout 2> /dev/null)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${nodeName}.kes-${nextKESnumber}.vkey
 

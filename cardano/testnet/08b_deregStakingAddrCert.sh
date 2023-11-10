@@ -190,7 +190,7 @@ fi
 #get values to deregister the staking address on the blockchain
 #get live values
 currentTip=$(get_currentTip)
-ttl=$(get_currentTTL)
+ttl=$(( ${currentTip} + ${defTTL} ))
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
 

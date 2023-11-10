@@ -81,7 +81,7 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
                 metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
              elif [[ -f "${metafile}" && "${metafileExt^^}" == "CBOR" ]]; then #its a cbor file
                 metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
-             else echo -e "\n\e[35mERROR - The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again.\n\e[0m"; exit 1;
+             else echo -e "\n\e[35mERROR - The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again.\n\nAlso please check the correct syntax, there was a change in a recent version\nfor example to specify the registration-type is now done via \"type: REG\" or \"type: REREG\".\n\n\e[0m"; exit 1;
              fi
 
         #Check it its a MessageComment. Adding it to the JSON array if the length is <= 64 chars
@@ -226,7 +226,7 @@ if [[ "${regWitnessID}" == "" ]]; then
 		        if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced, please let your node sync to 100% first !\e[0m\n"; exit 2; fi
 
 			#check if the poolIDbech is already on the chain
-			poolsInLedger=$(${cardanocli} query stake-pools ${magicparam} 2> /dev/null); checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not query if Pool-ID is already on the chain.\e[0m\n"; exit 1; fi
+			poolsInLedger=$(${cardanocli} ${cliEra} query stake-pools 2> /dev/null); checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not query if Pool-ID is already on the chain.\e[0m\n"; exit 1; fi
 			poolInLedgerCnt=$(grep  "${poolIDbech}" <<< ${poolsInLedger} | wc -l)
 			if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -e "Pool-ID is already on the chain, continue with a Re-Registration\e[0m\n"; regSubmitted="xxx";
 			elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "Pool-ID is not on the chain yet, continue with a normal Registration\e[0m\n"; regSubmitted="";
@@ -288,7 +288,7 @@ currentTip=$(get_currentTip)
 currentEPOCH=$(get_currentEpoch)
 
 if [[ "${regWitnessID}" == "" ]]; then #New witness collection
-	ttl=$(get_currentTTL)
+	ttl=$(( ${currentTip} + ${defTTL} ))
 	else
 	ttl=$(jq -r .regWitness.ttl <<< ${poolJSON}) #load data from already started witness collection
         if [[ ${ttl} -lt ${currentTip} ]]; then #if the TTL stored in the witness collection is lower than the current tip, the transaction window is over
@@ -337,7 +337,7 @@ if ${onlineMode}; then
 	tmpCheckJSON=$(jq . "${tmpMetadataJSON}" 2> /dev/null)
 	if [[ $? -ne 0 ]]; then echo -e "\e[33mERROR - Not a valid JSON file on the webserver!\e[0m\n"; exit 1; fi
 	#Ok, downloaded file is a valid JSON file. So now look into the HASH
-	onlineMetaHash=$(${cardanocli} stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
+	onlineMetaHash=$(${cardanocli} ${cliEra} stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	#Compare the HASH now, if they don't match up, output an ERROR message and exit
 	if [[ ! "${poolMetaHash}" == "${onlineMetaHash}" ]]; then
@@ -360,7 +360,7 @@ fi; #onlinemode
 
 #Read ProtocolParameters
 if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
+                        protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters ); #onlinemode
                   else
 			readOfflineFile;
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
@@ -378,12 +378,13 @@ done
 echo -ne "\e[0m      Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
   if [[ "$(jq -r .description < ${rewardsName}.staking.vkey)" == *"Hardware"* ]]; then echo -e "(Hardware-Key)"; else echo; fi
 echo -e "\e[0m   Witnesses needed:\e[32m ${witnessCount} signed witnesses \e[0m"
-echo -e "\e[0m             Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
-echo -e "\e[0m               Cost:\e[32m ${poolCost} \e[90mlovelaces"
-echo -e "\e[0m             Margin:\e[32m ${poolMargin} \e[0m"
+echo -e "\e[0m             Pledge:\e[32m ${poolPledge} \e[90mlovelaces \e[0m(\e[32m$(convertToADA ${poolPledge}) \e[90mADA\e[0m)"
+echo -e "\e[0m               Cost:\e[32m ${poolCost} \e[90mlovelaces \e[0m(\e[32m$(convertToADA ${poolCost}) \e[90mADA\e[0m)"
+poolMarginPct=$(bc <<< "${poolMargin} * 100" 2> /dev/null)
+echo -e "\e[0m             Margin:\e[32m ${poolMargin} \e[0m(\e[32m${poolMarginPct}%\e[0m)"
 echo
 echo -e "\e[0m      Current EPOCH:\e[32m ${currentEPOCH}\e[0m"
-echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (set TTL[invalid_hereafter] is ${ttl})"
+echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip}\e[0m (set TTL[invalid_hereafter] to ${ttl})"
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
@@ -405,10 +406,10 @@ if [[ "${regWitnessID}" == "" ]]; then
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
                                 showProcessAnimation "Query-UTXO: " &
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
-                                #utxoJSON=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                #utxoJSON=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                           else
                                 readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
@@ -545,9 +546,9 @@ minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000$
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
@@ -585,7 +586,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -623,7 +624,7 @@ if [ -f "${poolName}.node.skey" ]; then #key is a normal one
         skeyJSON=$(read_skeyFILE "${poolName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
 	echo -ne "\e[0mAdding the pool node witness '\e[33m${poolName}.node.skey\e[0m' ... "
-	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
+	tmpWitness=$(${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --out-file /dev/stdout)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	echo -e "\e[32mOK\n"
 
@@ -657,7 +658,7 @@ fi
         skeyJSON=$(read_skeyFILE "${regPayName}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
 	echo -ne "\e[0mAdding the payment witness from a local payment address '\e[33m${regPayName}.skey\e[0m' ... "
-	tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
+	tmpWitness=$(${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --out-file /dev/stdout)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	echo -e "\e[32mOK\n"
 
@@ -684,7 +685,7 @@ do
 	        skeyJSON=$(read_skeyFILE "${ownerName}.staking.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
 	        echo -ne "\e[0mAdding the owner witness from a local signing key '\e[33m${ownerName}.skey\e[0m' ... "
-	        tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
+	        tmpWitness=$(${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --out-file /dev/stdout)
 	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		echo -e "\e[32mOK\n"
 
@@ -838,7 +839,8 @@ done
 #Assemble the transaction
 rm ${txFile} 2> /dev/null
 
-${cardanocli} transaction assemble --tx-body-file ${txBodyFile} ${witnessString} --out-file ${txFile}
+#echo -e "\n${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} ${witnessString} --out-file ${txFile}\n"
+${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} ${witnessString} --out-file ${txFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -ne "\e[90m"
 dispFile=$(cat ${txFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -859,10 +861,10 @@ do
 done
 
 #Read out the POOL-ID
-poolIDhex=$(${cardanocli} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)	#New method since 1.23.0
+poolIDhex=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)	#New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-poolIDbech=$(${cardanocli} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)      #New method since 1.23.0
+poolIDbech=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)      #New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0mPool-ID:\e[32m ${poolIDhex} / ${poolIDbech} \e[90m"
@@ -880,7 +882,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
 
         if ${onlineMode}; then  #onlinesubmit
 			        echo -ne "\e[0mSubmitting the transaction via the node... "
-			        ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
+			        ${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
 			        #No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
 			        if [[ $? -eq 0 ]]; then
 			        file_unlock ${poolFile}.pool.json
@@ -902,7 +904,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                 echo
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 

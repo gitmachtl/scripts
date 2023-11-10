@@ -24,6 +24,8 @@ Usage: $(basename $0) new cli <voteKeyName>                          ... Generat
 
        $(basename $0) qrcode <voteKeyName> <4-Digit-PinCode>         ... Shows the QR code for the Catalyst-Voting-App protected via a 4-digit PinCode
 
+       $(basename $0) query <voteKeyName|voteBechPublicKey>          ... Queries the Catalyst-API for the Voting-Power and Delegations for a VotingKey
+
 
 Examples:
 
@@ -53,12 +55,12 @@ payPath=0 #set default paymentPath
 paramCnt=$#;
 allParameters=( "$@" )
 
-if [[ ${paramCnt} -lt 3 ]]; then showUsage; exit 1; fi
-
 case ${1,,} in
 
   ### Generate the QR code from the vote secret key for the mobile voting app
   qrcode )
+
+		if [[ ${paramCnt} -lt 3 ]]; then showUsage; exit 1; fi
 
 		#Check the catalyst-toolbox binary existance and version
 		if ! exists "${catalyst_toolbox_bin}"; then
@@ -70,7 +72,7 @@ case ${1,,} in
 		if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'catalyst-toolbox' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
 		catalystToolboxVersion=$(echo ${catalystToolboxCheck} | cut -d' ' -f 2)
 		versionCheck "${minCatalystToolboxVersion}" "${catalystToolboxVersion}"
-		if [[ $? -ne 0 ]]; then majorError "Version ${catalystToolboxVersion} ERROR - Please use a cardano-toolbox version ${minCatalystToolboxVersion} or higher !\nOld versions are not compatible, please upgrade - thx."; exit 1; fi
+		if [[ $? -ne 0 ]]; then majorError "Version ${catalystToolboxVersion} ERROR - Please use a catalyst-toolbox version ${minCatalystToolboxVersion} or higher !\nOld versions are not compatible, please upgrade - thx."; exit 1; fi
 
                 voteKeyName="${allParameters[1]}"; voteKeyName=${voteKeyName/#.\//};
 		pinCode="${allParameters[2]}";
@@ -112,7 +114,9 @@ case ${1,,} in
 
   ### Generate new Voting Keys
   new )
-                if [[ ${paramCnt} -ge 3 ]]; then
+
+		if [[ ${paramCnt} -lt 3 ]]; then showUsage; exit 1;
+                elif [[ ${paramCnt} -ge 3 ]]; then
 			method="${allParameters[1]}";
 			voteKeyName="${allParameters[2]}"; voteKeyName=${voteKeyName/#.\//};
 		else echo -e "\e[35mMissing parameters!\e[0m\n"; showUsage; exit 1; fi
@@ -293,7 +297,7 @@ case ${1,,} in
                         typeOfAddr=$(get_addressType "${addrName}");
                         if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${addrName}' is not a valid payment address.\n\e[0m"; exit 1; fi;
                         showProcessAnimation "Verify Adahandle is on resolved address: " &
-                        utxo=$(${cardanocli} query utxo --address ${addrName} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                        utxo=$(${cardanocli} ${cliEra} query utxo --address ${addrName} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                         if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
                                 echo -e "\n\e[35mERROR - Resolved address '${addrName}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
                         echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${addrName}\e[0m\n"
@@ -451,6 +455,168 @@ case ${1,,} in
 			fi
 
 		fi
+
+                exit 0;
+                ;;
+
+
+  ### Query the Catalyst-API for the voteKey -> VotingPower and Delegations
+  query )
+
+		#Query only possible if not offline mode
+		if ${offlineMode}; then
+		echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1;
+		fi
+
+		#Check that there is actually a catalystAPI available for this network
+		if [[ ${catalystAPI} == "" ]]; then
+		echo -e "\e[35mThere is no Catalyst-API available for this network, i am sorry!\e[0m\n"; exit 1;
+		fi
+
+		#Check about 1 input parameters
+		if [[ ${paramCnt} -ne 2 ]]; then echo -e "\e[35mIncorrect parameter count!\e[0m\n"; showUsage; exit 1; fi
+
+                echo -e "\e[0mQuery the Catalyst-API (${catalystAPI}) for the following Voting-Key\e[0m"
+                echo
+
+		#Read the votePublicKey information
+                voteKeyName="${allParameters[1]}"
+
+			#check the voteKeyName entry if it is a .pkey file (contains the bech pubKey), or if is a .vkey file (contains the key in hex format) or if it is a direct bech or hex key
+			if [ -f "${voteKeyName}.voting.pkey" ]; then #the .pkey file exists so lets read the value in it and check it if its a bech key
+				inputKey=$(cat "${voteKeyName}.voting.pkey")
+				tmp=$(${bech32_bin} <<< "${inputKey}" 2> /dev/null)
+				if [ $? -ne 0 ]; then echo -e "\e[35mError - ${voteKeyName}.voting.pkey contains an invalid bech votePublicKey !\e[0m\n"; exit 1; fi
+				votePubKey=$(${bech32_bin} "cvote_vk" <<< "${inputKey}" 2> /dev/null) #make sure it is a bechKey "cvote_vk"
+				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+				voteKeySource="${voteKeyName}.voting.pkey"
+			elif [ -f "${voteKeyName}.voting.vkey" ]; then #the .vkey file exists so lets read the value in it and check it
+				cborVoteKey=$(jq -r ".cborHex" "${voteKeyName}.voting.vkey" 2> /dev/null);
+				if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - ${voteKeyName}.voting.vkey is not a valid json file. Please make sure to use the new voting key format, you can generate it with the subcommand 'new' !\e[0m\n\n"; exit 1; fi
+				#Generate the voting key bech format
+				inputKey=${cborVoteKey:4}
+				votePubKey=$(${bech32_bin} "cvote_vk" <<< ${inputKey:0:64} 2> /dev/null) #only use the first 64chars (32 bytes) in case an extended key was provided
+				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+				voteKeySource="${voteKeyName}.voting.vkey"
+
+			elif [[ "${voteKeyName//[![:xdigit:]]}" == "${voteKeyName}" ]] && [[ ${#voteKeyName} -eq 64 || ${#voteKeyName} -eq 128 ]]; then #lets use a hex key as the voteKeyName with length of 32 or 64 bytes
+				#Generate the voting key from hex input
+				inputKey=${voteKeyName,,}
+				votePubKey=$(${bech32_bin} "cvote_vk" <<< ${inputKey:0:64} 2> /dev/null) #only use the first 64chars (32 bytes) in case an extended key was provided
+				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+				voteKeySource="direct"
+				voteKeyName="Hex-VotePublicKey"
+
+			else #ok lets try to read in the voteKeyName as a direct bech key
+				inputKey="${voteKeyName}"
+				tmp=$(${bech32_bin} <<< "${inputKey}" 2> /dev/null)
+				if [ $? -ne 0 ]; then echo -e "\e[35mError - ${voteKeyName}.voting.pkey/vkey file not found. Also it is not a direct valid bech or hex votePublicKey !\e[0m\n"; exit 1; fi
+				votePubKey=$(${bech32_bin} "cvote_vk" <<< "${inputKey}" 2> /dev/null) #make sure it is a bechKey "cvote_vk"
+				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+				voteKeySource="direct"
+				voteKeyName="Bech-VotePublicKey"
+			fi
+
+			echo -e "\e[0m             Name: \e[32m${voteKeyName}\n\e[0m           Source: \e[32m${voteKeySource}\n\e[0m         inputKey: \e[32m${inputKey}\n\e[0m       votePubKey: \e[32m${votePubKey}\e[0m\n"
+
+
+
+		#votePubKey is always in bech format at this point, so lets get the hex format for the api query
+		voteKeyHex=$(${bech32_bin} <<< "${votePubKey}" 2> /dev/null) #convert the displayed votePubKey(Bech) into the Hex-Representation
+
+		#query the voteKeyHex via the catalyst-api, try it 5 times
+		retrycnt=5
+		while [[ ${retrycnt} -gt 0 ]]; do
+			echo -n "Requesting information via the Catalyst-API ... "
+			response=$(curl -s -m 10 -X GET "${catalystAPI}/registration/voter/0x${voteKeyHex}?with_delegators=true" -H "accept: application/json" 2> /dev/null)
+			if [[ $? -ne 0 ]]; then #curl existed with an error
+				echo -e "\e[31mError - Bad response!\e[0m";
+				retrycnt=$(( ${retrycnt} - 1 ));
+			else #curl exited ok, so lets check the response content
+				voter_info=$(jq -r ".voter_info" 2> /dev/null <<< ${response})
+				if [[ "${voter_info}" == "" || "${voter_info}" == "null" ]]; then #no data available
+					echo -e "\e[35mThere is no data available (yet) for this Voting-Key!\e[0m\n\n";
+					exit 1;
+				else
+					break; #good answer found
+				fi
+			fi
+		done
+
+		#exit if all retries were used to get an answer
+		if [[ ${retrycnt} -eq 0 ]]; then
+			echo -e "\n\e[35mError - Something went wrong, the Catalyst-API server is not reachable correctly!\e[0m\n\n";
+			exit 1;
+		fi
+
+		#entry for the 'voter_info' found
+		echo -e "\e[32mDONE\e[0m\n"
+
+		#get the values
+		voting_power=$(jq -r ".voting_power" <<< ${voter_info})
+		delegator_count=$(jq -r ".delegator_addresses | length" <<< ${voter_info})
+                delegator_addresses=(); readarray -t delegator_addresses <<< $(jq -r ".delegator_addresses | .[]" <<< ${voter_info})
+		registration_lastupdated=$(jq -r ".last_updated" <<< ${response})
+		registration_finalized=$(jq -r ".final" <<< ${response})
+
+		echo -e "\e[0m     Last updated: \e[32m$(date --date="${registration_lastupdated}")\e[0m"
+		echo -e "\e[0m     Is Finalized: \e[32m${registration_finalized}\e[0m"
+		echo
+		echo -e "\e[0m     Voting-Power: \e[33m$(convertToADA ${voting_power}) ADA\e[0m"
+		echo -e "\e[0m  Delegator-Count: \e[32m${delegator_count}\e[0m"
+		echo
+		echo -e "\e[0m  ---------------- \e[0m"
+		echo
+
+		#list all addresses(vkeys -> resolve to stakeaddresses -> get detailed infos again via the api)
+		for (( tmpCnt=0; tmpCnt<${delegator_count}; tmpCnt++ ))
+		do
+			delegator_vkey=${delegator_addresses[${tmpCnt}]:2};
+
+			#get the stakeaddress from the vkey hash
+			if [[ "${magicparam}" == *"mainnet"* ]]; then
+				delegator_stakeaddress=$(echo -n "e1$(xxd -r -ps <<< "${delegator_vkey}" | b2sum -l 224 -b | cut -d' ' -f 1)" | ${bech32_bin} "stake");
+			else
+				delegator_stakeaddress=$(echo -n "e0$(xxd -r -ps <<< "${delegator_vkey}" | b2sum -l 224 -b | cut -d' ' -f 1)" | ${bech32_bin} "stake_test");
+			fi
+
+			echo -e "\e[0m        Delegator: $(( ${tmpCnt} + 1))\e[0m"
+			echo -e "\e[0m       Public-Key: \e[32m${delegator_vkey}\e[0m"
+			echo -e "\e[0m    Stake-Address: \e[32m${delegator_stakeaddress}\e[0m"
+
+			#get details about the current delegator
+			#query the delegator publicKey (vkey) via the catalyst-api, try it 5 times
+			retrycnt=5
+			delegator_rewardaddress="\e[35mquery error\e[0m";
+			delegator_rawpower=0;
+			showProcessAnimation "Requesting information via the Catalyst-API: " &
+			while [[ ${retrycnt} -gt 0 ]]; do
+				response=$(curl -s -m 10 -X GET "${catalystAPI}/registration/delegations/0x${delegator_vkey}" -H "accept: application/json" 2> /dev/null)
+				if [[ $? -ne 0 ]]; then #curl existed with an error
+					retrycnt=$(( ${retrycnt} - 1 ));
+				else #curl exited ok, so lets check the response content
+					delegator_rewardaddress=$(jq -r ".reward_address" 2> /dev/null <<< ${response})
+					if [[ "${delegator_rewardaddress}" != "" && "${delegator_rewardaddress}" != "null" ]]; then #valid data found
+						delegator_rawpower=$(jq -r ".raw_power" 2> /dev/null <<< ${response})
+						break;
+					else #no valid data found
+						delegator_rewardaddress="\e[35mquery error\e[0m";
+						break;
+					fi
+				fi
+			done
+			stopProcessAnimation;
+
+			#if we used all retry counts, we failed to get data
+			if [[ ${retrycnt} -eq 0 ]]; then delegator_rewardaddress="\e[35mquery error\e[0m"; fi
+
+			echo -e "\e[0m  Rewards-Address: \e[32m${delegator_rewardaddress}\e[0m"
+			echo -e "\e[0m        Raw-Power: \e[33m$(convertToADA ${delegator_rawpower}) ADA\e[0m"
+			echo
+
+		done
+
+		echo
 
                 exit 0;
                 ;;

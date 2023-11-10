@@ -53,7 +53,7 @@ if [ ! -d "${policyDirName}" ]; then mkdir -p ${policyDirName}; checkError "$?";
 
 if [[ ${keyType^^} == "CLI" ]]; then #Building it from the cli (unencrypted)
 
-	${cardanocli} address key-gen --verification-key-file "${policyName}.policy.vkey" --signing-key-file "${policyName}.policy.skey"
+	${cardanocli} ${cliEra} address key-gen --verification-key-file "${policyName}.policy.vkey" --signing-key-file "${policyName}.policy.skey"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock "${policyName}.policy.vkey"
 	file_lock "${policyName}.policy.skey"
@@ -68,7 +68,7 @@ if [[ ${keyType^^} == "CLI" ]]; then #Building it from the cli (unencrypted)
 
 elif [[ ${keyType^^} == "ENC" ]]; then #Building it from the cli (encrypted)
 
-        skeyJSON=$(${cardanocli} address key-gen --verification-key-file "${policyName}.policy.vkey" --signing-key-file /dev/stdout 2> /dev/null)
+        skeyJSON=$(${cardanocli} ${cliEra} address key-gen --verification-key-file "${policyName}.policy.vkey" --signing-key-file /dev/stdout 2> /dev/null)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock "${policyName}.policy.vkey"
 
@@ -163,7 +163,7 @@ else #Building it from hw
 
 fi
 
-policyKeyHASH=$(${cardanocli} address key-hash --payment-verification-key-file ${policyName}.policy.vkey)
+policyKeyHASH=$(${cardanocli} ${cliEra} address key-hash --payment-verification-key-file ${policyName}.policy.vkey)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 
@@ -184,7 +184,7 @@ cat ${policyName}.policy.script | jq
 echo
 
 if [[ "${keyType^^}" == "CLI" || "${keyType^^}" == "ENC" ]]; then #generate the policyID via cli command
-				policyID=$(${cardanocli} transaction policyid --script-file ${policyName}.policy.script)
+				policyID=$(${cardanocli} ${cliEra} transaction policyid --script-file ${policyName}.policy.script)
 				else #show it via the hw-wallet. not really needed but a nice feature to also show the invalid hereafter value if present
 				echo -e "\e[0mGeneration the PolicyID via the HW-Wallet GUI ... \n"
 				start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

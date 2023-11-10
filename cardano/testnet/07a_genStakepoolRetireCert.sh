@@ -51,7 +51,7 @@ echo
 
 #Read ProtocolParameters
 if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
+                        protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters); #onlinemode
                   else
 			readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                         protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
@@ -81,7 +81,7 @@ echo -e "Retire EPOCH set to:\e[32m ${retireEPOCH}\e[0m"
 
 file_unlock ${poolName}.pool.dereg-cert
 
-${cardanocli} stake-pool deregistration-certificate --cold-verification-key-file ${poolName}.node.vkey --epoch ${retireEPOCH} --out-file ${poolName}.pool.dereg-cert
+${cardanocli} ${cliEra} stake-pool deregistration-certificate --cold-verification-key-file ${poolName}.node.vkey --epoch ${retireEPOCH} --out-file ${poolName}.pool.dereg-cert
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created

@@ -42,7 +42,7 @@ echo "
 }
 " > ${poolFile}.pool.json
 echo
-echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
+echo -e "\e[0mStakepool Config JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
 echo -e "\e[0m"
@@ -70,13 +70,17 @@ poolMargin=$(readJSONparam "poolMargin"); if [[ ! $? == 0 ]]; then exit 1; fi
 #Check if the poolFile entry is the same as the calling one
 if [[ ! "${poolName}" == "${poolFile}" ]]; then echo -e "\n\e[35mERROR - The entry for the 'poolName' in your ${poolFile}.pool.json is '${poolName}' and does not match the current path '${poolFile}'. Do you have imported it?\e[0m\n"; exit 1; fi
 
+#Check needed inputfiles
+if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[33mERROR - ${poolName}.node.vkey is missing! Check poolName field in ${poolFile}.pool.json about the right path, or generate it with script 04a !\e[0m"; exit 1; fi
+if [ ! -f "${poolName}.vrf.vkey" ]; then echo -e "\e[33mERROR - ${poolName}.vrf.vkey is missing! Check poolName field in ${poolFile}.pool.json about the right path, or generate it with script 04b !\e[0m"; exit 1; fi
+if [ ! -f "${rewardsName}.staking.vkey" ]; then echo -e "\e[33mERROR - ${rewardsName}.staking.vkey is missing! Check poolRewards field in ${poolFile}.pool.json, or generate one with script 03a !\e[0m"; exit 1; fi
+
 #Read ProtocolParameters
-if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
-                  else
-			readOfflineFile;
-                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
-                  fi
+case ${workMode} in
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
+        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+        "offline")      readOfflineFile; protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+esac
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #Check poolCost Setting
@@ -96,6 +100,13 @@ if [[ ${poolCost} -lt ${minPoolCost} ]]; then #If poolCost is set to low, than a
                         exit 1
                 fi
         fi
+
+#Check poolMargin Setting - bc will only return a 1 if valid, if invalid like chars it will not return a 1
+if [[ $(bc <<< "${poolMargin} >= 0.00 && ${poolMargin} <= 1.00" 2> /dev/null) -ne 1 ]]; then
+	echo -e "\e[33mERROR - Parameter \"poolMargin\": The current value of '${poolMargin}' is not in the range 0.00 - 1.00 (0-100%). Please re-edit your ${poolFile}.pool.json file !\n\e[0m"; exit 1;
+fi
+poolMarginPct=$(bc <<< "${poolMargin} * 100" 2> /dev/null)
+
 
 #Check PoolRelay Entries
 tmp=$(readJSONparam "poolRelays"); if [[ ! $? == 0 ]]; then exit 1; fi
@@ -170,7 +181,7 @@ if [[ ${#poolMetaDescription} -gt 255 ]]; then echo -e "\e[35mERROR - The poolMe
 
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
-poolID=$(${cardanocli} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)     #New method since 1.23.0
+poolID=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)     #New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_unlock ${poolFile}.pool.json
 newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
@@ -182,7 +193,7 @@ file_unlock ${poolFile}.pool.id
 echo "${poolID}" > ${poolFile}.pool.id
 file_lock ${poolFile}.pool.id
 
-poolIDbech=$(${cardanocli} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)     #New method since 1.23.0
+poolIDbech=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)     #New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 #Save out the POOL-ID also in the xxx.id-bech file
 file_unlock ${poolFile}.pool.id-bech
@@ -308,7 +319,7 @@ if [[ ${metaFileSize} -gt 512 ]]; then echo -e "\e[35mERROR - The total filesize
 
 
 #Generate HASH for the <poolFile>.metadata.json
-poolMetaHash=$(${cardanocli} stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
+poolMetaHash=$(${cardanocli} ${cliEra} stake-pool metadata-hash --pool-metadata-file ${poolFile}.metadata.json)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #Add the HASH to the <poolFile>.pool.json info file
@@ -332,11 +343,6 @@ fi
 
 
 ownerKeys="" #building string for the certificate
-
-#Check needed inputfiles
-if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.node.vkey is missing! Check poolName field in ${poolFile}.pool.json about the right path, or generate it with script 04a !\e[0m"; exit 1; fi
-if [ ! -f "${poolName}.vrf.vkey" ]; then echo -e "\e[0mERROR - ${poolName}.vrf.vkey is missing! Check poolName field in ${poolFile}.pool.json about the right path, or generate it with script 04b !\e[0m"; exit 1; fi
-if [ ! -f "${rewardsName}.staking.vkey" ]; then echo -e "\e[0mERROR - ${rewardsName}.staking.vkey is missing! Check poolRewards field in ${poolFile}.pool.json, or generate one with script 03a !\e[0m"; exit 1; fi
 
 rewardsAccountIncluded="no"
 
@@ -379,15 +385,15 @@ do
 done
 echo -ne "\e[0m   Rewards Stake:\e[32m ${rewardsName}.staking.vkey \e[0m"
   if [[ "$(jq -r .description < ${rewardsName}.staking.vkey)" == *"Hardware"* ]]; then echo -e "(Hardware-Key)"; else echo; fi
-echo -e "\e[0m          Pledge:\e[32m ${poolPledge} \e[90mlovelaces"
-echo -e "\e[0m            Cost:\e[32m ${poolCost} \e[90mlovelaces"
-echo -e "\e[0m          Margin:\e[32m ${poolMargin} \e[0m"
+echo -e "\e[0m          Pledge:\e[32m ${poolPledge} \e[90mlovelaces \e[0m(\e[32m$(convertToADA ${poolPledge}) \e[90mADA\e[0m)"
+echo -e "\e[0m            Cost:\e[32m ${poolCost} \e[90mlovelaces \e[0m(\e[32m$(convertToADA ${poolCost}) \e[90mADA\e[0m)"
+echo -e "\e[0m          Margin:\e[32m ${poolMargin} \e[0m(\e[32m${poolMarginPct}%\e[0m)"
 echo
 
 #  Create a stake pool registration certificate
 
 file_unlock ${poolName}.pool.cert
-${cardanocli} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} ${magicparam} --out-file ${poolName}.pool.cert
+${cardanocli} ${cliEra} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} --out-file ${poolName}.pool.cert
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
@@ -416,7 +422,7 @@ cat ${poolName}.pool.cert
 echo
 
 echo
-echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
+echo -e "\e[0mStakepool Config JSON:\e[32m ${poolFile}.pool.json \e[90m"
 cat ${poolFile}.pool.json
 echo
 

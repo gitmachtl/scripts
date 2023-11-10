@@ -198,7 +198,7 @@ if [ ! -f "${toAddr}.addr" ]; then
                                         typeOfAddr=$(get_addressType "${toAddr}");
                                         if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
                                         showProcessAnimation "Verify Adahandle is on resolved address: " &
-                                        utxo=$(${cardanocli} query utxo --address ${toAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                        utxo=$(${cardanocli} ${cliEra} query utxo --address ${toAddr} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                         if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
                                                  echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
                                         echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m\n"
@@ -255,8 +255,7 @@ echo
 
 #get live values
 currentTip=$(get_currentTip)
-ttl=$(get_currentTTL)
-currentEPOCH=$(get_currentEpoch)
+ttl=$(( ${currentTip} + ${defTTL} ))
 
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[invalid_hereafter] to ${ttl})"
 echo
@@ -273,7 +272,7 @@ echo
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
         if ${onlineMode}; then
                                 showProcessAnimation "Query-UTXO: " &
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
                                 if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
                                 if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
@@ -415,7 +414,7 @@ fi
 
 #Read ProtocolParameters
 if ${onlineMode}; then
-			protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
+			protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters ); #onlinemode
 		  else
 			protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
 		  fi
@@ -446,13 +445,13 @@ txBodyFile="${tempDir}/dummy.txbody"
 dummyRequiredHash="12345678901234567890123456789012345678901234567890123456"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
-fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
@@ -537,7 +536,7 @@ txFile="${tempDir}/$(basename ${fromAddr}).tx"
 #read the needed signing keys into ram
 echo
 skeyNodeJSON=$(read_skeyFILE "${nodeName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyNodeJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
-vkeyNodeHash=$(${cardanocli} key verification-key  --signing-key-file <(echo "${skeyNodeJSON}") --verification-key-file /dev/stdout | jq -r .cborHex | tail -c +5 | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1)
+vkeyNodeHash=$(${cardanocli} ${cliEra} key verification-key  --signing-key-file <(echo "${skeyNodeJSON}") --verification-key-file /dev/stdout | jq -r .cborHex | tail -c +5 | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1)
 echo -e "\e[0mBuilding the VKEY-Hash (Pool-ID) for the required signer field: \e[32m${vkeyNodeHash}\e[0m"
 
 echo
@@ -547,11 +546,11 @@ echo
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
+			${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			else  #Sending chosen amount (rxcnt=2), return the rest(incl. assets)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
-			#echo -e "\n\n\n${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out \"${sendFromAddr}+${lovelacesToReturn}${assetsOutString}\" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}\n\n\n"
+			${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
+			#echo -e "\n\n\n${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out \"${sendFromAddr}+${lovelacesToReturn}${assetsOutString}\" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}\n\n\n"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
 
@@ -605,11 +604,11 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         echo -ne "\e[0mAdding the pool node witness '\e[33m${nodeName}.node.skey\e[0m' ... "
-        tmp=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyNodeJSON}") ${magicparam} --out-file ${txNodeWitnessFile} 2> /dev/stdout)
+        tmp=$(${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyNodeJSON}") --out-file ${txNodeWitnessFile} 2> /dev/stdout)
         checkError "$?"; if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; fi
         echo -e "\e[32mOK\n"
 
-        ${cardanocli} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txNodeWitnessFile} --out-file ${txFile}
+        ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txNodeWitnessFile} --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo -e "\e[0mAssembled ... \e[32mDONE\e[0m\n";
 
@@ -621,7 +620,7 @@ else
 	echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m and \e[32m${nodeName}.node.skey\e[0m: \e[32m ${txFile}\e[0m"
 	echo
 
-        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --signing-key-file <(echo "${skeyNodeJSON}") ${magicparam} --out-file ${txFile}
+        ${cardanocli} ${cliEra} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --signing-key-file <(echo "${skeyNodeJSON}") --out-file ${txFile}
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 	#forget the signing keys
@@ -648,12 +647,12 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
 	echo
 	if ${onlineMode}; then	#onlinesubmit
 				echo -ne "\e[0mSubmitting the transaction via the node... "
-				${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
+				${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
 				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 				echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 

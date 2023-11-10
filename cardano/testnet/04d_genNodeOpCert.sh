@@ -15,8 +15,10 @@ if ${onlineMode}; then
 fi
 
 
-#check that *.node.skey/hwsfile is present
+#check that *.node.skey/hwsfile is present, we also need the *.node.vkey for the poolID and maybe for an opcert generation
 if ! [[ -f "${nodeName}.node.skey" || -f "${nodeName}.node.hwsfile" ]]; then echo -e "\e[0mERROR - Cannot find '${nodeName}.node.skey/hwsfile', please generate Node Keys with ${nodeName}.node.counter first with script 04a ...\e[0m"; exit 2; fi
+if [ ! -f "${nodeName}.node.vkey" ]; then echo -e "\n\e[35mERROR - Cannot find '${nodeName}.node.vkey', please generate Node Keys first with script 04a ...\e[0m\n"; exit 2; fi
+
 
 #check that there is a new kes keys present by checking the counters. If counterfiles are present, check that the values are identical
 if [[ -f "${nodeName}.kes.counter" && -f "${nodeName}.kes.counter-next" ]]; then
@@ -29,8 +31,7 @@ fi
 
 
 kesVkeyFile="${nodeName}.kes-${latestKESnumber}.vkey"
-if ! [[ -f "${kesVkeyFile}" ]]; then echo -e "\e[0mERROR - Cannot find '${}kesVkeyFile', please generate new KES Keys first using script 04c !\e[0m"; exit 2; fi
-
+if ! [[ -f "${kesVkeyFile}" ]]; then echo -e "\e[0mERROR - Cannot find '${kesVkeyFile}', please generate new KES Keys first using script 04c !\e[0m"; exit 2; fi
 
 
 loop=0
@@ -42,16 +43,14 @@ skeyJSON=""
 #
 while true; do
 
-
 #check if there was a new given "useOpCertCounter" value
 if [[ "${useOpCertCounter}" != "" ]]; then
 
 					if ask "\e[33m${question} '${useOpCertCounter}' as the next one?" Y; then
 
 						poolNodeCounter=${useOpCertCounter}; #set to the given value
-						if [ ! -f "${nodeName}.node.vkey" ]; then echo -e "\n\e[35mERROR - Cannot find '${nodeName}.node.vkey', please generate Node Keys first with script 04a ...\e[0m\n"; exit 2; fi
 						file_unlock "${nodeName}.node.counter"
-						${cardanocli} node new-counter --cold-verification-key-file ${nodeName}.node.vkey --counter-value ${poolNodeCounter} --operational-certificate-issue-counter-file ${nodeName}.node.counter
+						${cardanocli} ${cliEra} node new-counter --cold-verification-key-file ${nodeName}.node.vkey --counter-value ${poolNodeCounter} --operational-certificate-issue-counter-file ${nodeName}.node.counter
 						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 						#NodeCounter file was written, now add the description in the file to reflect the next node counter number
 						newCounterJSON=$(jq ".description = \"Next certificate issue number: $((${poolNodeCounter}+0))\"" < "${nodeName}.node.counter")
@@ -75,8 +74,7 @@ if [ ! -f "${nodeName}.node.counter" ]; then
 					if ask "\e[33mCannot find '${nodeName}.node.counter', do you wanna create a new one?" N; then
 
 							poolNodeCounter=0; #set to zero for now
-							if [ ! -f "${nodeName}.node.vkey" ]; then echo -e "\n\e[35mERROR - Cannot find '${nodeName}.node.vkey', please generate Node Keys first with script 04a ...\e[0m\n"; exit 2; fi
-							${cardanocli} node new-counter --cold-verification-key-file ${nodeName}.node.vkey --counter-value ${poolNodeCounter} --operational-certificate-issue-counter-file ${nodeName}.node.counter
+							${cardanocli} ${cliEra} node new-counter --cold-verification-key-file ${nodeName}.node.vkey --counter-value ${poolNodeCounter} --operational-certificate-issue-counter-file ${nodeName}.node.counter
 							checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 							#NodeCounter file was written, now add the description in the file to reflect the next node counter number
 							newCounterJSON=$(jq ".description = \"Next certificate issue number: $((${poolNodeCounter}+0))\"" < "${nodeName}.node.counter")
@@ -129,12 +127,9 @@ echo -e "\e[0mCurrent KES period:\e[32m ${currentKESperiod}\e[0m"
 kesVkeyBech=$(jq -r .cborHex ${kesVkeyFile} 2> /dev/null | tail -c +5 | ${bech32_bin} "kes_vk" 2> /dev/null)
 echo -e "\e[0mKES-vKey-File Bech:\e[32m ${kesVkeyBech}\e[0m"
 
-#Show PoolID from node.vkey file
-if [ -f "${nodeName}.node.vkey" ]; then
-	poolID=$(${cardanocli} stake-pool id --cold-verification-key-file "${nodeName}.node.vkey" --output-format bech32 2> /dev/null);
-	echo -e "\e[0mOpcert for Pool-ID:\e[32m ${poolID}\e[0m"
-fi
-
+#PoolID from node.vkey file
+poolID=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file "${nodeName}.node.vkey" --output-format bech32 2> /dev/null);
+echo -e "\e[0mOpcert for Pool-ID:\e[32m ${poolID}\e[0m"
 echo
 
 #Calculating Expire KES Period and Date/Time
@@ -147,7 +142,6 @@ expireDate=$(date --date=@${expireTimeSec})
 file_unlock ${nodeName}.kes-expire.json
 echo -e "{\n\t\"latestKESfileindex\": \"${latestKESnumber}\",\n\t\"currentKESperiod\": \"${currentKESperiod}\",\n\t\"expireKESperiod\": \"${expiresKESperiod}\",\n\t\"expireKESdate\": \"${expireDate}\"\n}" > ${nodeName}.kes-expire.json
 file_lock ${nodeName}.kes-expire.json
-
 
 opcertFile="${nodeName}.node-${latestKESnumber}.opcert"
 
@@ -162,7 +156,7 @@ if [ -f "${nodeName}.node.skey" ]; then #key is a normal one
                 echo -ne "\e[0mGenerating a new opcert from a cli signing key '\e[33m${nodeName}.node.skey\e[0m' ... "
 		file_unlock ${opcertFile}
 		file_unlock ${nodeName}.node.counter
-		${cardanocli} node issue-op-cert --hot-kes-verification-key-file ${kesVkeyFile} --cold-signing-key-file <(echo "${skeyJSON}") --operational-certificate-issue-counter-file ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${opcertFile}
+		${cardanocli} ${cliEra} node issue-op-cert --hot-kes-verification-key-file ${kesVkeyFile} --cold-signing-key-file <(echo "${skeyJSON}") --operational-certificate-issue-counter-file ${nodeName}.node.counter --kes-period ${currentKESperiod} --out-file ${opcertFile}
 		checkError "$?"; if [ $? -ne 0 ]; then file_lock ${opcertFile}; file_lock ${nodeName}.node.counter; exit $?; fi
 		file_lock ${opcertFile}
 		file_lock ${nodeName}.node.counter
@@ -187,31 +181,79 @@ echo -e "\e[32mOK\e[0m\n"
 
 #in onlineMode, check the opcert file against the current chain status to use the right OpCertCounter value
 if ${onlineMode}; then
-echo -ne "\e[0mChecking operational certificate \e[32m${opcertFile}\e[0m for the right OpCertCounter ... "
 
-	#query the current opcertstate from the chain
-	queryFile="${tempDir}/opcert.query"
-	rm ${queryFile} 2> /dev/null
-	tmp=$(${cardanocli} query kes-period-info ${magicparam} --op-cert-file ${opcertFile} --out-file ${queryFile} 2> /dev/null);
-	if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't query the onChain OpCertCounter state !\e[0m"; echo; exit 2; fi
+	case ${workMode} in
 
-	onChainOpcertCount=$(jq -r ".qKesNodeStateOperationalCertificateNumber | select (.!=null)" 2> /dev/null ${queryFile}); if [[ ${onChainOpcertCount} == "" ]]; then onChainOpcertCount=-1; fi #if there is none, set it to -1
-	onDiskOpcertCount=$(jq -r ".qKesOnDiskOperationalCertificateNumber | select (.!=null)" 2> /dev/null ${queryFile});
-	rm ${queryFile} 2> /dev/null
+	"online")
+		echo -e "\e[0mChecking operational certificate \e[32m${opcertFile}\e[0m for the right OpCertCounter:"
+		echo
+
+	        #check that the node is fully synced, otherwise the opcertcounter query could return a false state
+	        if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced !\e[0m\n"; exit 2; fi
+
+		#query the current opcertstate from the local node
+		queryFile="${tempDir}/opcert.query"
+		rm ${queryFile} 2> /dev/null
+		tmp=$(${cardanocli} ${cliEra} query kes-period-info --op-cert-file ${opcertFile} --out-file ${queryFile} 2> /dev/stdout);
+		if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't query the onChain OpCertCounter state !\n${tmp}\e[0m"; echo; exit 2; fi
+
+		onChainOpcertCount=$(jq -r ".qKesNodeStateOperationalCertificateNumber | select (.!=null)" 2> /dev/null ${queryFile}); if [[ ${onChainOpcertCount} == "" ]]; then onChainOpcertCount=-1; fi #if there is none, set it to -1
+		onDiskOpcertCount=$(jq -r ".qKesOnDiskOperationalCertificateNumber | select (.!=null)" 2> /dev/null ${queryFile});
+		rm ${queryFile} 2> /dev/null
+
+	        echo -e "\e[0mThe last known OpCertCounter on the chain is: \e[32m${onChainOpcertCount//-1/not used yet}\e[0m"
+		;;
+
+	"light")
+		#query the current opcertstate via online api
+		echo -e "\e[0mChecking the OpCertCounter for the Pool-ID \e[32m${poolID}\e[0m via ${koiosAPI}:"
+		echo
+		#query poolinfo via poolid on koios
+		showProcessAnimation "Query Pool-Info via Koios: " &
+		response=$(curl -sL -m 30 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolID}\"]}" 2> /dev/null)
+		stopProcessAnimation;
+		tmp=$(jq -r . <<< ${response}); if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Koios API request sent not back a valid JSON !\e[0m"; echo; exit 2; fi
+		#check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+		if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -eq 1 ]]; then
+			onChainOpcertCount=$(jq -r ".[0].op_cert_counter | select (.!=null)" 2> /dev/null <<< ${response})
+			poolName=$(jq -r ".[0].meta_json.name | select (.!=null)" 2> /dev/null <<< ${response})
+			poolTicker=$(jq -r ".[0].meta_json.ticker | select (.!=null)" 2> /dev/null <<< ${response})
+			echo -e "\e[0mGot the information back for the Pool: \e[32m${poolName} (${poolTicker})\e[0m"
+			echo
+		        echo -e "\e[0mThe last known OpCertCounter on the chain is: \e[32m${onChainOpcertCount}\e[0m"
+		else
+			echo -e "\e[0mThere is no information available from the chain about the OpCertCounter. Looks like the pool has not made a block yet.\nSo we are going with a next counter of \e[33m0\e[0m"
+			onChainOpcertCount=-1 #if there is none, set it to -1
+		fi
+
+		#lets read out the onDiscOpcertNumber directly from the opcert file
+		cborHex=$(jq -r ".cborHex" "${opcertFile}" 2> /dev/null);
+		if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't read the opcert file '${opcertFile}' !\e[0m"; echo; exit 2; fi
+		onDiskOpcertCount=$(int_from_cbor "${cborHex:72}") #opcert counter starts at index 72, lets decode the unsigned integer number
+		if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't decode opcert counter from file '${opcertFile}' !\e[0m"; echo; exit 2; fi
+#		onDiskKESStart=$(int_from_cbor "${cborHex:72}" 1) #kes start counter is the next number after the opcert number, so lets skip 1 number
+#		echo -e "\e[0m  File KES start Period: \e[35m${onDiskKESStart}\e[0m"
+		;;
+
+
+	*)	exit;;
+
+	esac
 
 	nextChainOpcertCount=$(( ${onChainOpcertCount} + 1 )); #the next opcert counter that should be used on the chain is the last seen one + 1
 
+	echo
+
 	if [[ ${nextChainOpcertCount} -eq ${onDiskOpcertCount} ]]; then
-		echo -e "\e[32mOK\e[0m\n";
+		echo -e "\e[0mCheck: \e[32mOK\e[0m\n";
 		echo -e "\e[0mLatest OnChain Counter: \e[32m${onChainOpcertCount//-1/not used yet}\e[0m"
 		echo -e "\e[0mNext Counter should be: \e[32m${nextChainOpcertCount}\e[0m"
 		echo -e "\e[0m     OnDisk Counter is: \e[32m${onDiskOpcertCount}\e[0m"
 		echo
 		break; #exit the while loop
 
-
- 	else
-		echo -e "\e[35mFALSE\e[0m\n";
+	else
+		echo -e "\e[0mCheck: \e[35mFALSE\e[0m\n";
 		echo -e "\e[0mLatest OnChain Counter: \e[32m${onChainOpcertCount//-1/not used yet}\e[0m"
 		echo -e "\e[0mNext Counter should be: \e[32m${nextChainOpcertCount}\e[0m"
 		echo -e "\e[0m     OnDisk Counter Is: \e[35m${onDiskOpcertCount}\e[0m"
