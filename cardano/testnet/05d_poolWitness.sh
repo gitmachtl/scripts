@@ -32,7 +32,7 @@ regWitnessPayName=$(jq -r ".regWitness.regPayName" <<< ${poolJSON})
 poolMetaTicker=$(jq -r ".poolMetaTicker" <<< ${poolJSON})
 regWitnessMetadataFilesList=$(jq -r ".regWitness.metadataFilesList" <<< ${poolJSON})
 
-currentTip=$(get_currentTip)
+currentTip=$(get_currentTip); checkError "$?";
 ttl=$(jq -r ".regWitness.ttl" <<< ${poolJSON})
 
 echo -e "\e[0mChecking Witness Content in the poolFile: \e[32m${poolFile}.pool.json\e[0m"
@@ -144,6 +144,7 @@ case ${1} in
 
   * ) 		showUsage; exit 1;
 		;;
+
 esac
 
 case ${action} in
@@ -197,8 +198,6 @@ case ${action} in
                 witnessSigningName=$(jq -r ".\"signing-name\"" <<< ${witnessJSON})
                 witnessSigningVkey=$(jq -r ".\"signing-vkey\"" <<< ${witnessJSON} | jq .)
                 witnessPoolMetaTicker=$(jq -r ".poolMetaTicker" <<< ${witnessJSON})
-                currentTip=$(get_currentTip)
-
 
 		regWitnessID=$(jq -r ".regWitness.id" <<< ${poolJSON})
 		regWitnessDate=$(date --date="@${regWitnessID}" -R)
@@ -208,7 +207,7 @@ case ${action} in
 		regWitnessMetadataFilesList=$(jq -r ".regWitness.metadataFilesList" <<< ${poolJSON})
 		poolMetaTicker=$(jq -r ".poolMetaTicker" <<< ${poolJSON})
 
-		currentTip=$(get_currentTip)
+		currentTip=$(get_currentTip); checkError "$?";
 		ttl=$(jq -r ".regWitness.ttl" <<< ${poolJSON})
 
 		echo -e "\e[0mAdding a Signed Witness \e[32m${witnessFile}\e[0m into the poolFile: \e[32m${poolFile}.pool.json\e[0m"
@@ -358,7 +357,7 @@ case ${action} in
 		witnessSigningVkey=$(jq -r ".\"signing-vkey\"" <<< ${witnessJSON} | jq .)
 		poolMetaTicker=$(jq -r ".poolMetaTicker" <<< ${witnessJSON})
 		regWitnessMetadataFilesList=$(jq -r ".metadataFilesList" <<< ${witnessJSON})
-		currentTip=$(get_currentTip)
+		currentTip=$(get_currentTip); checkError "$?";
 
 		echo -e "\e[0mSigning Witness in the witnessFile \e[32m${witnessFile}\e[0m with the signing key: \e[32m${signingKey}\e[0m"
 		echo
@@ -420,7 +419,7 @@ case ${action} in
 			#read the needed signing keys into ram and sign the transaction
 			skeyJSON=$(read_skeyFILE "${signingKey}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
-			tmpWitness=$(${cardanocli} transaction witness --tx-body-file ${tmpWitnessTxBody} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file /dev/stdout)
+			tmpWitness=$(${cardanocli} ${cliEra} transaction witness --tx-body-file ${tmpWitnessTxBody} --signing-key-file <(echo "${skeyJSON}") --out-file /dev/stdout)
                         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         witnessJSON=$(jq ".signedWitness = ${tmpWitness}" <<< ${witnessJSON}); #include the witness in the witnessJSON
                         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

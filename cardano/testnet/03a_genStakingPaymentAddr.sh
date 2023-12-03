@@ -476,28 +476,6 @@ file_lock "${addrName}.staking.addr"
 echo -e "\e[0mStaking(Rewards)-Address built: \e[32m ${addrName}.staking.addr \e[90m"
 cat "${addrName}.staking.addr"
 echo
-
-#create an address registration certificate
-
-#Read ProtocolParameters
-if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ); #onlinemode
-                  else
-                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
-                  fi
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
-stakeAddressDepositFee=$(jq -r .stakeAddressDeposit <<< ${protocolParametersJSON})
-echo -e "\e[0mStake Address Deposit Fee: \e[32m ${stakeAddressDepositFee} lovelaces \e[90m"
-echo
-
-${cardanocli} ${cliEra} stake-address registration-certificate --staking-verification-key-file "${addrName}.staking.vkey" --key-reg-deposit-amt "${stakeAddressDepositFee}" --out-file "${addrName}.staking.cert"
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-file_lock "${addrName}.staking.cert"
-
-echo -e "\e[0mStaking-Address-Registration-Certificate built: \e[32m ${addrName}.staking.cert \e[90m"
-cat "${addrName}.staking.cert"
-echo
 echo
 echo -e "\e[35mIf you wanna register the Staking-Address, please now run the script 03b_regStakingAddrCert.sh !\e[0m"
 echo

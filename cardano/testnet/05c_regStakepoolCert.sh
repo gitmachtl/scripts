@@ -5,8 +5,6 @@
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
 
-
-
 #Check command line parameter
 if [ $# -lt 2 ]; then
 cat >&2 <<EOF
@@ -215,24 +213,87 @@ if [[ "${regWitnessID}" == "" ]]; then
 	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = {}" <<< ${poolJSON});
 	poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = {}" <<< ${poolJSON});
 
-	#Force registration instead of re-registration via optional command line command "REG"
-	#Force re-registration instead of registration via optional command line command "REREG"
+	#Force registration instead of re-registration via optional command line command "type: REG"
+	#Force re-registration instead of registration via optional command line command "type: REREG"
 	if [[ "${forceParam}" == "" ]]; then
+
 		deregSubmitted=$(jq -r .deregSubmitted <<< ${poolJSON} 2> /dev/null); if [[ ! "${deregSubmitted}" == null ]]; then echo -e "\n\e[35mERROR - I'am confused, the pool was registered and retired before. Please specify if you wanna register or reregister the pool now with the optional parameter "type:REG" or "type:REREG" !\e[0m\n"; exit 1; fi
 
 		#In Online-Mode check if the Pool is already registered on the chain, if so print an info that the method was forced to a REREG
 		if ${onlineMode}; then
-		        #check that the node is fully synced, otherwise the opcertcounter query could return a false state
-		        if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced, please let your node sync to 100% first !\e[0m\n"; exit 2; fi
 
-			#check if the poolIDbech is already on the chain
-			poolsInLedger=$(${cardanocli} ${cliEra} query stake-pools 2> /dev/null); checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not query if Pool-ID is already on the chain.\e[0m\n"; exit 1; fi
-			poolInLedgerCnt=$(grep  "${poolIDbech}" <<< ${poolsInLedger} | wc -l)
-			if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -e "Pool-ID is already on the chain, continue with a Re-Registration\e[0m\n"; regSubmitted="xxx";
-			elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "Pool-ID is not on the chain yet, continue with a normal Registration\e[0m\n"; regSubmitted="";
-			else echo -e "\e[35mERROR - The Pool-ID is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m\n"; exit 2;
-			fi
-		fi
+			case ${workMode} in
+
+		                "online")
+
+		                        #check that the node is fully synced, otherwise the opcertcounter query could return a false state
+		                        if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced !\e[0m\n"; exit 1; fi
+
+		                        #check ledger-state via the local node
+		                        showProcessAnimation "Query-Ledger-State: " &
+		                        poolsInLedger=$(${cardanocli} ${cliEra} query stake-pools 2> /dev/null); if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\n\e[35mERROR - Could not query stake-pools from the chain.\e[0m\n"; exit 1; fi
+		                        stopProcessAnimation;
+
+		                        #now lets see how often the poolIDbech is listed: 0->Not on the chain, 1->On the chain, any other value -> ERROR
+		                        poolInLedgerCnt=$(grep  "${poolIDbech}" <<< ${poolsInLedger} | wc -l)
+					if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -e "Info via Local-Node: Pool-ID is already on the chain, continue with a Re-Registration\e[0m\n"; regSubmitted="xxx";
+					elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "Info via Local-Node: Pool-ID is not on the chain (yet), continue with a normal Registration\e[0m\n"; regSubmitted="";
+					else echo -e "\e[35mERROR - The Pool-ID '${poolIDbech}' is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m\n"; exit 1;
+		                        fi
+		                        ;;
+
+		                "light")
+
+					#query poolinfo via poolid on koios -> this is just to have a nice output about the pool we wanna delegate to. if koios is down or so, it doesn't matter in online(full) mode
+					error=0
+					if [[ "${koiosAPI}" != "" ]]; then
+
+					        errorcnt=0
+					        error=-1
+					        showProcessAnimation "Query Pool-Info via Koios: " &
+					        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+					                error=0
+					                response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info"  -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolIDbech}\"]}" 2> /dev/null)
+					                if [ $? -ne 0 ]; then error=1; fi;
+					                errorcnt=$(( ${errorcnt} + 1 ))
+					        done
+					        stopProcessAnimation;
+			                        if [[ ${error} -ne 0 ]]; then echo -e "\e[33mQuery of the Pool-Status via Koios-API failed, tried 5 times.\e[0m\n"; fi; #curl query failed
+
+					        #Split the response string into JSON content and the HTTP-ResponseCode
+					        if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+					                responseJSON="${BASH_REMATCH[1]}"
+					                responseCode="${BASH_REMATCH[2]}"
+					        fi
+
+					        if [[ ${error} -eq 0 && ${responseCode} -eq 200 ]]; then
+					                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+					                if [[ $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -eq 1 ]]; then
+					                        { read poolNameInfo; read poolTickerInfo; read poolStatusInfo; } <<< $(jq -r "(.[0].meta_json.name | select (.!=null)), (.[0].meta_json.ticker | select (.!=null)), (.[0].pool_status | select (.!=null))" 2> /dev/null <<< ${responseJSON})
+					                        echo -e "\e[0mName (Ticker): \e[32m${poolNameInfo} (${poolTickerInfo})\e[0m"
+					                        echo
+
+					                        case "${poolStatusInfo^^}" in
+					                                "REGISTERED")   echo -e "\e[0mInfo via Koios-API: \e[32mPool is REGISTERED on the chain, continue with a Re-Registration.\e[0m\n"; regSubmitted="xxx";;
+					                                "RETIRED")      echo -e "\e[0mInfo via Koios-API: \e[33mPool was RETIRED and is currently NOT registered on the chain. Lets do a registration.\e[0m\n"; regSubmitted="";;
+					                                "RETIRING")     retiringEpoch=$(jq -r ".[0].retiring_epoch | select (.!=null)" 2> /dev/null <<< ${responseJSON})
+					                                                echo -e "\e[0mInfo via Koios-API: \e[36mPool will RETIRE in epoch ${retiringEpoch}, currently REGISTERED.\e[0m Continue with a Re-Registration.\e[0m\n"; regSubmitted="xxx";;
+					                                *) echo -e "\e[0mInfo via Koios-API: Pool-Status is ${poolStatusInfo^^}\e[0m\n";;
+					                        esac
+
+					                else
+					                        echo -e "\e[0mInfo via Koios-API: \e[33mPool is NOT registered on the chain, never was. Lets do a registration.\e[0m\n"; regSubmitted="";
+					                fi
+					        fi
+
+					unset poolNameInfo poolTickerInfo poolStatusInfo responseJSON responseCode error errorcnt
+
+					fi #koiosAPI!=""
+		                        ;;
+
+			esac #workmode
+
+		fi #onlinemode
 
 	elif [[ "${forceParam^^}" == "REG" ]]; then regSubmitted="";  	#force a new registration
 	elif [[ "${forceParam^^}" == "REREG" ]]; then regSubmitted="xxx";	#force a re-registration
@@ -284,8 +345,8 @@ fi
 #-------------------------------------------------------------------------
 
 #get values to register the staking address on the blockchain
-currentTip=$(get_currentTip)
-currentEPOCH=$(get_currentEpoch)
+currentTip=$(get_currentTip); checkError "$?";
+currentEPOCH=$(get_currentEpoch); checkError "$?";
 
 if [[ "${regWitnessID}" == "" ]]; then #New witness collection
 	ttl=$(( ${currentTip} + ${defTTL} ))
@@ -359,13 +420,12 @@ if ${onlineMode}; then
 fi; #onlinemode
 
 #Read ProtocolParameters
-if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters ); #onlinemode
-                  else
-			readOfflineFile;
-                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
-                  fi
-
+case ${workMode} in
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
+        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+        "offline")      readOfflineFile;
+			protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+esac
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0m   Owner Stake Keys:\e[32m ${ownerCnt}\e[0m owner(s) with the key(s)"
@@ -403,18 +463,31 @@ if [[ "${regWitnessID}" == "" ]]; then
 #
 # Checking UTXO Data of the source address and gathering data about total lovelaces and total assets
 #
-        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
-        if ${onlineMode}; then
+
+        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in lightmode via API requests, in offlinemode from the transferFile
+        case ${workMode} in
+                "online")       #check that the node is fully synced, otherwise the query would mabye return a false state
+                                if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
                                 showProcessAnimation "Query-UTXO: " &
-                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} 2> /dev/stdout);
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
-                                #utxoJSON=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                          else
-                                readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
-                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
-                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-        fi
+                                ;;
+
+                "light")        showProcessAnimation "Query-UTXO-LightMode: " &
+                                utxo=$(queryLight_UTXO "${sendFromAddr}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                showProcessAnimation "Convert-UTXO: " &
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
+                                ;;
+
+                "offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON} 2> /dev/null)
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
+                                ;;
+        esac
+
   	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
@@ -440,7 +513,6 @@ if [[ "${regWitnessID}" == "" ]]; then
         utxoHashIndex=${utxoHashIndexArray[${tmpCnt}]}
         utxoAmount=${utxoLovelaceArray[${tmpCnt}]} #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
-#	echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}";
         echo -e "Hash#Index: ${utxoHashIndex}\tADA: $(convertToADA ${utxoAmount}) \e[90m(${utxoAmount} lovelaces)\e[0m";
 	if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
         assetsEntryCnt=${assetsEntryCntArray[${tmpCnt}]}
@@ -474,8 +546,20 @@ if [[ "${regWitnessID}" == "" ]]; then
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
-                                case ${assetHash} in
-                                        "${adahandlePolicyID}" )      #$adahandle
+                                case "${assetHash}${assetTmpName:1:8}" in
+                                        "${adahandlePolicyID}000de140" )        #$adahandle cip-68
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Own): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}00000000" )        #$adahandle virtual
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Vir): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}000643b0" )        #$adahandle reference
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Ref): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}"* )               #$adahandle cip-25
                                                 echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default
@@ -555,7 +639,7 @@ echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${cert
 #Check if pool was registered before and calculate Fee for registration or set it to zero for re-registration
 if [[ "${regSubmitted}" == "" ]]; then   #pool not registered before
 				  poolDepositFee=$(jq -r .stakePoolDeposit <<< ${protocolParametersJSON})
-				  echo -e "\e[0mPool Deposit Fee: \e[32m ${poolDepositFee} lovelaces \e[90m"
+				  echo -e "\e[0mPool Deposit Fee: \e[32m${poolDepositFee} lovelaces \e[90m"
 				  minRegistrationFees=$(( ${poolDepositFee}+${fee} ))
 				  registrationType="PoolRegistration"
 				  echo
@@ -563,6 +647,7 @@ if [[ "${regSubmitted}" == "" ]]; then   #pool not registered before
 				  echo
 				  else   #pool was registered before -> reregistration -> no poolDepositFee
 				  poolDepositFee=0
+				  echo -e "\e[0mNo Pool Deposit Fee: \e[32mReRegistration (PoolUpdate) \e[90m"
 				  minRegistrationFees=$(( ${poolDepositFee}+${fee} ))
 				  registrationType="PoolReRegistration"
 				  echo
@@ -839,7 +924,6 @@ done
 #Assemble the transaction
 rm ${txFile} 2> /dev/null
 
-#echo -e "\n${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} ${witnessString} --out-file ${txFile}\n"
 ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} ${witnessString} --out-file ${txFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -ne "\e[90m"
@@ -871,32 +955,35 @@ echo -e "\e[0mPool-ID:\e[32m ${poolIDhex} / ${poolIDbech} \e[90m"
 echo
 
 #Show a warning to respect the pledge amount
-if [[ ${poolPledge} -gt 0 ]]; then echo -e "\e[35mATTENTION - You're registered Pledge will be set to ${poolPledge} lovelaces, please respect it with the sum of all registered owner addresses!\e[0m\n"; fi
+if [[ ${poolPledge} -gt 0 ]]; then echo -e "\e[35mATTENTION - You're registered Pledge will be set to $(convertToADA ${poolPledge}) ADA, please respect it with the sum of all registered owner addresses!\e[0m\n"; fi
 
 #Show a message about the registration type
 echo -e "\e[0mThis will be a: \e[32m${regWitnessType}\e[0m\n";
 offlineRegistrationType="${regWitnessType}"; #Just as Type info for the offline file, same as the regWitnessType
 
 if ask "\e[33mDoes this look good for you? Do you have enough pledge in your owner account(s), continue and register on chain ?" N; then
+
         echo
 
-        if ${onlineMode}; then  #onlinesubmit
+        case ${workMode} in
+
+	        "online")
+				#onlinesubmit
 			        echo -ne "\e[0mSubmitting the transaction via the node... "
 			        ${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
-			        #No error, so lets update the pool JSON file with the date and file the certFile was registered on the blockchain
+			        #If no error, update the pool JSON file with the date and file the certFile was registered on the blockchain
 			        if [[ $? -eq 0 ]]; then
-			        file_unlock ${poolFile}.pool.json
-			        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R)\"}" | jq "del (.regWitness)")
-			        echo "${newJSON}" > ${poolFile}.pool.json
-			        file_lock ${poolFile}.pool.json
-			        echo -e "\e[32mDONE\n"
+				        file_unlock ${poolFile}.pool.json
+				        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R)\"}" | jq "del (.regWitness)")
+				        echo "${newJSON}" > ${poolFile}.pool.json
+				        file_lock ${poolFile}.pool.json
+				        echo -e "\e[32mDONE\n"
 
-				#Delete the just used RegistrationCertificat so it can't be submitted again as a mistake, build one again with 05a first
-				file_unlock ${regCertFile}
-				rm ${regCertFile}
-
+					#Delete the just used RegistrationCertificat so it can't be submitted again as a mistake, build one again with 05a first
+					file_unlock ${regCertFile}
+					rm ${regCertFile}
 			        else
-			        echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;
+				        echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;
 			        fi
                                 echo
                                 echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
@@ -908,12 +995,49 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 
+				#Display information to manually register the OwnerDelegationCertificates on the chain if a hardware-wallet is involved. With only cli based staking keys, we can include all the delegation certificates in one transaction
+				if [[ "${regWitnessHardwareWalletIncluded}" == "yes" ]]; then
+				        echo -e "\n\e[33mThere is at least one Hardware-Wallet involved, so you have to register the DelegationCertificate for each Owner in additional transactions after the ${regWitnessType} !\e[0m\n"; fi
+				;;
+
+
+	        "light")
+                                #lightmode submit
+                                showProcessAnimation "Submit-Transaction-LightMode: " &
+                                txID=$(submitLight "${txFile}");
+			        #If no error, update the pool JSON file with the date and file the certFile was registered on the blockchain
+			        if [[ $? -eq 0 ]]; then
+					stopProcessAnimation;
+				        file_unlock ${poolFile}.pool.json
+				        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R)\"}" | jq "del (.regWitness)")
+				        echo "${newJSON}" > ${poolFile}.pool.json
+				        file_lock ${poolFile}.pool.json
+				        echo -e "\e[32mDONE\n"
+
+					#Delete the just used RegistrationCertificat so it can't be submitted again as a mistake, build one again with 05a first
+					file_unlock ${regCertFile}
+					rm ${regCertFile}
+			        else
+					stopProcessAnimation;
+				        echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;
+			        fi
+
+                                echo
+                                echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
+                                cat ${poolFile}.pool.json
+                                echo
+
+                                #Show the TxID
+                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 
 				#Display information to manually register the OwnerDelegationCertificates on the chain if a hardware-wallet is involved. With only cli based staking keys, we can include all the delegation certificates in one transaction
 				if [[ "${regWitnessHardwareWalletIncluded}" == "yes" ]]; then
 				        echo -e "\n\e[33mThere is at least one Hardware-Wallet involved, so you have to register the DelegationCertificate for each Owner in additional transactions after the ${regWitnessType} !\e[0m\n"; fi
+				;;
 
-                          else  #offlinestore
+
+	"offline")
+				#offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)
                                 offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
                                                                         type: \"${offlineRegistrationType}\",
@@ -975,8 +1099,9 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                                  else
                                                         echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
                                 fi
+				;;
 
-        fi
+	esac #workMode
 
 
 else #ask: Does this look good for you? Do you have enough pledge in your owner account(s), continue and register on chain ?

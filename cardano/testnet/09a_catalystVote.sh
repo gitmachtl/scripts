@@ -273,40 +273,17 @@ case ${1,,} in
 			typeOfAddr=$(get_addressType "${rewardsPayoutAddr}"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 			if [[ ! ${typeOfAddr} == ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - \"${rewardsAcct}.addr\" does not contain a valid payment address!\e[0m"; exit 1; fi
 
-                #check if its an root adahandle (without a @ char)
-                elif checkAdaRootHandleFormat "${rewardsAcct}"; then
+		#check if its an adahandle (root/sub/virtual)
+		elif checkAdaHandleFormat "${rewardsAcct}"; then
+
 			addrName=${allParameters[3]}
-                        if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
-                        adahandleName=${addrName,,}
-                        assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
-                        #query classic cip-25 adahandle asset holding address via koios
-                        showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
-                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
-                        stopProcessAnimation;
-                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-	                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then
-                                        #query classic cip-68 adahandle asset holding address via koios
-                                        showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
-                                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=000de140${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
-                                        stopProcessAnimation;
-                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
-                                        assetNameHex="000de140${assetNameHex}"
-                                fi
-                        addrName=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
-                        typeOfAddr=$(get_addressType "${addrName}");
-                        if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${addrName}' is not a valid payment address.\n\e[0m"; exit 1; fi;
-                        showProcessAnimation "Verify Adahandle is on resolved address: " &
-                        utxo=$(${cardanocli} ${cliEra} query utxo --address ${addrName} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
-                                echo -e "\n\e[35mERROR - Resolved address '${addrName}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
-                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${addrName}\e[0m\n"
-			rewardsPayoutAddr=${addrName}
+			adahandleName=${addrName,,}
 
+			#resolve given adahandle into address
+			resolveAdahandle "${adahandleName}" "rewardsPayoutAddr" #if successful, it resolves the adahandle and writes it out into the variable 'rewardsPayoutAddr'. also sets the variable 'utxo' if possible
+			unset utxo
 
-                elif checkAdaSubHandleFormat "${addrName}"; then
-                        echo -e "\n\e[33mINFO - AdaSubHandles are not supported yet.\n\e[0m"; exit 1;
-
+			#resolveAdahandle did not exit with an error, so we resolved it
 
 		else #try it as a direct payment bech address
 			rewardsPayoutAddr=$(trimString "${allParameters[3]}")
@@ -377,8 +354,7 @@ case ${1,,} in
                 done
 
 
-		currentTip=$(get_currentTip) #we use the current slotHeight as the nonce parameter
-		if [ $? -ne 0 ]; then exit $?; fi
+		currentTip=$(get_currentTip); checkError "$?"; #we use the current slotHeight as the nonce parameter
 
 		#add the reward address, nonce and networkmagic to the parameterSet
 		cardanoSignerParameters+="--payment-address ${rewardsPayoutAddr} --nonce ${currentTip} ${magicparam} "
@@ -447,8 +423,7 @@ case ${1,,} in
 
 	                if [ -f "${votingMetaFile}" ]; then #all good
 				echo -e "\e[0mThe Metadata-Registration-CBOR File \"\e[32m${votingMetaFile}\e[0m\" was generated. :-)\n\nYou can now submit it on the chain by including it in a transaction with Script: 01_sendLovelaces.sh\nExample:\e[33m 01_sendLovelaces.sh mywallet mywallet min ${votingMetaFile}\n\e[0m";
-				if checkAdaRootHandleFormat "${rewardsAcct}"; then echo -e "\e[33mBe aware, the rewards address is now fixed. Moving the rootAdaHandle to another address will not change the rewards address!!!\e[0m\n"; fi
-				if checkAdaSubHandleFormat "${rewardsAcct}"; then echo -e "\e[33mBe aware, the rewards address is now fixed. Moving the subAdaHandle to another address will not change the rewards address!!!\e[0m\n"; fi
+				if checkAdaHandleFormat "${rewardsAcct}"; then echo -e "\e[33mBe aware, the rewards address is now fixed. Moving the AdaHandle to another address will not change the rewards address!!!\e[0m\n"; fi
 				echo
 						       else #hmm, something went wrong
 				echo -e "\e[35mError - Something went wrong while generating the \"${votingMetaFile}\" metadata file !\e[0m\n"; exit 1;

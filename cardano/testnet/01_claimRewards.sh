@@ -174,37 +174,17 @@ if [ ! -f "${toAddr}.addr" ]; then
                                 typeOfAddr=$(get_addressType "${toAddr}");
                                 if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo";
 
-                                #check if its an root adahandle (without a @ char)
-                                elif checkAdaRootHandleFormat "${toAddr}"; then
-                                        if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
-                                        adahandleName=${toAddr,,}
-                                        assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
-                                        #query classic cip-25 adahandle asset holding address via koios
-                                        showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
-                                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
-                                        stopProcessAnimation;
-                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then
-                                                #query classic cip-68 adahandle asset holding address via koios
-                                                showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
-                                                response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=000de140${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
-                                                stopProcessAnimation;
-                                                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-                                                if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
-                                                assetNameHex="000de140${assetNameHex}"
-                                        fi
-                                        toAddr=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
-                                        typeOfAddr=$(get_addressType "${toAddr}");
-                                        if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
-                                        showProcessAnimation "Verify Adahandle is on resolved address: " &
-                                        utxo=$(${cardanocli} ${cliEra} query utxo --address ${toAddr} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
-                                                 echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
-                                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m\n"
-                                        echo "$(basename ${toAddr})" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
+                                #check if its an adahandle (root/sub/virtual)
+                                elif checkAdaHandleFormat "${toAddr}"; then
 
-                                elif checkAdaSubHandleFormat "${toAddr}"; then
-                                        echo -e "\n\e[33mINFO - AdaSubHandles are not supported yet.\n\e[0m"; exit 1;
+                                        adahandleName=${toAddr,,}
+
+                                        #resolve given adahandle into address
+                                        resolveAdahandle "${adahandleName}" "toAddr" #if successful, it resolves the adahandle and writes it out into the variable 'toAddr'. also sets the variable 'utxo' if possible
+                                        unset utxo #remove utxo information from the adahandle lookup, because we only use it as a destination target
+
+                                        #resolveAdahandle did not exit with an error, so we resolved it
+                                        echo "${toAddr}" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
 
                                 #otherwise post an error message
                                 else echo -e "\n\e[35mERROR - Destination Address can't be resolved. Maybe filename wrong, or not a payment-address.\n\e[0m"; exit 1;
@@ -262,7 +242,7 @@ echo -e "\e[0mClaim Staking Rewards from Address\e[32m ${stakeAddr}.addr\e[0m to
 echo
 
 #get live values
-currentTip=$(get_currentTip)
+currentTip=$(get_currentTip); checkError "$?";
 ttl=$(( ${currentTip} + ${defTTL} ))
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
@@ -309,7 +289,7 @@ echo
         do
         rewardsAmount=$(jq -r ".[${tmpCnt}].rewardAccountBalance" <<< ${rewardsJSON})
 
-        delegationPoolID=$(jq -r ".[${tmpCnt}].delegation" <<< ${rewardsJSON})
+        delegationPoolID=$(jq -r ".[${tmpCnt}].delegation // .[${tmpCnt}].stakeDelegation" <<< ${rewardsJSON})
 
         rewardsSum=$((${rewardsSum}+${rewardsAmount}))
 
@@ -324,21 +304,37 @@ echo
         if [[ ! ${delegationPoolID} == null ]]; then
                 echo -e "   \tAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m";
 
-                if ${onlineMode}; then
+                if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
+
                         #query poolinfo via poolid on koios
+			errorcnt=0; error=-1;
                         showProcessAnimation "Query Pool-Info via Koios: " &
-                        response=$(curl -s -m 10 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
+        		while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
+                		error=0
+				response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
+                		if [[ $? -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
+                		errorcnt=$(( ${errorcnt} + 1 ))
+        		done
                         stopProcessAnimation;
-                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -eq 1 ]]; then
-                                poolName=$(jq -r ".[0].meta_json.name | select (.!=null)" 2> /dev/null <<< ${response})
-                                poolTicker=$(jq -r ".[0].meta_json.ticker | select (.!=null)" 2> /dev/null <<< ${response})
-                                poolStatus=$(jq -r ".[0].pool_status | select (.!=null)" 2> /dev/null <<< ${response})
-                                echo -e "   \t\e[0mInformation about the Pool: \e[32m${poolName} (${poolTicker})\e[0m"
-                                echo -e "   \t\e[0m                    Status: \e[32m${poolStatus}\e[0m"
-                                echo
-                        fi
-                fi
+
+			#if no error occured, split the response string into JSON content and the HTTP-ResponseCode
+			if [[ ${error} -eq 0 && "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+
+				responseJSON="${BASH_REMATCH[1]}"
+				responseCode="${BASH_REMATCH[2]}"
+
+                        	#if the responseCode is 200 (OK) and the received json only contains one entry in the array (will also not be 1 if not a valid json)
+                        	if [[ ${responseCode} -eq 200 && $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -eq 1 ]]; then
+					{ read poolNameInfo; read poolTickerInfo; read poolStatusInfo; } <<< $(jq -r ".[0].meta_json.name // \"-\", .[0].meta_json.ticker // \"-\", .[0].pool_status // \"-\"" 2> /dev/null <<< ${responseJSON})
+                                	echo -e "   \t\e[0mInformation about the Pool: \e[32m${poolNameInfo} (${poolTickerInfo})\e[0m"
+                                	echo -e "   \t\e[0m                    Status: \e[32m${poolStatusInfo}\e[0m"
+                                	echo
+                        	fi #responseCode & jsoncheck
+
+			fi #error & response
+			unset errorcnt error
+
+		fi #onlineMode & koiosAPI
 
                 else
 
@@ -366,28 +362,26 @@ echo -e "\n--------------------------------------------\n"
 
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in lightmode via API requests, in offlinemode from the transferFile
         case ${workMode} in
-                "online")       if [[ "${utxo}" == "" ]]; then #only query it again if not already queried via an adahandle check before
-                                        #check that the node is fully synced, otherwise the query would mabye return a false state
-                                        if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
-                                        showProcessAnimation "Query-UTXO: " &
-                                        utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} 2> /dev/stdout);
-                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-                                        if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
-                                        if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
-                                        if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
-                                fi
+                "online")
+				#check that the node is fully synced, otherwise the query would mabye return a false state
+                                if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
+                                showProcessAnimation "Query-UTXO: " &
+                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} 2> /dev/stdout);
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
+                                if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
+                                if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
                                 ;;
 
-                "light")        if [[ "${utxo}" == "" ]]; then #only query it again if not already queried via an adahandle check before
-                                        showProcessAnimation "Query-UTXO-LightMode: " &
-                                        utxo=$(queryLight_UTXO "${sendFromAddr}");
-                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-                                        if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
-                                        if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
-                                        if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
-                                fi
+                "light")
+                                showProcessAnimation "Query-UTXO-LightMode: " &
+                                utxo=$(queryLight_UTXO "${sendFromAddr}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
+                                if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
+                                if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
                                 ;;
@@ -458,8 +452,20 @@ echo -e "\n--------------------------------------------\n"
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
-                                case ${assetHash} in
-                                        "${adahandlePolicyID}" )      #$adahandle
+                                case "${assetHash}${assetTmpName:1:8}" in
+                                        "${adahandlePolicyID}000de140" )        #$adahandle cip-68
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Own): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}00000000" )        #$adahandle virtual
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Vir): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}000643b0" )        #$adahandle reference
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Ref): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}"* )               #$adahandle cip-25
                                                 echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default

@@ -52,14 +52,11 @@ fromAddr="$(dirname $2)/$(basename $2 .addr)"; fromAddr=${fromAddr/#.\//};
 
 #Check about required files: Registration Certificate, Signing Key and Address of the payment Account
 #For StakeKeyRegistration
-if [ ! -f "${stakeAddr}.cert" ]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.cert\" Registration Certificate does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
 if [ ! -f "${stakeAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.addr\" Stake Address file does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
 if ! [[ -f "${stakeAddr}.skey" || -f "${stakeAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${stakeAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a.\n\e[0m"; exit 1; fi
 #For payment
 if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
 if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-
-
 
 
 #Setting default variables
@@ -152,25 +149,23 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
 
 fi
 
-
-
+#----------------------------------------------------
 
 echo
-echo -e "\e[0mRegister Staking Address\e[32m ${stakeAddr}.addr\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
+echo -e "\e[0mRegister Stake Address\e[32m ${stakeAddr}.addr\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
 echo
 
 checkAddr=$(cat ${stakeAddr}.addr)
 typeOfAddr=$(get_addressType "${checkAddr}")
 
 #Do a check that the given address is really a Stake Address
-if [[ ! ${typeOfAddr} == ${addrTypeStake} ]]; then echo -e "\e[35mERROR: Given Staking Address (${checkAddr}) is not a valid Stake Address !\e[0m\n"; exit 2; fi
+if [[ ! ${typeOfAddr} == ${addrTypeStake} ]]; then echo -e "\e[35mERROR: Given Stake Address (${checkAddr}) is not a valid Stake Address !\e[0m\n"; exit 2; fi
 
 
-#If in online/light mode, do a check it the StakeKey is already registered on the chain
+#If in online/light mode, do a check if the StakeKey is already registered on the chain
 if ${onlineMode}; then
 
-        echo -e "\e[0mChecking current ChainStatus of Stake-Address: ${checkAddr}"
-        echo
+        echo -e "\e[0mChecking current ChainStatus of Stake-Address:\e[32m ${checkAddr}\e[0m"
 
 	#Get rewards state data for the address. When in online mode of course from the node and the chain, in light mode via koios
         case ${workMode} in
@@ -188,45 +183,106 @@ if ${onlineMode}; then
 
         esac
 
-        rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
+        { read rewardsEntryCnt; read delegationPoolID; } <<< $(jq -r 'length, .[0].delegation // .[0].stakeDelegation' <<< ${rewardsJSON})
 
         #Checking about the content
         if [[ ${rewardsEntryCnt} == 0 ]]; then #not registered yet
-		echo -e "\e[0mStaking Address is NOT on the chain, we will continue to register it ...\e[0m\n";
-		else #already registered
-			echo -e "\e[33mStaking Address is already registered on the chain !\e[0m\n"
 
-		        delegationPoolID=$(jq -r ".[0].delegation" <<< ${rewardsJSON})
+		echo -e "\e[0mStake Address is NOT on the chain, we will continue to register it ...\e[0m\n";
+
+		else #already registered
+
+			echo -e "\e[33mStake Address is already registered on the chain !\e[0m\n"
 
 		        #If delegated to a pool, show the current pool ID
 		        if [[ ! ${delegationPoolID} == null ]]; then
-		                echo -e "   \tAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m";
-	                        #query poolinfo via poolid on koios
-	                        showProcessAnimation "Query Pool-Info via Koios: " &
-	                        response=$(curl -s -m 10 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
-	                        stopProcessAnimation;
-	                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-	                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -eq 1 ]]; then
-	                                poolName=$(jq -r ".[0].meta_json.name | select (.!=null)" 2> /dev/null <<< ${response})
-	                                poolTicker=$(jq -r ".[0].meta_json.ticker | select (.!=null)" 2> /dev/null <<< ${response})
-	                                poolStatus=$(jq -r ".[0].pool_status | select (.!=null)" 2> /dev/null <<< ${response})
-	                                echo -e "   \t\e[0mInformation about the Pool: \e[32m${poolName} (${poolTicker})\e[0m"
-	                                echo -e "   \t\e[0m                    Status: \e[32m${poolStatus}\e[0m"
-	                                echo
-	                        fi
+
+		                echo -e "Account is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m";
+
+		                if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
+
+ 		                       #query poolinfo via poolid on koios
+ 		                       errorcnt=0; error=-1;
+ 		                       showProcessAnimation "Query Pool-Info via Koios: " &
+ 		                       while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
+  		                              error=0
+					        response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
+		                                if [[ $? -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
+	                                errorcnt=$(( ${errorcnt} + 1 ))
+		                        done
+		                        stopProcessAnimation;
+
+		                        #if no error occured, split the response string into JSON content and the HTTP-ResponseCode
+		                        if [[ ${error} -eq 0 && "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+
+		                                responseJSON="${BASH_REMATCH[1]}"
+		                                responseCode="${BASH_REMATCH[2]}"
+
+		                                #if the responseCode is 200 (OK) and the received json only contains one entry in the array (will also not be 1 if not a valid json)
+		                                if [[ ${responseCode} -eq 200 && $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -eq 1 ]]; then
+				                        { read poolNameInfo; read poolTickerInfo; read poolStatusInfo; } <<< $(jq -r ".[0].meta_json.name // \"-\", .[0].meta_json.ticker // \"-\", .[0].pool_status // \"-\"" 2> /dev/null <<< ${responseJSON})
+		                                        echo -e "   \t\e[0mInformation about the Pool: \e[32m${poolNameInfo} (${poolTickerInfo})\e[0m"
+		                                        echo -e "   \t\e[0m                    Status: \e[32m${poolStatusInfo}\e[0m"
+		                                        echo
+							unset poolNameInfo poolTickerInfo poolStatusInfo
+		                                fi #responseCode & jsoncheck
+
+		                        fi #error & response
+		                        unset errorcnt error
+
+                		fi #onlineMode & koiosAPI
+
 	                else
-		                echo -e "   \tAccount is not delegated to a Pool !";
+		                echo -e "\e[0mAccount is not delegated to a Pool !\n";
 			fi
 
 			exit #because already registered
+
         fi ## ${rewardsEntryCnt} == 0
 
 fi ## ${onlineMode} == true
 
 
-#get values to register the staking address on the blockchain
+#Read ProtocolParameters
+case ${workMode} in
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
+        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+        "offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+			protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+esac
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+#Lets use the currently set keyDeposit amount
+stakeAddressDepositFee=$(jq -r .stakeAddressDeposit <<< ${protocolParametersJSON})
+
+#generate the certificate depending on the era with/without the --key-reg-deposit-amt parameter
+case ${cliEra} in
+
+        "babbage"|"alonzo"|"mary"|"allegra"|"shelley")
+                echo -e "\e[0mGenerate Registration-Certificate in ${cliEra} format ...\e[0m\n"
+		regCert=$(${cardanocli} ${cliEra} stake-address registration-certificate --stake-address "${checkAddr}" --out-file /dev/stdout 2> /dev/null)
+                ;;
+
+        *) #conway and later
+		echo -e "\e[0mGenerate Registration-Certificate with the currently set deposit fee:\e[32m ${stakeAddressDepositFee} lovelaces\e[0m\n"
+		regCert=$(${cardanocli} ${cliEra} stake-address registration-certificate --stake-address "${checkAddr}" --key-reg-deposit-amt "${stakeAddressDepositFee}" --out-file /dev/stdout 2> /dev/null)
+                ;;
+
+esac
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+file_unlock "${stakeAddr}.cert"
+echo -e "${regCert}" > "${stakeAddr}.cert" 2> /dev/null
+if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not write out the certificate file ${stakeAddr}.cert !\n\e[0m"; exit 1; fi
+file_lock "${stakeAddr}.cert"
+unset regCert
+
+echo -e "\e[0mStake Address Registration-Certificate built:\e[32m ${stakeAddr}.cert \e[90m"
+cat "${stakeAddr}.cert"
+
+echo -e "\e[0m"
+
 #get live values
-currentTip=$(get_currentTip)
+currentTip=$(get_currentTip); checkError "$?";
 ttl=$(( ${currentTip} + ${defTTL} ))
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
@@ -329,8 +385,20 @@ echo
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
-                                case ${assetHash} in
-                                        "${adahandlePolicyID}" )      #$adahandle
+                                case "${assetHash}${assetTmpName:1:8}" in
+                                        "${adahandlePolicyID}000de140" )        #$adahandle cip-68
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Own): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}00000000" )        #$adahandle virtual
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Vir): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}000643b0" )        #$adahandle reference
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Ref): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}"* )               #$adahandle cip-25
                                                 echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default
@@ -396,17 +464,12 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
 	echo -e "\e[0mInclude Transaction-Message-Metadata-File:\e[32m ${transactionMessageMetadataFile}\n\e[90m"; cat ${transactionMessageMetadataFile}; echo -e "\e[0m";
 fi
 
-#Read ProtocolParameters
-case ${workMode} in
-        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
-        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
-        "offline")      protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
-esac
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
-minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
 
 #----------------------------------------------------
+
+#get values to register the staking address on the blockchain
+minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
+
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"; rm ${txBodyFile} 2> /dev/null
@@ -419,16 +482,17 @@ fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txB
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
-stakeAddressDepositFee=$(jq -r .stakeAddressDeposit <<< ${protocolParametersJSON})
+echo
 echo -e "\e[0mStake Address Deposit Fee: \e[32m ${stakeAddressDepositFee} lovelaces \e[90m"
-minRegistrationFund=$(( ${stakeAddressDepositFee}+${fee} ))
+
+minRegistrationFund=$(( ${stakeAddressDepositFee}+${fee}+${minOutUTXO} ))
 
 echo
 echo -e "\e[0mMimimum funds required for registration (Sum of fees): \e[32m ${minRegistrationFund} lovelaces \e[90m"
 echo
 
 #calculate new balance for destination address
-lovelacesToSend=$(( ${totalLovelaces}-${minRegistrationFund} ))
+lovelacesToSend=$(( ${totalLovelaces}-${fee}-${stakeAddressDepositFee} ))
 
 echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
 echo

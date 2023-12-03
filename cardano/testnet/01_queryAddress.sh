@@ -17,78 +17,19 @@ if [ ! -f "${addrName}.addr" ]; then
                                 typeOfAddr=$(get_addressType "${addrName}");
                                 if [[ ${typeOfAddr} == ${addrTypePayment} || ${typeOfAddr} == ${addrTypeStake} ]]; then echo "$(basename ${addrName})" > ${tempDir}/tempAddr.addr; addrName="${tempDir}/tempAddr";
 
-                                #check if its an root adahandle (without a @ char)
-                                elif checkAdaRootHandleFormat "${addrName}"; then
-                                        if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in online & light mode.\n\e[0m"; exit 1; fi
+                                #check if its an adahandle (root/sub/virtual)
+                                elif checkAdaHandleFormat "${addrName}"; then
+
                                         adahandleName=${addrName,,}
-                                        assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
-                                        #query classic cip-25 adahandle asset holding address via koios
-                                        showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
-                                        response=$(curl -sL -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
-                                        stopProcessAnimation;
-                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then
-	                                        #query classic cip-68 adahandle asset holding address via koios
-	                                        showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
-	                                        response=$(curl -sL -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=000de140${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
-	                                        stopProcessAnimation;
-	                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-	                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[33mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
-						assetNameHex="000de140${assetNameHex}"
-					fi
-                                        addrName=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
-                                        typeOfAddr=$(get_addressType "${addrName}");
-                                        if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${addrName}' is not a valid payment address.\n\e[0m"; exit 1; fi;
-					#check that the node is fully synced, otherwise the query would mabye return a false state
-					if [[ ${fullMode} == true && $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
 
-                                        showProcessAnimation "Verify Adahandle is on resolved address: " &
-					case ${workMode} in
-						"online")	utxo=$(${cardanocli} ${cliEra} query utxo --address ${addrName} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;;
-						"light")	utxo=$(queryLight_UTXO "${addrName}"); if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;;
-					esac
+					#resolve given adahandle into address
+					resolveAdahandle "${adahandleName}" "addrName" #if successful, it resolves the adahandle and writes it out into the variable 'addrName'. also sets the variable 'utxo' if possible
 
-                                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
-                                                 echo -e "\n\e[35mERROR - Resolved address '${addrName}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
-                                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${addrName}\e[0m\n"
+					#resolveAdahandle did not exit with an error, so we resolved it
                                         echo "${addrName}" > ${tempDir}/adahandle-resolve.addr; addrName="${tempDir}/adahandle-resolve";
-
-                                elif checkAdaSubHandleFormat "${addrName}"; then
-                                        if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in online & light mode.\n\e[0m"; exit 1; fi
-
-#					addrName='$test'
-
-                                        adahandleName=${addrName,,}; #convert given handle to lower case
-
-					#query virtual subHandle via adahandleAPI
-					if [[ "${adahandleAPI}" == "" ]]; then echo -e "\n\e[33mERROR - There is no Adahandle-API available for this network.\n\e[0m"; exit 1; fi
-                                        showProcessAnimation "Query virtual Adahandle via the Adahandle-API (${adahandleAPI}): " &
-					response=$(curl -sL -m 10 -X GET -H "Accept: application/json" -w "---spo-scripts---%{http_code}" "${adahandleAPI}/handles/${adahandleName:1}" 2> /dev/null)
-					if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\n\e[35mERROR - Query via Adahandle-API (${adahandleAPI}) failed.\n\e[0m"; exit 1; else stopProcessAnimation; fi;
-					responseCode=${response#*---spo-scripts---}
-					responseJSON=${response%---spo-scripts---*}
-					#Check the responseCode
-					case ${responseCode} in
-						"200" ) ;; #all good, continue
-						"202" )	echo -e "\n\e[33mAdahandle was found, but the API sync is not on tip with the network status. Please try again later.\n\e[0m"; exit 1;;
-						"404" )	echo -e "\n\e[33mAdahandle '${adahandleName}' was not found, cannot resolve it to an address.\n\e[0m"; exit 1;;
-						* )	echo -e "\n\e[33m$(jq -r .message <<< ${responseJSON})\nAdahandle-API response code: ${responseCode}";
-							echo -e "\nIf you think this is an issue, please report this via the SPO-Scripts Github-Repository https://github.com/gitmachtl/scripts\n\e[0m"; exit 1;;
-					esac;
-					#query was successful, get the address
-                                        addrName=$(jq -r ".\"resolved_addresses\".ada" <<< ${responseJSON} 2> /dev/null)
-					if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - The received data from the Adahandle-API is not a valid JSON.\n\e[0m"; exit 1; fi;
-                                        typeOfAddr=$(get_addressType "${addrName}");
-                                        if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${addrName}' is not a valid payment address.\n\e[0m"; exit 1; fi;
-                                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${addrName}\n\n\e[33mThis is a virtual \$adahandle, the scripts cannot verify it on an UTXO.\e[0m\n"
-                                        echo "${addrName}" > ${tempDir}/adahandle-resolve.addr; addrName="${tempDir}/adahandle-resolve";
-
-
-
 
                                 #otherwise post an error message
-                                else echo -e "\n\e[35mERROR - Destination Address can't be resolved. Maybe filename wrong, or not a payment-address.\n\e[0m"; exit 1;
-
+                                else echo -e "\n\e[35mERROR - Destination Address can't be resolved. Maybe filename wrong, or not a payment- or stake-address.\n\e[0m"; exit 1;
                                 fi
 fi
 
@@ -206,11 +147,9 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 						assetName=${assetName:8};
 						echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Ref): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
 						;;
-
 					"${adahandlePolicyID}"* )		#$adahandle cip-25
 						echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
 						;;
-
 					* ) #default
 		        	                echo -e "\e[90m                           Asset: ${assetBech}  Amount: ${assetAmount} ${assetTmpName}\e[0m"
 						;;
@@ -301,7 +240,7 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
         rewardsAmount=$(jq -r ".[${tmpCnt}].rewardAccountBalance" <<< ${rewardsJSON})
 	rewardsAmountInADA=$(bc <<< "scale=6; ${rewardsAmount} / 1000000")
 
-        delegationPoolID=$(jq -r ".[${tmpCnt}].delegation" <<< ${rewardsJSON})
+        delegationPoolID=$(jq -r ".[${tmpCnt}].delegation // .[${tmpCnt}].stakeDelegation" <<< ${rewardsJSON})
 
         rewardsSum=$((${rewardsSum}+${rewardsAmount}))
 	rewardsSumInADA=$(bc <<< "scale=6; ${rewardsSum} / 1000000")
@@ -317,21 +256,38 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
         if [[ ! ${delegationPoolID} == null ]]; then
 		echo -e "   \tAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m";
 
-		if ${onlineMode}; then
-	                #query poolinfo via poolid on koios
-	                showProcessAnimation "Query Pool-Info via Koios: " &
-	                response=$(curl -s -m 10 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
-	                stopProcessAnimation;
-	                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-	                if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -eq 1 ]]; then
-	                        poolName=$(jq -r ".[0].meta_json.name | select (.!=null)" 2> /dev/null <<< ${response})
-	                        poolTicker=$(jq -r ".[0].meta_json.ticker | select (.!=null)" 2> /dev/null <<< ${response})
-	                        poolStatus=$(jq -r ".[0].pool_status | select (.!=null)" 2> /dev/null <<< ${response})
-	                        echo -e "   \t\e[0mInformation about the Pool: \e[32m${poolName} (${poolTicker})\e[0m"
-	                        echo -e "   \t\e[0m                    Status: \e[32m${poolStatus}\e[0m"
-	                        echo
-	                fi
-		fi
+                if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
+
+                        #query poolinfo via poolid on koios
+                        errorcnt=0; error=-1;
+                        showProcessAnimation "Query Pool-Info via Koios: " &
+                        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
+                                error=0
+			        response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
+                                if [[ $? -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
+                                errorcnt=$(( ${errorcnt} + 1 ))
+                        done
+                        stopProcessAnimation;
+
+                        #if no error occured, split the response string into JSON content and the HTTP-ResponseCode
+                        if [[ ${error} -eq 0 && "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+
+                                responseJSON="${BASH_REMATCH[1]}"
+                                responseCode="${BASH_REMATCH[2]}"
+
+                                #if the responseCode is 200 (OK) and the received json only contains one entry in the array (will also not be 1 if not a valid json)
+                                if [[ ${responseCode} -eq 200 && $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -eq 1 ]]; then
+		                        { read poolNameInfo; read poolTickerInfo; read poolStatusInfo; } <<< $(jq -r ".[0].meta_json.name // \"-\", .[0].meta_json.ticker // \"-\", .[0].pool_status // \"-\"" 2> /dev/null <<< ${responseJSON})
+                                        echo -e "   \t\e[0mInformation about the Pool: \e[32m${poolNameInfo} (${poolTickerInfo})\e[0m"
+                                        echo -e "   \t\e[0m                    Status: \e[32m${poolStatusInfo}\e[0m"
+                                        echo
+					unset poolNameInfo poolTickerInfo poolStatusInfo
+                                fi #responseCode & jsoncheck
+
+                        fi #error & response
+                        unset errorcnt error
+
+                fi #onlineMode & koiosAPI
 
 		else
 

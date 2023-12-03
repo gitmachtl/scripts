@@ -167,7 +167,7 @@ policyKeyHASH=$(${cardanocli} ${cliEra} address key-hash --payment-verification-
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 
-currentTip=$(get_currentTip)
+currentTip=$(get_currentTip); checkError "$?";
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m"
 echo -e "\e[0mPolicy invalid after Slot-Height:\e[33m ${validBefore}\e[0m"
 echo
@@ -184,14 +184,18 @@ cat ${policyName}.policy.script | jq
 echo
 
 if [[ "${keyType^^}" == "CLI" || "${keyType^^}" == "ENC" ]]; then #generate the policyID via cli command
+
 				policyID=$(${cardanocli} ${cliEra} transaction policyid --script-file ${policyName}.policy.script)
+
 				else #show it via the hw-wallet. not really needed but a nice feature to also show the invalid hereafter value if present
-				echo -e "\e[0mGeneration the PolicyID via the HW-Wallet GUI ... \n"
-				start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-				tmp=$(${cardanohwcli} transaction policyid --script-file ${policyName}.policy.script --hw-signing-file ${policyName}.policy.hwsfile 2> /dev/stdout)
-				if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
-				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-				policyID=${tmp}
+
+					echo -e "\e[0mGeneration the PolicyID via the HW-Wallet GUI ... \n"
+					start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+					tmp=$(${cardanohwcli} transaction policyid --script-file ${policyName}.policy.script --hw-signing-file ${policyName}.policy.hwsfile 2> /dev/stdout)
+					if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
+					checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+					policyID=${tmp}
+
 fi
 
 echo -e "${policyID}" > ${policyName}.policy.id

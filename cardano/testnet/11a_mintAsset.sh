@@ -169,7 +169,7 @@ assetMintSubject="${policyID}${assetMintName}" #assetMintName already in HEX-For
 echo -e "\e[0mMinting Asset \e[32m${assetMintAmount} '${assetMintInputName}' -> '$(convert_assetNameHEX2ASCII_ifpossible ${assetMintName})'\e[0m with Policy \e[32m'${policyName}'\e[0m: ${assetMintBech}"
 
 #get live values
-currentTip=$(get_currentTip);
+currentTip=$(get_currentTip); checkError "$?";
 
 #set timetolife (inherent hereafter) to the currentTTL or to the value set in the policy.script for the "before" slot (limited policy lifespan)
 ttlFromScript=$(cat ${policyName}.policy.script | jq -r ".scripts[] | select(.type == \"before\") | .slot" 2> /dev/null || echo "unlimited")
@@ -193,18 +193,33 @@ echo
 #
 # Checking UTXO Data of the source address and gathering data about total lovelaces and total assets
 #
-        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
-        if ${onlineMode}; then
+
+        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in lightmode via API requests, in offlinemode from the transferFile
+        case ${workMode} in
+                "online")
+                                #check that the node is fully synced, otherwise the query would mabye return a false state
+                                if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
                                 showProcessAnimation "Query-UTXO: " &
-                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} 2> /dev/stdout);
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
-                                #utxoJSON=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                          else
-                                readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
-                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
+                                ;;
+
+                "light")
+                                showProcessAnimation "Query-UTXO-LightMode: " &
+                                utxo=$(queryLight_UTXO "${sendFromAddr}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                showProcessAnimation "Convert-UTXO: " &
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
+                                ;;
+
+
+                "offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON} 2> /dev/null)
                                 if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
-        fi
+                                ;;
+        esac
 
         #Only use UTXOs specified in the extra parameter if present
         if [[ ! "${filterForUTXO}" == "" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly using the UTXO with Hash ${filterForUTXO}\e[0m\n"; utxoJSON=$(filterFor_UTXO "${utxoJSON}" "${filterForUTXO}"); fi
@@ -276,8 +291,20 @@ echo
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
-                                case ${assetHash} in
-                                        "${adahandlePolicyID}" )      #$adahandle
+                                case "${assetHash}${assetTmpName:1:8}" in
+                                        "${adahandlePolicyID}000de140" )        #$adahandle cip-68
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Own): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}00000000" )        #$adahandle virtual
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Vir): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}000643b0" )        #$adahandle reference
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Ref): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}"* )               #$adahandle cip-25
                                                 echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default
@@ -345,11 +372,11 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
 fi
 
 #Read ProtocolParameters
-if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters ); #onlinemode
-                  else
-                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
-                  fi
+case ${workMode} in
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
+        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+        "offline")      protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+esac
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
@@ -473,8 +500,11 @@ if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSi
 
 #if ask "\e[33mDoes this look good for you, continue ?" N; then
 if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you, continue ?" N; then
+
         echo
-        if ${onlineMode}; then  #onlinesubmit
+        case ${workMode} in
+        "online")
+                                #onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node... "
                                 ${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -511,11 +541,63 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
 				#Combine the Skeleton with the real one
 				assetFileJSON=$(echo "${assetFileSkeletonJSON} ${assetFileJSON}" | jq -rs 'reduce .[] as $item ({}; . * $item)')
 
+			        oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
+			        newValue=$(bc <<< "${oldValue} + ${assetMintAmount}")
+			        assetFileJSON=$( jq ". += {minted: \"${newValue}\",
+                                                           name: \"${assetTmpName}\",
+							   hexname: \"${assetHexMintName}\",
+                                                           bechName: \"${assetMintBech}\",
+                                                           policyID: \"${policyID}\",
+                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
+                                                           subject: \"${assetMintSubject}\",
+                                                           lastUpdate: \"$(date -R)\",
+                                                           lastAction: \"mint ${assetMintAmount}\"}" <<< ${assetFileJSON})
 
-#Currently disabled by IOHK
-#                                                                                         metaSubUnitDecimals: 0,
-#                                                                                         metaSubUnitName: \"\",
+			        file_unlock ${assetFileName}
+			        echo -e "${assetFileJSON}" > ${assetFileName}
+			        file_lock ${assetFileName}
 
+			        echo -e "\e[0mAsset-File: \e[32m ${assetFileName} \e[90m\n"
+			        cat ${assetFileName}
+			        echo
+				;;
+
+
+        "light")
+                                #lightmode submit
+                                showProcessAnimation "Submit-Transaction-LightMode: " &
+                                txID=$(submitLight "${txFile}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                echo -e "\e[0mSubmit-Transaction-LightMode: \e[32mDONE\n"
+
+                                #Show the TxID
+                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+
+				assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible ${assetMintName}); if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; fi
+
+			        #Updating the ${policyName}.${assetMintInputName}.asset json
+			        assetFileName="${policyName}.${assetMintInputName}.asset"
+
+				#Make assetFileSkeleton
+                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetTmpName:0:50}\",
+                                                                  metaDescription: \"\",
+                                                                  \"---\": \"--- Optional additional info ---\",
+                                                                  metaTicker: \"\",
+                                                                  metaUrl: \"\",
+                                                                  metaDecimals: \"0\",
+                                                                  metaLogoPNG: \"\",
+                                                                  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
+                                                                  minted: \"0\"}" <<< "{}")
+
+
+				#If there is no assetFileName file, create one
+			        if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi
+
+				#Read in the current file
+				assetFileJSON=$(cat ${assetFileName})
+
+				#Combine the Skeleton with the real one
+				assetFileJSON=$(echo "${assetFileSkeletonJSON} ${assetFileJSON}" | jq -rs 'reduce .[] as $item ({}; . * $item)')
 
 			        oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
 			        newValue=$(bc <<< "${oldValue} + ${assetMintAmount}")
@@ -536,8 +618,11 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
 			        echo -e "\e[0mAsset-File: \e[32m ${assetFileName} \e[90m\n"
 			        cat ${assetFileName}
 			        echo
+				;;
 
-                          else  #offlinestore
+
+	"offline")
+                          	#offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)
                                 offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
                                                                         type: \"Asset-Minting\",
@@ -550,7 +635,6 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
                                 #Write the new offileFile content
                                 offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"minted ${assetMintAmount} '${assetMintInputName}' on '${fromAddr}'\" } ]" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
-                                offlineJSON=$( jq ".general += {offlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
                                 echo "${offlineJSON}" > ${offlineFile}
                                 #Readback the tx content and compare it to the current one
                                 readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
@@ -606,9 +690,11 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
 
                                                  else
                                                         echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
-                                fi
 
-        fi
+                                fi #"${txFileJSON}"=="${readback}"
+				;;
+	esac
+
 fi
 
 echo -e "\e[0m\n"

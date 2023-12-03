@@ -137,48 +137,94 @@ fi
 if [[ "${checkSource}" == "localFile" ]]; then
 
 
+#Check agains chaindata not possible in offline mode
+if ${offlineMode}; then	echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to run this script for a check against the chain-data!\e[0m\n"; exit 1; fi
+
 #Node must be fully synced for the online query of the OpCertCounter, show info if starting in offline mode
-if ${onlineMode}; then
+if ${fullMode}; then
 	#check that the node is fully synced, otherwise the opcertcounter query could return a false state
 	if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced !\e[0m\n"; exit 2; fi
-else
-#Check can only be done in online mode
-	echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1;
 fi
 
 
 echo -e "\e[0mChecking OpCertFile \e[32m${opCertFile}\e[0m for the correct OpCertCounter and KES-Interval:"
 echo
 
-#Dynamic
-currentTimeSec=$(date -u +%s)                                           #In Secs(abs)
-currentSlot=$(get_currentTip)
-currentEPOCH=$(get_currentEpoch)
-maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
+#Dynamic + Static
+currentSlot=$(get_currentTip); checkError "$?";
+currentEPOCH=$(get_currentEpoch); checkError "$?";
 
-#Static
-slotLength=$(cat ${genesisfile} | jq -r .slotLength)                    #In Secs
-slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)      #Number
+#Check presence of the genesisfile (shelley)
+if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+{ read slotLength; read slotsPerKESPeriod; read maxKESEvolutions; } <<< $(jq -r ".slotLength // \"null\", .slotsPerKESPeriod // \"null\", .maxKESEvolutions // \"null\"" < ${genesisfile} 2> /dev/null)
 
 #Calculating KES period
 currentKESperiod=$(( ${currentSlot} / (${slotsPerKESPeriod}*${slotLength}) ))
 if [[ "${currentKESperiod}" -lt 0 ]]; then currentKESperiod=0; fi
 
-echo -e "\e[0mCurrent EPOCH:\e[32m ${currentEPOCH}\e[0m"
+case ${workMode} in
+
+        "online")
+                echo -e "\e[0mChecking operational certificate \e[32m${opCertFile}\e[0m for the right OpCertCounter:"
+                echo
+
+                #check that the node is fully synced, otherwise the opcertcounter query could return a false state
+                if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced !\e[0m\n"; exit 2; fi
+
+                #query the current opcertstate from the local node
+                queryFile="${tempDir}/opcert.query"
+                rm ${queryFile} 2> /dev/null
+                tmp=$(${cardanocli} ${cliEra} query kes-period-info --op-cert-file ${opCertFile} --out-file ${queryFile} 2> /dev/stdout);
+                if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't query the onChain OpCertCounter state !\n${tmp}\e[0m"; echo; exit 2; fi
+
+                onChainOpcertCount=$(jq -r ".qKesNodeStateOperationalCertificateNumber | select (.!=null)" 2> /dev/null ${queryFile}); if [[ ${onChainOpcertCount} == "" ]]; then onChainOpcertCount=-1; fi #if there is none, set it to -1
+                onDiskOpcertCount=$(jq -r ".qKesOnDiskOperationalCertificateNumber | select (.!=null)" 2> /dev/null ${queryFile});
+		onDiskKESStart=$(jq -r ".qKesStartKesInterval | select (.!=null)" 2> /dev/null ${queryFile});
+                rm ${queryFile} 2> /dev/null
+
+                echo -e "\e[0mThe last known OpCertCounter on the chain is: \e[32m${onChainOpcertCount//-1/not used yet}\e[0m"
+                ;;
+
+        "light")
+                #query the current opcertstate via online api
+
+                #lets read out the onDiscOpcertNumber directly from the opcert file
+                cborHex=$(jq -r ".cborHex" "${opCertFile}" 2> /dev/null);
+                if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't read the opcert file '${opCertFile}' !\e[0m"; echo; exit 2; fi
+                onDiskOpcertCount=$(int_from_cbor "${cborHex:72}") #opcert counter starts at index 72, lets decode the unsigned integer number
+                if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't decode opcert counter from file '${opCertFile}' !\e[0m"; echo; exit 2; fi
+		onDiskKESStart=$(int_from_cbor "${cborHex:72}" 1) #kes start counter is the next number after the opcert number, so lets skip 1 number
+		#get the pool id from the node vkey information within the opcert file
+		poolID=$(xxd -r -ps <<< ${cborHex: -64} | b2sum -l 224 -b | cut -d' ' -f 1 | ${bech32_bin} "pool")
+
+                echo -e "\e[0mChecking the OpCertCounter for the Pool-ID \e[32m${poolID}\e[0m via ${koiosAPI}:"
+                echo
+                #query poolinfo via poolid on koios
+                showProcessAnimation "Query Pool-Info via Koios: " &
+                response=$(curl -sL -m 30 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolID}\"]}" 2> /dev/null)
+                stopProcessAnimation;
+                tmp=$(jq -r . <<< ${response}); if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Koios API request sent not back a valid JSON !\e[0m"; echo; exit 2; fi
+                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+                if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -eq 1 ]]; then
+                        onChainOpcertCount=$(jq -r ".[0].op_cert_counter | select (.!=null)" 2> /dev/null <<< ${response})
+                        poolName=$(jq -r ".[0].meta_json.name | select (.!=null)" 2> /dev/null <<< ${response})
+                        poolTicker=$(jq -r ".[0].meta_json.ticker | select (.!=null)" 2> /dev/null <<< ${response})
+                        echo -e "\e[0mGot the information back for the Pool: \e[32m${poolName} (${poolTicker})\e[0m"
+                        echo
+                        echo -e "\e[0mThe last known OpCertCounter on the chain is: \e[32m${onChainOpcertCount}\e[0m"
+                else
+                        echo -e "\e[0mThere is no information available from the chain about the OpCertCounter. Looks like the pool has not made a block yet.\nSo we are going with a next counter of \e[33m0\e[0m"
+                        onChainOpcertCount=-1 #if there is none, set it to -1
+                fi
+
+                ;;
+
+        *)      exit;;
+
+        esac
+
 echo
-
-#query the current opcertstate from the chain
-queryFile="${tempDir}/${nodeName}.query"
-rm ${queryFile} 2> /dev/null
-
-showProcessAnimation "Query operational certificate for the right values: " &
-tmp=$(${cardanocli} query kes-period-info ${magicparam} --op-cert-file ${opCertFile} --out-file ${queryFile} 2> /dev/null);
-stopProcessAnimation;
-if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't query the onChain OpCertCounter state !\e[0m"; echo; exit 2; fi
-onChainOpcertCount=$(jq -r ".qKesNodeStateOperationalCertificateNumber | select (.!=null)" 2> /dev/null ${queryFile}); if [[ ${onChainOpcertCount} == "" ]]; then onChainOpcertCount=-1; fi #if there is none, set it to -1
-onDiskOpcertCount=$(jq -r ".qKesOnDiskOperationalCertificateNumber | select (.!=null)" 2> /dev/null ${queryFile});
-onDiskKESStart=$(jq -r ".qKesStartKesInterval | select (.!=null)" 2> /dev/null ${queryFile});
-rm ${queryFile} 2> /dev/null
+echo -e "\e[0mCurrent EPOCH:\e[32m ${currentEPOCH}\e[0m"
 echo
 
 #Verifying right KES Interval
@@ -294,15 +340,15 @@ fi ##### Checking against a local OpCert File
 ####
 if [[ "${checkSource}" == "poolID" ]]; then
 
-#Only possible in onlineMode -> KOIOS request
-if ${offlineMode}; then	echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; fi
+#Check agains chaindata not possible in offline mode
+if ${offlineMode}; then	echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to run this script for a check against the chain-data!\e[0m\n"; exit 1; fi
 
 echo -e "\e[0mChecking the OpCertCounter for the Pool-ID \e[32m${poolID}\e[0m via ${koiosAPI}:"
 echo
 
 #query poolinfo via poolid on koios
 showProcessAnimation "Query Pool-Info via Koios: " &
-response=$(curl -s -m 10 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolID}\"]}" 2> /dev/null)
+response=$(curl -sL -m 30 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolID}\"]}" 2> /dev/null)
 stopProcessAnimation;
 #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
 if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not query the information via Koios, maybe pool not registered yet.\n\nResponse was: ${response}\n\e[0m"; exit 1; fi

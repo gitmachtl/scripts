@@ -95,34 +95,6 @@ echo
 echo -e "\e[0mIssue a new Node operational certificate using KES-vKey \e[32m${kesVkeyFile}\e[0m and Cold-sKey \e[32m${nodeName}.node.skey/hwsfile\e[0m:"
 echo
 
-#Static
-slotLength=$(cat ${genesisfile} | jq -r .slotLength)                    #In Secs
-epochLength=$(cat ${genesisfile} | jq -r .epochLength)                  #In Secs
-slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)      #Number
-startTimeByron=$(cat ${genesisfile_byron} | jq -r .startTime)           #In Secs(abs)
-startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)             #In Text
-startTimeSec=$(date --date=${startTimeGenesis} +%s)                     #In Secs(abs)
-transTimeEnd=$(( ${startTimeSec}+(${byronToShelleyEpochs}*${epochLength}) ))                 #In Secs(abs) End of the TransitionPhase = Start of KES Period 0
-byronSlots=$(( (${startTimeSec}-${startTimeByron}) / 20 ))              #NumSlots between ByronChainStart and ShelleyGenesisStart(TransitionStart)
-transSlots=$(( (${byronToShelleyEpochs}*${epochLength}) / 20 ))                         #NumSlots in the TransitionPhase
-
-#Dynamic
-currentTimeSec=$(date -u +%s)                                           #In Secs(abs)
-
-#Calculate current slot
-if [[ "${currentTimeSec}" -lt "${transTimeEnd}" ]];
-        then #In Transistion Phase between ShelleyGenesisStart and TransitionEnd
-        currentSlot=$(( ${byronSlots} + (${currentTimeSec}-${startTimeSec}) / 20 ))
-        else #After Transition Phase
-        currentSlot=$(( ${byronSlots} + ${transSlots} + ((${currentTimeSec}-${transTimeEnd}) / ${slotLength}) ))
-fi
-
-#Calculating KES period
-currentKESperiod=$(( (${currentSlot}-${byronSlots}) / (${slotsPerKESPeriod}*${slotLength}) ))
-if [[ "${currentKESperiod}" -lt 0 ]]; then currentKESperiod=0; fi
-
-echo -e "\e[0mCurrent KES period:\e[32m ${currentKESperiod}\e[0m"
-
 #Reading kesVkeyFile cborHex to show the Vkey-Bech32-String
 kesVkeyBech=$(jq -r .cborHex ${kesVkeyFile} 2> /dev/null | tail -c +5 | ${bech32_bin} "kes_vk" 2> /dev/null)
 echo -e "\e[0mKES-vKey-File Bech:\e[32m ${kesVkeyBech}\e[0m"
@@ -132,10 +104,20 @@ poolID=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file "${n
 echo -e "\e[0mOpcert for Pool-ID:\e[32m ${poolID}\e[0m"
 echo
 
+#Calculating KES period
+currentSlot=$(get_currentTip); checkError "$?";
+
+#Check the presence of the genesisfile (shelley)
+if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+{ read slotLength; read slotsPerKESPeriod; read maxKESEvolutions; } <<< $(jq -r ".slotLength // \"null\", .slotsPerKESPeriod // \"null\", .maxKESEvolutions // \"null\"" < ${genesisfile} 2> /dev/null)
+
+currentKESperiod=$(( ${currentSlot} / (${slotsPerKESPeriod}*${slotLength}) ))
+if [[ "${currentKESperiod}" -lt 0 ]]; then currentKESperiod=0; fi
+echo -e "\e[0mCurrent KES period:\e[32m ${currentKESperiod}\e[0m\n"
+
 #Calculating Expire KES Period and Date/Time
-maxKESEvolutions=$(cat ${genesisfile} | jq -r .maxKESEvolutions)
+currentTimeSec=$(date -u +%s)
 expiresKESperiod=$(( ${currentKESperiod} + ${maxKESEvolutions} ))
-#expireTimeSec=$(( ${transTimeEnd} + (${slotLength}*${expiresKESperiod}*${slotsPerKESPeriod}) ))
 expireTimeSec=$(( ${currentTimeSec} + (${slotLength}*${maxKESEvolutions}*${slotsPerKESPeriod}) ))
 expireDate=$(date --date=@${expireTimeSec})
 

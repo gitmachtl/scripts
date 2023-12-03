@@ -50,16 +50,17 @@ echo -e "\e[0mCreate a Stakepool de-Registration (retire) certificate for PoolNo
 echo
 
 #Read ProtocolParameters
-if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters); #onlinemode
-                  else
-			readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
-                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
-                  fi
+case ${workMode} in
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
+        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+        "offline")      readOfflineFile;
+			protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+esac
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-poolRetireMaxEpoch=$(jq -r .poolRetireMaxEpoch <<< ${protocolParametersJSON})
 
-currentEPOCH=$(get_currentEpoch)
+poolRetireMaxEpoch=$(jq -r .poolRetireMaxEpoch <<< ${protocolParametersJSON}) #eMax
+
+currentEPOCH=$(get_currentEpoch); checkError "$?";
 minRetireEpoch=$(( ${currentEPOCH} + 1 ))	#earliest one
 maxRetireEpoch=$(( ${currentEPOCH} + ${poolRetireMaxEpoch} ))	#latest one
 
