@@ -169,7 +169,7 @@ elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli and encrypt t
 
 	echo -e "\e[0m\n"
 
-elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from HW-Keys
+elif [[ "${keyType^^}" == "HW" ]]; then #Building it from HW-Keys
 
         #We need a enterprise paymentonly keypair with vkey and hwsfile from a Hardware-Key, so lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
