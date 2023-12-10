@@ -9,7 +9,7 @@
 #Check command line parameter
 if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|ENC|HWMULTI)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti> [Acc# 0-2147483647 for HW-Wallet-Path, Default=0] [Idx# 0-2147483647 for HW-Wallet-Path, Default=0]
+Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti> [Acc# 0-2147483647 for HW-Wallet-Path, Default=0] [Idx# 0-2147483647 for HW-Wallet-Path, Default=0]
 
 Examples:
 $(basename $0) owner cli              ... generates a PaymentOnly Address via cli (was default method before)
@@ -168,7 +168,7 @@ elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli and encrypt t
 
 	echo -e "\e[0m\n"
 
-elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from HW-Keys
+elif [[ "${keyType^^}" == "HW" ]]; then #Building it from HW-Keys
 
         #We need a enterprise paymentonly keypair with vkey and hwsfile from a Hardware-Key, so lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -200,7 +200,7 @@ elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from HW-Keys
 
         echo -e "\e[0m\n"
 
-else #Building from HW-Keys with MultiSig-Path "HWMULTI"
+elif [[ "${keyType^^}" == "HWMULTI" ]]; then #Building from HW-Keys with MultiSig-Path "HWMULTI"
 
         #We need a enterprise paymentonly keypair with vkey and hwsfile from a Hardware-Key, so lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -231,6 +231,11 @@ else #Building from HW-Keys with MultiSig-Path "HWMULTI"
         echo
 
         echo -e "\e[0m\n"
+
+else #unknown keyType
+
+        echo -e "\e[33mUnknown keyType '${keyType^^}'\e[00m"
+	echo
 
 fi
 

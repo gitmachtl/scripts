@@ -28,7 +28,7 @@ bech32_bin="./bech32"			#Path to your bech32 binary you wanna use. If your binar
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-#--------- Only needed if you run in online mode with a local node
+#--------- Only needed if you run in online mode with a local node (aka FullMode)
 cardanonode="./cardano-node"	#Path to your cardano-node binary you wanna use. If your binary is present in the Path just set it to "cardano-node" without the "./" infront
 socket="db/node.socket" #Path to your cardano-node socket for machines in online-mode. Another example would be "$HOME/cnode/sockets/node.socket"
 
@@ -38,16 +38,16 @@ genesisfile="$HOME/cardano/mainnet-shelley-genesis.json"           #Shelley-Gene
 genesisfile_byron="$HOME/cardano/mainnet-byron-genesis.json"       #Byron-Genesis path, you can also use the placeholder $HOME to specify your home directory
 
 
+#--------- Only needed if you wanna use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
+cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna use. If your binary is present in the Path just set it to "cardano-hw-cli" without the "./" infront
+
+
 #--------- Only needed if you wanna do online/offline hot/cold machine transfers
 offlineFile="./offlineTransfer.json" 	#path to the filename (JSON) that will be used to transfer the data between a hot and a cold machine
 
 
 #--------- Only needed if you wanna do catalyst voting
 catalyst_toolbox_bin="./catalyst-toolbox"	#Path to your catalyst-toolbox binary you wanna use. If your binary is present in the Path just set it to "catalyst-toolbox" without the "./" infront
-
-
-#--------- Only needed if you wanna use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
-cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna use. If your binary is present in the Path just set it to "cardano-hw-cli" without the "./" infront
 
 
 #--------- Only needed if you wanna generate the right format for the NativeAsset Metadata Registry
@@ -196,7 +196,7 @@ case "${network,,}" in
 		_koiosAPI="https://preview.koios.rest/api/v1"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		_adahandleAPI="https://preview.api.handle.me"		#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
-		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/preview-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
@@ -211,7 +211,7 @@ case "${network,,}" in
 		_koiosAPI="https://guild.koios.rest/api/v1"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		_adahandleAPI=
-		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
@@ -226,7 +226,7 @@ case "${network,,}" in
 		_koiosAPI=
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		_adahandleAPI=
-		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
@@ -241,7 +241,7 @@ case "${network,,}" in
 		_koiosAPI=
 		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
 		_adahandleAPI=
-		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
@@ -273,9 +273,9 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="8.16.0"  		#minimum allowed cli version for this script-collection version
+minCliVersion="8.17.0"  		#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="8.6.0"  		#minimum allowed node version for this script-collection version
+minNodeVersion="8.7.2"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion="5.0.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.6.0"  	#minimum version for the firmware on the Trezor HW-Wallet
