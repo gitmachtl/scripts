@@ -1,4 +1,4 @@
-#!/bin/bash
+##!/bin/bash
 unset magicparam network addrformat
 
 ##############################################################################################################################
@@ -13,7 +13,7 @@ unset magicparam network addrformat
 
 
 #--------- Workmode: online, light, offline ---  please read the instructions on the github repo README :-)
-workMode="online"	#change this to "online" if your machine is online and you run a local node with
+workMode="online"	#change this to "online" if your machine is online and you run a local node with, this is also know as full-mode
 			#change this to "light" if your machine is online but you don't run a local node (all requests are done via online APIs like koios, adahandle, etc.)
 			#change this to "offline" if you run these scripts on a cold machine, needs a counterpart with is set to "online" or "light" on a hot machine
 
@@ -1496,7 +1496,7 @@ resolveAdahandle() {
 		showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
 	        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 			error=0
-			response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+			response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_addresses?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
 			if [ $? -ne 0 ]; then error=1; fi;
 	                errorcnt=$(( ${errorcnt} + 1 ))
 		done
@@ -1528,7 +1528,7 @@ resolveAdahandle() {
 			showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
 		        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 				error=0
-				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_addresses?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
 				if [ $? -ne 0 ]; then error=1; fi;
 		                errorcnt=$(( ${errorcnt} + 1 ))
 			done
