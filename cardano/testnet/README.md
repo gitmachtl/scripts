@@ -1,4 +1,4 @@
-# StakePool Operator Scripts (SPOS) for Cardano TestNets
+# StakePool Operator Scripts (SPOS) for Cardano MainNet and TestNets
 
 *Examples on how to use the scripts in **ONLINE-**, **LIGHT-** and **OFFLINE-** Mode, with or without a **Ledger/Trezor-Wallet** can be found on this page* :smiley:
 
