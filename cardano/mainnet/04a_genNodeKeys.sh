@@ -51,7 +51,7 @@ if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli (unencrypted)
 	echo -e "\e[0mCreating Node Cold/Offline Keys (CLI)\e[32m ${nodeName}.node.vkey/skey\e[0m and Issue.Counter File\e[32m ${nodeName}.node.counter"
 	echo
 
-	${cardanocli} node key-gen --verification-key-file "${nodeName}.node.vkey" --signing-key-file "${nodeName}.node.skey" --operational-certificate-issue-counter "${nodeName}.node.counter"
+	${cardanocli} ${cliEra} node key-gen --verification-key-file "${nodeName}.node.vkey" --signing-key-file "${nodeName}.node.skey" --operational-certificate-issue-counter "${nodeName}.node.counter"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${nodeName}.node.vkey
 	file_lock ${nodeName}.node.skey
@@ -69,7 +69,7 @@ if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli (unencrypted)
 
 elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli (encrypted)
 
-        skeyJSON=$(${cardanocli} node key-gen --verification-key-file "${nodeName}.node.vkey" --signing-key-file /dev/stdout --operational-certificate-issue-counter "${nodeName}.node.counter" 2> /dev/null)
+        skeyJSON=$(${cardanocli} ${cliEra} node key-gen --verification-key-file "${nodeName}.node.vkey" --signing-key-file /dev/stdout --operational-certificate-issue-counter "${nodeName}.node.counter" 2> /dev/null)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock "${nodeName}.node.vkey"
 	file_lock "${nodeName}.node.counter"

@@ -27,6 +27,8 @@ Usage:  $(basename $0) <PolicyName.AssetName>
 EOF
   exit 1;; esac
 
+
+
 assetFileName="${policyName}.${assetName}.asset" #save the output assetfilename here, because at that state the assetName is with or without the {} brackets
 
 # Check for needed input files

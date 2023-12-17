@@ -162,10 +162,87 @@ echo
 echo -e "\e[0mDelegating \e[32m${delegName}\e[0m to pool with ID:\e[32m ${delegPoolID}\e[0m"
 echo
 
-#If in online mode, do a check it the StakeAddress is registered on the chain
+
+#If in online/light mode, do a check if the pool to delegate to is registered
 if ${onlineMode}; then
 
-	#get the bech stakeaddress for mainnet/testnets
+	#get the bech poolID
+        delegationPoolID=$(${bech32_bin} "pool" <<< ${delegPoolID} | tr -d '\n')
+        checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not convert the Hex-PoolID from the Delegation-Certificate into a Bech Pool-ID.\e[0m\n"; exit 1; fi
+
+	echo -e "\e[0mStaking Address will be delegated to Bech-PoolID:\e[33m ${delegationPoolID}\e[0m"
+
+	if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
+
+		#query poolinfo via poolid on koios
+		errorcnt=0; error=-1;
+		showProcessAnimation "Query Pool-Info via Koios: " &
+		while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
+			error=0
+			response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
+			if [[ $? -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
+			errorcnt=$(( ${errorcnt} + 1 ))
+		done
+                stopProcessAnimation;
+
+                #if no error occured, split the response string into JSON content and the HTTP-ResponseCode
+                if [[ ${error} -eq 0 && "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+
+                	responseJSON="${BASH_REMATCH[1]}"
+			responseCode="${BASH_REMATCH[2]}"
+
+			#if the responseCode is 200 (OK) and the received json only contains one entry in the array (will also not be 1 if not a valid json)
+			if [[ ${responseCode} -eq 200 && $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -eq 1 ]]; then
+	                        { read poolNameInfo; read poolTickerInfo; read poolStatusInfo; } <<< $(jq -r ".[0].meta_json.name // \"-\", .[0].meta_json.ticker // \"-\", .[0].pool_status // \"-\"" 2> /dev/null <<< ${responseJSON})
+				echo -e "   \t\e[0mInformation about the Pool: \e[32m${poolNameInfo} (${poolTickerInfo})\e[0m"
+				echo -e "   \t\e[0m                    Status: \e[32m${poolStatusInfo}\e[0m"
+                                echo
+                        fi #responseCode & jsoncheck
+
+		fi #error & response
+                unset errorcnt error
+
+	fi #onlineMode & koiosAPI
+
+	#check if the pool to delegate to is already registered on chain, if not, abort
+        case ${workMode} in
+
+                "online")
+			#check that the node is fully synced, otherwise the query would mabye return a false state
+			if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
+			#check ledger-state via the local node
+			showProcessAnimation "Query-Ledger-State: " &
+			poolsInLedger=$(${cardanocli} ${cliEra} query stake-pools 2> /dev/null); checkError "$?"; if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\n\e[35mERROR - Could not query stake-pools from the chain.\e[0m\n"; exit 1; fi
+			stopProcessAnimation;
+
+			#now lets see how often the delegationPoolID is listed: 0->Not on the chain, 1->On the chain, any other value -> ERROR
+			poolInLedgerCnt=$(grep  "${delegationPoolID}" <<< ${poolsInLedger} | wc -l)
+
+			if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -ne ""; #echo -e "\e[0mPool is registered on the chain, we continue ...\n";
+			elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "\e[33mPool is NOT on the chain, please register it first to do the delegation!\e[0m\n"; exit 1;
+			else echo -e "\e[35mERROR - The Pool-ID is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m"; exit 1;
+			fi
+			;;
+
+
+		"light")
+			#query about the poolinfo via koios has already been done a few lines before
+			if [[ $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -eq 1 ]]; then
+				poolStatusInfo=$(jq -r ".[0].pool_status | select (.!=null)" 2> /dev/null <<< ${responseJSON})
+	                        if [[ ${poolStatusInfo^^} != "REGISTERED" ]]; then
+					echo -e "\e[33mPool-Status is currently '${poolStatusInfo}', please register it first to do the delegation!\e[0m\n"; exit 1;
+				fi
+
+                        else echo -e "\e[33mPool is NOT on the chain or Koios-API error, please register it first to do the delegation!\e[0m\n"; exit 1;
+
+                        fi
+			;;
+
+	esac
+
+	unset poolNameInfo, poolTickerInfo, poolStatusInfo
+
+	#get the bech stakeaddress for mainnet/testnets directly out of the delegation certificate
 	if [[ "${magicparam}" == *"mainnet"* ]]; then
 		checkAddr=$(echo -n "e1${delegCBOR:12:56}" | ${bech32_bin} "stake");
 	else
@@ -175,44 +252,86 @@ if ${onlineMode}; then
         echo -e "\e[0mChecking OnChain-Status for the Stake-Address:\e[32m ${checkAddr}\e[0m"
         echo
 
-	#check ledger-state
-	showProcessAnimation "Query-Ledger-State: " &
-        rewardsAmount=$(${cardanocli} query stake-address-info --address ${checkAddr} ${magicparam} | jq -r "flatten | .[0].rewardAccountBalance")
-        checkError "$?"; if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\n\e[35mERROR - Could not query stake-address info from the chain.\e[0m\n"; exit 1; fi
-	stopProcessAnimation;
+        #Get rewards state data for the address. When in online mode of course from the node and the chain, in light mode via koios
+	        case ${workMode} in
+
+	                "online")       #check that the node is fully synced, otherwise the query would mabye return a false state
+	                                if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
+	                		showProcessAnimation "Query-StakeAddress-Info: " &
+	                                rewardsJSON=$(${cardanocli} ${cliEra} query stake-address-info --address ${checkAddr} 2> /dev/stdout )
+	                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+	                                rewardsJSON=$(jq -rc . <<< "${rewardsJSON}")
+	                                ;;
+
+	                "light")        showProcessAnimation "Query-StakeAddress-Info-LightMode: " &
+	                                rewardsJSON=$(queryLight_stakeAddressInfo "${checkAddr}")
+	                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+	                                ;;
+
+        esac
+
+        rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
         #Checking about the content
-        if [[ ${rewardsAmount} == null ]]; then echo -e "\e[33mStaking Address is NOT on the chain, please register it first to do a delegation !\e[0m\n"; exit 1;
-                                           else echo -e "\e[0mStaking Address is registered on the chain, we continue ...\n"
-        fi
+        if [[ ${rewardsEntryCnt} == 0 ]]; then #not registered yet
+		echo -e "\e[33mStaking Address is NOT on the chain, please register it first to do a delegation !\e[0m\n"; exit 1;
+                else #already registered
+                        #echo -e "Staking Address is registered on the chain, we continue ...\e[0m\n"
 
-	#get the bech poolID
-        poolIDBech=$(${bech32_bin} "pool" <<< ${delegPoolID} | tr -d '\n')
-        checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not convert the given Hex-PoolID \"${poolID}\" into a Bech Pool-ID.\e[0m\n"; exit 1; fi
+                        delegationPoolID=$(jq -r ".[0].delegation // .[0].stakeDelegation" <<< ${rewardsJSON})
 
-	echo -e "\e[0mChecking OnChain-Status for the Bech-PoolID:\e[32m ${poolIDBech}\e[0m"
-	echo
+                        #If delegated to a pool, show the current pool ID
+                        if [[ ! ${delegationPoolID} == null ]]; then
 
-	#check ledger-state
-	showProcessAnimation "Query-Ledger-State: " &
-	poolsInLedger=$(${cardanocli} query stake-pools ${magicparam} 2> /dev/null); checkError "$?"; if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\n\e[35mERROR - Could not query stake-pools from the chain.\e[0m\n"; exit 1; fi
-	stopProcessAnimation;
+                                echo -e "Staking Address is currently delegated to PoolID: \e[94m${delegationPoolID}\e[0m";
 
-	#now lets see how often the poolIDBech is listed: 0->Not on the chain, 1->On the chain, any other value -> ERROR
-	poolInLedgerCnt=$(grep  "${poolIDBech}" <<< ${poolsInLedger} | wc -l)
+		                if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
 
-	if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -e "\e[0mPool is registered on the chain, we continue ...\n";
-	elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "\e[33mPool is NOT on the chain, please register it first to do the delegation!\e[0m\n"; exit 1;
-	else echo -e "\e[35mERROR - The Pool-ID is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m"; exit 1;
-	fi
+ 		                       #query poolinfo via poolid on koios
+  		                      errorcnt=0; error=-1;
+		                        showProcessAnimation "Query Pool-Info via Koios: " &
+		                        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
+		                                error=0
+					        response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
+		                                if [[ $? -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
+		                                errorcnt=$(( ${errorcnt} + 1 ))
+		                        done
+		                        stopProcessAnimation;
 
-fi
+		                        #if no error occured, split the response string into JSON content and the HTTP-ResponseCode
+		                        if [[ ${error} -eq 0 && "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+
+		                                responseJSON="${BASH_REMATCH[1]}"
+		                                responseCode="${BASH_REMATCH[2]}"
+
+		                                #if the responseCode is 200 (OK) and the received json only contains one entry in the array (will also not be 1 if not a valid json)
+		                                if [[ ${responseCode} -eq 200 && $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -eq 1 ]]; then
+				                        { read poolNameInfo; read poolTickerInfo; read poolStatusInfo; } <<< $(jq -r ".[0].meta_json.name // \"-\", .[0].meta_json.ticker // \"-\", .[0].pool_status // \"-\"" 2> /dev/null <<< ${responseJSON})
+		                                        echo -e "\e[0m                                            Name: \e[94m${poolNameInfo} (${poolTickerInfo})\e[0m"
+		                                        echo -e "\e[0m                                          Status: \e[94m${poolStatusInfo}\e[0m"
+		                                        echo
+							unset poolNameInfo poolTickerInfo poolStatusInfo
+		                                fi #responseCode & jsoncheck
+
+		                        fi #error & response
+		                        unset errorcnt error
+
+		                fi #onlineMode & koiosAPI
+
+                        else
+                                echo -e "\e[0mAccount is not delegated to a Pool yet - so lets change this :-)\n";
+                        fi
+
+        fi ## ${rewardsEntryCnt} == 0
+
+fi ## ${onlineMode} == true
+
 
 
 #get values to register the delegation certificate on the blockchain
 #get live values
-currentTip=$(get_currentTip)
-ttl=$(get_currentTTL)
+currentTip=$(get_currentTip); checkError "$?";
+ttl=$(( ${currentTip} + ${defTTL} ))
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
 
@@ -229,18 +348,32 @@ echo
 #
 # Checking UTXO Data of the source address and gathering data about total lovelaces and total assets
 #
-        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
-        if ${onlineMode}; then
+
+
+        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in lightmode via API requests, in offlinemode from the transferFile
+        case ${workMode} in
+                "online")       #check that the node is fully synced, otherwise the query would mabye return a false state
+                                if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
                                 showProcessAnimation "Query-UTXO: " &
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} 2> /dev/stdout);
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
-                                #utxoJSON=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                          else
-                                readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
-                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
-                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-        fi
+                                ;;
+
+                "light")        showProcessAnimation "Query-UTXO-LightMode: " &
+                                utxo=$(queryLight_UTXO "${sendFromAddr}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                showProcessAnimation "Convert-UTXO: " &
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
+                                ;;
+
+                "offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON} 2> /dev/null)
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
+                                ;;
+        esac
+
 	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
 	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit 1; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
@@ -266,7 +399,6 @@ echo
         utxoHashIndex=${utxoHashIndexArray[${tmpCnt}]}
         utxoAmount=${utxoLovelaceArray[${tmpCnt}]} #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
-#       echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}";
         echo -e "Hash#Index: ${utxoHashIndex}\tADA: $(convertToADA ${utxoAmount}) \e[90m(${utxoAmount} lovelaces)\e[0m";
 	if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
         assetsEntryCnt=${assetsEntryCntArray[${tmpCnt}]}
@@ -300,8 +432,20 @@ echo
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
-                                case ${assetHash} in
-                                        "${adahandlePolicyID}" )      #$adahandle
+                                case "${assetHash}${assetTmpName:1:8}" in
+                                        "${adahandlePolicyID}000de140" )        #$adahandle cip-68
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Own): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}00000000" )        #$adahandle virtual
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Vir): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}000643b0" )        #$adahandle reference
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Ref): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}"* )               #$adahandle cip-25
                                                 echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default
@@ -368,12 +512,13 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
 fi
 
 #Read ProtocolParameters
-if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
-                  else
-                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
-                  fi
+case ${workMode} in
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
+        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+        "offline")      protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+esac
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
 minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
 
 #-------------------------------------
@@ -382,10 +527,10 @@ minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000$
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --certificate ${delegName}.deleg.cert --out-file ${txBodyFile}
+${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --certificate ${delegName}.deleg.cert --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
@@ -414,7 +559,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --certificate ${delegName}.deleg.cert --out-file ${txBodyFile}
+${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --certificate ${delegName}.deleg.cert --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -443,7 +588,7 @@ if [[ -f "${regPayName}.hwsfile" && -f "${delegName}.staking.hwsfile" && "${paym
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-        ${cardanocli} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile}-payment --witness-file ${txWitnessFile}-staking --out-file ${txFile}
+        ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile}-payment --witness-file ${txWitnessFile}-staking --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo -e "Assembled ... \e[32mDONE\e[0m\n";
 
@@ -458,7 +603,7 @@ elif [[ -f "${delegName}.staking.skey" && -f "${regPayName}.skey" ]]; then #with
 	echo -e "\e[0mSign the unsigned transaction body with the \e[32m${regPayName}.skey\e[0m & \e[32m${delegName}.staking.skey\e[0m: \e[32m ${txFile} \e[90m"
 	echo
 
-        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON1}") --signing-key-file <(echo "${skeyJSON2}") ${magicparam} --out-file ${txFile}
+        ${cardanocli} ${cliEra} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON1}") --signing-key-file <(echo "${skeyJSON2}") --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         #forget the signing keys
@@ -482,20 +627,35 @@ if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSi
 
 
 if ask "\e[33mDoes this look good for you ?" N; then
+
         echo
-        if ${onlineMode}; then  #onlinesubmit
+	case ${workMode} in
+	"online")
+				#onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node... "
-                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
+                                ${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
                                 if [ $? -ne 0 ]; then echo -e "\n\e[35mError - Make sure the pool is already registered.\n\e[0m\n"; exit $?; fi
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+				;;
 
 
-                          else  #offlinestore
+        "light")
+                                #lightmode submit
+                                showProcessAnimation "Submit-Transaction-LightMode: " &
+                                txID=$(submitLight "${txFile}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                echo -e "\e[0mSubmit-Transaction-LightMode: \e[32mDONE\n"
+                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+                                ;;
+
+
+	"offline")
+				#offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)
                                 offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
                                                                         type: \"DelegationCertRegistration\",
@@ -509,7 +669,6 @@ if ask "\e[33mDoes this look good for you ?" N; then
                                 #Write the new offileFile content
                                 offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed delegation cert registration transaction for '${delegName}', payment via '${regPayName}'\" } ]" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
-                                offlineJSON=$( jq ".general += {offlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
                                 echo "${offlineJSON}" > ${offlineFile}
                                 #Readback the tx content and compare it to the current one
                                 readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
@@ -519,8 +678,9 @@ if ask "\e[33mDoes this look good for you ?" N; then
                                                  else
                                                         echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
                                 fi
+				;;
 
-        fi
+	esac
 
 fi
 

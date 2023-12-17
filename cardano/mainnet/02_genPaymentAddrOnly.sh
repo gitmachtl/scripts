@@ -9,14 +9,13 @@
 #Check command line parameter
 if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|ENC|HWMULTI)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti> [Acc# 0-2147483647 for HW-Wallet-Path, Default=0] [Idx# 0-2147483647 for HW-Wallet-Path, Default=0]
+Usage: $(basename $0) <AddressName> <KeyType: cli | enc | hw | hwmulti> [Acc# 0-2147483647 for HW-Wallet-Path, Default=0] [Idx# 0-2147483647 for HW-Wallet-Path, Default=0]
 
 Examples:
 $(basename $0) owner cli              ... generates a PaymentOnly Address via cli (was default method before)
 $(basename $0) owner enc              ... generates a PaymentOnly Address via cli and encrypt it with a Password
 $(basename $0) owner hw               ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet with normal path 1852H/1815H/<Acc>/0/<Idx>
 $(basename $0) owner hwmulti          ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet with multisig path 1854H/1815H/<Acc>/0/<Idx>
-
 
 Optional with Hardware-Account-Numbers:
 $(basename $0) owner hw 1    ... generates a PaymentOnly Address  by using a Leder/Trezor HW-Wallet and SubAccount #1 (Default=0)
@@ -65,7 +64,7 @@ if [ -f "${addrName}.addr" ]; then echo -e "\e[35mWARNING - ${addrName}.addr alr
 
 if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli
 
-	${cardanocli} address key-gen --verification-key-file ${addrName}.vkey --signing-key-file ${addrName}.skey
+	${cardanocli} ${cliEra} address key-gen --verification-key-file ${addrName}.vkey --signing-key-file ${addrName}.skey
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.vkey
 	file_lock ${addrName}.skey
@@ -78,7 +77,7 @@ if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli
 	echo
 
 	#Building a Payment Address
-	${cardanocli} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
+	${cardanocli} ${cliEra} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.addr
 
@@ -90,7 +89,7 @@ if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli
 
 elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli and encrypt the skey file. The skey file never touches the hdd unencrypted
 
-	skeyJSON=$(${cardanocli} address key-gen --verification-key-file "${addrName}.vkey" --signing-key-file /dev/stdout 2> /dev/null)
+	skeyJSON=$(${cardanocli} ${cliEra} address key-gen --verification-key-file "${addrName}.vkey" --signing-key-file /dev/stdout 2> /dev/null)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.vkey
 
@@ -159,7 +158,7 @@ elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli and encrypt t
 	echo
 
 	#Building a Payment Address
-	${cardanocli} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
+	${cardanocli} ${cliEra} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.addr
 
@@ -191,7 +190,7 @@ elif [[ "${keyType^^}" == "HW" ]]; then #Building it from HW-Keys
         echo
 
         #Building a Payment Address
-        ${cardanocli} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
+        ${cardanocli} ${cliEra} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${addrName}.addr
 
@@ -201,7 +200,7 @@ elif [[ "${keyType^^}" == "HW" ]]; then #Building it from HW-Keys
 
         echo -e "\e[0m\n"
 
-else #Building from HW-Keys with MultiSig-Path "HWMULTI"
+elif [[ "${keyType^^}" == "HWMULTI" ]]; then #Building from HW-Keys with MultiSig-Path "HWMULTI"
 
         #We need a enterprise paymentonly keypair with vkey and hwsfile from a Hardware-Key, so lets' create them
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -223,7 +222,7 @@ else #Building from HW-Keys with MultiSig-Path "HWMULTI"
         echo
 
         #Building a Payment Address
-        ${cardanocli} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
+        ${cardanocli} ${cliEra} address build --payment-verification-key-file ${addrName}.vkey ${addrformat} > ${addrName}.addr
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${addrName}.addr
 
@@ -232,6 +231,11 @@ else #Building from HW-Keys with MultiSig-Path "HWMULTI"
         echo
 
         echo -e "\e[0m\n"
+
+else #unknown keyType
+
+        echo -e "\e[33mUnknown keyType '${keyType^^}'\e[00m"
+	echo
 
 fi
 

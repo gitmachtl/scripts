@@ -11,6 +11,8 @@ if [[ $# -eq 1 && ! $1 == "" && "${1//[![:xdigit:]]}" == "${1}" && ${#1} -eq 64 
 #Get the Question Metadata via koios
 if ${offlineMode}; then echo -e "\n\e[35mERROR - SPO-Poll is only supported in Online mode.\n\e[0m"; exit 1; fi
 
+
+
 echo -e "\e[0mSPO-Poll question via metadata from txHash: \e[32m${txHash}\e[0m"
 echo
 

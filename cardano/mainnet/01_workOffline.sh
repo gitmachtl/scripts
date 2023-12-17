@@ -37,8 +37,8 @@ case ${1} in
 
   new|execute|clear )
 		action="${1}";
-		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; #exit if command is called in offline mode, needs to be in online mode
-		elif [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mYour online Node must be fully synced!\e[0m\n"; exit 1; #check that the node is fully synced
+		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT MODE to do this!\e[0m\n"; exit 1; #exit if command is called in offline mode, needs to be in online mode
+		elif [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mYour ONLINE/LIGHT Node must be fully synced, please wait a bit!\e[0m\n"; exit 1; #check that the node is fully synced
 		fi
 
                 if [[ $# -eq 2 ]]; then executeCue=${2}; else executeCue=1; fi
@@ -46,8 +46,8 @@ case ${1} in
 
   add )
 		action="${1}";
-		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; #exit if command is called in offline mode, needs to be in online mode
-		elif [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mYour online Node must be fully synced!\e[0m\n"; exit 1; #check that the node is fully synced
+		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT MODE to do this!\e[0m\n"; exit 1; #exit if command is called in offline mode, needs to be in online mode
+		elif [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mYour ONLINE/LIGHT Node must be fully synced, please wait a bit!\e[0m\n"; exit 1; #check that the node is fully synced
 		fi
 		if [[ $# -eq 2 ]]; then addrName="$(dirname $2)/$(basename $2 .addr)"; addrName=${addrName/#.\//}; else echo -e "\e[35mMissing AddressName for the Address!\e[0m\n"; showUsage; exit 1; fi
 		if [ ! -f "${addrName}.addr" ]; then echo -e "\e[35mNo ${addrName}.addr file found for the Address!\e[0m\n"; showUsage; exit 1; fi
@@ -111,13 +111,24 @@ case ${action} in
   new|clear )
 		#Build a fresh new offlineJSON with the current protocolParameters in it
 		offlineJSON="{}";
-		protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} )
+
+		#Read ProtocolParameters
+		case ${workMode} in
+		        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters );; #onlinemode
+		        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+		esac
 		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
 		offlineJSON=$( jq ".general += {onlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
-		offlineJSON=$( jq ".general += {onlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
+		if ${fullMode}; then
+			offlineJSON=$( jq ".general += {onlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
+			else
+			offlineJSON=$( jq ".general += {onlineNODE: \"light\" }" <<< ${offlineJSON})
+		fi
+
 		offlineJSON=$( jq ".protocol += {parameters: ${protocolParametersJSON} }" <<< ${offlineJSON})
 		offlineJSON=$( jq ".protocol += {era: \"$(get_NodeEra)\" }" <<< ${offlineJSON})
-                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"new file created\" } ]" <<< ${offlineJSON})
+                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"new file created - ${workMode} mode\" } ]" <<< ${offlineJSON})
                 #Write the new offileFile content
                 echo "${offlineJSON}" > ${offlineFile}
 		showOfflineFileInfo;
@@ -127,10 +138,19 @@ case ${action} in
 
   add )
 		#Updating the current protocolParameters before doing other stuff later on
-                protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} )
-                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                offlineJSON=$( jq ".general += {onlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
-                offlineJSON=$( jq ".general += {onlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
+		case ${workMode} in
+		        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters );; #onlinemode
+		        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+		esac
+		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+		offlineJSON=$( jq ".general += {onlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
+		if ${fullMode}; then
+			offlineJSON=$( jq ".general += {onlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
+			else
+			offlineJSON=$( jq ".general += {onlineNODE: \"light\" }" <<< ${offlineJSON})
+		fi
+
                 offlineJSON=$( jq ".protocol += {parameters: ${protocolParametersJSON} }" <<< ${offlineJSON})
                 offlineJSON=$( jq ".protocol += {era: \"$(get_NodeEra)\" }" <<< ${offlineJSON})
                 ;;
@@ -192,11 +212,23 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 	echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"
 	echo
 
-	#Get UTX0 Data for the address
-        showProcessAnimation "Query-UTXO: " &
-        utxo=$(${cardanocli} query utxo --address ${checkAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-        showProcessAnimation "Convert-UTXO: " &
-        utxoJSON=$(generate_UTXO "${utxo}" "${checkAddr}"); stopProcessAnimation;
+        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in lightmode via API requests
+        case ${workMode} in
+                "online")       #check that the node is fully synced, otherwise the query would mabye return a false state
+                                showProcessAnimation "Query-UTXO: " &
+                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${checkAddr} 2> /dev/stdout);
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                showProcessAnimation "Convert-UTXO: " &
+                                utxoJSON=$(generate_UTXO "${utxo}" "${checkAddr}"); stopProcessAnimation;
+                                ;;
+
+                "light")        showProcessAnimation "Query-UTXO-LightMode: " &
+                                utxo=$(queryLight_UTXO "${checkAddr}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                showProcessAnimation "Convert-UTXO: " &
+                                utxoJSON=$(generate_UTXO "${utxo}" "${checkAddr}"); stopProcessAnimation;
+                                ;;
+        esac
 
         utxoEntryCnt=$(jq length <<< ${utxoJSON})
         if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit 1; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
@@ -255,8 +287,20 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
-                                case ${assetHash} in
-                                        "${adahandlePolicyID}" )      #$adahandle
+                                case "${assetHash}${assetTmpName:1:8}" in
+                                        "${adahandlePolicyID}000de140" )        #$adahandle cip-68
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Own): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}00000000" )        #$adahandle virtual
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Vir): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}000643b0" )        #$adahandle reference
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Ref): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}"* )               #$adahandle cip-25
                                                 echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default
@@ -292,9 +336,14 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
                         assetBech=${assetBechArray[${tmpCnt}]}
                         assetHashHex="${assetHashName//./}" #remove a . if present, we need a clean subject here for the registry request
 
-                        if $queryTokenRegistry; then if $onlineMode; then metaResponse=$(curl -sL -m 20 "${tokenMetaServer}/${assetHashHex}"); else metaResponse=$(jq -r ".tokenMetaServer.\"${assetHashHex}\"" <<< ${offlineJSON}); fi
+                        if $queryTokenRegistry; then #if activated, check the current asset on the metadata server. if data is available, include it in the offlineJSON in a compact format
+				metaResponse=$(curl -sL -m 20 "${tokenMetaServer}/${assetHashHex}")
                                 metaAssetName=$(jq -r ".name.value | select (.!=null)" 2> /dev/null <<< ${metaResponse}); if [[ ! "${metaAssetName}" == "" ]]; then metaAssetName="${metaAssetName} "; fi
                                 metaAssetTicker=$(jq -r ".ticker.value | select (.!=null)" 2> /dev/null <<< ${metaResponse})
+				if [[ "${metaAssetName}" != "" || "${metaAssetTicker}" != "" ]]; then
+					#reduce the keys in metaResponse to only name and ticker. remove the subkeys signatures and sequenceNumber to safe some storage space
+					offlineJSON=$( jq ".tokenMetaServer.\"${assetHashHex}\" += $(jq -cM "{name,ticker} | del(.[].signatures,.[].sequenceNumber)" <<< ${metaResponse} 2> /dev/null)" <<< ${offlineJSON})
+				fi
                         fi
 
                         if [[ "${assetName}" == "." ]]; then assetName=""; fi
@@ -337,8 +386,20 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
         echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"
         echo
 
-        rewardsJSON=$(${cardanocli} query stake-address-info --address ${checkAddr} ${magicparam} | jq -rc .)
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        #Get rewards state data for the address. When in online mode of course from the node and the chain, in light mode via koios
+        case ${workMode} in
+
+                "online")       showProcessAnimation "Query-StakeAddress-Info: " &
+                                rewardsJSON=$(${cardanocli} ${cliEra} query stake-address-info --address ${checkAddr} 2> /dev/null )
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                rewardsJSON=$(jq . <<< "${rewardsJSON}")
+                                ;;
+
+                "light")        showProcessAnimation "Query-StakeAddress-Info-LightMode: " &
+                                rewardsJSON=$(queryLight_stakeAddressInfo "${checkAddr}")
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                ;;
+        esac
 
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
@@ -353,7 +414,7 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
         rewardsAmount=$(jq -r ".[${tmpCnt}].rewardAccountBalance" <<< ${rewardsJSON})
 	rewardsAmountInADA=$(bc <<< "scale=6; ${rewardsAmount} / 1000000")
 
-        delegationPoolID=$(jq -r ".[${tmpCnt}].delegation" <<< ${rewardsJSON})
+        delegationPoolID=$(jq -r ".[${tmpCnt}].delegation // .[${tmpCnt}].stakeDelegation" <<< ${rewardsJSON})
 
         rewardsSum=$((${rewardsSum}+${rewardsAmount}))
 	rewardsSumInADA=$(bc <<< "scale=6; ${rewardsSum} / 1000000")
@@ -461,30 +522,61 @@ echo "${transactionTxJSON}" > ${txFile};
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 case ${transactionType} in
+
         Transaction|Asset-Minting|Asset-Burning )
-                        #Normal UTXO Transaction (lovelaces and/or tokens)
+			#Normal UTXO Transaction (lovelaces and/or tokens)
 
 			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        showProcessAnimation "Query-UTXO: " &
-                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+		        case ${workMode} in
+		                "online")	showProcessAnimation "Query-UTXO: " &
+						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+
+		                "light")	showProcessAnimation "Query-UTXO-LightMode: " &
+						utxo=$(queryLight_UTXO "${transactionFromAddr}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+			esac
                         showProcessAnimation "Convert-UTXO: " &
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}"); stopProcessAnimation;
 			utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
+
 			utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
 
 			if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
 
 			echo -e "\e[32m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] from '${transactionFromName}' to '${transactionToName}' \e[90m(${transactionDate})\n\t   \t\e[90mfrom ${transactionFromAddr}\n\t   \t\e[90mto ${transactionToAddr}\e[0m"
 			echo
-			txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
-			echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
 			if ask "\e[33mDoes this look good for you, continue ?" N; then
-	                        ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
-	                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
-                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+
+		       		echo
+				case ${workMode} in
+					"online")
+						#onlinesubmit
+						echo -ne "\e[0mSubmitting the transaction via the node ... "
+						${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
+
+						#Show the TxID
+						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+
+					"light")
+						#lightmode submit
+						showProcessAnimation "Submit-Transaction-LightMode: " &
+						txID=$(submitLight "${txFile}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						echo -e "\e[0mSubmit-Transaction-LightMode ... \e[32mDONE\n"
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+				esac
 				echo
+
                                 #Write the new offileFile content
 				offlineJSON=$( jq ".address.\"${transactionFromAddr}\" += {used: \"yes\" }" <<< ${offlineJSON}) #mark payment address as used
 				if [[ ! "$(jq -r .address.\"${transactionToAddr}\" <<< ${offlineJSON})" == null ]]; then offlineJSON=$( jq ".address.\"${transactionToAddr}\" += {used: \"yes\" }" <<< ${offlineJSON}); fi #mark destination address as used if present
@@ -502,32 +594,77 @@ case ${transactionType} in
                         transactionStakeName=$(jq -r ".transactions[${transactionIdx}].stakeAddr" <<< ${offlineJSON})
                         transactionStakeAddr=$(jq -r ".transactions[${transactionIdx}].stakingAddr" <<< ${offlineJSON})
 
-                        #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        showProcessAnimation "Query-UTXO: " &
-                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
+		        case ${workMode} in
+		                "online")	showProcessAnimation "Query-UTXO: " &
+						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+
+		                "light")	showProcessAnimation "Query-UTXO-LightMode: " &
+						utxo=$(queryLight_UTXO "${transactionFromAddr}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+			esac
                         showProcessAnimation "Convert-UTXO: " &
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}"); stopProcessAnimation;
-                        utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
-                        utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
+			utxoLiveJSON=$(jq . <<< ${utxoLiveJSON} 2> /dev/null) #to bring it in the jq format if compressed
+
+			utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
+
 			if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
 
 			#Check that the RewardsState of the StakeAddress (transactionStakeAddr) has not changed
-			rewardsLiveJSON=$(${cardanocli} query stake-address-info --address ${transactionStakeAddr} ${magicparam} | jq .); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+		        case ${workMode} in
+
+		                "online")       showProcessAnimation "Query-StakeAddress-Info: " &
+		                                rewardsJSON=$(${cardanocli} ${cliEra} query stake-address-info --address ${transactionStakeAddr} 2> /dev/null )
+		                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+		                                ;;
+
+				"light")        showProcessAnimation "Query-StakeAddress-Info-LightMode: " &
+		                                rewardsJSON=$(queryLight_stakeAddressInfo "${transactionStakeAddr}")
+		                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+		                                ;;
+		        esac
+			rewardsLiveJSON=$(jq . <<< ${rewardsJSON} 2> /dev/null)
+
                         rewardsOfflineJSON=$(jq -r ".address.\"${transactionStakeAddr}\".rewardsJSON" <<< ${offlineJSON})
+
 			if [[ ! "${rewardsLiveJSON}" == "${rewardsOfflineJSON}" ]]; then echo -e "\e[35mERROR - The rewards state between the offline capture and now has changed for the stake address '${transactionStakeName}' !\e[0m\n"; exit 1; fi
 
                         echo -e "\e[32m\t[${transactionCue}]\t\e[0mRewards-Withdrawal[${transactionEra}] from '${transactionStakeName}' to '${transactionToName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mfrom ${transactionStakeAddr}\n\t   \t\e[90mto ${transactionToAddr}\n\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
-                        echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
-                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
-                                echo
+
+		       		echo
+				case ${workMode} in
+					"online")
+						#onlinesubmit
+						echo -ne "\e[0mSubmitting the transaction via the node ... "
+						${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
+
+						#Show the TxID
+						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+
+					"light")
+						#lightmode submit
+						showProcessAnimation "Submit-Transaction-LightMode: " &
+						txID=$(submitLight "${txFile}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						echo -e "\e[0mSubmit-Transaction-LightMode ... \e[32mDONE\n"
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+				esac
+				echo
+
                                 #Write the new offileFile content
 				offlineJSON=$( jq ".address.\"${transactionFromAddr}\" += {used: \"yes\" }" <<< ${offlineJSON})
 				offlineJSON=$( jq ".address.\"${transactionStakeAddr}\" += {used: \"yes\" }" <<< ${offlineJSON})
@@ -540,32 +677,63 @@ case ${transactionType} in
                         fi
 			;;
 
+
         StakeKeyRegistration|StakeKeyDeRegistration )
                         #StakeKey Registration of De-Registration Transaction
                         transactionStakeName=$(jq -r ".transactions[${transactionIdx}].stakeAddr" <<< ${offlineJSON})
 
-                        #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        showProcessAnimation "Query-UTXO: " &
-                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
+		        case ${workMode} in
+		                "online")	showProcessAnimation "Query-UTXO: " &
+						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+
+		                "light")	showProcessAnimation "Query-UTXO-LightMode: " &
+						utxo=$(queryLight_UTXO "${transactionFromAddr}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+			esac
                         showProcessAnimation "Convert-UTXO: " &
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}"); stopProcessAnimation;
-                        utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
-                        utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
- 		if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
+			utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
 
+			utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
+
+			if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
 
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for '${transactionStakeName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
-                        echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
-                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
-                                echo
+
+		       		echo
+				case ${workMode} in
+					"online")
+						#onlinesubmit
+						echo -ne "\e[0mSubmitting the transaction via the node ... "
+						${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
+
+						#Show the TxID
+						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+
+					"light")
+						#lightmode submit
+						showProcessAnimation "Submit-Transaction-LightMode: " &
+						txID=$(submitLight "${txFile}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						echo -e "\e[0mSubmit-Transaction-LightMode ... \e[32mDONE\n"
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+				esac
+				echo
+
                                 #Write the new offileFile content
 				offlineJSON=$( jq ".address.\"${transactionFromAddr}\" += {used: \"yes\" }" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"tx submit ${txID} - ${transactionType} for '${transactionStakeName}', payment via '${transactionFromName}'\" } ]" <<< ${offlineJSON})
@@ -581,28 +749,58 @@ case ${transactionType} in
                         #StakeKey Registration of De-Registration Transaction
                         transactionDelegName=$(jq -r ".transactions[${transactionIdx}].delegName" <<< ${offlineJSON})
 
-                        #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        showProcessAnimation "Query-UTXO: " &
-                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
+		        case ${workMode} in
+		                "online")	showProcessAnimation "Query-UTXO: " &
+						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+
+		                "light")	showProcessAnimation "Query-UTXO-LightMode: " &
+						utxo=$(queryLight_UTXO "${transactionFromAddr}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+			esac
                         showProcessAnimation "Convert-UTXO: " &
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}"); stopProcessAnimation;
-                        utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
-                        utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
-	             	if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
+			utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
 
+			utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
+
+	             	if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
 
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for '${transactionDelegName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
-                        echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
-                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
-                                echo
+
+		       		echo
+				case ${workMode} in
+					"online")
+						#onlinesubmit
+						echo -ne "\e[0mSubmitting the transaction via the node ... "
+						${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
+
+						#Show the TxID
+						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+
+					"light")
+						#lightmode submit
+						showProcessAnimation "Submit-Transaction-LightMode: " &
+						txID=$(submitLight "${txFile}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						echo -e "\e[0mSubmit-Transaction-LightMode ... \e[32mDONE\n"
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+				esac
+				echo
+
                                 #Write the new offileFile content
 				offlineJSON=$( jq ".address.\"${transactionFromAddr}\" += {used: \"yes\" }" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"tx submit ${txID} - ${transactionType} for '${transactionStakeName}', payment via '${transactionFromName}'\" } ]" <<< ${offlineJSON})
@@ -621,13 +819,24 @@ case ${transactionType} in
                         poolMetaHash=$(jq -r ".transactions[${transactionIdx}].poolMetaHash" <<< ${offlineJSON})
                         regProtectionKey=$(jq -r ".transactions[${transactionIdx}].regProtectionKey" <<< ${offlineJSON})
 
-                        #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        showProcessAnimation "Query-UTXO: " &
-                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
+		        case ${workMode} in
+		                "online")	showProcessAnimation "Query-UTXO: " &
+						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+
+		                "light")	showProcessAnimation "Query-UTXO-LightMode: " &
+						utxo=$(queryLight_UTXO "${transactionFromAddr}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+			esac
                         showProcessAnimation "Convert-UTXO: " &
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}"); stopProcessAnimation;
-                        utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
-                        utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
+			utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
+
+			utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
+
  	        	if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
 
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for Pool '${poolMetaTicker}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
@@ -636,7 +845,7 @@ case ${transactionType} in
 
 		        #Check if the regProtectionKey is correct, this is a service to not have any duplicated Tickers on the Chain. If you know how to code you can see that it is easy, just a little protection for Noobs
 		        echo -ne "\e[0m\x54\x69\x63\x6B\x65\x72\x20\x50\x72\x6F\x74\x65\x63\x74\x69\x6F\x6E\x20\x43\x68\x65\x63\x6B\x20\x66\x6F\x72\x20\x54\x69\x63\x6B\x65\x72\x20'\e[32m${poolMetaTicker}\e[0m': "
-		        checkResult=$(curl -m 5 -s $(echo -e "\x68\x74\x74\x70\x73\x3A\x2F\x2F\x6D\x79\x2D\x69\x70\x2E\x61\x74\x2F\x63\x68\x65\x63\x6B\x74\x69\x63\x6B\x65\x72\x3F\x74\x69\x63\x6B\x65\x72\x3D${poolMetaTicker}&key=${regProtectionKey}") );
+		        checkResult=$(curl -m 20 -s $(echo -e "\x68\x74\x74\x70\x73\x3A\x2F\x2F\x6D\x79\x2D\x69\x70\x2E\x61\x74\x2F\x63\x68\x65\x63\x6B\x74\x69\x63\x6B\x65\x72\x3F\x74\x69\x63\x6B\x65\x72\x3D${poolMetaTicker}&key=${regProtectionKey}") );
 		        if [[ $? -ne 0 ]]; then echo -e "\e[33m\x50\x72\x6F\x74\x65\x63\x74\x69\x6F\x6E\x20\x53\x65\x72\x76\x69\x63\x65\x20\x6F\x66\x66\x6C\x69\x6E\x65\e[0m";
 		                           else
 		                                if [[ ! "${checkResult}" == "OK" ]]; then
@@ -660,7 +869,7 @@ case ${transactionType} in
 			tmpCheckJSON=$(jq . "${tmpMetadataJSON}" 2> /dev/null)
 		        if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Not a valid JSON file on the webserver!\e[0m\n"; exit 1; fi
 		        #Ok, downloaded file is a valid JSON file. So now look into the HASH
-			onlineMetaHash=$(${cardanocli} stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
+			onlineMetaHash=$(${cardanocli} ${cliEra} stake-pool metadata-hash --pool-metadata-file "${tmpMetadataJSON}")
 		        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		        #Compare the HASH now, if they don't match up, output an ERROR message and exit
 		        if [[ ! "${poolMetaHash}" == "${onlineMetaHash}" ]]; then
@@ -674,15 +883,34 @@ case ${transactionType} in
 		        else echo -e "\e[32mOK\e[0m\n"; fi
 		        #Ok, HASH is the same, continue
 
-                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
-                        echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
-
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
-                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
-                                echo
+
+		       		echo
+				case ${workMode} in
+					"online")
+						#onlinesubmit
+						echo -ne "\e[0mSubmitting the transaction via the node ... "
+						${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
+
+						#Show the TxID
+						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+
+					"light")
+						#lightmode submit
+						showProcessAnimation "Submit-Transaction-LightMode: " &
+						txID=$(submitLight "${txFile}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						echo -e "\e[0mSubmit-Transaction-LightMode ... \e[32mDONE\n"
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+				esac
+				echo
+
                                 #Write the new offileFile content
                                 offlineJSON=$( jq ".address.\"${transactionFromAddr}\" += {used: \"yes\" }" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"tx submit ${txID} - ${transactionType} for Pool '${poolMetaTicker}', payment via '${transactionFromName}'\" } ]" <<< ${offlineJSON})
@@ -698,27 +926,58 @@ case ${transactionType} in
                         #Pool Retirement
                         poolMetaTicker=$(jq -r ".transactions[${transactionIdx}].poolMetaTicker" <<< ${offlineJSON})
 
-                        #Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
-                        showProcessAnimation "Query-UTXO: " &
-                        utxo=$(${cardanocli} query utxo --address ${transactionFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
+		        case ${workMode} in
+		                "online")	showProcessAnimation "Query-UTXO: " &
+						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+
+		                "light")	showProcessAnimation "Query-UTXO-LightMode: " &
+						utxo=$(queryLight_UTXO "${transactionFromAddr}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+			esac
                         showProcessAnimation "Convert-UTXO: " &
                         utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}"); stopProcessAnimation;
-                        utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
-                        utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
+			utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
+
+			utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
+
 	                if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
 
                         echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for Pool '${poolMetaTicker}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         echo
-                        txID=$(${cardanocli} transaction txid --tx-file ${txFile} )
-                        echo -e "\e[0mTxID will be: \e[32m${txID}\e[0m\n"
 
                         if ask "\e[33mDoes this look good for you, continue ?" N; then
-                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
-                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
-                                if [[ ${magicparam} == "--mainnet" ]]; then echo -e "\e[0mTracking: \e[32mhttps://cardanoscan.io/transaction/${txID}\n"; fi
-                                echo
+
+		       		echo
+				case ${workMode} in
+					"online")
+						#onlinesubmit
+						echo -ne "\e[0mSubmitting the transaction via the node ... "
+						${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
+
+						#Show the TxID
+						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+
+					"light")
+						#lightmode submit
+						showProcessAnimation "Submit-Transaction-LightMode: " &
+						txID=$(submitLight "${txFile}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						echo -e "\e[0mSubmit-Transaction-LightMode ... \e[32mDONE\n"
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+				esac
+				echo
+
                                 #Write the new offileFile content
                                 offlineJSON=$( jq ".address.\"${transactionFromAddr}\" += {used: \"yes\" }" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"tx submit ${txID} - ${transactionType} for Pool '${poolMetaTicker}', payment via '${transactionFromName}'\" } ]" <<< ${offlineJSON})

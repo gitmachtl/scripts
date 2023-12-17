@@ -175,37 +175,17 @@ if [ ! -f "${toAddr}.addr" ]; then
 				typeOfAddr=$(get_addressType "${toAddr}");
 				if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo";
 
-                                #check if its an root adahandle (without a @ char)
-                                elif checkAdaRootHandleFormat "${toAddr}"; then
-                                        if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in Online mode.\n\e[0m"; exit 1; fi
-                                        adahandleName=${toAddr,,}
-                                        assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
-                                        #query classic cip-25 adahandle asset holding address via koios
-                                        showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
-                                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
-                                        stopProcessAnimation;
-                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-                                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then
-                                                #query classic cip-68 adahandle asset holding address via koios
-                                                showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
-                                                response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=000de140${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
-                                                stopProcessAnimation;
-                                                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
-                                                if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
-                                                assetNameHex="000de140${assetNameHex}"
-                                        fi
-                                        toAddr=$(jq -r ".[0].payment_address" <<< ${response} 2> /dev/null)
-                                        typeOfAddr=$(get_addressType "${toAddr}");
-                                        if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${toAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
-                                        showProcessAnimation "Verify Adahandle is on resolved address: " &
-                                        utxo=$(${cardanocli} query utxo --address ${toAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                                        if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then
-                                                 echo -e "\n\e[35mERROR - Resolved address '${toAddr}' does not hold the \$adahandle '${adahandleName}' !\n\e[0m"; exit 1; fi;
-                                        echo -e "\e[0mFound \$adahandle '${adahandleName}' on Address:\e[32m ${toAddr}\e[0m\n"
-                                        echo "$(basename ${toAddr})" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
+                                #check if its an adahandle (root/sub/virtual)
+                                elif checkAdaHandleFormat "${toAddr}"; then
 
-                                elif checkAdaSubHandleFormat "${toAddr}"; then
-                                        echo -e "\n\e[33mINFO - AdaSubHandles are not supported yet.\n\e[0m"; exit 1;
+                                        adahandleName=${toAddr,,}
+
+                                        #resolve given adahandle into address
+                                        resolveAdahandle "${adahandleName}" "toAddr" #if successful, it resolves the adahandle and writes it out into the variable 'toAddr'. also sets the variable 'utxo' if possible
+                                        unset utxo #remove utxo information from the adahandle lookup, because we only use it as a destination target
+
+                                        #resolveAdahandle did not exit with an error, so we resolved it
+                                        echo "${toAddr}" > ${tempDir}/adahandle-resolve.addr; toAddr="${tempDir}/adahandle-resolve";
 
 				#otherwise post an error message
 				else echo -e "\n\e[35mERROR - Destination Address can't be resolved. Maybe filename wrong, or not a payment-address.\n\e[0m"; exit 1;
@@ -254,9 +234,8 @@ echo -e "\e[0mSending lovelaces from Address\e[32m ${fromAddr}.addr\e[0m to Addr
 echo
 
 #get live values
-currentTip=$(get_currentTip)
-ttl=$(get_currentTTL)
-currentEPOCH=$(get_currentEpoch)
+currentTip=$(get_currentTip); checkError "$?";
+ttl=$(( ${currentTip} + ${defTTL} ))
 
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL[invalid_hereafter] to ${ttl})"
 echo
@@ -270,20 +249,38 @@ echo
 # Checking UTXO Data of the source address and gathering data about total lovelaces and total assets
 #
 
-        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
-        if ${onlineMode}; then
+        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in lightmode via API requests, in offlinemode from the transferFile
+        case ${workMode} in
+                "online")
+                                #check that the node is fully synced, otherwise the query would mabye return a false state
+                                if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
                                 showProcessAnimation "Query-UTXO: " &
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} 2> /dev/stdout);
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
                                 if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
                                 if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
-                          else
-				readOfflineFile;	#Reads the offlinefile into the offlineJSON variable
-                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
+                                ;;
+
+                "light")
+                                showProcessAnimation "Query-UTXO-LightMode: " &
+                                utxo=$(queryLight_UTXO "${sendFromAddr}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                if [[ ${skipUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep -v "${skipUtxoWithAsset}" ); fi #if its set to keep utxos that contains certain policies, filter them out
+                                if [[ ${onlyUtxoWithAsset} != "" ]]; then utxo=$(echo "${utxo}" | egrep "${onlyUtxoWithAsset}" ); utxo=$(echo -e "Header\n-----\n${utxo}"); fi #only use given utxos. rebuild the two header lines
+                                if [[ ${utxoLimitCnt} -gt 0 ]]; then utxo=$(echo "${utxo}" | head -n $(( ${utxoLimitCnt} + 2 )) ); fi #if there was a utxo cnt limit set, reduce it (+2 for the header)
+                                showProcessAnimation "Convert-UTXO: " &
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
+                                ;;
+
+
+                "offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON} 2> /dev/null)
                                 if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
-        fi
+                                ;;
+        esac
 
         #Only use UTXOs specied in the extra parameter if present
         if [[ ! "${filterForUTXO}" == "" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly using the UTXO with Hash ${filterForUTXO}\e[0m\n"; utxoJSON=$(filterFor_UTXO "${utxoJSON}" "${filterForUTXO}"); fi
@@ -344,8 +341,20 @@ echo
                                 totalAssetsJSON=$( jq ". += {\"${assetHash}${point}${assetName}\":{amount: \"${newValue}\", name: \"${assetTmpName}\", bech: \"${assetBech}\"}}" <<< ${totalAssetsJSON})
                                 if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; else assetTmpName="{${assetTmpName}}"; fi
 
-                                case ${assetHash} in
-                                        "${adahandlePolicyID}" )      #$adahandle
+                                case "${assetHash}${assetTmpName:1:8}" in
+                                        "${adahandlePolicyID}000de140" )        #$adahandle cip-68
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Own): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}00000000" )        #$adahandle virtual
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Vir): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}000643b0" )        #$adahandle reference
+                                                assetName=${assetName:8};
+                                                echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle(Ref): \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
+                                                ;;
+                                        "${adahandlePolicyID}"* )               #$adahandle cip-25
                                                 echo -e "\e[90m                           Asset: ${assetBech}  \e[33mADA Handle: \$$(convert_assetNameHEX2ASCII ${assetName}) ${assetTmpName}\e[0m"
                                                 ;;
                                         * ) #default
@@ -414,11 +423,11 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
 fi
 
 #Read ProtocolParameters
-if ${onlineMode}; then
-			protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
-		  else
-			protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
-		  fi
+case ${workMode} in
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
+        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+        "offline")      protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+esac
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #
@@ -446,13 +455,13 @@ txBodyFile="${tempDir}/dummy.txbody"
 dummyRequiredHash="12345678901234567890123456789012345678901234567890123456"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
-                        ${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
-fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
@@ -537,7 +546,7 @@ txFile="${tempDir}/$(basename ${fromAddr}).tx"
 #read the needed signing keys into ram
 echo
 skeyNodeJSON=$(read_skeyFILE "${nodeName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyNodeJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
-vkeyNodeHash=$(${cardanocli} key verification-key  --signing-key-file <(echo "${skeyNodeJSON}") --verification-key-file /dev/stdout | jq -r .cborHex | tail -c +5 | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1)
+vkeyNodeHash=$(${cardanocli} ${cliEra} key verification-key  --signing-key-file <(echo "${skeyNodeJSON}") --verification-key-file /dev/stdout | jq -r .cborHex | tail -c +5 | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1)
 echo -e "\e[0mBuilding the VKEY-Hash (Pool-ID) for the required signer field: \e[32m${vkeyNodeHash}\e[0m"
 
 echo
@@ -547,11 +556,11 @@ echo
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
+			${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			else  #Sending chosen amount (rxcnt=2), return the rest(incl. assets)
-			${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
-			#echo -e "\n\n\n${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out \"${sendFromAddr}+${lovelacesToReturn}${assetsOutString}\" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}\n\n\n"
+			${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --required-signer-hash ${vkeyNodeHash} --out-file ${txBodyFile}
+			#echo -e "\n\n\n${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out \"${sendFromAddr}+${lovelacesToReturn}${assetsOutString}\" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}\n\n\n"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
 
@@ -565,20 +574,9 @@ rm ${txFile} 2> /dev/null
 #If payment address is a hardware wallet, use the cardano-hw-cli for the signing
 if [[ -f "${fromAddr}.hwsfile" ]]; then
 
-#	currentAuxHash=$(cat ${txBodyFile} | sed -n "s/.*f5\(d90103.*\)\"/\1/p" | xxd -r -ps | b2sum -l 256 -b | awk {'print $1'}) #holds the expected auxhash
-#	currentAuxHash=$(cat ${txBodyFile} | sed -n "s/.*\($currentAuxHash\).*/\1/p") #holds the auxhash if it was found in the txcbor as a proof
-
 	echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
 	tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
         echo -e "\e[32m${tmp}\e[90m\n"
-
-#	newAuxHash=$(cat ${txBodyFile} | sed -n 's/.*f5\(d90103.*\)\"/\1/p' | xxd -r -ps | b2sum -l 256 -b | awk {'print $1'})
-#	if [[ "${currentAuxHash}" != "" && "${currentAuxHash}" != "${newAuxHash}" ]]; then #only do it when the currentAuxHash holds a hash (detection worked) and if the new one is different to the old one
-#		echo -ne "\e[0mAutocorrect the AuxHash from '${currentAuxHash}' to '${newAuxHash}': "
-#		sed -i "s/${currentAuxHash}/${newAuxHash}/g" ${txBodyFile}; if [ $? -ne 0 ]; then echo -e "\e[35mCouldn't write new ${txBodyFile} with a corrected AuxHash!\e[0m\n\n"; exit 1; fi
-#		echo -e "\e[32mOK\e[90m\n"
-#	fi
-
 
 	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 	echo
@@ -605,11 +603,11 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         echo -ne "\e[0mAdding the pool node witness '\e[33m${nodeName}.node.skey\e[0m' ... "
-        tmp=$(${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyNodeJSON}") ${magicparam} --out-file ${txNodeWitnessFile} 2> /dev/stdout)
+        tmp=$(${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyNodeJSON}") --out-file ${txNodeWitnessFile} 2> /dev/stdout)
         checkError "$?"; if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; fi
         echo -e "\e[32mOK\n"
 
-        ${cardanocli} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txNodeWitnessFile} --out-file ${txFile}
+        ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txNodeWitnessFile} --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo -e "\e[0mAssembled ... \e[32mDONE\e[0m\n";
 
@@ -621,7 +619,7 @@ else
 	echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m and \e[32m${nodeName}.node.skey\e[0m: \e[32m ${txFile}\e[0m"
 	echo
 
-        ${cardanocli} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --signing-key-file <(echo "${skeyNodeJSON}") ${magicparam} --out-file ${txFile}
+        ${cardanocli} ${cliEra} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --signing-key-file <(echo "${skeyNodeJSON}") --out-file ${txFile}
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 	#forget the signing keys
@@ -645,42 +643,56 @@ if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSi
 #if ask "\e[33mDoes this look good for you, continue ?" N; then
 if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you, continue ?" N; then
 
-	echo
-	if ${onlineMode}; then	#onlinesubmit
-				echo -ne "\e[0mSubmitting the transaction via the node... "
-				${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
-				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-				echo -e "\e[32mDONE\n"
+        echo
+        case ${workMode} in
+        "online")
+                                #onlinesubmit
+                                echo -ne "\e[0mSubmitting the transaction via the node... "
+                                ${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                                echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+                                ;;
 
-			  else	#offlinestore
-				txFileJSON=$(cat ${txFile} | jq .)
-				offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
-									type: \"Transaction\",
-									era: \"$(jq -r .protocol.era <<< ${offlineJSON})\",
-									fromAddr: \"${fromAddr}\",
-									sendFromAddr: \"${sendFromAddr}\",
-									toAddr: \"${toAddr}\",
-									sendToAddr: \"${sendToAddr}\",
-									txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
-				#Write the new offileFile content
-				offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed utxo-transaction from '${fromAddr}' to '${toAddr}'\" } ]" <<< ${offlineJSON})
-		                offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
-				echo "${offlineJSON}" > ${offlineFile}
-				#Readback the tx content and compare it to the current one
-				readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
-				if [[ "${txFileJSON}" == "${readback}" ]]; then
+        "light")
+                                #lightmode submit
+                                showProcessAnimation "Submit-Transaction-LightMode: " &
+                                txID=$(submitLight "${txFile}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                echo -e "\e[0mSubmit-Transaction-LightMode: \e[32mDONE\n"
+                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+                                ;;
+
+        "offline")
+                                #offlinestore
+                                txFileJSON=$(cat ${txFile} | jq .)
+                                offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
+                                                                        type: \"Transaction\",
+                                                                        era: \"$(jq -r .protocol.era <<< ${offlineJSON})\",
+                                                                        fromAddr: \"${fromAddr}\",
+                                                                        sendFromAddr: \"${sendFromAddr}\",
+                                                                        toAddr: \"${toAddr}\",
+                                                                        sendToAddr: \"${sendToAddr}\",
+                                                                        txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
+                                #Write the new offileFile content
+                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed utxo-transaction from '${fromAddr}' to '${toAddr}'\" } ]" <<< ${offlineJSON})
+                                offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
+                                echo "${offlineJSON}" > ${offlineFile}
+                                #Readback the tx content and compare it to the current one
+                                readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
+                                if [[ "${txFileJSON}" == "${readback}" ]]; then
                                                         showOfflineFileInfo;
                                                         echo -e "\e[33mTransaction txJSON has been stored in the '$(basename ${offlineFile})'.\nYou can now transfer it to your online machine for execution.\e[0m\n";
                                                  else
                                                         echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
-        			fi
+                                fi
+                                ;;
 
-	fi
+        esac
 
 fi
 

@@ -74,7 +74,7 @@ elif ${onlineMode}; then
 
 			echo -ne "\e[0mFetching Pooldata online via koios for PoolID: '\e[32m${poolIDBech}\e[0m' ... ";
 			#query poolinfo via poolid on koios
-	                importJSON=$(curl -s -m 10 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolIDBech}\"]}" 2> /dev/null)
+	                importJSON=$(curl -sL -m 30 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolIDBech}\"]}" 2> /dev/null)
 
 	                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
 	                if [[ $(jq ". | length" 2> /dev/null <<< ${importJSON}) -ne 1 ]]; then echo -e "\e[33mERROR, can't fetch the current online pool data from '${koiosAPI}/pool_info' !\e[0m\n"; exit 1; fi
@@ -89,7 +89,7 @@ elif ${onlineMode}; then
 
 			echo -ne "\e[0mFetching latest Pool-Update online via koios for PoolID: '\e[32m${poolIDBech}\e[0m' ... ";
 			#query poolinfo via poolid on koios
-	                latestUpdateJSON=$(curl -s -m 10 -X GET "${koiosAPI}/pool_updates?_pool_bech32=${poolIDBech}" -H "Accept: application/json" 2> /dev/null | jq -r .[0] 2> /dev/null)
+	                latestUpdateJSON=$(curl -sL -m 30 -X GET "${koiosAPI}/pool_updates?_pool_bech32=${poolIDBech}" -H "Accept: application/json" 2> /dev/null | jq -r .[0] 2> /dev/null)
 	                #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
 	                if [[ ${latestUpdateJSON} == "" ]]; then echo -e "\e[33mERROR, can't fetch the latest pool update from '${koiosAPI}/pool_updates' !\e[0m\n"; exit 1; fi
 
@@ -245,7 +245,7 @@ do
 
 done
 
-#Add current date as regSubmitted entry, if because the pool is already registered on the chain
+#Add current date as regSubmitted entry, if the pool is already registered on the chain
 if [[ "${poolStatus}" == "registered" ]]; then
 	poolJSON=$(jq ".regEpoch = \"${poolLastUpdateEpoch}\"" <<< ${poolJSON})
 	poolJSON=$(jq ".regSubmitted = \"$(date -R --date=@${poolLastUpdateTime})\"" <<< ${poolJSON})

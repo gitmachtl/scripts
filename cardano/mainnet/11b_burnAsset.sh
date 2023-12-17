@@ -165,12 +165,12 @@ assetBurnSubject="${policyID}${assetBurnName}"
 echo -e "\e[0mBurning Asset \e[32m${assetBurnAmount} '${assetBurnInputName}' -> '$(convert_assetNameHEX2ASCII_ifpossible ${assetBurnName})'\e[0m with Policy \e[32m'${policyName}'\e[0m: ${assetBurnBech}"
 
 #get live values
-currentTip=$(get_currentTip)
+currentTip=$(get_currentTip); checkError "$?";
 
 #set timetolife (inherent hereafter) to the currentTTL or to the value set in the policy.script for the "before" slot (limited policy lifespan)
 ttlFromScript=$(cat ${policyName}.policy.script | jq -r ".scripts[] | select(.type == \"before\") | .slot" 2> /dev/null || echo "unlimited")
 if [[ ${ttlFromScript} == "" ]]; then ttlFromScript="unlimited"; fi #also set it to unlimited if empty
-if [[ ! ${ttlFromScript} == "unlimited" ]]; then ttl=${ttlFromScript}; else ttl=$(get_currentTTL); fi
+if [[ ! ${ttlFromScript} == "unlimited" ]]; then ttl=${ttlFromScript}; else ttl=$(( ${currentTip} + ${defTTL} )); fi
 echo
 echo -e "\e[0mPolicy valid before Slot-Height:\e[33m ${ttlFromScript}\e[0m"
 echo
@@ -191,18 +191,33 @@ echo
 #
 # Checking UTXO Data of the source address and gathering data about total lovelaces and total assets
 #
-        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in offlinemode from the transferFile
-        if ${onlineMode}; then
+
+        #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in lightmode via API requests, in offlinemode from the transferFile
+        case ${workMode} in
+                "online")
+                                #check that the node is fully synced, otherwise the query would mabye return a false state
+                                if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
                                 showProcessAnimation "Query-UTXO: " &
-                                utxo=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} ); stopProcessAnimation; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} 2> /dev/stdout);
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
-                                #utxoJSON=$(${cardanocli} query utxo --address ${sendFromAddr} ${magicparam} --out-file /dev/stdout); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
-                          else
-                                readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
-                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON})
-                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-        fi
+                                ;;
+
+                "light")
+                                showProcessAnimation "Query-UTXO-LightMode: " &
+                                utxo=$(queryLight_UTXO "${sendFromAddr}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                showProcessAnimation "Convert-UTXO: " &
+                                utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
+                                ;;
+
+
+                "offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+                                utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON} 2> /dev/null)
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
+                                ;;
+        esac
 
         #Only use UTXOs specied in the extra parameter if present
         if [[ ! "${filterForUTXO}" == "" ]]; then echo -e "\e[0mUTXO-Mode: \e[32mOnly using the UTXO with Hash ${filterForUTXO}\e[0m\n"; utxoJSON=$(filterFor_UTXO "${utxoJSON}" "${filterForUTXO}"); fi
@@ -338,26 +353,27 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
 fi
 
 #Read ProtocolParameters
-if ${onlineMode}; then
-                        protocolParametersJSON=$(${cardanocli} query protocol-parameters ${magicparam} ); #onlinemode
-                  else
-                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON}); #offlinemode
-                  fi
+case ${workMode} in
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
+        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+        "offline")      protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+esac
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
 minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
 
 if [[ "${assetBurnName}" == "" ]]; then point=""; else point="."; fi
 
 #Check amount of assets after the burn
 assetAmountAfterBurn=$(jq -r ".\"${policyID}${point}${assetBurnName}\".amount" <<< ${totalAssetsJSON})
-if [[ $(bc <<< "${assetAmountAfterBurn}<0") -eq 1 ]]; then echo -e "\n\e[35mYou can't burn ${assetBurnAmount} '${assetBurnName}' Assets with that policy, you can only burn $(bc <<< "${assetBurnAmount}+${assetAmountAfterBurn}") Assets!\e[0m"; exit; fi
+if [[ $(bc <<< "${assetAmountAfterBurn}<0") -eq 1 ]]; then echo -e "\n\e[35mYou can't burn ${assetBurnAmount} '${assetBurnInputName}' Assets with that policy, you can only burn $(bc <<< "${assetBurnAmount}+${assetAmountAfterBurn}") Assets!\e[0m"; exit; fi
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --minting-script-file ${policyName}.policy.script --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --minting-script-file ${policyName}.policy.script --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-fee=$(${cardanocli} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} ${magicparam} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
@@ -386,7 +402,7 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} transaction build-raw ${nodeEraParam} ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --minting-script-file ${policyName}.policy.script --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --mint "-${assetBurnAmount} ${policyID}${point}${assetBurnName}" --minting-script-file ${policyName}.policy.script --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -420,7 +436,7 @@ else #generate the policy witness via the cli
         #read the needed signing keys into ram
         skeyJSON=$(read_skeyFILE "${policyName}.policy.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
-        ${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file ${txWitnessPolicyFile}
+        ${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --out-file ${txWitnessPolicyFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         #forget the signing keys
@@ -444,7 +460,7 @@ else #generate the payment witness via the cli
         #read the needed signing keys into ram
         skeyJSON=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
-        ${cardanocli} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") ${magicparam} --out-file ${txWitnessPaymentFile}
+        ${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --out-file ${txWitnessPaymentFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         #forget the signing keys
@@ -455,7 +471,7 @@ fi
 
 #Assemble all witnesses into the final TxBody
 rm ${txFile} 2> /dev/null
-${cardanocli} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessPolicyFile} --witness-file ${txWitnessPaymentFile} --out-file ${txFile}
+${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessPolicyFile} --witness-file ${txWitnessPaymentFile} --out-file ${txFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -ne "\e[90m"
@@ -472,15 +488,18 @@ if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSi
 
 #if ask "\e[33mDoes this look good for you, continue ?" N; then
 if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\e[33mDoes this look good for you, continue ?" N; then
+
         echo
-        if ${onlineMode}; then  #onlinesubmit
+        case ${workMode} in
+        "online")
+                                #onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node... "
-                                ${cardanocli} transaction submit --tx-file ${txFile} ${magicparam}
+                                ${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID
-                                txID=$(${cardanocli} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
                                 if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 
@@ -530,8 +549,70 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\e[33mDoes this look good for you, 
 			        echo -e "\e[0mAsset-File: \e[32m ${assetFileName} \e[90m\n"
 			        cat ${assetFileName}
 			        echo
+				;;
 
-                          else  #offlinestore
+
+        "light")
+                                #lightmode submit
+                                showProcessAnimation "Submit-Transaction-LightMode: " &
+                                txID=$(submitLight "${txFile}");
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                echo -e "\e[0mSubmit-Transaction-LightMode: \e[32mDONE\n"
+
+                                #Show the TxID
+                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+
+                                assetTmpName=$(convert_assetNameHEX2ASCII_ifpossible ${assetBurnName}); if [[ "${assetTmpName:0:1}" == "." ]]; then assetTmpName=${assetTmpName:1}; fi
+
+                                #Updating the ${policyName}.${assetBurnInputName}.asset json
+                                assetFileName="${policyName}.${assetBurnInputName}.asset"
+
+                                #Make assetFileSkeleton
+                                assetFileSkeletonJSON=$(jq ". += {metaName: \"${assetTmpName:0:50}\",
+                                                                  metaDescription: \"\",
+                                                                  \"---\": \"--- Optional additional info ---\",
+                                                                  metaTicker: \"\",
+                                                                  metaUrl: \"\",
+                                                                  metaDecimals: \"0\",
+                                                                  metaLogoPNG: \"\",
+                                                                  \"===\": \"--- DO NOT EDIT BELOW THIS LINE !!! ---\",
+                                                                  minted: \"0\"}" <<< "{}")
+
+
+                                #If there is no assetFileName file, create one
+                                if [ ! -f "${assetFileName}" ]; then echo "{}" > ${assetFileName}; fi
+
+                                #Read in the current file
+                                assetFileJSON=$(cat ${assetFileName})
+
+                                #Combine the Skeleton with the real one
+                                assetFileJSON=$(echo "${assetFileSkeletonJSON} ${assetFileJSON}" | jq -rs 'reduce .[] as $item ({}; . * $item)')
+
+                                oldValue=$(jq -r ".minted" <<< ${assetFileJSON}); if [[ "${oldValue}" == "" ]]; then oldValue=0; fi
+                                newValue=$(bc <<< "${oldValue} - ${assetBurnAmount}")
+                                assetFileJSON=$( jq ". += {minted: \"${newValue}\",
+                                                           name: \"${assetTmpName}\",
+							   hexname: \"${assetHexBurnName}\",
+                                                           bechName: \"${assetBurnBech}\",
+                                                           policyID: \"${policyID}\",
+                                                           policyValidBeforeSlot: \"${ttlFromScript}\",
+                                                           subject: \"${assetBurnSubject}\",
+                                                           lastUpdate: \"$(date -R)\",
+                                                           lastAction: \"burn ${assetBurnAmount}\"}" <<< ${assetFileJSON})
+
+
+			        file_unlock ${assetFileName}
+			        echo -e "${assetFileJSON}" > ${assetFileName}
+			        file_lock ${assetFileName}
+
+			        echo -e "\e[0mAsset-File: \e[32m ${assetFileName} \e[90m\n"
+			        cat ${assetFileName}
+			        echo
+				;;
+
+
+	"offline")
+                          	#offlinestore
                                 txFileJSON=$(cat ${txFile} | jq .)
                                 offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
                                                                         type: \"Asset-Burning\",
@@ -544,7 +625,6 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\e[33mDoes this look good for you, 
                                 #Write the new offileFile content
                                 offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"burned ${assetBurnAmount} '${assetBurnInputName}' on '${fromAddr}'\" } ]" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
-                                offlineJSON=$( jq ".general += {offlineNODE: \"${versionNODE}\" }" <<< ${offlineJSON})
                                 echo "${offlineJSON}" > ${offlineFile}
                                 #Readback the tx content and compare it to the current one
                                 readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
@@ -600,9 +680,12 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\e[33mDoes this look good for you, 
 
                                                  else
                                                         echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
-                                fi
 
-        fi
+                                fi #"${txFileJSON}"=="${readback}"
+				;;
+
+        esac
+
 fi
 
 echo -e "\e[0m\n"

@@ -124,7 +124,7 @@ fi
 if [[ "${keyType}" == "CLI" ]]; then #Payment Keys via CLI (unencrypted)
 
 	#We need a normal payment(base) keypair with vkey and skey, so let's create that one
-	${cardanocli} address key-gen --verification-key-file "${addrName}.payment.vkey" --signing-key-file "${addrName}.payment.skey"
+	${cardanocli} ${cliEra} address key-gen --verification-key-file "${addrName}.payment.vkey" --signing-key-file "${addrName}.payment.skey"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.payment.vkey
 	file_lock ${addrName}.payment.skey
@@ -184,7 +184,7 @@ elif [[ "${keyType}" == "MNEMONICS" ]]; then #Payment Keys via Mnemonics (unencr
 
 	vkeyJSON=$(jq -r ".output.vkey" <<< ${signerJSON} 2> /dev/null)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-	vkeyJSON=$(${cardanocli} key non-extended-key --extended-verification-key-file <(echo "${vkeyJSON}") --verification-key-file /dev/stdout) #convert the extended vkey into a normal one
+	vkeyJSON=$(${cardanocli} ${cliEra} key non-extended-key --extended-verification-key-file <(echo "${vkeyJSON}") --verification-key-file /dev/stdout) #convert the extended vkey into a normal one
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	vkeyJSON=$(jq ".description = \"Payment Verification Key\"" <<< ${vkeyJSON} 2> /dev/null)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -206,7 +206,7 @@ elif [[ "${keyType}" == "MNEMONICS" ]]; then #Payment Keys via Mnemonics (unencr
 elif [[ "${keyType}" == "ENC" ]]; then #Payment Keys via CLI (encrypted)
 
 	#We need a normal payment(base) keypair with vkey and skey, so let's create that one
-        skeyJSON=$(${cardanocli} address key-gen --verification-key-file "${addrName}.payment.vkey" --signing-key-file /dev/stdout 2> /dev/null)
+        skeyJSON=$(${cardanocli} ${cliEra} address key-gen --verification-key-file "${addrName}.payment.vkey" --signing-key-file /dev/stdout 2> /dev/null)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${addrName}.payment.vkey
 
@@ -310,7 +310,7 @@ echo
 if [[ "${keyType}" == "CLI" || "${keyType}" == "HYBRID" || "${keyType}" == "HYBRIDMULTI" ]]; then #Staking Keys via CLI (unencrypted)
 
 	#Building the StakeAddress Keys from CLI for the normal CLI type or when HYBRID was choosen
-	${cardanocli} stake-address key-gen --verification-key-file "${addrName}.staking.vkey" --signing-key-file "${addrName}.staking.skey"
+	${cardanocli} ${cliEra} stake-address key-gen --verification-key-file "${addrName}.staking.vkey" --signing-key-file "${addrName}.staking.skey"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${addrName}.staking.vkey
 	file_lock ${addrName}.staking.skey
@@ -340,7 +340,7 @@ elif [[ "${keyType}" == "MNEMONICS" ]]; then #Payment Keys via Mnemonics (unencr
 
 	vkeyJSON=$(jq -r ".output.vkey" <<< ${signerJSON} 2> /dev/null)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-	vkeyJSON=$(${cardanocli} key non-extended-key --extended-verification-key-file <(echo "${vkeyJSON}") --verification-key-file /dev/stdout) #convert the extended vkey into a normal one
+	vkeyJSON=$(${cardanocli} ${cliEra} key non-extended-key --extended-verification-key-file <(echo "${vkeyJSON}") --verification-key-file /dev/stdout) #convert the extended vkey into a normal one
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	vkeyJSON=$(jq ".description = \"Stake Verification Key\"" <<< ${vkeyJSON} 2> /dev/null)
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -362,7 +362,7 @@ elif [[ "${keyType}" == "MNEMONICS" ]]; then #Payment Keys via Mnemonics (unencr
 elif [[ "${keyType}" == "ENC" || "${keyType}" == "HYBRIDENC" || "${keyType}" == "HYBRIDMULTIENC" ]]; then #Staking Keys via CLI (encrypted)
 
 	#Building the StakeAddress Keys from CLI for the normal CLI type or when HYBRID was choosen
-	skeyJSON=$(${cardanocli} stake-address key-gen --verification-key-file "${addrName}.staking.vkey" --signing-key-file /dev/stdout 2> /dev/null)
+	skeyJSON=$(${cardanocli} ${cliEra} stake-address key-gen --verification-key-file "${addrName}.staking.vkey" --signing-key-file /dev/stdout 2> /dev/null)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock "${addrName}.staking.vkey"
 
@@ -459,7 +459,7 @@ else  #Staking Keys via HW-Wallet
 fi
 
 #Building a Payment Address
-${cardanocli} address build --payment-verification-key-file "${addrName}.payment.vkey" --staking-verification-key-file "${addrName}.staking.vkey" ${addrformat} > "${addrName}.payment.addr"
+${cardanocli} ${cliEra} address build --payment-verification-key-file "${addrName}.payment.vkey" --staking-verification-key-file "${addrName}.staking.vkey" ${addrformat} > "${addrName}.payment.addr"
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock "${addrName}.payment.addr"
 
@@ -469,21 +469,12 @@ echo
 echo
 
 #Building a Staking Address
-${cardanocli} stake-address build --staking-verification-key-file "${addrName}.staking.vkey" ${addrformat} > "${addrName}.staking.addr"
+${cardanocli} ${cliEra} stake-address build --staking-verification-key-file "${addrName}.staking.vkey" ${addrformat} > "${addrName}.staking.addr"
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock "${addrName}.staking.addr"
 
 echo -e "\e[0mStaking(Rewards)-Address built: \e[32m ${addrName}.staking.addr \e[90m"
 cat "${addrName}.staking.addr"
-echo
-
-#create an address registration certificate
-${cardanocli} stake-address registration-certificate --staking-verification-key-file "${addrName}.staking.vkey" --out-file "${addrName}.staking.cert"
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-file_lock "${addrName}.staking.cert"
-
-echo -e "\e[0mStaking-Address-Registration-Certificate built: \e[32m ${addrName}.staking.cert \e[90m"
-cat "${addrName}.staking.cert"
 echo
 echo
 echo -e "\e[35mIf you wanna register the Staking-Address, please now run the script 03b_regStakingAddrCert.sh !\e[0m"

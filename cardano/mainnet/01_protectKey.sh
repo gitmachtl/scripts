@@ -24,6 +24,7 @@ Example:  $(basename $0) enc mywallet          ... Encrypts the mywallet.skey fi
 EOF
 }
 
+
 #Check commandline parameters
 if [[ $# -lt 2 ]]; then showUsage; exit 1; fi  #check about two given parameters
 case ${1^^} in

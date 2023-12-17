@@ -39,7 +39,7 @@ echo
 
 if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli (unencrypted)
 
-	${cardanocli} node key-gen-VRF --verification-key-file "${nodeName}.vrf.vkey" --signing-key-file "${nodeName}.vrf.skey"
+	${cardanocli} ${cliEra} node key-gen-VRF --verification-key-file "${nodeName}.vrf.vkey" --signing-key-file "${nodeName}.vrf.skey"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${nodeName}.vrf.vkey
 	file_lock ${nodeName}.vrf.skey
@@ -53,7 +53,7 @@ if [[ "${keyType^^}" == "CLI" ]]; then #Building it from the cli (unencrypted)
 
 elif [[ "${keyType^^}" == "ENC" ]]; then #Building it from the cli (encrypted)
 
-        skeyJSON=$(${cardanocli} node key-gen-VRF --verification-key-file "${nodeName}.vrf.vkey" --signing-key-file /dev/stdout)
+        skeyJSON=$(${cardanocli} ${cliEra} node key-gen-VRF --verification-key-file "${nodeName}.vrf.vkey" --signing-key-file /dev/stdout)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${nodeName}.vrf.vkey
 

@@ -23,6 +23,8 @@ Usage:  $(basename $0) <PolicyName.AssetName OR assetSubject(HexCode)>
 EOF
   exit 1;; esac
 
+
+
 #Check assetName
 if [[ "${assetName}" == ".asset" ]]; then assetName=""; fi
 assetFileName="${policyName}.${assetName}.asset"

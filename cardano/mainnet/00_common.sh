@@ -1,4 +1,4 @@
-#!/bin/bash
+##!/bin/bash
 unset magicparam network addrformat
 
 ##############################################################################################################################
@@ -12,40 +12,47 @@ unset magicparam network addrformat
 ##############################################################################################################################
 
 
-#--------- Set the Path to your node socket file and to your genesis files here ---------
-socket="db-mainnet/node.socket" #Path to your cardano-node socket for machines in online-mode. Another example would be "$HOME/cnode/sockets/node.socket"
-genesisfile="configuration-mainnet/mainnet-shelley-genesis.json"           #Shelley-Genesis path, you can also use the placeholder $HOME to specify your home directory
-genesisfile_byron="configuration-mainnet/mainnet-byron-genesis.json"       #Byron-Genesis path, you can also use the placeholder $HOME to specify your home directory
+#--------- Workmode: online, light, offline ---  please read the instructions on the github repo README :-)
+workMode="online"	#change this to "online" if your machine is online and you run a local node with, this is also know as full-mode
+			#change this to "light" if your machine is online but you don't run a local node (all requests are done via online APIs like koios, adahandle, etc.)
+			#change this to "offline" if you run these scripts on a cold machine, needs a counterpart with is set to "online" or "light" on a hot machine
 
 
 #--------- Set the Path to your main binaries here ---------
-cardanocli="./cardano-cli"	#Path to your cardano-cli binary you wanna use. If your binary is present in the Path just set it to "cardano-cli" without the "./" infront
-cardanonode="./cardano-node"	#Path to your cardano-node binary you wanna use. If your binary is present in the Path just set it to "cardano-node" without the "./" infront
-bech32_bin="./bech32"		#Path to your bech32 binary you wanna use. If your binary is present in the Path just set it to "bech32" without the "./" infront
+cardanocli="./cardano-cli"		#Path to your cardano-cli binary you wanna use. If your binary is present in the Path just set it to "cardano-cli" without the "./" infront
+cardanosigner="./cardano-signer"	#Path to your cardano-signer binary you wanna use. If your binary is present in the Path just set it to "cardano-signer" without the "./" infront
+bech32_bin="./bech32"			#Path to your bech32 binary you wanna use. If your binary is present in the Path just set it to "bech32" without the "./" infront
 
-
-#--------- You can work in offline mode too, please read the instructions on the github repo README :-)
-offlineMode="no" 			#change this to "yes" if you run these scripts on a cold machine, it need a counterpart with set to "no" on a hot machine
-offlineFile="./offlineTransfer.json" 	#path to the filename (JSON) that will be used to transfer the data between a hot and a cold machine
 
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-#--------- Only needed if you wanna do catalyst voting or include your itn witness for your pool-ticker
-cardanosigner="./cardano-signer"		#Path to your cardano-signer binary you wanna use. If your binary is present in the Path just set it to "cardano-signer" without the "./" infront
+#--------- Only needed if you run in online mode with a local node (aka FullMode)
+cardanonode="./cardano-node"	#Path to your cardano-node binary you wanna use. If your binary is present in the Path just set it to "cardano-node" without the "./" infront
+socket="db/node.socket" #Path to your cardano-node socket for machines in online-mode. Another example would be "$HOME/cnode/sockets/node.socket"
 
 
-#--------- Only needed if you wanna do catalyst voting
-catalyst_toolbox_bin="./catalyst-toolbox"	#Path to your catalyst-toolbox binary you wanna use. If your binary is present in the Path just set it to "catalyst-toolbox" without the "./" infront
+#--------- Only needed for offline mode and pool-operations ---------
+genesisfile="$HOME/cardano/mainnet-shelley-genesis.json"           #Shelley-Genesis path, you can also use the placeholder $HOME to specify your home directory
+genesisfile_byron="$HOME/cardano/mainnet-byron-genesis.json"       #Byron-Genesis path, you can also use the placeholder $HOME to specify your home directory
 
 
 #--------- Only needed if you wanna use a hardware key (Ledger/Trezor) too, please read the instructions on the github repo README :-)
 cardanohwcli="cardano-hw-cli"      #Path to your cardano-hw-cli binary you wanna use. If your binary is present in the Path just set it to "cardano-hw-cli" without the "./" infront
 
 
+#--------- Only needed if you wanna do online/offline hot/cold machine transfers
+offlineFile="./offlineTransfer.json" 	#path to the filename (JSON) that will be used to transfer the data between a hot and a cold machine
+
+
+#--------- Only needed if you wanna do catalyst voting
+catalyst_toolbox_bin="./catalyst-toolbox"	#Path to your catalyst-toolbox binary you wanna use. If your binary is present in the Path just set it to "catalyst-toolbox" without the "./" infront
+
+
 #--------- Only needed if you wanna generate the right format for the NativeAsset Metadata Registry
 cardanometa="./token-metadata-creator" #Path to your token-metadata-creator binary you wanna use. If present in the Path just set it to "token-metadata-creator" without the "./" infront
+
 
 #--------- Only needed if you wanna change the BlockChain from the Mainnet to a Testnet Chain Setup, uncomment the network you wanna use by removing the leading #
 #          Using a preconfigured network name automatically loads and sets the magicparam, addrformat and byronToShelleyEpochs parameters, also API-URLs, etc.
@@ -53,6 +60,7 @@ cardanometa="./token-metadata-creator" #Path to your token-metadata-creator bina
 #network="Mainnet" 	#Mainnet (Default)
 #network="PreProd" 	#PreProd Testnet (new default Testnet)
 #network="Preview"	#Preview Testnet (new fast Testnet)
+#network="Sancho"	#SanchoNet Testnet (new governance Testnet)
 #network="Legacy"	#Legacy TestChain (formally known as Public-Testnet)
 #network="GuildNet"	#GuildNet Testnet
 
@@ -124,10 +132,11 @@ echo -e "\e[35m${1}\n\nIf you think all is right at your side, please check the 
 }
 #-------------------------------------------------------
 
+
 #API Endpoints and Network-Settings for the various chains
 
 network=${network:-mainnet} #sets the default network to mainnet, if not set otherwise
-unset _magicparam _addrformat _byronToShelleyEpochs _tokenMetaServer _transactionExplorer _koiosAPI _adahandlePolicyID
+unset _magicparam _addrformat _byronToShelleyEpochs _tokenMetaServer _transactionExplorer _koiosAPI _adahandlePolicyID _adahandleAPI _lightModeParametersURL
 
 #Load and overwrite variables via env files if present
 scriptDir=$(dirname "$0" 2> /dev/null)
@@ -135,26 +144,30 @@ if [[ -f "${scriptDir}/common.inc" ]]; then source "${scriptDir}/common.inc"; fi
 if [[ -f "$HOME/.common.inc" ]]; then source "$HOME/.common.inc"; fi
 if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
+#Also check about a lowercase "workmode" entry
+workMode=${workmode:-"${workMode}"}
+
 #Set the list of preconfigured networknames
-networknames="mainnet, preprod, preview, legacy, vasildev"
+networknames="mainnet, preprod, preview, sancho"
 
 #Check if there are testnet parameters set but network is still "mainnet"
 if [[ "${magicparam}${addrformat}" == *"testnet"* && "${network,,}" == "mainnet" ]]; then majorError "Mainnet selected, but magicparam(${magicparam})/addrformat(${addrformat}) have testnet settings!\n\nPlease select the right chain in the '00_common.sh', '${scriptDir}/common.inc', '$HOME/.common.inc' or './common.inc' file by setting the value for the parameter network to one of the preconfiged networknames:\n${networknames}\n\nThere is no need anymore, to set the parameters magicparam/addrformat/byronToShelleyEpochs for the preconfigured networks. Its enough to specify it for example with: network=\"preprod\"\nOf course you can still set them and also set a custom networkname like: network=\"vasil-dev\""; exit 1; fi
-
 
 #Preload the variables, based on the "network" name
 case "${network,,}" in
 
 	"mainnet" )
-		network="Mainnet"	#nicer name for info-display
-		_magicparam="--mainnet"	#MagicParameter Extension --mainnet / --testnet-magic xxx
-		_addrformat="--mainnet"	#Addressformat for the address generation, normally the same as magicparam
+		network="Mainnet"		#nicer name for info-display
+		_magicparam="--mainnet"		#MagicParameter Extension --mainnet / --testnet-magic xxx
+		_addrformat="--mainnet"		#Addressformat for the address generation, normally the same as magicparam
 		_byronToShelleyEpochs=208	#The number of Byron Epochs before the Chain forks to Shelley-Era
 		_tokenMetaServer="https://tokens.cardano.org/metadata/"		#Token Metadata API URLs -> autoresolve into ${tokenMetaServer}/
 		_transactionExplorer="https://cardanoscan.io/transaction/" 	#URLS for the Transaction-Explorers -> autoresolve into ${transactionExplorer}/
-		_koiosAPI="https://api.koios.rest/api/v0"	#Koios-API URLs -> autoresolve into ${koiosAPI}
+		_koiosAPI="https://api.koios.rest/api/v1"			#Koios-API URLs -> autoresolve into ${koiosAPI}
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		_adahandleAPI="https://api.handle.me"				#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
 		_catalystAPI="https://api.testnet.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_lightModeParametersURL="https://uptime.live/data/cardano/parms/mainnet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
 
@@ -165,9 +178,11 @@ case "${network,,}" in
 		_byronToShelleyEpochs=4
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://preprod.cardanoscan.io/transaction"
-		_koiosAPI="https://preprod.koios.rest/api/v0"
+		_koiosAPI="https://preprod.koios.rest/api/v1"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		_adahandleAPI="https://preprod.api.handle.me"		#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
 		_catalystAPI="https://api.testnet.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_lightModeParametersURL="https://uptime.live/data/cardano/parms/preprod-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
 
@@ -178,9 +193,11 @@ case "${network,,}" in
 		_byronToShelleyEpochs=0
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer="https://preview.cardanoscan.io/transaction"
-		_koiosAPI="https://preview.koios.rest/api/v0"
+		_koiosAPI="https://preview.koios.rest/api/v1"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
-		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_adahandleAPI="https://preview.api.handle.me"		#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
+		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_lightModeParametersURL="https://uptime.live/data/cardano/parms/preview-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
 
@@ -191,9 +208,26 @@ case "${network,,}" in
 		_byronToShelleyEpochs=2
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer=
-		_koiosAPI="https://guild.koios.rest/api/v0"
+		_koiosAPI="https://guild.koios.rest/api/v1"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
-		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_adahandleAPI=
+		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+		;;
+
+
+	"sancho"|"sancho-net"|"sanchonet" )
+		network="SanchoNet"
+		_magicparam="--testnet-magic 4"
+		_addrformat="--testnet-magic 4"
+		_byronToShelleyEpochs=0
+		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
+		_transactionExplorer=
+		_koiosAPI=
+		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		_adahandleAPI=
+		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
 
@@ -206,7 +240,9 @@ case "${network,,}" in
 		_transactionExplorer=
 		_koiosAPI=
 		_adahandlePolicyID="8d18d786e92776c824607fd8e193ec535c79dc61ea2405ddf3b09fe3"
-		_catalystAPI=	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_adahandleAPI=
+		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
 esac
@@ -220,7 +256,9 @@ tokenMetaServer=${tokenMetaServer:-"${_tokenMetaServer}"}
 transactionExplorer=${transactionExplorer:-"${_transactionExplorer}"}
 koiosAPI=${koiosAPI:-"${_koiosAPI}"}
 adahandlePolicyID=${adahandlePolicyID:-"${_adahandlePolicyID}"}
+adahandleAPI=${adahandleAPI:-"${_adahandleAPI}"}
 catalystAPI=${catalystAPI:-"${_catalystAPI}"}
+lightModeParametersURL=${lightModeParametersURL:-"${_lightModeParametersURL}"}
 
 
 #Check about the / at the end of the URLs
@@ -228,54 +266,247 @@ if [[ "${tokenMetaServer: -1}" == "/" ]]; then tokenMetaServer=${tokenMetaServer
 if [[ "${koiosAPI: -1}" == "/" ]]; then koiosAPI=${koiosAPI%?}; fi #make sure the last char is not a /
 if [[ "${transactionExplorer: -1}" == "/" ]]; then transactionExplorer=${transactionExplorer%?}; fi #make sure the last char is not a /
 if [[ "${catalystAPI: -1}" == "/" ]]; then catalystAPI=${catalystAPI%?}; fi #make sure the last char is not a /
+if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #make sure the last char is not a /
 
 
 #Check about the needed chain params
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minNodeVersion="1.35.5"  		#minimum allowed node version for this script-collection version
+minCliVersion="8.17.0"  		#minimum allowed cli version for this script-collection version
+maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
+minNodeVersion="8.7.2"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion="5.0.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.6.0"  	#minimum version for the firmware on the Trezor HW-Wallet
 minHardwareCliVersion="1.12.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.13.0"	#minimum version for the cardano-signer binary
+minCardanoSignerVersion="1.14.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
+#Defaults - Variables and Constants
+defEra="" #Era for non era related cardano-cli commands
+defTTL=100000 #Default seconds for transactions to be valid
+addrTypePayment="payment"
+addrTypeStake="stake"
+lightModeParametersJSON="" #will be updated with the latest parameters json if scripts are running in light mode
 
-#Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations
+#Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations which are interacting with a local node
 export CARDANO_NODE_SOCKET_PATH=${socket}
+
+#set the CARDANO_NODE_NETWORK_ID for all cardano-cli operations, the ${magicparam} stays active in the background
+if [[ "${magicparam,,}" == *"mainnet"* ]]; then
+	export CARDANO_NODE_NETWORK_ID="mainnet"; #set it to mainnet
+	else
+	export CARDANO_NODE_NETWORK_ID="${magicparam#* }"; #set it to the number behind the space (e.g. '--testnet-magic 1234' -> '1234'}
+fi
 
 #Set the bc linebreak to a big number so we can work with really biiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiig numbers
 export BC_LINE_LENGTH=1000
 
-#Setting online/offline variables and offlineFile default value, versionInfo, tokenRegistryquery, tx output cropping to boolean values
-if [[ "${offlineMode^^}" == "YES" ]]; then offlineMode=true; onlineMode=false; else offlineMode=false; onlineMode=true; fi
+
+
+#-------------------------------------------------------
+#queryLight_protocolParameters function
+#
+# makes an online query via the hosted service to get the current protocolParameters file
+# which also includes the used cardano-cli version, era, tip, lastupdate
+#
+queryLight_protocolParameters() {
+
+	local queryData=${1,,}
+        local errorcnt=0
+        local error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
+		error=0
+		response=$(curl --compressed -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" -H "Cache-Control: no-cache, no-store" "${lightModeParametersURL}?rnd=$(date +%s 2> /dev/null)" 2> /dev/null)
+		if [[ $? -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Light-Mode Protocol-Parameters-JSON via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Light-Mode Protocol-Paramters-JSON curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "Query of the Light-Mode Protocol-Parameters-JSON failed\nHTTP Request File: ${lightModeParametersURL}\nHTTP Response Code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+	parametersJSON=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+	if [[ $? -ne 0 ]]; then echo -e "Query of the Light-Mode Protocol-Parameters-JSON failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#return the response
+	printf "${parametersJSON}"
+	unset response error errorcnt parametersJSON
+
+}
+#-------------------------------------------------------
+
+
+#-------------------------------------------------------
+#queryLight_tip function
+#
+# makes an online query via koios API and returns the current tip
+#
+queryLight_tip() {
+
+        local errorcnt=0
+        local error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/tip"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query-Tip of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+	tipRet=$(jq -r ".[0].abs_slot" <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query-Tip via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#return the tip
+	printf "${tipRet}"
+	unset tipRet response responseCode responseJSON error errorcnt
+
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#queryLight_epoch function
+#
+# makes an online query via koios API and returns the current epoch
+#
+queryLight_epoch() {
+
+        local errorcnt=0
+        local error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/tip"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query-Epoch of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+	epochRet=$(jq -r ".[0].epoch_no" <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query-Tip via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#return the tip
+	printf "${epochRet}"
+	unset epochRet response responseCode responseJSON error errorcnt
+
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Setting offlineFile default value, versionInfo, tokenRegistryquery, tx output cropping to boolean values
 if [[ "${offlineFile}" == "" ]]; then offlineFile="./offlineTransfer.json"; fi
 if [[ "${showVersionInfo^^}" == "NO" ]]; then showVersionInfo=false; else showVersionInfo=true; fi
 if [[ "${queryTokenRegistry^^}" == "NO" ]]; then queryTokenRegistry=false; else queryTokenRegistry=true; fi
 if [[ "${cropTxOutput^^}" == "NO" ]]; then cropTxOutput=false; else cropTxOutput=true; fi
+#-------------------------------------------------------
 
-
-#-------------------------------------------------------------
-#Do a cli and node version check
+#-------------------------------------------------------
 versionCheck() { printf '%s\n%s' "${1}" "${2}" | sort -C -V; } #$1=minimal_needed_version, $2=current_node_version
+#-------------------------------------------------------
 
+#-------------------------------------------------------
 exists() {
  command -v "$1" >/dev/null 2>&1
 }
+#-------------------------------------------------------
 
+#-------------------------------------------------------
 #Check cardano-cli
 if ! exists "${cardanocli}"; then majorError "Path ERROR - Path to cardano-cli is not correct or cardano-cli binaryfile is missing!\nYour current set path is: ${cardanocli}"; exit 1; fi
 versionCLI=$(${cardanocli} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
-versionCheck "${minNodeVersion}" "${versionCLI}"
-if [[ $? -ne 0 ]]; then majorError "Version ${versionCLI} ERROR - Please use a cardano-cli version ${minNodeVersion} or higher !\nOld versions are not supported for security reasons, please upgrade - thx."; exit 1; fi
-versionCheck "${versionCLI}" "${maxNodeVersion}"
-if [[ $? -ne 0 ]]; then majorError "Version ${versionCLI} ERROR - Please use a cardano-cli version between ${minNodeVersion} and ${maxNodeVersion} !\nOther versions are not supported for compatibility issues, please check if newer scripts are available - thx."; exit 1; fi
-if ${showVersionInfo}; then echo -ne "\n\e[0mVersion-Info: \e[32mcli ${versionCLI}\e[0m"; fi
+versionCheck "${minCliVersion}" "${versionCLI}"
+if [[ $? -ne 0 ]]; then majorError "Version ${versionCLI} ERROR - Please use a cardano-cli version ${minCliVersion} or higher !\nOlder versions are not supported for compatibility issues, please upgrade - thx."; exit 1; fi
+versionCheck "${versionCLI}" "${maxCliVersion}"
+if [[ $? -ne 0 ]]; then majorError "Version ${versionCLI} ERROR - Please use a cardano-cli version between ${minCliVersion} and ${maxCliVersion} !\nOther versions are not supported for compatibility issues, please check if newer scripts are available - thx."; exit 1; fi
+#-------------------------------------------------------
 
-#Check cardano-node only in online mode
-if ${onlineMode}; then
+
+#-------------------------------------------------------
+#Set the workMode for the scripts and additional variables according to it
+workMode=${workMode,,} #convert it to lowercase
+case ${workMode} in
+	"online")	#Online-Mode(Full-Mode) - The machine is online and a local running node is present
+			onlineMode=true; fullMode=true; lightMode=false; offlineMode=false;
+			;;
+
+	"light")	#Light-Mode - The machine is online, but without a local node
+			onlineMode=true; fullMode=false; lightMode=true; offlineMode=false;
+
+			#Check if there are needed entries for the light mode
+			if [[ "${lightModeParametersURL}" == "" || "${koiosAPI}" == "" ]]; then majorError "There is no Light-Mode available for this network!"; exit 1; fi
+
+			#Get the latest lightModeParametersJSON so it does not need to be requested multiple times
+			lightModeParametersJSON=$(queryLight_protocolParameters);
+			if [[ $? -ne 0 ]]; then majorError "${lightModeParametersJSON}"; exit 1; fi
+
+			#Read all values at once
+			{ read lightModeParametersDate; read lightModeParametersMagic; read lightModeParametersVersionCLI; } <<< $(jq -r ".sposcriptsLightMode.lastUpdate, .sposcriptsLightMode.magic, .sposcriptsLightMode.versionCLI" 2> /dev/null <<< "${lightModeParametersJSON}")
+
+			#Check if the lightModeParametersJSON is not older than a few hours
+			lightModeParametersTimeDiff=$(( $(date -u +%s) - $(date --date="${lightModeParametersDate}" +%s) ))
+			if [[ ${lightModeParametersTimeDiff} -gt 21600 ]]; then majorError "The time difference from your local time to the online Light-Mode-Parameters file\nis bigger than 6 hours! Its currently ${lightModeParametersTimeDiff} seconds.\nThis means that either your local time is off, or that the LightMode parameters-file hosting service is not up2date.\nIn that case, please retry a bit later and/or report the issue - thx!"; exit 1; fi
+
+			#Check if the online lightModeParametersFile contains the same network magic
+			if [[ "${lightModeParametersMagic}" != "${CARDANO_NODE_NETWORK_ID}" ]]; then majorError "The online version of the parameters-file has a network-magic ${lightModeParametersMagic},\nbut the scripts are locally configured for network-magic ${CARDANO_NODE_NETWORK_ID} !"; exit 1; fi
+
+			#Check that the local CLI version is not lower than the lightModeParametersVersionCLI
+			versionCheck "${lightModeParametersVersionCLI}" "${versionCLI}"
+			if [[ $? -ne 0 ]]; then majorError "For working in LightMode, please use at least a local cardano-cli version ${lightModeParametersVersionCLI} or higher!\nYou are currently using version ${versionCLI}, please upgrade - thx."; exit 1; fi
+			;;
+
+	"offline")	#Offline-Mode - The machine is offline (airgapped)
+			onlineMode=false; fullMode=false; lightMode=false; offlineMode=true;
+			;;
+
+	*)		#Unknown workMode
+			majorError "Unknown workMode '${workMode}'\n\nPlease set it to 'online', 'light' or 'offline'";
+			exit 1;
+esac
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+if ${showVersionInfo}; then echo -ne "\n\e[0mVersion-Info: \e[32mcli ${versionCLI}\e[0m"; fi
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Check cardano-node only in workMode="online" (FullMode)
+if ${fullMode}; then
 	if ! exists "${cardanonode}"; then majorError "Path ERROR - Path to cardano-node is not correct or cardano-node binaryfile is missing!\nYour current set path is: ${cardanonode}"; exit 1; fi
 	versionNODE=$(${cardanonode} version 2> /dev/null |& head -n 1 |& awk {'print $2'})
 	versionCheck "${minNodeVersion}" "${versionNODE}"
@@ -284,38 +515,16 @@ if ${onlineMode}; then
 	if [[ $? -ne 0 ]]; then majorError "Version ${versionNODE} ERROR - Please use a cardano-node version between ${minNodeVersion} and ${maxNodeVersion} !\nOther versions are not supported for compatibility issues, please check if newer scripts are available - thx."; exit 1; fi
 	if ${showVersionInfo}; then echo -ne " / \e[32mnode ${versionNODE}\e[0m"; fi
 fi
+#-------------------------------------------------------
 
+
+#-------------------------------------------------------
 #Check bech32 tool if given path is ok, if not try to use the one in the scripts folder
 if ! exists "${bech32_bin}"; then
 				#Try the one in the scripts folder
 				if [[ -f "${scriptDir}/bech32" ]]; then bech32_bin="${scriptDir}/bech32";
 				else majorError "Path ERROR - Path to the 'bech32' binary is not correct or 'bech32' binaryfile is missing!\nYou can find it here: https://github.com/input-output-hk/bech32/releases/latest\nThis is needed to calculate the correct Bech32-Assetformat like 'asset1ee0u29k4xwauf0r7w8g30klgraxw0y4rz2t7xs'."; exit 1; fi
 fi
-
-#Display current Mode (online or offline)
-if ${showVersionInfo}; then
-				if ${offlineMode}; then
-							echo -ne "\t\tScripts-Mode: \e[32moffline\e[0m";
-						   else
-							echo -ne "\t\tScripts-Mode: \e[36monline\e[0m";
-							if [ ! -e "${socket}" ]; then echo -ne "\n\n\e[35mWarning: Node-Socket does not exist !\e[0m"; fi
-				fi
-
-				if [[ "${magicparam}" == *"mainnet"* ]]; then
-					echo -ne "\t\t\e[32mMainnet\e[0m";
-				else
-					echo -ne "\t\t\e[91mTestnet: ${network} (magic $(echo ${magicparam} | awk {'print $2'}))\e[0m";
-				fi
-
-echo
-echo
-fi
-
-#-------------------------------------------------------------
-#Check path to genesis files
-if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
-if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
-
 
 
 #-------------------------------------------------------------
@@ -331,6 +540,69 @@ if ! exists xxd; then echo -e "\e[33mYou need the little tool 'xxd', its needed 
 tempDir=$(dirname $(mktemp -ut tmp.XXXX))
 
 
+#-------------------------------------------------------
+#Return the era the chain is currently in
+get_NodeEra() {
+	case ${workMode} in
+		"online")	local tmpEra=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r ".era | select (.!=null)" 2> /dev/null);;
+		"offline")	local tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile});;
+		"light")	local tmpEra=$(jq -r ".sposcriptsLightMode.lastTip.era" 2> /dev/null <<< "${lightModeParametersJSON}");;
+	esac
+if [[ ! "${tmpEra}" == "" ]]; then tmpEra=${tmpEra,,}; else tmpEra="auto"; fi
+echo "${tmpEra}"; return 0; #return era in lowercase
+}
+
+##Set nodeEra parameter ( --byron-era, --shelley-era, --allegra-era, --mary-era, --alonzo-era, --babbage-era or empty)
+tmpEra=$(get_NodeEra);
+if [[ ! "${tmpEra}" == "auto" ]]; then
+	nodeEraParam="--${tmpEra}-era"; #for cli commands before 8.12.0
+	cliEra="${tmpEra,,}" #new era selection parameter for cardano cli 8.12.0+
+	else
+	nodeEraParam="";
+	cliEra="${defEra}";
+fi
+
+#Temporary fix to lock the transaction build-raw to alonzo era for
+#Hardware-Wallet operations. Babbage-Era is not yet supported, so we will lock this for now
+#if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--conway-era" ]]; then nodeEraParam="--babbage-era"; cliEra="babbage"; fi
+#-------------------------------------------------------
+
+
+#Display current Mode
+if ${showVersionInfo}; then
+
+				case ${workMode} in
+					"online")	echo -ne "\t\tMode: \e[36monline(full)\e[0m";
+							if [ ! -e "${socket}" ]; then echo -ne "\n\n\e[35mWarning: Node-Socket does not exist !\e[0m"; fi
+							;;
+
+					"light") 	echo -ne "\t\tMode: \e[93monline(light)\e[0m"
+							;;
+
+					"offline") 	echo -ne "\t\tMode: \e[32moffline\e[0m"
+							;;
+				esac
+
+				if [[ "${cliEra}" != "${defEra}" ]]; then
+							echo -ne "\tEra: \e[32m${cliEra}\e[0m";
+						   else
+							echo -ne "\tEra: \e[36mdefault\e[0m";
+				fi
+
+				if [[ "${magicparam}" == *"mainnet"* ]]; then
+					echo -ne "\tNetwork: \e[32mMainnet\e[0m";
+				else
+					echo -ne "\tTestnet: \e[91m${network} (magic $(echo ${magicparam} | awk {'print $2'}))\e[0m";
+				fi
+
+echo
+				if ${offlineMode}; then echo -e "\n\e[0mLocal-Time:\e[32m $(date)\e[0m (\e[33mverify correct offline-time\e[0m)"; fi #show the local time in offline mode as an extra information
+echo
+fi
+
+
+
+
 
 
 #-------------------------------------------------------
@@ -338,7 +610,7 @@ tempDir=$(dirname $(mktemp -ut tmp.XXXX))
 check_address() {
 tmp=$(${cardanocli} address info --address $1 2> /dev/null)
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Unknown address format for address: $1 !\e[0m"; exit 1; fi
-era=$(jq -r .era <<< ${tmp} 2> /dev/null)
+local era=$(jq -r .era <<< ${tmp} 2> /dev/null)
 if [[ "${era^^}" == "BYRON" ]]; then echo -e "\e[33mINFO - Byron addresses are only supported as a destination address!\e[0m\n"; fi
 }
 
@@ -350,20 +622,24 @@ get_addressEra() {
 ${cardanocli} address info --address $1 2> /dev/null | jq -r .era
 }
 
-addrTypePayment="payment"
-addrTypeStake="stake"
 
 #-------------------------------------------------------
 #AdaHandle Format checks (exits with true or false)
 checkAdaRootHandleFormat() {
-	#AdaHandles with optional SubHandles
+	#AdaHandles without SubHandles
 	if [[ "${1,,}" =~ ^\$[a-z0-9_.-]{1,15}$ ]]; then true; else false; fi
 }
 
 checkAdaSubHandleFormat() {
-	#AdaHandles with optional SubHandles
+	#AdaHandles with SubHandles
 	if [[ "${1,,}" =~ ^\$[a-z0-9_.-]{1,15}@[a-z0-9_.-]{1,15}$ ]]; then true; else false; fi
 }
+
+checkAdaHandleFormat() {
+	#All AdaHandles formats - root and sub/virtual ones
+	if [[ "${1,,}" =~ ^\$[a-z0-9_.-]{1,15}(@[a-z0-9_.-]{1,15})?$ ]]; then true; else false; fi
+}
+
 
 
 #-------------------------------------------------------------
@@ -405,6 +681,7 @@ ask() {
 }
 #-------------------------------------------------------
 
+
 #-------------------------------------------------------
 #Subroutine for password interaction
 ask_pass() {
@@ -417,8 +694,6 @@ ask_pass() {
 	unset pass #unset the variable
 }
 #-------------------------------------------------------
-
-
 
 
 #-------------------------------------------------------
@@ -434,39 +709,75 @@ if [ -f "$1" ]; then chmod 600 "$1"; fi
 }
 #-------------------------------------------------------
 
+
 #-------------------------------------------------------
-#Subroutines to calculate current epoch from genesis.json offline
+#Subroutines to calculate current slotHeight(tip) depending on online/light/offline mode
 get_currentEpoch()
 {
-local startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)
-local startTimeSec=$(date --date=${startTimeGenesis} +%s)     #in seconds (UTC)
-local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
-local epochLength=$(cat ${genesisfile} | jq -r .epochLength)
-local currentEPOCH=$(( (${currentTimeSec}-${startTimeSec}) / ${epochLength} ))  #returns a integer number, we like that
-echo ${currentEPOCH}
+case ${workMode} in
+
+        "online")       #Full-OnlineMode, query the local node
+                        local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
+
+                        #if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
+                        if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
+                                if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
+                                        if [[ "${currentEpoch}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed"; exit 1; fi
+                                fi
+                        fi
+                        ;;
+
+        "light")        #Light-Mode, query koios about the tip
+                        currentEpoch=$(queryLight_epoch);
+                        if [[ $? -ne 0 ]]; then majorError "${currentEpoch}"; exit 1; fi
+                        ;;
+
+        "offline")      #Offline-Mode, calculate the tip from the genesis file
+                        #Static
+
+			#Check path to genesis files
+			if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+
+			local startTimeGenesis; local epochLength;
+			{ read startTimeGenesis; read epochLength; } <<< $( jq -r ".systemStart // \"null\", .epochLength // \"null\"" < ${genesisfile} 2> /dev/null)
+			local startTimeSec=$(date --date=${startTimeGenesis} +%s)     #in seconds (UTC)
+			local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
+			local currentEpoch=$(( (${currentTimeSec}-${startTimeSec}) / ${epochLength} ))  #returns a integer number, we like that
+                        ;;
+esac
+
+echo ${currentEpoch}
 }
 #-------------------------------------------------------
 
+
 #-------------------------------------------------------
-#Subroutines to calculate time until next epoch from genesis.json offline
+#Subroutines to calculate time until next epoch from genesis.json
 get_timeUntilNextEpoch()
 {
-local startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)
-local startTimeSec=$(date --date=${startTimeGenesis} +%s)     #in seconds (UTC)
-local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
-local epochLength=$(cat ${genesisfile} | jq -r .epochLength)
-local currentEPOCH=$(( (${currentTimeSec}-${startTimeSec}) / ${epochLength} ))  #returns a integer number, we like that
-local timeUntilNextEpoch=$(( ${epochLength} - (${currentTimeSec}-${startTimeSec}) + (${currentEPOCH}*${epochLength}) ))
-echo ${timeUntilNextEpoch}
+
+	#Check path to genesis files
+	if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+
+	local startTimeGenesis; local epochLength;
+	{ read startTimeGenesis; read epochLength; } <<< $( jq -r ".systemStart // \"null\", .epochLength // \"null\"" < ${genesisfile} 2> /dev/null)
+	local startTimeSec=$(date --date=${startTimeGenesis} +%s)     #in seconds (UTC)
+	local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
+	local currentEPOCH=$(( (${currentTimeSec}-${startTimeSec}) / ${epochLength} ))  #returns a integer number, we like that
+	local timeUntilNextEpoch=$(( ${epochLength} - (${currentTimeSec}-${startTimeSec}) + (${currentEPOCH}*${epochLength}) ))
+	echo ${timeUntilNextEpoch}
+
 }
 #-------------------------------------------------------
 
 
 #-------------------------------------------------------
-#Subroutines to calculate current slotHeight(tip) depending on online/offline mode
+#Subroutines to calculate current slotHeight(tip) depending on online/light/offline mode
 get_currentTip()
 {
-if ${onlineMode}; then
+case ${workMode} in
+
+	"online")	#Full-OnlineMode, query the local node
 			local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);  #only "slot" instead of "slotNo" since 1.26.0
 
 			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
@@ -475,13 +786,25 @@ if ${onlineMode}; then
 					if [[ "${currentTip}" == "" ]]; then majorError "query tip return from cardano-cli failed"; exit 1; fi
 				fi
 			fi
-		  else
+			;;
+
+	"light")	#Light-Mode, query koios about the tip
+			currentTip=$(queryLight_tip);
+			if [[ $? -ne 0 ]]; then majorError "${currentTip}"; exit 1; fi
+			;;
+
+	"offline")	#Offline-Mode, calculate the tip from the genesis file
 			#Static
-			local slotLength=$(cat ${genesisfile} | jq -r .slotLength)                    #In Secs
-			local epochLength=$(cat ${genesisfile} | jq -r .epochLength)                  #In Secs
-			local slotsPerKESPeriod=$(cat ${genesisfile} | jq -r .slotsPerKESPeriod)      #Number
-			local startTimeByron=$(cat ${genesisfile_byron} | jq -r .startTime)           #In Secs(abs)
-			local startTimeGenesis=$(cat ${genesisfile} | jq -r .systemStart)             #In Text
+
+                        if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+                        if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
+
+			local slotLength; 		#In Secs
+			local epochLength;		#In Secs
+			local slotsPerKESPeriod; 	#Number
+			local startTimeGenesis;		#In Text
+			{ read slotLength; read epochLength; read slotsPerKESPeriod; read startTimeGenesis; } <<< $(jq -r ".slotLength // \"null\", .epochLength // \"null\", .slotsPerKESPeriod // \"null\", .systemStart // \"null\"" < ${genesisfile} 2> /dev/null)
+			local startTimeByron=$(jq -r .startTime < ${genesisfile_byron} 2> /dev/null)           #In Secs(abs)
 			local startTimeSec=$(date --date=${startTimeGenesis} +%s)                     #In Secs(abs)
 			local transTimeEnd=$(( ${startTimeSec}+(${byronToShelleyEpochs}*${epochLength}) ))                    #In Secs(abs) End of the TransitionPhase
 			local byronSlots=$(( (${startTimeSec}-${startTimeByron}) / 20 ))              #NumSlots between ByronChainStart and ShelleyGenesisStart(TransitionStart)
@@ -497,26 +820,33 @@ if ${onlineMode}; then
 			        else #After Transition Phase
 			        local currentTip=$(( ${byronSlots} + ${transSlots} + ((${currentTimeSec}-${transTimeEnd}) / ${slotLength}) ))
 			fi
+			;;
 
-		fi
+esac
+
 echo ${currentTip}
 }
 #-------------------------------------------------------
 
 
 #-------------------------------------------------------
-#Subroutines to calculate current TTL
+#Subroutines to calculate current TTL - SHOULD NOT BE USED ANYMORE, DIRECTLY CALCULATE THE NEW TTL FROM THE CURRENT TIP IN EACH SCRIPT
 get_currentTTL()
 {
-echo $(( $(get_currentTip) + 100000 )) #100000 so a little over a day to have time to collect witnesses and transmit the transaction
+	currentTip=$(get_currentTip);
+	if [[ $? -ne 0 ]]; then majorError "${currentTip}"; exit 1; fi
+	echo $(( ${currentTip} + ${defTTL} )) #100000(defTTL) so a little over a day to have time to collect witnesses and transmit the transaction
 }
 #-------------------------------------------------------
+
 
 #-------------------------------------------------------
 #Subroutines to check the syncState of the node
 get_currentSync()
 {
-if ${onlineMode}; then
+case ${workMode} in
+
+	"online")	#Full-OnlineMode, query the local node
 			local currentSync=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
 
 			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
@@ -527,13 +857,19 @@ if ${onlineMode}; then
 			fi
 
 			if [[ ${currentSync} == "100.00" ]]; then echo "synced"; else echo "unsynced"; fi
+			;;
 
-		  else
+	"light")	#Light-Mode, query koios about the tip - we pretend that if koios api responds with a tip without an error, that the database is also synced
+			local currentTip=$(queryLight_tip);
+			if [[ $? -eq 0 ]]; then echo "synced"; else echo "unsynced"; fi
+			;;
+
+	"offline")	#Offline-Mode, calculate the tip from the genesis file
 			echo "offline"
-fi
+			;;
+esac
 }
 #-------------------------------------------------------
-
 
 
 #-------------------------------------------------------
@@ -544,6 +880,7 @@ if [[ $1 -ne 0 ]]; then echo -e "\n\n\e[35mERROR (Code $1) !\e[0m\n"; exit $1; f
 }
 #-------------------------------------------------------
 
+
 #-------------------------------------------------------
 #TrimString
 function trimString
@@ -551,25 +888,6 @@ function trimString
     echo "$1" | sed -n '1h;1!H;${;g;s/^[ \t]*//g;s/[ \t]*$//g;p;}'
 }
 #-------------------------------------------------------
-
-#-------------------------------------------------------
-#Return the era the online node is in
-get_NodeEra() {
-local tmpEra=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r ".era | select (.!=null)" 2> /dev/null)
-if [[ ! "${tmpEra}" == "" ]]; then tmpEra=${tmpEra,,}; else tmpEra="auto"; fi
-echo "${tmpEra}"; return 0; #return era in lowercase
-}
-##Set nodeEra parameter ( --byron-era, --shelley-era, --allegra-era, --mary-era, --alonzo-era, --babbage-era or empty)
-if ${onlineMode}; then tmpEra=$(get_NodeEra); else tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile}); fi
-if [[ ! "${tmpEra}" == "auto" ]]; then nodeEraParam="--${tmpEra}-era"; else nodeEraParam=""; fi
-
-#Temporary fix to lock the transaction build-raw to alonzo era for
-#Hardware-Wallet operations. Babbage-Era is not yet supported, so we will lock this for now
-if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--conway-era" ]]; then nodeEraParam="--babbage-era"; fi
-
-
-#-------------------------------------------------------
-
 
 
 #-------------------------------------------------------
@@ -660,14 +978,13 @@ generate_UTXO()  #Parameter1=RawUTXO, Parameter2=Address
   #close the utxo part
   local utxoJSON+="},"  #the last char "," will be deleted at the end
 
-done < <(printf "${1}\n" | tail -n +3) #read in from parameter 1 (raw utxo) but cut first two lines
+done < <(printf "%s\n" "${1}" | tail -n +3) #read in from parameter 1 (raw utxo) but cut first two lines. printf must be used with format %s, otherwise utxo content like \000 would be automatically decoded.
 
   #close the whole json but delete the last char "," before that. do it only if there are entries present (length>1), else return an empty json
   if [[ ${#utxoJSON} -gt 1 ]]; then echo "${utxoJSON%?}}"; else echo "{}"; fi;
 
 }
 #-------------------------------------------------------
-
 
 
 #-------------------------------------------------------
@@ -688,6 +1005,7 @@ done
 echo "${outJSON}"
 }
 #-------------------------------------------------------
+
 
 #-------------------------------------------------------
 #Cuts out all UTXOs in a mary style UTXO JSON that are not the given UTXO hash ($2)
@@ -710,6 +1028,7 @@ echo "${outJSON}"
 }
 #-------------------------------------------------------
 
+
 #-------------------------------------------------------
 #Convert PolicyID|assetName TokenName into Bech32 format "token1....."
 convert_tokenName2BECH() {
@@ -724,6 +1043,7 @@ echo -n "${tmp_policyID}${tmp_assetName}" | xxd -r -ps | b2sum -l 160 -b | awk {
 }
 #-------------------------------------------------------
 
+
 #-------------------------------------------------------
 #Convert ASCII assetName into HEX assetName
 convert_assetNameASCII2HEX() {
@@ -731,12 +1051,14 @@ echo -n "${1}" | xxd -b -ps -c 80 | tr -d '\n'
 }
 #-------------------------------------------------------
 
+
 #-------------------------------------------------------
 #Convert HEX assetName into ASCII assetName
 convert_assetNameHEX2ASCII() {
 echo -n "${1}" | xxd -r -ps
 }
 #-------------------------------------------------------
+
 
 #-------------------------------------------------------
 #Convert HEX assetName into ASCII assetName. If possible return ".assetName" else return just the HEX assetName without a leading point'.'
@@ -763,6 +1085,7 @@ tmp=$(${cardanocli} transaction calculate-min-required-utxo ${nodeEraParam} --pr
 if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Can't calculate minValue for the given tx-out string: ${2} !\e[0m"; exit 1; fi
 echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second part
 }
+#-------------------------------------------------------
 
 
 #-------------------------------------------------------
@@ -781,7 +1104,7 @@ local protocolVersionMajor=$(jq -r ".protocolVersion.major | select (.!=null)" <
 
 
 ### switch the method of the minOutUTXO calculation depending on the current era, starting with protocolVersionMajor>=7 (babbage)
-if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage and above, new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
+if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 8=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
 
 	#chain constants for babbage
 	local constantOverhead=160 #constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions in babbage era
@@ -793,24 +1116,23 @@ if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage and above, new since bab
 
 	if [[ ${#asset_entry[@]} -eq 2 ]]; then #only lovelaces, no assets
 
-
 		case ${nodeEraParam,,} in
 
-		*"babbage"* ) #Build the tx-out cbor in babbage-tx format with maps
-		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
-		local cborStr+=$(to_cbor "map" 2) #map 2
-		local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
-		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
-		local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
-		local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
-		;;
+			*"babbage"* | *"conway"* ) #Build the tx-out cbor in babbage-tx format with maps
+				local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
+				local cborStr+=$(to_cbor "map" 2) #map 2
+				local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
+				local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+				local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
+				local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
+				;;
 
-		* ) #Build the tx-out cbor in alonzo/shelley format with array
-		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
-		local cborStr+=$(to_cbor "array" 2) #array 2
-		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
-		local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
-		;;
+			* ) #Build the tx-out cbor in alonzo/shelley format with array
+				local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
+				local cborStr+=$(to_cbor "array" 2) #array 2
+				local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+				local cborStr+=$(to_cbor "unsigned" ${toLovelaces}) #amount of lovelaces
+				;;
 
 		esac
 
@@ -847,20 +1169,20 @@ if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage and above, new since bab
 
 		case ${nodeEraParam,,} in
 
-		*"babbage"* ) #Build the tx-out cbor in babbage-tx format with maps
+			*"babbage"* | *"conway"* ) #Build the tx-out cbor in babbage-tx format with maps
 
-		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
-		local cborStr+=$(to_cbor "map" 2) #map 2
-		local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
-		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
-		local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
-		;;
+				local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
+				local cborStr+=$(to_cbor "map" 2) #map 2
+				local cborStr+=$(to_cbor "unsigned" 0) #unsigned 0
+				local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+				local cborStr+=$(to_cbor "unsigned" 1) #unsigned 1
+				;;
 
-		* ) #Build the tx-out cbor in alonzo/shelley format with array
-		local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
-		local cborStr+=$(to_cbor "array" 2) #array 2
-		local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
-		;;
+			* ) #Build the tx-out cbor in alonzo/shelley format with array
+				local cborStr="" #setup a clear new cbor string variable, will hold the tx-out cbor part
+				local cborStr+=$(to_cbor "array" 2) #array 2
+				local cborStr+=$(to_cbor "bytes" "${toAddrHex}") #toAddr in hex
+				;;
 
 		esac
 
@@ -983,6 +1305,419 @@ echo ${minOutUTXO} #return the minOutUTXO value for the txOut-String with or wit
 
 
 #-------------------------------------------------------
+#queryLight_UTXO function
+#
+# makes an online query via koios API and returns and output like a cli utxo query
+#
+queryLight_UTXO() { #${1} = address to query
+
+	local addr=${1}
+        local errorcnt=0
+        local error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 120 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/address_utxos?select=tx_hash,tx_index,value,asset_list"  -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_addresses\":[\"${addr}\"], \"_extended\": true}" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then #split the response string into JSON content and the HTTP-ResponseCode
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		"504" ) echo -e "HTTP Response code: ${responseCode} - Koios API took too long to query the request. You might use the normal 'online' mode instead."; exit 1;; #exit with a failure and the http response code
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+	utxoRet=$(jq -r "(\"TxHash TxIx Amount<cr>---<cr>\"), ( . | sort_by(.tx_hash) | .[] | \"\(.tx_hash) \(.tx_index) \(.value) lovelace \", (.asset_list[] | \"+ \(.quantity) \(.policy_id).\(.asset_name) \"), \"<cr>\")" <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+	utxoRet=$(tr -d '\n' <<< "${utxoRet}" | sed 's/<cr>/\n/g' | sed 's/\. / /g') #reformat the utxo output so it is like the cli output
+
+	#return the utxo
+	printf "${utxoRet}"
+	unset utxoRet response responseCode responseJSON addr error errorcnt
+
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
+#queryLight_stakeAddressInfo function
+#
+# makes an online query via koios API and returns and output like a cli stake-address-info query
+#
+queryLight_stakeAddressInfo() { #${1} = address to query
+
+	local addr=${1}
+        local errorcnt=0
+        local error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/account_info"  -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_stake_addresses\":[\"${addr}\"]}" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	jsonRet=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#check if the stakeAddress is registered, if not, return an empty array
+	if [[ $(jq -r ".[0].status" <<< "${responseJSON}" 2> /dev/null) != "registered" ]]; then
+		printf "[]"; #stakeAddress not registered on chain, return an empty array
+		else
+#		local delegation=$(jq -r ".[0].delegated_pool" <<< "${responseJSON}" 2> /dev/null)
+#		local rewardAccountBalance=$(jq -r ".[0].rewards_available" <<< "${responseJSON}" 2> /dev/null)
+		local delegation; local rewardAccountBalance; local delegationDeposit; #define local variables so we can read it in one go with the next jq command
+		{ read delegation; read rewardAccountBalance; read delegationDeposit; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\"" <<< "${responseJSON}" 2> /dev/null)
+
+		#deposit value, always 2000000 lovelaces until conway
+#		local delegationDeposit=$(jq -r ".[0].deposit" <<< "${responseJSON}" 2> /dev/null)
+		if [[ ${delegationDeposit} == null ]]; then delegationDeposit=2000000; fi
+
+		jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": \"${delegation}\", \"delegationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance} } ]" #compose a json like the cli output
+		#return the composed json
+		printf "${jsonRet}"
+	fi
+
+	unset jsonRet response responseCode responseJSON addr error errorcnt
+
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
+#submitLight function
+#
+# submits a given TxFile via koios API and returns the corresponding txID
+#
+submitLight() { #${1} = path to txFile
+
+	local txFile=${1}
+
+	cborStr=$(jq -r ".cborHex" < "${txFile}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Submit via Koios-API (${koiosAPI}) failed, could not read the 'cborHex' from '${txFile}'."; exit 1; fi; #jq readout failed
+
+        local errorcnt=0
+        local error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to submit via koios API
+		error=0
+		response=$(xxd -p -r <<< "${cborStr}" | curl -sL -m 120 -X POST -w "---spo-scripts---%{http_code}" -H "Content-Type: application/cbor" --data-binary @- "${koiosAPI}/submittx" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Submit to the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl call failed
+
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then #split the response string into JSON content and the HTTP-ResponseCode
+		local responseTxID="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Submit to the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl call failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"202" ) ;; #all good, continue
+		"400" ) echo -e "HTTP Response code: ${responseCode} - Koios API reported back an error. Maybe you have to wait for the next block - please retry later.\nIf you have issues further on, please report back, thx!"; exit 1;; #exit with a failure and the http response code
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	local txID=${responseTxID//\"/} #remove any quote symbol
+
+	#Check if the responseTxID is actually a valid one
+	if [[ "${txID//[![:xdigit:]]}" != "${txID}" || ${#txID} -ne 64 ]]; then #returned txID is not a valid one
+		echo -e "Submit via Koios-API (${koiosAPI}) failed, returned TxID is not a valid one.\nI've got back: ${responseTxID}"; exit 1;
+	fi;
+
+	#return the txID
+	printf "${txID}"
+	unset response responseCode responseTxID txID txFile error errorcnt
+
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
+#resolveAdahandle function
+#
+# this function resolves a given adahandle (cip25, cip68, virtual) into a payment address
+#
+#	inputs
+# 	${1} = name of the adahandle
+# 	${2} = name of the variable that should be filled with the resolved address
+#
+#	outputs
+# 	variable '${2}' will be filled with the resolved address
+# 	variable 'utxo' will hold the utxo query of a resolved adahandle if possible, so no further query needed in the calling script
+resolveAdahandle() {
+
+	#Adahandles will only work in online or light mode, exit with an error if in offline mode
+	if ${offlineMode}; then echo -e "\n\e[35mERROR - Adahandles are only supported in online & light mode.\n\e[0m"; exit 1; fi
+
+	#If there is no koiosAPI available for this network, exit with an error
+	if [[ "${koiosAPI}" == "" ]]; then echo -e "\n\e[35mERROR - Adahandles are not supported on this network yet.\n\e[0m"; exit 1; fi;
+
+	local adahandle="${1,,}"	#lowercase the incoming adahandle
+	local outputVar="${2}" 		#hold the name of the output variable
+	local resolvedAddr=""
+
+	#ROOT HANDLES
+	#check if its an root adahandle (without a @ char) -> do a lookup for the CIP-25 asset format, if not found do a lookup for the CIP-68 format
+	if checkAdaRootHandleFormat "${adahandle}"; then
+
+		assetNameHex=$(convert_assetNameASCII2HEX ${adahandle:1})
+
+		#query classic cip-25 adahandle asset holding address via koios
+	        local errorcnt=0
+	        local error=-1
+		showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
+	        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+			error=0
+			response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_addresses?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+			if [ $? -ne 0 ]; then error=1; fi;
+	                errorcnt=$(( ${errorcnt} + 1 ))
+		done
+		stopProcessAnimation;
+		if [[ ${error} -ne 0 ]]; then echo -e "\n\e[35mQuery of the Koios-API via curl failed, tried 5 times.\n\e[0m"; exit 1; fi; #curl query failed
+
+		if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then #split the response string into JSON content and the HTTP-ResponseCode
+			local responseJSON="${BASH_REMATCH[1]}"
+			local responseCode="${BASH_REMATCH[2]}"
+		else
+			echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+		fi
+
+		#check the responseCode
+		case ${responseCode} in
+			"200" ) ;; #all good, continue
+			* )     echo -e "\n\e[35mERROR - HTTP Response code: ${responseCode}\n\e[0m"; exit 1;; #exit with a failure and the http response code
+	        esac;
+		tmpCheck=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+		if [ $? -ne 0 ]; then echo -e "\n\e[35mQuery via Koios-API (${koiosAPI}) failed, not a JSON response.\n\e[0m"; exit 1; fi; #reponse is not a json file
+
+		#check if the received json only contains one entry in the array(=resolved), if not -> continue to check the cip-68 format
+		if [[ $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -ne 1 ]]; then
+
+			assetNameHex="000de140${assetNameHex}"
+
+			#query CIP-68 adahandle asset holding address via koios
+			errorcnt=0;error=-1;
+			showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
+		        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+				error=0
+				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_addresses?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+				if [ $? -ne 0 ]; then error=1; fi;
+		                errorcnt=$(( ${errorcnt} + 1 ))
+			done
+			stopProcessAnimation;
+			if [[ ${error} -ne 0 ]]; then echo -e "\n\e[35mERROR - Query of the Koios-API via curl failed, tried 5 times.\n\e[0m"; exit 1; fi; #curl query failed
+
+			if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then #split the response string into JSON content and the HTTP-ResponseCode
+				responseJSON="${BASH_REMATCH[1]}"
+				responseCode="${BASH_REMATCH[2]}"
+			else
+				echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+			fi
+
+			#check the responseCode
+			case ${responseCode} in
+				"200" ) ;; #all good, continue
+				* )     echo -e "\n\e[35mERROR - HTTP Response code: ${responseCode}\n\e[0m"; exit 1;; #exit with a failure and the http response code
+		        esac;
+			tmpCheck=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+			if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Query via Koios-API (${koiosAPI}) failed, not a JSON response.\n\e[0m"; exit 1; fi; #reponse is not a json file
+
+			#check if the received json only contains one entry in the array
+			if [[ $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -ne 1 ]]; then echo -e "\n\e[33mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
+
+		fi
+
+		#we have a valid responseJSON from a CIP-25 or CIP-68 request
+		resolvedAddr=$(jq -r ".[0].payment_address" <<< ${responseJSON} 2> /dev/null)
+
+		#lets check if the resolved address is actually a valid payment address
+		local typeOfAddr=$(get_addressType "${resolvedAddr}");
+		if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${resolvedAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
+
+		#in fullmode -> check that the node is fully synced, otherwise the query would mabye return a false state
+		if [[ ${fullMode} == true && $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
+
+		#now lets verify that the adahandle native asset is actually on an utxo of that resolved address
+		showProcessAnimation "Verify Adahandle is on resolved address: " &
+		case ${workMode} in
+			"online") 	utxo=$(${cardanocli} ${cliEra} query utxo --address ${resolvedAddr} 2> /dev/stdout);
+					if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit 1; else stopProcessAnimation; fi;;
+			"light")  	utxo=$(queryLight_UTXO "${resolvedAddr}");
+					if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit 1; else stopProcessAnimation; fi;;
+		esac
+
+		#exit with an error if the adahandle is not on the address
+		if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then echo -e "\n\e[35mERROR - Resolved address '${resolvedAddr}' does not hold the \$adahandle '${adahandle}' !\n\e[0m"; exit 1; fi;
+
+		#ok, we found it
+		echo -e "\e[0mFound \$adahandle '${adahandle}' on Address:\e[32m ${resolvedAddr}\e[0m\n"
+
+
+	#SUBHANDLES/VIRTUALHANDLES
+	#check if its a sub-adahandle or a virtual-adahandle (with a @ char) -> do a lookup via the Adahandle-API, verify via utxo check or Koios
+	elif checkAdaSubHandleFormat "${adahandle}"; then
+
+
+					#query virtual subHandle via adahandleAPI
+					if [[ "${adahandleAPI}" == "" ]]; then echo -e "\n\e[33mERROR - There is no Adahandle-API available for this network.\n\e[0m"; exit 1; fi
+
+				        local errorcnt=0
+				        local error=-1
+					showProcessAnimation "Query sub/virtual Adahandle via the Adahandle-API (${adahandleAPI}): " &
+				        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+						error=0
+						response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${adahandleAPI}/handles/${adahandle:1}"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+						if [ $? -ne 0 ]; then error=1; fi;
+				                errorcnt=$(( ${errorcnt} + 1 ))
+					done
+					stopProcessAnimation;
+					if [[ ${error} -ne 0 ]]; then echo -e "\n\e[35mQuery via Adahandle-API (${adahandleAPI}) failed, tried 5 times.\n\e[0m"; exit 1; fi; #curl query failed
+
+					if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then #split the response string into JSON content and the HTTP-ResponseCode
+						local responseJSON="${BASH_REMATCH[1]}"
+						local responseCode="${BASH_REMATCH[2]}"
+					else
+						echo -e "Query via Adahandle-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+					fi
+
+					#Check the responseCode
+					case ${responseCode} in
+						"200" ) ;; #all good, continue
+						"202" )	echo -e "\n\e[33mAdahandle was found, but the API sync is not on tip with the network status. Please try again later.\n\e[0m"; exit 1;;
+						"404" )	echo -e "\n\e[33mAdahandle '${adahandleName}' was not found, cannot resolve it to an address.\n\e[0m"; exit 1;;
+						* )	echo -e "\n\e[33m$(jq -r .message <<< ${responseJSON})\nAdahandle-API response code: ${responseCode}";
+							echo -e "\nIf you think this is an issue, please report this via the SPO-Scripts Github-Repository https://github.com/gitmachtl/scripts\n\e[0m"; exit 1;;
+					esac;
+
+					#query was successful, get the address
+                                        resolvedAddr=$(jq -r ".\"resolved_addresses\".ada" <<< ${responseJSON} 2> /dev/null)
+					if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - The received data from the Adahandle-API is not a valid JSON.\n\e[0m"; exit 1; fi;
+
+					#lets check if the resolved address is actually a valid payment address
+                                        local typeOfAddr=$(get_addressType "${resolvedAddr}");
+					if [[ ${typeOfAddr} != ${addrTypePayment} ]]; then echo -e "\n\e[35mERROR - Resolved address '${resolvedAddr}' is not a valid payment address.\n\e[0m"; exit 1; fi;
+
+					#lets check the resolved address. if its a cip-68 subhandle (starting with hex 000de140) than it lives on an utxo which resolves to the address
+					#if its a virtual subhandle (strting with hex 00000000) than the resolved address is within the inline_datum
+					#check that the node is fully synced, otherwise the query would mabye return a false state
+					assetNameHex=$(jq -r ".hex" <<< ${responseJSON});
+					case "${assetNameHex}" in
+
+						"000de140"* ) #its a cip-68 subhandle, lets verify it is actually on the resolved address
+
+							#in fullmode -> check that the node is fully synced, otherwise the query would mabye return a false state
+							if [[ ${fullMode} == true && $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
+
+							#now lets verify that the adahandle native asset is actually on an utxo of that resolved address
+		                                        showProcessAnimation "Verify Adahandle is on resolved address: " &
+							case ${workMode} in
+								"online") 	utxo=$(${cardanocli} ${cliEra} query utxo --address ${resolvedAddr} 2> /dev/stdout);
+										if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit 1; else stopProcessAnimation; fi;;
+								"light")  	utxo=$(queryLight_UTXO "${resolvedAddr}");
+										if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit 1; else stopProcessAnimation; fi;;
+							esac
+
+							#exit with an error if the adahandle is not on the address
+							if [[ $(grep "${adahandlePolicyID}.${assetNameHex} " <<< ${utxo} | wc -l) -ne 1 ]]; then echo -e "\n\e[35mERROR - Resolved address '${resolvedAddr}' does not hold the \$adahandle '${adahandle}' !\n\e[0m"; exit 1; fi;
+
+							#ok, we found it
+							echo -e "\e[0mFound \$subhandle '${adahandle}' on Address:\e[32m ${resolvedAddr}\e[0m\n"
+							;;
+
+						"00000000"* ) #its a virtual subhandle, lets check a second opinion by doing a koios api query too
+
+		                                        #query cip-68 adahandle asset utxo, and check the inline_datum
+							errorcnt=0;error=-1;
+		                                        showProcessAnimation "Query Virtualhandle into holding address: " &
+						        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+								error=0
+								response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_utxos?select=inline_datum"  -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_asset_list\":[[\"${adahandlePolicyID}\",\"${assetNameHex}\"]],\"_extended\":true}" 2> /dev/null)
+								if [ $? -ne 0 ]; then error=1; fi;
+						                errorcnt=$(( ${errorcnt} + 1 ))
+							done
+							stopProcessAnimation;
+							if [[ ${error} -ne 0 ]]; then echo -e "\n\e[35mERROR - Query of the Koios-API via curl failed, tried 5 times.\n\e[0m"; exit 1; fi; #curl query failed
+
+							if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then #split the response string into JSON content and the HTTP-ResponseCode
+								responseJSON="${BASH_REMATCH[1]}"
+								responseCode="${BASH_REMATCH[2]}"
+							else
+								echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+							fi
+
+							#check the responseCode
+							case ${responseCode} in
+								"200" ) ;; #all good, continue
+								* )     echo -e "\n\e[35mERROR - HTTP Response code: ${responseCode}\n\e[0m"; exit 1;; #exit with a failure and the http response code
+						        esac;
+							tmpCheck=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+							if [ $? -ne 0 ]; then echo -e "\n\e[35mQuery via Koios-API (${koiosAPI}) failed, not a JSON response.\n\e[0m"; exit 1; fi; #reponse is not a json file
+
+		                                        #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
+		                                        if [[ $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -ne 1 ]]; then echo -e "\n\e[33mCould not query Koios-API about 'asset_utxos'.\n\e[0m"; exit 1; fi
+
+							#lets extract the resolved address from the inline_datum into resolvedAddrCheckHex
+							local resolvedAddrCheckHex=$(jq -r ".[0].inline_datum.bytes" <<< ${responseJSON} | sed -n "s/.*7265736f6c7665645f616464726573736573.*\(436164615839.*\)/\1/p" | cut -c 13-126)
+
+						        #get the bech address for mainnet/testnets
+							if [[ "${magicparam}" == *"mainnet"* ]]; then local resolvedAddrCheck=$(${bech32_bin} "addr" <<< "${resolvedAddrCheckHex}" 2> /dev/null);
+												 else local resolvedAddrCheck=$(${bech32_bin} "addr_test" <<< "${resolvedAddrCheckHex}" 2> /dev/null);
+							fi
+
+							#exit with an error if the adahandle is not on the address
+							if [[ "${resolvedAddr}" != "${resolvedAddrCheck}" ]]; then
+								echo -e "\n\e[35mERROR - Adahandle-API resolved address '${resolvedAddr}' does not\nmatch with Koios-API resolved address '${resolvedAddrCheck}' !\n\e[0m"; exit 1; fi;
+
+							#ok, we found it
+							echo -e "\e[0mThis \e[33mvirtual\e[0m \$adahandle '${adahandle}' resolves to Address:\e[32m ${resolvedAddr}\n\e[0m"
+							;;
+
+
+					esac
+
+	else echo -e "\n\e[35mERROR - Thats strange, you should not have landed here with the Adahandle '${adahandle}'. Please report this issue, thx !\n\e[0m"; exit 1;
+
+	fi #roothandle or subhandle
+
+
+#RESOLVED - exit the function and give back the resolved address to the given variable name
+printf -v ${outputVar} "%s" "${resolvedAddr}"
+
+unset outputVar error errorcnt response responseCode responseJSON resolvedAddr resolvedAddrCheck resolvedAddrCheckHex typeOfAddr tmpCheck
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
 #to_cbor function
 #
 # converts different majortypes and there values into a cborHexString
@@ -1082,6 +1817,40 @@ echo -n "${cbor^^}" #return the cbor in uppercase
 #-------------------------------------------------------
 
 
+#-------------------------------------------------------
+#int_from_cbor function
+#
+# decodes an unsigned integer from a given cborHexString
+# maximum supported number is a 8 byte long unsigned int
+#
+int_from_cbor() {
+
+        # ${1} string: cbor encoded hex string starting at the integer position
+	# ${2} count: optional number of entry count -> 0 = the number at that position, 1 = the next number, 2 = the number after the next number
+	#
+	local cborHexString="${1^^}" #convert the given string into an uppercase one
+	local entryCnt="${2:- 0}" #number of interations left
+	local value="${cborHexString:0:2}" #get the first two chars
+	local charLen=0 #number of chars the current number used in the cborHexString
+
+
+	if [[ "0x${value}" < "0x18" ]]; then printf -v intVal "%d" "0x${cborHexString:0:2}" 2> /dev/null; retCode=$?; charLen=2; #1byte total value below 0x18 (24dec)
+	elif [[ "${value}" == "18" ]]; then printf -v intVal "%d" "0x${cborHexString:2:2}" 2> /dev/null; retCode=$?; charLen=4; #2bytes total: first 0x1800 + 1 lower byte value
+	elif [[ "${value}" == "19" ]]; then printf -v intVal "%d" "0x${cborHexString:2:4}" 2> /dev/null; retCode=$?; charLen=6; #3bytes total: first 0x190000 + 2 lowerbytes value
+	elif [[ "${value}" == "1A" ]]; then printf -v intVal "%d" "0x${cborHexString:2:8}" 2> /dev/null; retCode=$?; charLen=10; #5bytes total: 0x1A00000000 + 4 lower bytes value
+	elif [[ "${value}" == "1B" ]]; then printf -v intVal "%d" "0x${cborHexString:2:16}" 2> /dev/null; retCode=$?; charLen=18; #9bytes total: first 0x1B0000000000000000 + 8 lower bytes value
+	else local intVal=-1; retCode=1
+	fi
+
+	if [[ ${retCode} -eq 0 && ${entryCnt} -eq 0 ]]; then
+		echo -n "${intVal}"; exit 0; #no further work to do, return the number
+	elif [[ ${retCode} -eq 0 && ${entryCnt} -ne 0 ]]; then
+		entryCnt=$(( ${entryCnt} -1 )); tmp=$(int_from_cbor "${cborHexString:${charLen} }" "${entryCnt}"); retCode=$?; echo -n "${tmp}"; exit ${retCode}; #itteration, go to the next number
+	else
+		 echo -n "error"; exit 1; #an error occured
+	fi
+
+}
 
 
 
@@ -1216,7 +1985,7 @@ if [ -f "${offlineFile}" ]; then
 				if [[ ! $(jq ".protocol.parameters | length" <<< ${offlineJSON}) -gt 0 ]]; then echo -e "\e[35mERROR - '$(basename ${offlineFile})' contains no protocol parameters. Please generate a valid offlineJSON first in onlinemode.\e[0m\n"; exit 1; fi
                             else
                                 offileJSON=null
-                                echo -e "\e[35mERROR - '$(basename ${offlineFile})' is not present, please generate a valid offlineJSON first in onlinemode.\e[0m\n"; exit 1;
+                                echo -e "\e[35mERROR - '$(basename ${offlineFile})' is not present, please generate a valid offlineJSON first in onlinemode.\nYou can do so by running \e[33m01_workOffline.sh new\e[0m\n"; exit 1;
 
 fi
 }

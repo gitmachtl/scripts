@@ -150,7 +150,7 @@ if [[ "${koiosAPI}" != "" ]]; then
 			  read poolOpcertCounter;
 			  read poolRewardAddr;
 			  read poolVrfHash;
-			} <<< $(jq -r ".[0].meta_json.name // \"-\", .[0].meta_json.ticker // \"-\", .[0].pool_status // \"-\", .[0].pledge // \"-\", .[0].live_pledge // \"-\", .[0].margin // \"-\", .[0].fixed_cost // \"-\", .[0].meta_url // \"-\", .[0].meta_hash // \"-\", .[0].op_cert_counter // \"-\", .[0].reward_addr // \"-\", .[0].vrf_key_hash // \"-\"" 2> /dev/null <<< ${responseJSON})
+			} <<< $(jq -r ".[0].meta_json.name // \"-\", .[0].meta_json.ticker // \"-\", .[0].pool_status // \"-\", .[0].pledge // \"0\", .[0].live_pledge // \"0\", .[0].margin // \"-\", .[0].fixed_cost // \"0\", .[0].meta_url // \"-\", .[0].meta_hash // \"-\", .[0].op_cert_counter // \"-\", .[0].reward_addr // \"-\", .[0].vrf_key_hash // \"-\"" 2> /dev/null <<< ${responseJSON})
 
 			echo -e "\e[0m  Name (Ticker): \e[32m${poolName} (${poolTicker})\e[0m"
 			echo -e "\e[0m     Set Pledge:\e[32m ${poolPledge} \e[90mlovelaces \e[0m(\e[32m$(convertToADA ${poolPledge}) \e[90mADA\e[0m)"
