@@ -421,6 +421,7 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #
 # Depending on the input of lovelaces / keyword, set the right rxcnt (one receiver or two receivers)
+# and prepare the dummyAmounts to calculate the transaction fee correctly
 #
 
 case "${lovelacesToSend}" in
@@ -431,31 +432,45 @@ case "${lovelacesToSend}" in
 	"ALL" )		#If keyword ALL was used, send all lovelaces to the destination address, but send back all the assets if available
 			if [[ ${totalAssetsCnt} -gt 0 ]]; then
 								rxcnt=2;	#assets on the address, they must be sent back to the source
+								dummySendAmount="${totalLovelaces}"
+								dummyReturnAmount=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
 							  else
 								rxcnt=1;	#no assets on the address
 							  fi;;
 
+	"MIN" )		rxcnt=2
+			dummySendAmount=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
+			dummyReturnAmount="${totalLovelaces}"
+			;;
+
 	* )		#If no keyword was used, its just the amount of lovelacesToSend
-			rxcnt=2;;
+			rxcnt=2
+			dummySendAmount="${lovelacesToSend}"
+			dummyReturnAmount="${totalLovelaces}"
+			;;
 esac
 
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
-                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+			#a fee of 200000 lovelaces was choosen to produce a 5byte cbor representation, like any value between 65536 and 4294967296 lovelaces
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
-                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --out-file ${txBodyFile}
+			#a fee of 200000 lovelaces was choosen to produce a 5byte cbor representation, like any value between 65536 and 4294967296 lovelaces
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${dummyReturnAmount}${assetsOutString}" --tx-out ${sendToAddr}+${dummySendAmount} --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 1 --byron-witness-count 0 | awk '{ print $1 }')
+
+#cardano-cli 8.17 and below
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 1 | awk '{ print $1 }')
+
+#cardano-cli with the new fee calculation
+#fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-#minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
-
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
-#echo -e "\e[0mMinimum UTXO value for a Transaction: \e[32m ${minOutUTXO} lovelaces \e[90m"
 echo
 
 #

@@ -322,18 +322,32 @@ witnessCount=2	#Total number of needed witnesses: poolnode skey/hwsfile, registr
 #Preload the hardwareWalletIncluded variable, if we provide the node cold key via a hw-wallet, than set the hardwareWalletIncluded=yes. Otherwise pretend no until a hw-owner is found.
 if [ -f "${poolName}.node.hwsfile" ]; then hardwareWalletIncluded="yes"; else hardwareWalletIncluded="no"; fi
 
+#Generate the PoolID so we can compare it with the ones in the delegation certificates
+poolIDhex=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)
+checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
 #Lets first count all needed witnesses and check about the delegation certificates
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
 do
-  ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName <<< ${poolJSON})
-  witnessCount=$(( ${witnessCount} + 1 )) #Every owner is of course also needed as witness
-  if [ ! -f "${ownerName}.staking.vkey" ]; then echo -e "\e[0mERROR - \"${ownerName}.staking.vkey\" is missing! Check poolOwner/ownerName field in ${poolFile}.pool.json, or generate one with script 03a !\e[0m"; exit 1; fi
-  if [[ "$(jq -r .description < ${ownerName}.staking.vkey)" == *"Hardware"* ]]; then hardwareWalletIncluded="yes"; fi
-  if [ ! -f "${ownerName}.deleg.cert" ]; then echo -e "\e[35mERROR - \"${ownerName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 1; fi
-  #When we are in the loop, just build up also all the needed signingkeys & certificates for the transaction
-  registrationCerts="${registrationCerts} --certificate ${ownerName}.deleg.cert"
-  #Also check, if the ownername is the same as the one in the rewards account, if so we don't need an extra signing key later
-  if [[ "${regWitnessID}" == "" ]]; then poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\" = {}" <<< ${poolJSON}); fi #include the witnesses in the poolJSON if its a new collection
+
+	ownerName=$(jq -r .poolOwner[${tmpCnt}].ownerName <<< ${poolJSON})
+	witnessCount=$(( ${witnessCount} + 1 )) #Every owner is of course also needed as witness
+	if [ ! -f "${ownerName}.staking.vkey" ]; then echo -e "\e[35mERROR - \"${ownerName}.staking.vkey\" is missing! Check poolOwner/ownerName field in ${poolFile}.pool.json, or generate one with script 03a !\e[0m"; exit 1; fi
+	if [[ "$(jq -r .description < ${ownerName}.staking.vkey)" == *"Hardware"* ]]; then hardwareWalletIncluded="yes"; fi
+	if [ ! -f "${ownerName}.deleg.cert" ]; then echo -e "\e[35mERROR - \"${ownerName}.deleg.cert\" does not exist! Please create it first with script 05b.\e[0m"; exit 1; fi
+
+	#Check each delegation certificate of the owners that they are really delegating to this pool id
+	#Extracting infos directly from the delegation certificate
+	delegCBOR=$(jq -r ".cborHex" < "${ownerName}.deleg.cert" 2> /dev/null)
+	delegPoolID=${delegCBOR: -56}
+	if [[ "${delegPoolID}" != "${poolIDhex}" ]]; then echo -e "\e[35mERROR - \"${ownerName}.deleg.cert\" is not delegating to this Pool-ID: \e[32m${poolIDhex}\n\e[35mIts currently set to delegate to a pool with Pool-ID: \e[32m${delegPoolID}\n\n\e[35mPlease correct it by running script 05b like: \e[33m05b_genDelegationCert.sh ${poolName} ${ownerName}\n\e[0m"; exit 1; fi
+
+	#When we are in the loop, just build up also all the needed signingkeys & certificates for the transaction
+	registrationCerts="${registrationCerts} --certificate ${ownerName}.deleg.cert"
+
+	#Also check, if the ownername is the same as the one in the rewards account, if so we don't need an extra signing key later
+	if [[ "${regWitnessID}" == "" ]]; then poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\" = {}" <<< ${poolJSON}); fi #include the witnesses in the poolJSON if its a new collection
+
 done
 
 #If a hardware wallet is involved as an owner, then reduce the certificates to only the stakepoolRegistrationCertificate, its not allowed to also submit the delegationCertificates in one transaction :-(
@@ -630,9 +644,12 @@ minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000$
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} ${registrationCerts} --out-file ${txBodyFile}
+${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count ${witnessCount} --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count ${witnessCount} | awk '{ print $1 }')
+
+#cardano-cli with new fee calculation
+#fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count ${witnessCount} | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -e "\e[0mMinimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & ${certCnt}x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 
@@ -1012,7 +1029,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
 				        newJSON=$(cat ${poolFile}.pool.json | jq ". += {regEpoch: \"${currentEPOCH}\"}" | jq ". += {regSubmitted: \"$(date -R)\"}" | jq "del (.regWitness)")
 				        echo "${newJSON}" > ${poolFile}.pool.json
 				        file_lock ${poolFile}.pool.json
-				        echo -e "\e[32mDONE\n"
+	                                echo -e "\e[0mSubmit-Transaction-LightMode: \e[32mDONE\n"
 
 					#Delete the just used RegistrationCertificat so it can't be submitted again as a mistake, build one again with 05a first
 					file_unlock ${regCertFile}
