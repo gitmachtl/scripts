@@ -311,7 +311,7 @@ echo
                         showProcessAnimation "Query Pool-Info via Koios: " &
         		while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
                 		error=0
-				response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
+				response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${delegationPoolID}\"]}" 2> /dev/null)
                 		if [[ $? -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
                 		errorcnt=$(( ${errorcnt} + 1 ))
         		done
@@ -547,13 +547,17 @@ withdrawal="${stakingAddr}+${rewardsSum}"
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then
-                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+			dummySendAmount=$(( ${totalLovelaces}+${rewardsSum} ))
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${dummySendAmount}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else
-                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendFromAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --withdrawal ${withdrawal} --out-file ${txBodyFile}
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendFromAddr}+${totalLovelaces}${assetsOutString}" --tx-out ${sendToAddr}+${rewardsSum} --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --withdrawal ${withdrawal} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 | awk '{ print $1 }')
+
+#cardano-cli new fee calculation
+#fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 | awk '{ print $1 }')
 
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & Withdrawal: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 

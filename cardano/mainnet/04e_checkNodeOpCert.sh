@@ -201,7 +201,7 @@ case ${workMode} in
                 echo
                 #query poolinfo via poolid on koios
                 showProcessAnimation "Query Pool-Info via Koios: " &
-                response=$(curl -sL -m 30 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolID}\"]}" 2> /dev/null)
+                response=$(curl -sL -m 30 -X POST "${koiosAPI}/pool_info" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolID}\"]}" 2> /dev/null)
                 stopProcessAnimation;
                 tmp=$(jq -r . <<< ${response}); if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Koios API request sent not back a valid JSON !\e[0m"; echo; exit 2; fi
                 #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
@@ -348,7 +348,7 @@ echo
 
 #query poolinfo via poolid on koios
 showProcessAnimation "Query Pool-Info via Koios: " &
-response=$(curl -sL -m 30 -X POST "${koiosAPI}/pool_info" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolID}\"]}" 2> /dev/null)
+response=$(curl -sL -m 30 -X POST "${koiosAPI}/pool_info" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolID}\"]}" 2> /dev/null)
 stopProcessAnimation;
 #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
 if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not query the information via Koios, maybe pool not registered yet.\n\nResponse was: ${response}\n\e[0m"; exit 1; fi

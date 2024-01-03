@@ -436,18 +436,28 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 case "${lovelacesToSend}" in
 
-	"ALLFUNDS" )	#If keyword ALLFUNDS was used, send all lovelaces and all assets to the destination address
-			rxcnt=1;;
+        "ALLFUNDS" )    #If keyword ALLFUNDS was used, send all lovelaces and all assets to the destination address
+                        rxcnt=1;;
 
-	"ALL" )		#If keyword ALL was used, send all lovelaces to the destination address, but send back all the assets if available
-			if [[ ${totalAssetsCnt} -gt 0 ]]; then
-								rxcnt=2;	#assets on the address, they must be sent back to the source
-							  else
-								rxcnt=1;	#no assets on the address
-							  fi;;
+        "ALL" )         #If keyword ALL was used, send all lovelaces to the destination address, but send back all the assets if available
+                        if [[ ${totalAssetsCnt} -gt 0 ]]; then
+                                                                rxcnt=2;        #assets on the address, they must be sent back to the source
+                                                                dummySendAmount="${totalLovelaces}"
+                                                                dummyReturnAmount=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
+                                                          else
+                                                                rxcnt=1;        #no assets on the address
+                                                          fi;;
 
-	* )		#If no keyword was used, its just the amount of lovelacesToSend
-			rxcnt=2;;
+        "MIN" )         rxcnt=2
+                        dummySendAmount=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
+                        dummyReturnAmount="${totalLovelaces}"
+                        ;;
+
+        * )             #If no keyword was used, its just the amount of lovelacesToSend
+                        rxcnt=2
+                        dummySendAmount="${lovelacesToSend}"
+                        dummyReturnAmount="${totalLovelaces}"
+                        ;;
 esac
 
 #Generate Dummy-TxBody file for fee calculation
@@ -455,19 +465,19 @@ txBodyFile="${tempDir}/dummy.txbody"
 dummyRequiredHash="12345678901234567890123456789012345678901234567890123456"
 rm ${txBodyFile} 2> /dev/null
 if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
-                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
-                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+1000000${assetsOutString}" --tx-out ${sendToAddr}+1000000 --invalid-hereafter ${ttl} --fee 0 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${dummyReturnAmount}${assetsOutString}" --tx-out ${sendToAddr}+${dummySendAmount} --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --required-signer-hash ${dummyRequiredHash} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-	fi
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 --byron-witness-count 0 | awk '{ print $1 }')
+fi
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 | awk '{ print $1 }')
+
+#cardano-cli with new few calculation
+#fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-#minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+0${assetsOutString}")
-
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
-#echo -e "\e[0mMinimum UTXO value for a Transaction: \e[32m ${minOutUTXO} lovelaces \e[90m"
 echo
 
 #

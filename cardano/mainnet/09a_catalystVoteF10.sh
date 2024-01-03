@@ -282,13 +282,13 @@ case ${1,,} in
                         assetNameHex=$(convert_assetNameASCII2HEX ${adahandleName:1})
                         #query classic cip-25 adahandle asset holding address via koios
                         showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
-                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
+                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" 2> /dev/null)
                         stopProcessAnimation;
                         #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
 	                        if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then
                                         #query classic cip-68 adahandle asset holding address via koios
                                         showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
-                                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=000de140${assetNameHex}" -H "Accept: application/json" 2> /dev/null)
+                                        response=$(curl -s -m 10 -X GET "${koiosAPI}/asset_address_list?_asset_policy=${adahandlePolicyID}&_asset_name=000de140${assetNameHex}" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" 2> /dev/null)
                                         stopProcessAnimation;
                                         #check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
                                         if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -ne 1 ]]; then echo -e "\n\e[35mCould not resolve Adahandle to an address.\n\e[0m"; exit 1; fi
