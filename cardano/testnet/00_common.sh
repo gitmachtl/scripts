@@ -54,6 +54,10 @@ catalyst_toolbox_bin="./catalyst-toolbox"	#Path to your catalyst-toolbox binary 
 cardanometa="./token-metadata-creator" #Path to your token-metadata-creator binary you wanna use. If present in the Path just set it to "token-metadata-creator" without the "./" infront
 
 
+#--------- Only needed if you have a koios-API-Token for using the koios rest-API. Otherwise leave it blank so it will use the Public-Tier automatically
+koiosApiToken=""
+
+
 #--------- Only needed if you wanna change the BlockChain from the Mainnet to a Testnet Chain Setup, uncomment the network you wanna use by removing the leading #
 #          Using a preconfigured network name automatically loads and sets the magicparam, addrformat and byronToShelleyEpochs parameters, also API-URLs, etc.
 
@@ -146,6 +150,9 @@ if [[ -f "common.inc" ]]; then source "common.inc"; fi
 
 #Also check about a lowercase "workmode" entry
 workMode=${workmode:-"${workMode}"}
+
+#Also check about a lowercase "koiosapitoken" entry
+koiosApiToken=${koiosapitoken:-"${koiosApiToken}"}
 
 #Set the list of preconfigured networknames
 networknames="mainnet, preprod, preview, sancho"
@@ -289,6 +296,7 @@ defTTL=100000 #Default seconds for transactions to be valid
 addrTypePayment="payment"
 addrTypeStake="stake"
 lightModeParametersJSON="" #will be updated with the latest parameters json if scripts are running in light mode
+koiosAuthorizationHeader="" #empty header for public tier koios curl requests
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations which are interacting with a local node
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -303,6 +311,16 @@ fi
 #Set the bc linebreak to a big number so we can work with really biiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiig numbers
 export BC_LINE_LENGTH=1000
 
+
+
+
+#-------------------------------------------------------
+#TrimString
+function trimString
+{
+    echo "$1" | sed -n '1h;1!H;${;g;s/^[ \t]*//g;s/[ \t]*$//g;p;}'
+}
+#-------------------------------------------------------
 
 
 #-------------------------------------------------------
@@ -359,7 +377,7 @@ queryLight_tip() {
         local error=-1
         while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 		error=0
-		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/tip"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/tip" -H "Accept: application/json" -H "Content-Type: application/json" -H "${koiosAuthorizationHeader}" 2> /dev/null)
 		if [ $? -ne 0 ]; then error=1; fi;
                 errorcnt=$(( ${errorcnt} + 1 ))
 	done
@@ -399,7 +417,7 @@ queryLight_epoch() {
         local error=-1
         while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 		error=0
-		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/tip"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/tip" -H "Accept: application/json" -H "Content-Type: application/json" -H "${koiosAuthorizationHeader}" 2> /dev/null)
 		if [ $? -ne 0 ]; then error=1; fi;
                 errorcnt=$(( ${errorcnt} + 1 ))
 	done
@@ -488,7 +506,32 @@ case ${workMode} in
 			#Check that the local CLI version is not lower than the lightModeParametersVersionCLI
 			versionCheck "${lightModeParametersVersionCLI}" "${versionCLI}"
 			if [[ $? -ne 0 ]]; then majorError "For working in LightMode, please use at least a local cardano-cli version ${lightModeParametersVersionCLI} or higher!\nYou are currently using version ${versionCLI}, please upgrade - thx."; exit 1; fi
+
+			#Check about a provided koiosApiToken
+			koiosApiToken=$(trimString "${koiosApiToken}") #remove spaces if present
+
+			#Set the default koios tier
+			koiosApiTier="Public-Tier" #the standard public tier
+			koiosApiProjID="---" #no project id
+			koiosApiExpireDate="no expire date" #no expire date
+			koiosAuthorizationHeader="" #empty header for public tier koios curl requests
+
+			#Check the koiosApiToken - which is JWT encoded. Decode it and read out the koios tier settings
+			if [[ "${koiosApiToken}" != "" ]]; then
+				result=$(jq -R 'split(".") | .[1] | @base64d | fromjson' <<< "${koiosApiToken}" 2> /dev/null)
+				if [[ $? -ne 0 ]]; then majorError "The provided koiosApiToken '${koiosApiToken}'\nis not a valid one! Please recheck for typos, register a new one or leave the koiosApiToken="" entry empty."; exit 1; fi
+				{ read koiosApiExpireDate; read koiosApiTier; read koiosApiProjID; } <<< $( jq -r ".exp // -1, .tier, .projID // \"---\"" <<< ${result} 2> /dev/null)
+				if [[ ${koiosApiExpireDate} -gt 0 ]]; then koiosApiExpireDate=$(date --date="@${koiosApiExpireDate}"); fi #get the local expire date from the utc seconds since unix-time-start
+				case ${koiosApiTier} in
+					"1")	koiosApiTier="Free-Tier";;
+					"2")	koiosApiTier="Pro-Tier";;
+					"3")	koiosApiTier="Premium-Tier";;
+					*)	koiosApiTier="Tier ${koiosApiTier}";;
+				esac
+				koiosAuthorizationHeader="authorization: Bearer ${koiosApiToken}" #additional header for koios curl requests with authentication
+			fi
 			;;
+
 
 	"offline")	#Offline-Mode - The machine is offline (airgapped)
 			onlineMode=false; fullMode=false; lightMode=false; offlineMode=true;
@@ -597,6 +640,7 @@ if ${showVersionInfo}; then
 
 echo
 				if ${offlineMode}; then echo -e "\n\e[0mLocal-Time:\e[32m $(date)\e[0m (\e[33mverify correct offline-time\e[0m)"; fi #show the local time in offline mode as an extra information
+				if ${lightMode}; then echo -e "\n\e[0mkoiosAPI-ProjID:\e[32m ${koiosApiProjID} (${koiosApiTier})\e[0m valid until '\e[32m${koiosApiExpireDate}\e[0m'"; fi #show koios api token info in light mode
 echo
 fi
 
@@ -877,15 +921,6 @@ esac
 checkError()
 {
 if [[ $1 -ne 0 ]]; then echo -e "\n\n\e[35mERROR (Code $1) !\e[0m\n"; exit $1; fi
-}
-#-------------------------------------------------------
-
-
-#-------------------------------------------------------
-#TrimString
-function trimString
-{
-    echo "$1" | sed -n '1h;1!H;${;g;s/^[ \t]*//g;s/[ \t]*$//g;p;}'
 }
 #-------------------------------------------------------
 
@@ -1316,7 +1351,7 @@ queryLight_UTXO() { #${1} = address to query
         local error=-1
         while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 		error=0
-		response=$(curl -sL -m 120 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/address_utxos?select=tx_hash,tx_index,value,asset_list"  -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_addresses\":[\"${addr}\"], \"_extended\": true}" 2> /dev/null)
+		response=$(curl -sL -m 120 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/address_utxos?select=tx_hash,tx_index,value,asset_list" -H "${koiosAuthorizationHeader}" -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_addresses\":[\"${addr}\"], \"_extended\": true}" 2> /dev/null)
 		if [ $? -ne 0 ]; then error=1; fi;
                 errorcnt=$(( ${errorcnt} + 1 ))
 	done
@@ -1360,7 +1395,7 @@ queryLight_stakeAddressInfo() { #${1} = address to query
         local error=-1
         while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 		error=0
-		response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/account_info"  -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_stake_addresses\":[\"${addr}\"]}" 2> /dev/null)
+		response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/account_info" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_stake_addresses\":[\"${addr}\"]}" 2> /dev/null)
 		if [ $? -ne 0 ]; then error=1; fi;
                 errorcnt=$(( ${errorcnt} + 1 ))
 	done
@@ -1424,7 +1459,7 @@ submitLight() { #${1} = path to txFile
         local error=-1
         while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to submit via koios API
 		error=0
-		response=$(xxd -p -r <<< "${cborStr}" | curl -sL -m 120 -X POST -w "---spo-scripts---%{http_code}" -H "Content-Type: application/cbor" --data-binary @- "${koiosAPI}/submittx" 2> /dev/null)
+		response=$(xxd -p -r <<< "${cborStr}" | curl -sL -m 120 -X POST -w "---spo-scripts---%{http_code}" -H "${koiosAuthorizationHeader}" -H "Content-Type: application/cbor" --data-binary @- "${koiosAPI}/submittx" 2> /dev/null)
 		if [ $? -ne 0 ]; then error=1; fi;
                 errorcnt=$(( ${errorcnt} + 1 ))
 	done
@@ -1440,7 +1475,7 @@ submitLight() { #${1} = path to txFile
 	#Check the responseCode
 	case ${responseCode} in
 		"202" ) ;; #all good, continue
-		"400" ) echo -e "HTTP Response code: ${responseCode} - Koios API reported back an error. Maybe you have to wait for the next block - please retry later.\nIf you have issues further on, please report back, thx!"; exit 1;; #exit with a failure and the http response code
+		"400" ) echo -e "HTTP Response code: ${responseCode} - Koios API reported back an error:\n${responseTxID}\nMaybe you have to wait for the next block - please retry later.\nIf you have issues further on, please report back, thx!"; exit 1;; #exit with a failure and the http response code
 		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
         esac;
 
@@ -1496,7 +1531,7 @@ resolveAdahandle() {
 		showProcessAnimation "Query Adahandle(CIP-25) into holding address: " &
 	        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 			error=0
-			response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_addresses?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+			response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_addresses?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "${koiosAuthorizationHeader}" -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
 			if [ $? -ne 0 ]; then error=1; fi;
 	                errorcnt=$(( ${errorcnt} + 1 ))
 		done
@@ -1528,7 +1563,7 @@ resolveAdahandle() {
 			showProcessAnimation "Query Adahandle(CIP-68) into holding address: " &
 		        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 				error=0
-				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_addresses?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}"  -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
+				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_addresses?_asset_policy=${adahandlePolicyID}&_asset_name=${assetNameHex}" -H "${koiosAuthorizationHeader}" -H "Accept: application/json"  -H "Content-Type: application/json" 2> /dev/null)
 				if [ $? -ne 0 ]; then error=1; fi;
 		                errorcnt=$(( ${errorcnt} + 1 ))
 			done
@@ -1659,7 +1694,7 @@ resolveAdahandle() {
 		                                        showProcessAnimation "Query Virtualhandle into holding address: " &
 						        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 								error=0
-								response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_utxos?select=inline_datum"  -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_asset_list\":[[\"${adahandlePolicyID}\",\"${assetNameHex}\"]],\"_extended\":true}" 2> /dev/null)
+								response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/asset_utxos?select=inline_datum" -H "${koiosAuthorizationHeader}" -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_asset_list\":[[\"${adahandlePolicyID}\",\"${assetNameHex}\"]],\"_extended\":true}" 2> /dev/null)
 								if [ $? -ne 0 ]; then error=1; fi;
 						                errorcnt=$(( ${errorcnt} + 1 ))
 							done

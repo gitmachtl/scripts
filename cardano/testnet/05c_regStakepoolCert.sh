@@ -253,7 +253,7 @@ if [[ "${regWitnessID}" == "" ]]; then
 					        showProcessAnimation "Query Pool-Info via Koios: " &
 					        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
 					                error=0
-					                response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info"  -H "Accept: application/json"  -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolIDbech}\"]}" 2> /dev/null)
+					                response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_info"  -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_pool_bech32_ids\":[\"${poolIDbech}\"]}" 2> /dev/null)
 					                if [ $? -ne 0 ]; then error=1; fi;
 					                errorcnt=$(( ${errorcnt} + 1 ))
 					        done

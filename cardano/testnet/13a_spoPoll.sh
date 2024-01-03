@@ -11,11 +11,13 @@ if [[ $# -eq 1 && ! $1 == "" && "${1//[![:xdigit:]]}" == "${1}" && ${#1} -eq 64 
 #Get the Question Metadata via koios
 if ${offlineMode}; then echo -e "\n\e[35mERROR - SPO-Poll is only supported in Online mode.\n\e[0m"; exit 1; fi
 
+
+
 echo -e "\e[0mSPO-Poll question via metadata from txHash: \e[32m${txHash}\e[0m"
 echo
 
 showProcessAnimation "Query Question-Metadata via koios: " &
-response=$(curl -s -m 10 -X POST "${koiosAPI}/tx_metadata" -H "accept: application/json" -H "content-type: application/json" -d "{\"_tx_hashes\":[\"${txHash}\"]}" 2> /dev/null)
+response=$(curl -s -m 10 -X POST "${koiosAPI}/tx_metadata" -H "${koiosAuthorizationHeader}" -H "accept: application/json" -H "content-type: application/json" -d "{\"_tx_hashes\":[\"${txHash}\"]}" 2> /dev/null)
 stopProcessAnimation;
 
 
