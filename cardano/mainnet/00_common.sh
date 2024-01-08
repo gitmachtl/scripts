@@ -287,7 +287,7 @@ maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so
 minLedgerCardanoAppVersion="5.0.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.6.0"  	#minimum version for the firmware on the Trezor HW-Wallet
 minHardwareCliVersion="1.12.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.14.0"	#minimum version for the cardano-signer binary
+minCardanoSignerVersion="1.15.2"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
