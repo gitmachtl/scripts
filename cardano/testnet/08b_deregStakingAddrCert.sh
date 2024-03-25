@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -254,7 +265,7 @@ echo -ne "\e[0mReading Stake Address Deposit Fee from certificate file:\e[32m ${
 cborHex=$(jq -r ".cborHex" "${stakeAddr}.dereg-cert" 2> /dev/null);
 if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't read the deregistration certificate file '${stakeAddr}.dereg-cert' !\e[0m"; echo; exit 2; fi
 stakeAddressDepositFee=$(int_from_cbor "${cborHex:68}") #needed deposit fee starts at index 68, lets decode the unsigned integer number
-if [[ ${stakeAddressDepositFee} == "error" ]]; then #this means it is an older certificate (pre conway), so the default value is 2000000 lovelaces
+if [ $? -ne 0 ]; then #this means it is an older certificate (pre conway), so the default value is 2000000 lovelaces
 	stakeAddressDepositFee=2000000; #default value pre conway
 	echo -e "(pre conway cert)"
 	else
@@ -514,6 +525,9 @@ rm ${txFile} 2> /dev/null
 paymentName=$(basename ${fromAddr} .payment) #contains the name before the .payment.addr extension
 stakingName=$(basename ${stakeAddr} .staking) #contains the name before the .staking.addr extension
 if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" == "${stakingName}" ]]; then
+
+        #remove the tag(258) from the txBodyFile
+        sed -si 's/04d90102818308/04818308/g' "${txBodyFile}"
 
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
         tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi

@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -22,6 +33,8 @@ Usage:  $(basename $0) <PolicyName.AssetName OR assetSubject(HexCode)>
 
 EOF
   exit 1;; esac
+
+
 
 #Check assetName
 if [[ "${assetName}" == ".asset" ]]; then assetName=""; fi
@@ -46,10 +59,13 @@ else #Display an ErrorMessage if neither assetFile or directSubjectHexCode is wo
  echo -e "\e[35mError - The provided parameter is not a valid assetFile (wrong path?), also it is not a valid HexCode for a direct Subject-Request!\e[0m\n"; exit 1;
 fi
 
-
 #Checking Mainnet or Testnet Metadata Registry Server
 echo -e "\e[0mChecking Token-Registry (${tokenMetaServer}/) for Asset-Subject: \e[32m${assetSubject}\e[0m\n"
 metaResponse=$(curl -sL -m 20 "${tokenMetaServer}/${assetSubject}")  #20 seconds timeout
+
+#Check response
+if [[ $(trimString "${metaResponse}") == "" ]]; then echo -e "\e[35mNo data found on the registry for ${assetSubject}\n\n\e[0m\n"; exit 1; fi
+
 
 echo -ne "\e[0mServer Response: "
 #Display Error-Message if no valid JSON returned

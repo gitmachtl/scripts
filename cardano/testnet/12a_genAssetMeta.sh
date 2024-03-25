@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -26,6 +37,8 @@ Usage:  $(basename $0) <PolicyName.AssetName>
 
 EOF
   exit 1;; esac
+
+
 
 assetFileName="${policyName}.${assetName}.asset" #save the output assetfilename here, because at that state the assetName is with or without the {} brackets
 

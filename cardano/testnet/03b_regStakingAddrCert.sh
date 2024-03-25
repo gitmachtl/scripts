@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -503,7 +514,8 @@ echo
 if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
 
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
-txWitnessFile="${tempDir}/$(basename ${fromAddr}).txwitness"; rm ${txWitnessFile} 2> /dev/null
+txWitnessFile="${tempDir}/$(basename ${fromAddr}).txwitness"; rm ${txWitnessFile} 2> /dev/null		#used for hw signing - one witness is for the payment key, the other one for the stake key
+txWitnessFile2="${tempDir}/$(basename ${fromAddr}).txwitness2"; rm ${txWitnessFile2} 2> /dev/null	#used for hw signing - one witness is for the payment key, the other one for the stake key
 txFile="${tempDir}/$(basename ${fromAddr}).tx"
 
 echo -e "\e[0mBuilding the unsigned transaction body with the\e[32m ${stakeAddr}.cert\e[0m certificate: \e[32m ${txBodyFile} \e[90m"
@@ -525,6 +537,9 @@ paymentName=$(basename ${fromAddr} .payment) #contains the name before the .paym
 stakingName=$(basename ${stakeAddr} .staking) #contains the name before the .staking.addr extension
 if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" == "${stakingName}" ]]; then
 
+	#remove the tag(258) from the txBodyFile
+	sed -si 's/04d90102818307/04818307/g' "${txBodyFile}"
+
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
         tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
         echo -e "\e[32m${tmp}\e[90m\n"
@@ -537,11 +552,23 @@ if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" 
 
         #Witness and Assemble the TxFile
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txWitnessFile} 2> /dev/stdout)
+
+
+#only one witness (cardano-hw-cli < 1.14.0) and for pre conway era
+#        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txWitnessFile} 2> /dev/stdout)
+
+#txBodyFile="./tmptest.json"
+
+
+
+        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txWitnessFile} --out-file ${txWitnessFile2} 2> /dev/stdout)
+
+#echo ${tmp}; exit
+
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
 
-        ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --out-file ${txFile}
+        ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txWitnessFile2} --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo -e "Assembled ... \e[32mDONE\e[0m\n";
 

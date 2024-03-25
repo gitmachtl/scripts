@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -40,7 +51,7 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
         esac
 
-	{ read rewardsEntryCnt; read delegationPoolID; read keyDepositFee; read rewardsAmount; } <<< $(jq -r "length, .[0].delegation // .[0].stakeDelegation, .[0].delegationDeposit, .[0].rewardAccountBalance" <<< ${rewardsJSON})
+	{ read rewardsEntryCnt; read delegationPoolID; read keyDepositFee; read rewardsAmount; read voteDelegationID; } <<< $(jq -r "length, .[0].delegation // .[0].stakeDelegation, .[0].delegationDeposit, .[0].rewardAccountBalance, .[0].voteDelegation // \"notSet\"" <<< ${rewardsJSON})
 
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
@@ -90,12 +101,37 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 		                fi #onlineMode & koiosAPI
 
                         else
-                                echo -e "\e[0mAccount is not delegated to a Pool !\n";
+                                echo -e "\e[0mAccount is not delegated to a Pool !";
                         fi
 
-                        exit #because already registered
-        fi ## ${rewardsEntryCnt} == 0
+			echo
 
+                        #Show the current status of the voteDelegation
+                        case ${voteDelegationID} in
+                                "alwaysNoConfidence")
+                                        #always-no-confidence
+                                        echo -e "\e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m\n";
+                                        ;;
+
+                                "alwaysAbstain")
+                                        #always-abstain
+                                        echo -e "\e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS ABSTAIN\e[0m\n";
+                                        ;;
+
+                                "notSet")
+                                        #no votingpower delegated
+                                        echo -e "\e[0mVoting-Power of Staking Address is not delegated to a DRep\e[0m\n";
+                                        ;;
+
+                                *)
+                                        #normal drep-id
+                                        echo -e "\e[0mVoting-Power of Staking Address is delegated to DRepID: \e[94m${voteDelegationID}\e[0m\n";
+                                        ;;
+                        esac
+
+                        exit #because already registered
+
+        fi ## ${rewardsEntryCnt} == 0
 
 else #unsupported address type
 

@@ -2,7 +2,12 @@
 unset magicparam network addrformat
 
 ##############################################################################################################################
-#
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
 # MAIN CONFIG FILE:
 #
 # Please set the following variables to your needs, you can overwrite them dynamically
@@ -280,14 +285,14 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="8.17.0"  		#minimum allowed cli version for this script-collection version
+minCliVersion="8.20.0"  		#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="8.7.2"  		#minimum allowed node version for this script-collection version
+minNodeVersion="8.9.0"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
-minLedgerCardanoAppVersion="5.0.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
+minLedgerCardanoAppVersion="7.1.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.6.0"  	#minimum version for the firmware on the Trezor HW-Wallet
-minHardwareCliVersion="1.12.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.15.2"	#minimum version for the cardano-signer binary
+minHardwareCliVersion="1.14.0" 		#minimum version for the cardano-hw-cli
+minCardanoSignerVersion="1.14.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
@@ -1139,7 +1144,7 @@ local protocolVersionMajor=$(jq -r ".protocolVersion.major | select (.!=null)" <
 
 
 ### switch the method of the minOutUTXO calculation depending on the current era, starting with protocolVersionMajor>=7 (babbage)
-if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 8=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
+if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 9=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
 
 	#chain constants for babbage
 	local constantOverhead=160 #constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions in babbage era
@@ -1249,9 +1254,9 @@ if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 8=Conway ..., new since
 	fi #only lovelaces or lovelaces + assets
 
 	#We need to get the CostPerByte. This is reported via the protocol-parameters in the utxoCostPerByte or utxoCostPerWord parameter
-	local utxoCostPerByte=$(jq -r ".utxoCostPerByte | select (.!=null)" <<< ${protocolParam}); #babbage
+	local utxoCostPerByte=$(jq -r ".utxoCostPerByte // .coinsPerUTxOByte // \"\"" <<< ${protocolParam}); #babbage
 	if [[ "${utxoCostPerByte}" == "" ]]; then #if the parameter is not present, use the utxoCostPerWord one. a word is 8 bytes
-						local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam});
+						local utxoCostPerWord=$(jq -r ".utxoCostPerWord // \"\"" <<< ${protocolParam});
 						local utxoCostPerByte=$(( ${utxoCostPerWord} / 8 ))
 	fi
 
@@ -1261,7 +1266,7 @@ if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 8=Conway ..., new since
 	exit #calculation for babbage is done, leave the function
 fi
 
-### if we are here, it was not a babbage style calculation, so lets do it for the other eras
+### if we are here, it was not a babbage or conway style calculation, so lets do it for the other eras
 ### do the calculation for shelley, allegra, mary, alonzo
 
 #chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
@@ -1882,7 +1887,7 @@ int_from_cbor() {
 	elif [[ ${retCode} -eq 0 && ${entryCnt} -ne 0 ]]; then
 		entryCnt=$(( ${entryCnt} -1 )); tmp=$(int_from_cbor "${cborHexString:${charLen} }" "${entryCnt}"); retCode=$?; echo -n "${tmp}"; exit ${retCode}; #itteration, go to the next number
 	else
-		 echo -n "error"; exit 1; #an error occured
+		 echo -n "${cborHexString}"; exit 1; #an error occured (not a int number), so lets exit with exit code 1 and return the leftover cbor string
 	fi
 
 }
@@ -1917,10 +1922,11 @@ if ${offlineMode}; then
 			echo -ne "\e[0m    Offline Version:"
 			local versionTmp=$(jq -r ".general.offlineCLI" <<< ${offlineJSON}); if [[ "${versionTmp}" == null ]]; then versionTmp="-.--.-"; fi; echo -e "\e[32m cli ${versionTmp}\e[0m"
 fi
+
+#addresses
 echo
 local addressCnt=$(jq -r ".address | length" <<< ${offlineJSON})
 echo -e "\e[0m    Address-Entries:\e[32m ${addressCnt}\e[0m\t";
-
 for (( tmpCnt=0; tmpCnt<${addressCnt}; tmpCnt++ ))
 do
   local addressKey=$(jq -r ".address | keys[${tmpCnt}]" <<< ${offlineJSON})
@@ -1939,8 +1945,24 @@ do
 					     fi
   echo -e "\n\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${addressName} \e[90m(${addressAmount}, ${addressDate}) \e[35m${addressUsed}\e[0m\n\t   \t\e[90m${addressKey}\e[0m"
 done
-local filesCnt=$(jq -r ".files | length" <<< ${offlineJSON});
+
+#dreps
 echo
+local drepCnt=$(jq -r ".drep | length" <<< ${offlineJSON})
+echo -e "\e[0m       DRep-Entries:\e[32m ${drepCnt}\e[0m\t";
+for (( tmpCnt=0; tmpCnt<${drepCnt}; tmpCnt++ ))
+do
+  local Key=$(jq -r ".drep | keys[${tmpCnt}]" <<< ${offlineJSON})
+  local drepName=$(jq -r ".drep.\"${Key}\".name" <<< ${offlineJSON})
+  local drepDeposit=$(jq -r ".drep.\"${Key}\".deposit // \"\"" <<< ${offlineJSON})
+  if [[ ${drepDeposit} != "" ]]; then drepDeposit="Deposit: $(convertToADA ${drepDeposit}) ADA"; else drepDeposit="not registered"; fi
+  local drepDate=$(jq -r ".drep.\"${Key}\".date" <<< ${offlineJSON})
+  echo -e "\n\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${drepName} \e[90m(${drepDeposit}, ${drepDate})\e[0m\n\t   \t\e[90m${Key}\e[0m"
+done
+
+#files
+echo
+local filesCnt=$(jq -r ".files | length" <<< ${offlineJSON});
 echo -e "\e[0m     Files-Attached:\e[32m ${filesCnt}\e[0m"; if [[ ${filesCnt} -gt 0 ]]; then echo; fi
 for (( tmpCnt=0; tmpCnt<${filesCnt}; tmpCnt++ ))
 do
@@ -1984,7 +2006,7 @@ do
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         ;;
 
-        DelegationCertRegistration )
+        DelegationCertRegistration|VoteDelegationCertRegistration )
                         #Delegation Certificate Registration
                         local transactionDelegName=$(jq -r ".transactions[${tmpCnt}].delegName" <<< ${offlineJSON})
                         echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${transactionType}[${transactionEra}] for '${transactionDelegName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
@@ -1998,9 +2020,16 @@ do
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         ;;
 
+        DRepIDRegistration|DRepIDReRegistration|DRepIDRetirement )
+                        #DRep ID Certificate Registration/Update/Deregistration
+                        local transactionDRepName=$(jq -r ".transactions[${tmpCnt}].drepName" <<< ${offlineJSON})
+                        echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${transactionType}[${transactionEra}] for '${transactionDRepName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
+                        echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
+                        ;;
+
 
 	* )		#Unknown Transaction Type !?
-			echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[35mUnknown transaction type\e[0m" 
+			echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[35mUnknown transaction type\e[0m"
 			;;
   esac
 
