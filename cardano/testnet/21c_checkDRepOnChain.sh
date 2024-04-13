@@ -68,7 +68,7 @@ elif [ -f "${checkDRepName}.drep.id" ]; then #parameter is a DRep verification i
 	drepID=${checkDRepID}
 
 else
-	echo -e "\n\e[35mERROR - \"${checkDRepName}.node.vkey/id\" does not exist, nor is \"${checkDRepID}\" a valid DRep-ID in Hex- or Bech-Format!\e[0m"; exit 1
+	echo -e "\n\e[35mERROR - \"${checkDRepName}.drep.vkey/id\" does not exist, nor is \"${checkDRepID}\" a valid DRep-ID in Hex- or Bech-Format!\e[0m"; exit 1
 fi
 
 echo -e "\e[0mChecking Information about the DRep-ID:\e[32m ${drepID}\e[0m\n"
@@ -77,7 +77,7 @@ echo -e "\e[0mChecking Information about the DRep-ID:\e[32m ${drepID}\e[0m\n"
 case ${workMode} in
 
         "online")       showProcessAnimation "Query DRep-ID Info: " &
-                        drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} 2> /dev/stdout )
+                        drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} --include-stake 2> /dev/stdout )
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                         drepStateJSON=$(jq -r .[0] <<< "${drepStateJSON}") #get rid of the outer array
                         ;;
@@ -93,6 +93,9 @@ case ${workMode} in
                         ;;
 
 esac
+
+jq -r . <<< ${drepStateJSON}
+
 
 { read drepEntryCnt;
   read drepDepositAmount;

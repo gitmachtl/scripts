@@ -470,15 +470,13 @@ if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no 
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
 			#a fee of 200000 lovelaces was choosen to produce a 5byte cbor representation, like any value between 65536 and 4294967296 lovelaces
-                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${dummyReturnAmount}${assetsOutString}" --tx-out ${sendToAddr}+${dummySendAmount} --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --out-file ${txBodyFile}
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendFromAddr}+${dummyReturnAmount}${assetsOutString}" --tx-out "${sendToAddr}+${dummySendAmount}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
 
-#cardano-cli 8.17 and below
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 1 | awk '{ print $1 }')
-
-#cardano-cli with the new fee calculation
-#fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 | awk '{ print $1 }')
+#cardano-cli with the new fee calculation since cli 8.21.0
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 | awk '{ print $1 }')
+#fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee-2 ${txInString} --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
@@ -579,6 +577,9 @@ rm ${txFile} 2> /dev/null
 
 #If payment address is a hardware wallet, use the cardano-hw-cli for the signing
 if [[ -f "${fromAddr}.hwsfile" ]]; then
+
+#        #remove the tag(258) from the txBodyFile
+#        sed -si 's/00d901028182/008182/g' "${txBodyFile}"
 
 	echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
 	tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi

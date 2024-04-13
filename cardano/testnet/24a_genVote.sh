@@ -242,35 +242,41 @@ case ${workMode} in
 	"online"|"light")
 
 		#Checking about the action content
-		if [[ ${actionEntryCnt} == 0 || "${actionStateJSON}" = "" ]]; then #proposal not on chain
+		if [[ "${actionStateJSON}" = "" ]]; then #proposal not on chain
 		        echo -e "\e[0mThe provided Action-ID is\e[33m NOT present on the chain\e[0m!\e[0m\n";
 		        exit 1;
 		fi
 
-		#We have found an action, lets get the Tag and number of votes so far
-		{ read actionTag;
-		  read actionContents;
-		  read actionProposedInEpoch;
-		  read actionExpiresAfterEpoch;
-		  read actionDRepVoteYesCount;
-		  read actionDRepVoteNoCount;
-		  read actionDRepAbstainCount;
-		  read actionPoolVoteYesCount;
-		  read actionPoolVoteNoCount;
-		  read actionPoolAbstainCount;
-		  read actionCommitteeVoteYesCount;
-		  read actionCommitteeVoteNoCount;
-		  read actionCommitteeAbstainCount;
-		} <<< $(jq -r '.action.tag // "-", "\(.action.contents)" // "-", .proposedIn // "-", .expiresAfter // "-",
-			(.dRepVotes | with_entries(select(.value == "VoteYes")) | length),
-			(.dRepVotes | with_entries(select(.value == "VoteNo")) | length),
-			(.dRepVotes | with_entries(select(.value == "Abstain")) | length),
-			(.stakePoolVotes | with_entries(select(.value == "VoteYes")) | length),
-			(.stakePoolVotes | with_entries(select(.value == "VoteNo")) | length),
-			(.stakePoolVotes | with_entries(select(.value == "Abstain")) | length),
-			(.committeeVotes | with_entries(select(.value == "VoteYes")) | length),
-			(.committeeVotes | with_entries(select(.value == "VoteNo")) | length),
-			(.committeeVotes | with_entries(select(.value == "Abstain")) | length)' <<< ${actionStateJSON})
+
+                #We have found an action, lets get the Tag and number of votes so far
+                { read actionTag;
+                  read actionUTXO;
+                  read actionIdx;
+                  read actionContents;
+                  read actionAnchorUrl;
+                  read actionAnchorHash;
+                  read actionProposedInEpoch;
+                  read actionExpiresAfterEpoch;
+                  read actionDRepVoteYesCount;
+                  read actionDRepVoteNoCount;
+                  read actionDRepAbstainCount;
+                  read actionPoolVoteYesCount;
+                  read actionPoolVoteNoCount;
+                  read actionPoolAbstainCount;
+                  read actionCommitteeVoteYesCount;
+                  read actionCommitteeVoteNoCount;
+                  read actionCommitteeAbstainCount;
+                } <<< $(jq -r '.proposalProcedure.govAction.tag // "-", .actionId.txId // "-", .actionId.govActionIx // "-", "\(.action.contents)" // "-", .proposalProcedure.anchor.url // "-",
+                        .proposalProcedure.anchor.dataHash // "-", .proposedIn // "-", .expiresAfter // "-",
+                        (.dRepVotes | with_entries(select(.value == "VoteYes")) | length),
+                        (.dRepVotes | with_entries(select(.value == "VoteNo")) | length),
+                        (.dRepVotes | with_entries(select(.value == "Abstain")) | length),
+                        (.stakePoolVotes | with_entries(select(.value == "VoteYes")) | length),
+                        (.stakePoolVotes | with_entries(select(.value == "VoteNo")) | length),
+                        (.stakePoolVotes | with_entries(select(.value == "Abstain")) | length),
+                        (.committeeVotes | with_entries(select(.value == "VoteYes")) | length),
+                        (.committeeVotes | with_entries(select(.value == "VoteNo")) | length),
+                        (.committeeVotes | with_entries(select(.value == "Abstain")) | length)' <<< ${actionStateJSON})
 
 
 		echo -e "\e[0mAction-ID is of type: \e[32m${actionTag}\e[0m"
@@ -278,6 +284,12 @@ case ${workMode} in
 		echo -e "\e[0m   Proposed in Epoch: \e[32m${actionProposedInEpoch}\e[0m"
 		echo -e "\e[0m Expires after Epoch: \e[32m${actionExpiresAfterEpoch}\e[0m"
 		echo
+
+                #Show the Anchor-URL(HASH) if available
+                if [[ "${actionAnchorUrl}" != "-" ]]; then
+                        echo -e "\e[0mAnchor-Url(Hash):\e[32m ${actionAnchorUrl} \e[0m(${actionAnchorHash})\n"
+                fi
+
 		echo -e "\e[0mCurrent Votes\tYes\tNo\tAbstain"
 		echo -e "\e[0m---------------------------------------"
 		echo -e "\e[94m        DReps\t\e[32m${actionDRepVoteYesCount}\t\e[91m${actionDRepVoteNoCount}\t\e[33m${actionDRepAbstainCount}\e[0m"

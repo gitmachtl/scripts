@@ -152,6 +152,7 @@ case ${workMode} in
 
 esac
 
+
 #If there is no information in the result (length of the committee entrie is zero), try to query for the committeeHASH as a Hot-Key
 if [[ $(jq -r ".committee | length" <<< ${committeeStateJSON}) -eq 0 ]]; then
 

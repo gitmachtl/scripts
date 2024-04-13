@@ -187,7 +187,8 @@ echo
 case ${workMode} in
         "online")       #onlinemode
 			protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
-			governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".enactState.curPParams")
+#			governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".enactState.curPParams")
+			governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
 			protocolParametersJSON=$( jq ".governanceParameters += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
 			;;
 
@@ -555,10 +556,8 @@ rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --certificate ${drepName}.drep-reg.cert --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 | awk '{ print $1 }')
-
-#cardano-cli with new fee calculation
-#fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 | awk '{ print $1 }')
+#cardano-cli with new fee calculation since cli 8.21.0
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 --reference-script-size 0 | awk '{ print $1 }')
 
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 

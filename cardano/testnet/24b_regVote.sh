@@ -176,44 +176,51 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
 
              elif [[ -f "${metafile}" && "${metafileExt^^}" == "VOTE" ]]; then #its a vote file
 
-		#Read in the vote file cborHex
-		voteCBOR=$(jq -r ".cborHex" "${metafile}" 2> /dev/null)
-                if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - '${metafile}' is not a valid JSON file!\n\e[0m"; exit 1; fi
+		#Read in the vote file
+		voteJSON=$(${cardanocli} ${cliEra} governance vote view --output-json --vote-file "${metafile}" 2> /dev/null)
+                if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - Could not read in Vote-File '${metafile}' !\n\e[0m"; exit 1; fi
 		echo -e "\e[0mReading Vote-File: \e[32m${metafile}\e[0m"
 
+                #Read the values of the voting file
+                { read voteActionVoter;
+                  read voteActionID;
+                  read voteActionAnchorHASH;
+                  read voteActionAnchorURL;
+                  read voteActionAnswer;
+                } <<< $(jq -r "to_entries | (.[0].key // \"-\", (.[0].value | to_entries | (.[0].key // \"-\", .[0].value.anchor.dataHash // \"-\", .[0].value.anchor.url // \"-\", .[0].value.decision // \"-\" )))" <<< "${voteJSON}")
+
 		#Get voteType
-		case ${voteCBOR:4:2} in
-			"00"|"01") voteType="Committee";;
-			"02"|"03") voteType="DRep";;
-			"04") voteType="Pool";;
+		case ${voteActionVoter%%-*} in
+			"committee") voteType="Committee";;
+			"drep") voteType="DRep";;
+			"stakepool") voteType="Pool";;
 			*) voteType="Unknown";;
 		esac
 		echo -e "\e[0m             Type: \e[94m${voteType}\e[0m"
 		if [[ ! "${voterType}" == *"${voteType}"* ]]; then echo -e "\n\e[95mERROR - The given signing key is from a '${voterType}' key. The one in the vote file\nis from type '${voteType}'. So this can't be the correct signing key or vote file.\e[0m\n"; exit 1; fi
 
 		#Get voteHash
-		voteHash=${voteCBOR:10:56}
+		voteHash=${voteActionVoter##*-}
 		echo -e "\e[0m       Voter-HASH: \e[94m${voteHash}\e[0m"
 
 		#Get action-id
-		voteActionUTXO=${voteCBOR:74:64}
-		voteActionIdx=$(int_from_cbor "${voteCBOR:138}")
-		if [ $? -eq 0 ]; then echo -e "\e[0m     Action-Tx-ID: \e[94m${voteActionUTXO}\n\e[0m     Action-Index: \e[94m${voteActionIdx}\e[0m"; fi
+		voteActionUTXO=${voteActionID:0:64}
+		voteActionIdx=${voteActionID:65}
+		echo -e "\e[0m     Action-Tx-ID: \e[94m${voteActionUTXO}\n\e[0m     Action-Index: \e[94m${voteActionIdx}\e[0m"
+
+		#Get action-url and hash
+		if [[ "${voteActionAnchorURL}" != "-" && "${voteActionAnchorHASH}" != "-" ]]; then
+			echo -e "\e[0m       Anchor-URL: \e[94m${voteActionAnchorURL}\n\e[0m      Anchor-Hash: \e[94m${voteActionAnchorHASH}\e[0m"
+		fi
 
 		#Get vote answer NO, YES, ABSTAIN
-		tmp=$(int_from_cbor "${voteCBOR:138}" 1) #get the cborstring part after the integer for the action index. thats a little hack, because its throwing an error and return the leftover cbor :-)
-		if [[ $? -eq 1 && "${tmp:0:2}" == "82" ]]; then
-			voteAnswer=$(int_from_cbor "${tmp:2}")
-			if [ $? -eq 0 ]; then
-				echo -en "\e[0m      Vote-Answer: ";
-			        case ${voteAnswer} in
-					0) echo -e "\e[91mNO\e[0m";;
-					1) echo -e "\e[32mYES\e[0m";;
-					2) echo -e "\e[33mABSTAIN\e[0m";;
-					*) echo -e "\e[95mUNKNOWN!\e[0m";;
-				esac
-			fi #voteAnswer result ok
-		fi #tmp
+		echo -en "\e[0m      Vote-Answer: ";
+	        case ${voteActionAnswer} in
+			"VoteYes")	echo -e "\e[102m\e[30m YES \e[0m";;
+			"VoteNo")	echo -e "\e[101m\e[30m NO \e[0m";;
+			"Abstain")	echo -e "\e[43m\e[30m ABSTAIN \e[0m";;
+			*) 		echo -e "\e[95mUNKNOWN!\e[0m";;
+		esac
 
 		#Check that the voteHash is the same for all votes
 		if [[ "${voterHashCollector}" == "" ]]; then voterHashCollector="${voteHash}";
@@ -518,11 +525,8 @@ rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} ${votefileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --tx-in-count ${txcnt} --tx-out-count ${rxcnt} --witness-count 2 | awk '{ print $1 }')
-
-#cardano-cli with new fee calculation
-#fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 | awk '{ print $1 }')
-
+#cardano-cli with new fee calculation since cli 8.21.0
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 --reference-script-size 0 | awk '{ print $1 }')
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
@@ -621,6 +625,12 @@ elif [[ -f "${fromAddr}.skey" && "${voterSigningFile}" == *".hwsfile" ]]; then
 
 #Payment via CLI, Voting via CLI
 elif [[ -f "${fromAddr}.skey" ]]; then  #generate the payment witness via the cli
+
+	#Check that the CLI voting signing key is the correct one for the voterHash -> calculate the hash from
+	cliVoterHash=$(${cardanocli} ${cliEra} key verification-key --signing-key-file "${voterSigningFile}" --verification-key-file /dev/stdout | jq -r ".cborHex" 2> /dev/null | cut -c 5-69 | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1 2> /dev/null)
+	if [[ "${cliVoterHash}" != "" && "${cliVoterHash}" != "${voterHashCollector}" ]]; then
+		echo -e "\n\e[91mERROR - This Voter-Signing-File (${voterSigningFile}) with Hash '${cliVoterHash}' is not the correct\none for the Voter-Hash '${voterHashCollector}' used in the Vote-File!\n\e[0m"; exit 1;
+	fi
 
         #read the needed voting signing keys into ram
         skeyJSON=$(read_skeyFILE "${voterSigningFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi

@@ -147,7 +147,7 @@ case ${action} in
 
 		        "online") #onlinemode
 				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
-	                        governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".enactState.curPParams")
+	                        governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
 				protocolParametersJSON=$( jq ".governanceParameters += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
 				;;
 
@@ -181,7 +181,7 @@ case ${action} in
 
 		        "online") #onlinemode
 				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
-	                        governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".enactState.curPParams")
+	                        governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
 				protocolParametersJSON=$( jq ".governanceParameters += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
 				;;
 
