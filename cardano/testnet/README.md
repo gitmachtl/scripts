@@ -4,7 +4,7 @@
 
 | | [cardano-cli](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-node](https://github.com/input-output-hk/cardano-node/releases/latest) | [cardano-hw-cli](https://github.com/vacuumlabs/cardano-hw-cli/releases/latest) | Ledger Cardano-App | Trezor Firmware | [cardano-signer](https://github.com/gitmachtl/cardano-signer/releases/latest) |
 | :---  |    :---:     |    :---:     |     :---:      |     :---:      |     :---:      |     :---:      |
-| *Required<br>version<br><sub>or higher</sub>* | <b>8.17.0</b> | <b>8.7.2</b><br><sub>**only needed in online(full)-mode**</sub> | <b>1.13.0</b><br><sub>**if you use hw-wallets** | <b>5.0.0</b><br>(6.0.3 for Voting)<br><sub>**if you use hw-wallets** | <b>2.6.0</b><br><sub>**if you use hw-wallets** | <b>1.14.0</b> |
+| *Required<br>version<br><sub>or higher</sub>* | <b>8.23.1</b> | <b>8.11.0</b><br><sub>**only needed in online(full)-mode**</sub> | <b>1.15.0</b><br><sub>**if you use hw-wallets** | <b>7.1.0</b><br><sub>**if you use hw-wallets** | <b>2.6.5</b><br><sub>**if you use hw-wallets** | <b>1.16.0</b> |
 
 > 💡 PLEASE USE THE **CONFIG AND GENESIS FILES** FROM [**here**](https://book.play.dev.cardano.org/environments.html), choose MAINNET, PREPROD, PREVIEW or SANCHONET! 
 
