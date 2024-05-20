@@ -445,6 +445,7 @@ case "${lovelacesToSend}" in
 								rxcnt=2;	#assets on the address, they must be sent back to the source
 								dummySendAmount="${totalLovelaces}"
 								dummyReturnAmount=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
+								checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 							  else
 								rxcnt=1;	#no assets on the address
 							  fi;;
@@ -474,10 +475,11 @@ if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no 
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	fi
 
-#cardano-cli with the new fee calculation since cli 8.21.0
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 | awk '{ print $1 }')
-#fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee-2 ${txInString} --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 | awk '{ print $1 }')
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+#calculate the transaction fee. new parameters since cardano-cli 8.21.0
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 2> /dev/stdout)
+if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
+fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
+
 
 echo -e "\e[0mMinimum Transaction Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 echo
@@ -491,6 +493,7 @@ case "${lovelacesToSend}" in
         "ALLFUNDS" )    #If keyword ALLFUNDS was used, send all lovelaces and all assets to the destination address - rxcnt=1
 			lovelacesToSend=$(( ${totalLovelaces} - ${fee} ))
                         minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m ${lovelacesToSend} lovelaces \e[90m"
 			if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
 			if [[ ${totalAssetsCnt} -gt 0 ]]; then	#assets are also send completly over, so display them
@@ -510,6 +513,7 @@ case "${lovelacesToSend}" in
                         if [[ ${totalAssetsCnt} -gt 0 ]]; then
                                                                 #assets on the address, they must be sent back to the source address with the minOutUTXO amount of lovelaces, rxcnt=2
 								minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendFromAddr}+1000000${assetsOutString}")
+								checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 								lovelacesToSend=$(( ${totalLovelaces} - ${fee} - ${minOutUTXO} )) #so send less over to
 								lovelacesToReturn=${minOutUTXO} #minimum amount to return all the assets to the source address
                                                                 echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
@@ -518,6 +522,7 @@ case "${lovelacesToSend}" in
                                                           else
                                                                 #no assets on the address, so just send over all the lovelaces, rxcnt=1
 								minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
+								checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         					lovelacesToSend=$(( ${totalLovelaces} - ${fee} ))
                         					echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
 								if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
@@ -525,6 +530,7 @@ case "${lovelacesToSend}" in
 
         "MIN" )         #If keyword MIN was used, send just the minimal possible amount of lovelces to the destination address, rest will be returned to the source address, rxcnt=2
 			minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			lovelacesToSend=${minOutUTXO}
                         echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
 			lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
@@ -538,6 +544,7 @@ case "${lovelacesToSend}" in
 
         * )             #If no keyword was used, its just the amount of lovelacesToSend to the destination address, rest will be returned to the source address, rxcnt=2
 			minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                         echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
                         if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough lovelaces to send to the destination! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
 			lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))

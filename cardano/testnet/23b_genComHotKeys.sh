@@ -45,6 +45,13 @@ EOF
 exit 1;
 else
 
+	#exit with an information, that the script needs at least conway era
+	case ${cliEra} in
+	        "babbage"|"alonzo"|"mary"|"allegra"|"shelley")
+	                echo -e "\n\e[91mINFORMATION - The chain is not in conway era yet. This script will start to work once we forked into conway era. Please check back later!\n\e[0m"; exit;
+	                ;;
+	esac
+
 	#Set the comHotName and the choosen keyType
 	comHotName="$(dirname $1.hash)/$(basename $1 .hash)"; comHotName=${comHotName/#.\//};
 	keyType=${2^^};

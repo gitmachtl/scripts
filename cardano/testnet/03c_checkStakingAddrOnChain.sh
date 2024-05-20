@@ -51,7 +51,7 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
         esac
 
-	{ read rewardsEntryCnt; read delegationPoolID; read keyDepositFee; read rewardsAmount; read voteDelegationID; } <<< $(jq -r "length, .[0].delegation // .[0].stakeDelegation, .[0].delegationDeposit, .[0].rewardAccountBalance, .[0].voteDelegation // \"notSet\"" <<< ${rewardsJSON})
+	{ read rewardsEntryCnt; read delegationPoolID; read keyDepositFee; read rewardsAmount; read drepDelegationHASH; } <<< $(jq -r "length, .[0].delegation // .[0].stakeDelegation, .[0].delegationDeposit, .[0].rewardAccountBalance, .[0].voteDelegation // \"notSet\"" <<< ${rewardsJSON})
 
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
@@ -107,7 +107,7 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 			echo
 
                         #Show the current status of the voteDelegation
-                        case ${voteDelegationID} in
+                        case ${drepDelegationHASH} in
                                 "alwaysNoConfidence")
                                         #always-no-confidence
                                         echo -e "\e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m\n";
@@ -125,7 +125,11 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
                                 *)
                                         #normal drep-id
-                                        echo -e "\e[0mVoting-Power of Staking Address is delegated to DRepID: \e[94m${voteDelegationID}\e[0m\n";
+					drepDelegationHASH=${drepDelegationHASH: -56} #last 56chars of the entry is the hash itself
+					drepDelegationID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH}" 2> /dev/null)
+					if [[ $? -eq 0 ]]; then
+	                                        echo -e "\e[0mVoting-Power of Staking Address is delegated to DRepID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH}\e[0m)\n";
+					fi
                                         ;;
                         esac
 

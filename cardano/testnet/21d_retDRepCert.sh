@@ -57,6 +57,14 @@ EOF
 exit 1;
 fi
 
+#exit with an information, that the script needs at least conway era
+case ${cliEra} in
+        "babbage"|"alonzo"|"mary"|"allegra"|"shelley")
+                echo -e "\n\e[91mINFORMATION - The chain is not in conway era yet. This script will start to work once we forked into conway era. Please check back later!\n\e[0m"; exit;
+                ;;
+esac
+
+
 #At least 2 parameters were provided, use them
 drepName="$(dirname $1)/$(basename $1 .drep)"; drepName=${drepName/#.\//};
 fromAddr="$(dirname $2)/$(basename $2 .addr)"; fromAddr=${fromAddr/#.\//};
@@ -203,10 +211,11 @@ case ${workMode} in
 			drepStateJSON=$(jq -r .[0] <<< "${drepStateJSON}") #get rid of the outer array
 			;;
 
-#	"light")        showProcessAnimation "Query DRep-ID-Info-LightMode: " &
+	"light")        #showProcessAnimation "Query DRep-ID-Info-LightMode: " &
+			echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
 #			drepStateJSON=$(queryLight_drepInfo "${drepID}")
 #			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-#			;;
+			;;
 
         "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
                         drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
@@ -439,9 +448,10 @@ rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --certificate ${drepName}.drep-ret.cert --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-#cardano-cli with new fee calculation since cli 8.21.0
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 --reference-script-size 0 | awk '{ print $1 }')
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+#calculate the transaction fee. new parameters since cardano-cli 8.21.0
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 --reference-script-size 0 2> /dev/stdout)
+if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
+fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
 
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 echo

@@ -148,7 +148,7 @@ case ${action} in
 		        "online") #onlinemode
 				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
 	                        governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
-				protocolParametersJSON=$( jq ".governanceParameters += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
+				protocolParametersJSON=$( jq ". += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
 				;;
 
 		        "light") #lightmode
@@ -182,7 +182,7 @@ case ${action} in
 		        "online") #onlinemode
 				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
 	                        governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
-				protocolParametersJSON=$( jq ".governanceParameters += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
+				protocolParametersJSON=$( jq ". += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
 				;;
 
 		        "light") #lightmode
@@ -543,7 +543,7 @@ if [ $? -ne 0 ]; then echo -e "\e[35mERROR - The content of '${drepName}.id' is 
         case ${workMode} in
 
                 "online")       showProcessAnimation "Query DRep-ID Info: " &
-                                drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} 2> /dev/stdout )
+                                drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} --include-stake 2> /dev/stdout )
                                 if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 drepStateJSON=$(jq -r ".[0] // []" <<< "${drepStateJSON}") #get rid of the outer array. if null, make an empty array
                                 ;;
@@ -555,14 +555,23 @@ if [ $? -ne 0 ]; then echo -e "\e[35mERROR - The content of '${drepName}.id' is 
 
         esac
 
-        { read drepEntryCnt; read drepDepositAmount; read drepAnchorURL; read drepAnchorHASH; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash"' <<< ${drepStateJSON})
+#        { read drepEntryCnt; read drepDepositAmount; read drepAnchorURL; read drepAnchorHASH; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash"' <<< ${drepStateJSON})
+
+	{ read drepEntryCnt;
+	  read drepDepositAmount;
+	  read drepAnchorURL;
+	  read drepAnchorHASH;
+	  read drepExpireEpoch;
+	  read drepDelegatedStake; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash", .[1].expiry // "-", .[1].stake // 0' <<< ${drepStateJSON})
 
         #Checking about the content
         if [[ ${drepEntryCnt} == 0 ]]; then #not registered yet
                 echo -e "\e[0mDRep-ID is NOT on the chain, we will add this information to register it offline.\e[0m\n";
 	else
 		echo -e "\e[0mDRep-ID is \e[32mregistered\e[0m on the chain with a deposit of \e[32m${drepDepositAmount}\e[0m lovelaces"
-		echo -e "\e[0mCurrent Anchor-URL(HASH):\e[94m ${drepAnchorURL} (${drepAnchorHASH})\e[0m\n"
+		echo -e "\e[0mCurrent Anchor-URL(HASH):\e[94m ${drepAnchorURL} (${drepAnchorHASH})\e[0m"
+	        echo -e "\e[0m    Current Expire-Epoch:\e[32m ${drepExpireEpoch}\e[0m"
+	        echo -e "\e[0m Current Delegated-Stake:\e[32m $(convertToADA ${drepDelegatedStake}) ADA\e[0m\n"
 	fi
 
         echo

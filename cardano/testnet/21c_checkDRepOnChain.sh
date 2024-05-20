@@ -25,6 +25,14 @@ Usage:  $(basename $0) <DRep-Name | DRepID-Hex | DRepID-Bech "drep1...">
 EOF
   exit 1;; esac
 
+#exit with an information, that the script needs at least conway era
+case ${cliEra} in
+        "babbage"|"alonzo"|"mary"|"allegra"|"shelley")
+                echo -e "\n\e[91mINFORMATION - The chain is not in conway era yet. This script will start to work once we forked into conway era. Please check back later!\n\e[0m"; exit;
+                ;;
+esac
+
+
 #Check can only be done in online mode
 #if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to do this!\e[0m\n"; exit 1; fi
 
@@ -71,22 +79,27 @@ else
 	echo -e "\n\e[35mERROR - \"${checkDRepName}.drep.vkey/id\" does not exist, nor is \"${checkDRepID}\" a valid DRep-ID in Hex- or Bech-Format!\e[0m"; exit 1
 fi
 
-echo -e "\e[0mChecking Information about the DRep-ID:\e[32m ${drepID}\e[0m\n"
+
+#calculate the drep hash again, just for showing it to the user as an additional information
+drepHASH=$(${bech32_bin} 2> /dev/null <<< "${drepID}")
+
+echo -e "\e[0mChecking Information about the DRep-ID:\e[32m ${drepID}\e[0m"
+echo -e "\e[0m                             DRep-HASH:\e[94m ${drepHASH}\e[0m\n"
 
 #Get state data for the drepID. When in online mode of course from the node and the chain, in light mode via koios
 case ${workMode} in
 
         "online")       showProcessAnimation "Query DRep-ID Info: " &
-#                        drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} --include-stake 2> /dev/stdout )
-                        drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} 2> /dev/stdout )
+                        drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} --include-stake 2> /dev/stdout )
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                         drepStateJSON=$(jq -r .[0] <<< "${drepStateJSON}") #get rid of the outer array
                         ;;
 
-#       "light")        showProcessAnimation "Query DRep-ID-Info-LightMode: " &
-#                       drepStateJSON=$(queryLight_drepInfo "${drepID}")
-#                       if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-#                       ;;
+	"light")        #showProcessAnimation "Query DRep-ID-Info-LightMode: " &
+			#drepStateJSON=$(queryLight_drepInfo "${drepID}")
+			#if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+			echo -e "\e[91mINFORMATION - There is currently not Light-Mode available for this action. Please use Online(Full)- or Offline-Mode!\e[0m\n"; exit;
+                        ;;
 
         "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
                         drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
@@ -107,16 +120,16 @@ esac
 
 #Checking about the content
 if [[ ${drepEntryCnt} == 0 ]]; then #not registered yet
-        echo -e "\e[0mDRep-ID is\e[33m NOT registered on the chain\e[0m!\e[0m\n";
+        echo -e "\e[0mDRep-ID/HASH is\e[33m NOT registered on the chain\e[0m!\e[0m\n";
 	exit 1;
 
 elif [[ ${drepExpireEpoch} -lt $(get_currentEpoch) ]]; then #activity expired
-	echo -e "\e[0mDRep-ID is \e[32mregistered\e[0m but activity \e[91mexpired\e[0m on the chain!\n"
+	echo -e "\e[0mDRep-ID/HASH is \e[32mregistered\e[0m but activity \e[91mexpired\e[0m on the chain!\n"
 	echo -e "\e[0m Deposit-Amount:\e[32m ${drepDepositAmount}\e[0m lovelaces"
 	echo -e "\e[0m Inactive-Epoch:\e[91m ${drepExpireEpoch}\e[0m"
 
 else #normal registration and not expired
-	echo -e "\e[0mDRep-ID is \e[32mregistered\e[0m on the chain!\n"
+	echo -e "\e[0mDRep-ID/HASH is \e[32mregistered\e[0m on the chain!\n"
 	echo -e "\e[0m Deposit-Amount:\e[32m ${drepDepositAmount}\e[0m lovelaces"
 	echo -e "\e[0m   Expire-Epoch:\e[32m ${drepExpireEpoch}\e[0m"
 fi

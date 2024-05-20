@@ -566,8 +566,10 @@ if [[ ${rxcnt} == 1 ]]; then
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 fi
 
-#cardano-cli new fee calculation since cli 8.21.0
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 --reference-script-size 0 | awk '{ print $1 }')
+#calculate the transaction fee. new parameters since cardano-cli 8.21.0
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 --reference-script-size 0 2> /dev/stdout)
+if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
+fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
 
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & Withdrawal: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 

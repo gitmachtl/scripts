@@ -20,7 +20,7 @@
 if [ $# -lt 1 ]; then #we need at least one parameter
 cat >&2 <<EOF
 
-Usage:  $(basename $0) <DRep-Name/ID/Hash | Committee-Hot-Name/Hash | Pool-Name/ID> and/or <Action-ID> and/or <Action-Type> or <all>
+Usage:  $(basename $0) <DRep-Name/ID/Hash | Committee-Hot-Name/Hash | Pool-Name/ID | StakeName/Addr> and/or <Action-ID> and/or <Action-Type> or <all>
 
 ActionTypes: HardForkInitiation, InfoAction, NewConstitution, NoConfidence, ParameterChange, TreasuryWithdrawals, UpdateCommittee
 
@@ -41,6 +41,12 @@ Examples:
    $(basename $0) myDrep 4d45bc8c9080542172b2c76caeb93c88d7dca415c3a2c71b508cbfc3785e98a8#0
    -> Get the vote of 'myDrep' on Action-ID '4d45bc8c9080542172b2c76caeb93c88d7dca415c3a2c71b508cbfc3785e98a8#0'
 
+   $(basename $0) myStake
+   -> Get the current vote(s) on which the StakeAccount 'myStake.staking.addr' is registered as Deposit-Return-Address.
+
+   $(basename $0) stake1u9qdkcdltaf8falntwqkcz5mj3m5ndzengdhavewn9jzm3senatjc
+   -> Get the current vote(s) on which the given StakeAddress is registered as Deposit-Return-Address.
+
    $(basename $0) infoaction
    -> Get all current vote(s) of type 'InfoAction'
 
@@ -52,14 +58,23 @@ EOF
 exit 1;
 fi
 
-echo -e "\e[0mQuery the voting state of a DRep, Committee-Hot, Pool and/or an Action-ID:"
+#exit with an information, that the script needs at least conway era
+case ${cliEra} in
+        "babbage"|"alonzo"|"mary"|"allegra"|"shelley")
+                echo -e "\n\e[91mINFORMATION - The chain is not in conway era yet. This script will start to work once we forked into conway era. Please check back later!\n\e[0m"; exit;
+                ;;
+esac
+
+
+
+echo -e "\e[0mQuery the voting state for a DRep, Committee-Hot, Pool, StakeAddress and/or an Action-ID:"
 echo
 
 #Check can only be done in online mode
 if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to do this!\e[0m\n"; exit 1; fi
 
 #Default Variables
-govActionID=""; voterHash=""; voterType="";
+govActionID=""; voterHash=""; voterType=""; returnHash="";
 
 #Parameter Count is 1 or more
 
@@ -183,6 +198,28 @@ for (( tmpCnt=0; tmpCnt<${paramCnt}; tmpCnt++ ))
 		if [[ ! "${voterHash,,}" =~ ^([[:xdigit:]]{56})$ ]]; then echo -e "\n\e[91mERROR - Could not generate Voter-Hash from VKEY-File '${voterVkeyFile}'\n\e[0m"; exit 1; fi
 	        echo -e "\e[32m OK\e[0m\n"
 
+	#Check if its a StakeAddress in Bech-Format
+	elif [[ "${paramValue:0:5}" == "stake" ]]; then #parameter is most likely a bech32-stakeaddress
+	        echo -ne "\e[0mCheck if given Stake-Address\e[32m ${paramValue}\e[0m is valid ..."
+	        #lets do some further testing by converting the bech32 stakeaddress into the hexHash
+	        returnHash=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
+	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid Bech32 Stake-Address.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		returnHash=${returnHash:2} #reduce it to the hash itself without the mainnet/testnet prebyte e0/e1
+
+	#Check if its a StakeAddress file in Bech-Format
+	elif [[ -f "${paramValue}.staking.addr" ]]; then #parameter is a StakeAddress file, containing a bech32 address
+		echo -ne "\e[0mReading from Stake-Address-File\e[32m ${paramValue}.staking.addr\e[0m ..."
+		stakeAddr=$(cat "${paramValue}.staking.addr" 2> /dev/null)
+		if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - Could not read from file \"${paramValue}.staking.addr\"\e[0m"; exit 1; fi
+		echo -e "\e[32m OK\e[0m\n"
+	        echo -ne "\e[0mCheck if given Stake-Address\e[32m ${stakeAddr}\e[0m is valid ..."
+	        #lets do some further testing by converting the bech32 stakeaddress into the hexHash
+	        returnHash=$(${bech32_bin} 2> /dev/null <<< "${stakeAddr,,}") #will have returncode 0 if the bech was valid
+	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${stakeAddr}\" is not a valid Bech32 Stake-Address.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		returnHash=${returnHash:2} #reduce it to the hash itself without the mainnet/testnet prebyte e0/e1
+
 	#Check if its an Action-Type
 	elif [[ "${paramValue,,}" == "hardforkinitiation" || "${paramValue,,}" == "infoaction" || "${paramValue,,}" == "newconstitution" || "${paramValue,,}" == "noconfidence" || "${paramValue,,}" == "parameterchange" || "${paramValue,,}" == "treasurywithdrawals" || "${paramValue,,}" == "updatecommittee" ]]; then
 		if [[ "${govActionType}" != "" ]]; then echo -e "\n\e[91mERROR - Only one Action-Type is allowed as parameter!\e[0m\n"; exit 1; fi
@@ -215,16 +252,14 @@ case ${workMode} in
                         if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${actionStateJSON}\e[0m\n"; exit 1; fi;
                         ;;
 
-#       "light")        showProcessAnimation "Query DRep-ID-Info-LightMode: " &
+	"light")        #showProcessAnimation "Query Governance-Action Info-LightMode: " &
 #                       drepStateJSON=$(queryLight_drepInfo "${drepID}")
 #                       if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-#                       ;;
+			echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
+			;;
 #
 
 esac
-
-#jq -r . <<< ${actionStateJSON}
-
 
 #Filter for a given Action-ID
 if [[ ${govActionUTXO} != "" && ${govActionIdx} != "" ]]; then
@@ -239,6 +274,13 @@ fi
 #Filter for a given Action-Type
 if [[ ${govActionType} != "" ]]; then
 	actionStateJSON=$(jq -r ". | select( (.proposalProcedure.govAction.tag|ascii_downcase) == \"${govActionType}\")" 2> /dev/null <<< "${actionStateJSON}")
+fi
+
+
+#Filter for a returnHash
+if [[ ${returnHash} != "" ]]; then
+	echo -e "\e[0mFilter for Deposit-Return-Hash:\e[94m ${returnHash}\e[0m\n";
+	actionStateJSON=$(jq -r ". | select( (.proposalProcedure.returnAddr.credential.keyHash) == \"${returnHash}\")" 2> /dev/null <<< "${actionStateJSON}");
 fi
 
 
@@ -316,6 +358,9 @@ do
 		  read actionAnchorHash;
 		  read actionProposedInEpoch;
 		  read actionExpiresAfterEpoch;
+		  read actionDepositReturnKeyType;
+		  read actionDepositReturnHash;
+		  read actionDepositReturnNetwork;
 		  read actionDRepVoteYesCount;
 		  read actionDRepVoteNoCount;
 		  read actionDRepAbstainCount;
@@ -326,7 +371,7 @@ do
 		  read actionCommitteeVoteNoCount;
 		  read actionCommitteeAbstainCount;
 		} <<< $(jq -r '.proposalProcedure.govAction.tag // "-", .actionId.txId // "-", .actionId.govActionIx // "-", "\(.proposalProcedure.govAction.contents)" // "-", .proposalProcedure.anchor.url // "-",
-			.proposalProcedure.anchor.dataHash // "-", .proposedIn // "-", .expiresAfter // "-",
+			.proposalProcedure.anchor.dataHash // "-", .proposedIn // "-", .expiresAfter // "-", (.proposalProcedure.returnAddr.credential|keys[0]) // "-", (.proposalProcedure.returnAddr.credential|flatten[0]) // "-", .proposalProcedure.returnAddr.network // "-",
 			(.dRepVotes | with_entries(select(.value == "VoteYes")) | length),
 			(.dRepVotes | with_entries(select(.value == "VoteNo")) | length),
 			(.dRepVotes | with_entries(select(.value == "Abstain")) | length),
@@ -348,21 +393,50 @@ do
 			echo -e "\e[0mAnchor-Url(Hash):\e[32m ${actionAnchorUrl} \e[0m(${actionAnchorHash})\n"
 		fi
 
-		#TO DO - MAKE A NICER OUTPUT OF THE DIFFERENT CONTENTS
-		actionContents=$(jq -r . <<< "${actionContents}") #convert it to nice json format
-		if [[ "${actionContents}" != null ]]; then
-			case "${actionTag}" in
+                #Show deposit return stakeaddress
+                case "${actionDepositReturnNetwork,,}${actionDepositReturnKeyType,,}" in
+                        *"scripthash")	echo -e "\e[0mDeposit Return-ScriptHash:\e[32m ${actionDepositReturnHash} \e[0m\n"
+                                        ;;
+
+                        "mainnet"*)	actionDepositAddr=$(${bech32_bin} "stake" <<< "e1${actionDepositReturnHash}" 2> /dev/null);
+                                        if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - Could not get Deposit-Return Stake-Address from Return-KeyHash '${actionDepositReturnHash}' !\n\e[0m"; exit 1; fi
+					echo -e "\e[0mDeposit Return-StakeAddr:\e[32m ${actionDepositAddr} \e[0m\n"
+                                        ;;
+
+                        "testnet"*)	actionDepositAddr=$(${bech32_bin} "stake_test" <<< "e0${actionDepositReturnHash}" 2> /dev/null);
+                                        if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - Could not get Deposit-Return Stake-Address from Return-KeyHash '${actionDepositReturnHash}' !\n\e[0m"; exit 1; fi
+					echo -e "\e[0mDeposit Return-StakeAddr:\e[32m ${actionDepositAddr} \e[0m\n"
+                                        ;;
+
+                        *)              echo -e "\n\e[35mERROR - Unknown network type ${actionDepositReturnNetwork} for the Deposit-Return KeyHash !\n\e[0m"; exit 1;
+                                        ;;
+                esac
+
+
+		#DO A NICE OUTPUT OF THE DIFFERENT CONTENTS
+		case "${actionTag}" in
+
+				"InfoAction") 		#show the proposed major/minor version to fork to
+							#Show referencing Action-Id if avaiable
+							{ read prevActionUTXO; read prevActionIDX; } <<< $(jq -r '.txId // "-", .govActionIx // "-"' 2> /dev/null <<< ${actionContents})
+							if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m\n"; fi
+							echo -e "\e[0mAction-Content:\e[36m Information\e[0m"
+							echo -e "\e[0m";;
+
 
 				"HardForkInitiation") 	#show the proposed major/minor version to fork to
 							# [
-							#  null,
+							#  null,  //or prev action-id
 							#  {
 							#    "major": 9,
 							#    "minor": 1
 							#  }
 							# ]
-							{ read forkToMajor; read forkToMinor; } <<< $(jq -r '.[1].major // "-", .[1].minor // "-"' 2> /dev/null <<< ${actionContents})
-							echo -e "\e[0mAction-Content:\e[36m Do a Hardfork to Protocol-Version ${forkToMajor}.${forkToMinor}"
+							#Show referencing Action-Id if avaiable
+							{ read prevActionUTXO; read prevActionIDX; read forkMajorVer; read forkMinorVer; } <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", .[1].major // "-", .[1].minor // "-"' 2> /dev/null <<< ${actionContents})
+							if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m\n"; fi
+							echo -e "\e[0mAction-Content:\e[36m Do a Hardfork\e[0m\n"
+							echo -e "\e[0mFork to\e[32m Protocol-Version \e[0m► \e[94m${forkMajorVer}.${forkMinorVer}\e[0m"
 							echo -e "\e[0m";;
 
 				"ParameterChange") 	#show the proposed parameterchanges
@@ -382,8 +456,11 @@ do
 							#  },
 							#  null
 							# ]
-							changeParameters=$(jq -rM '.[1] // "-"' 2> /dev/null <<< ${actionContents})
-							echo -e "\e[0mAction-Content:\e[36m Change protocol parameters\n${changeParameters}"
+							{ read prevActionUTXO; read prevActionIDX; read changeParameters; } <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", "\(.[1])" // "-"' 2> /dev/null <<< ${actionContents})
+							if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m\n"; fi
+							echo -e "\e[0mAction-Content:\e[36m Change protocol parameters\n\e[0m"
+			                                changeParameterRender=$(jq -r 'to_entries[] | "\\e[0mChange parameter\\e[32m \(.key) \\e[0m► \\e[94m\(.value)\\e[0m"' <<< ${changeParameters} 2> /dev/null)
+			                                echo -e "${changeParameterRender}"
 							echo -e "\e[0m";;
 
 				"NewConstitution") 	#show the proposed infos/anchor for a new constition
@@ -399,15 +476,93 @@ do
 							#    }
 							#  }
 							# ]
-							{ read anchorHash; read anchorURL; } <<< $(jq -r '.[1].anchor.dataHash // "-", .[1].anchor.url // "-"' 2> /dev/null <<< ${actionContents})
-							echo -e "\e[0mAction-Content:\e[36m Change to a new Constitution\n     \e[0mUrl(Hash):\e[36m ${anchorURL} (${anchorHash})"
+							{ read prevActionUTXO; read prevActionIDX; read anchorHash; read anchorURL; } <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", .[1].anchor.dataHash // "-", .[1].anchor.url // "-"' 2> /dev/null <<< ${actionContents})
+							if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m\n"; fi
+							echo -e "\e[0mAction-Content:\e[36m Change to a new Constitution\e[0m\n"
+							echo -e "\e[0mSet new\e[32m Constitution-URL \e[0m► \e[94m${anchorURL}\e[0m"
+							echo -e "\e[0mSet new\e[32m Constitution-Hash \e[0m► \e[94m${anchorHash}\e[0m"
 							echo -e "\e[0m";;
 
-				*) echo -e "\e[0mAction-Content:\n\e[36m${actionContents}"; echo -e "\e[0m";;
+				"UpdateCommittee") 	#show the proposed infos for a committeeupdate
+							# [
+							#  null,
+							#  [],  #remove members in this section
+							#  {
+							#    "keyHash-5f1b4429fe3bda963a7b70ab81135112a785afcf55ccd695b122e794": 379,   #adding new members in this section
+							#    "keyHash-9393c87a66b1f7dd4f9b486a49232de92e39e18b3b20ac4a539b4df2": 379,
+							#    "keyHash-a0de8358f1bd3644b4482bee197197c075a82ef2088b0a0ed561b7ee": 379,
+							#    "keyHash-a88042b034c1ecb45468dccbe91dcac8c6c39f7bee7b7a8dde41e4d4": 379,
+							#    "keyHash-b7bfc26ddc6718133a204af6872149b69de83dd3350f60b257e55773": 379,
+							#    "keyHash-cebc104901ccf159028eb89aec4b96b820936d9f2d92c310cf610220": 379,
+							#    "keyHash-faa9ee9fd9cba8cc01c07a34469e2d9fc9132985abe9f802bbf5cdc7": 379
+							#  },
+							#  {
+							#    "denominator": 7, #threshold
+							#    "numerator": 4
+							#  }
+							#]
+							{ read prevActionUTXO; read prevActionIDX; read committeeKeyHashesRemove; read committeeKeyHashesAdd; read committeeThreshold; } <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", "\(.[1])" // "[]", "\(.[2])" // "[]", "\(.[3])" // "-"' 2> /dev/null <<< ${actionContents})
+							if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m\n"; fi
+							committeeKeyHashesAdd=$(jq -r "keys" <<< ${committeeKeyHashesAdd} 2> /dev/null)
+							committeeKeyHashesRemove=$(jq -r "[.[].keyHash]" <<< ${committeeKeyHashesRemove} 2> /dev/null)
+							echo -ne "\e[0mAction-Content:\e[36m Threshold -> "
+							committeeThresholdType=$(jq -r "type" <<< ${committeeThreshold} 2> /dev/null)
+							case ${committeeThresholdType} in
+								"object")
+									{ read numerator; read denominator; } <<< $(jq -r '.numerator // "-", .denominator // "-"' <<< ${committeeThreshold})
+									echo -e "Approval of a governance measure requires ${numerator} out of ${denominator} ($(bc <<< "scale=0; (${numerator}*100/${denominator})/1")%) of the votes of committee members.\e[0m\n"
+									;;
 
+								"number")
+									echo -e "Approval of a governance measure requires $(bc <<< "scale=0; (${committeeThreshold}*100)/1")% of the votes of committee members.\e[0m\n"
+									;;
+							esac
+
+				                        addHashesRender=$(jq -r '.[2] // {} | to_entries[] | "\\e[0mAdding\\e[32m \(.key)-\(.value)" | split("-") | "\(.[0]) \\e[0m► \\e[94m\(.[1])\\e[0m (max term epoch \(.[2]))"' <<< ${actionContents} 2> /dev/null)
+				                        remHashesRender=$(jq -r '.[1][] // [] | to_entries[] | "\\e[0mRemove\\e[32m \(.key) \\e[0m◄ \\e[91m\(.value)\\e[0m"' <<< ${actionContents} 2> /dev/null)
+			                                echo -e "${addHashesRender}"
+			                                echo -e "${remHashesRender}"
+							echo -e "\e[0m";;
+
+				"TreasuryWithdrawals")	#show the treasury withdrawals address and amount
+							#[
+							#  [
+							#    [
+							#      {
+							#        "credential": {
+							#          "keyHash": "c13582aec9a44fcc6d984be003c5058c660e1d2ff1370fd8b49ba73f"
+							#        },
+							#        "network": "Testnet"
+							#      },
+							#      1234567890
+							#    ]
+							#  ],
+							#  null
+							#]
+							{ read withdrawalsAmount; read withdrawalsKeyType; read withdrawalsHash; read withdrawalsNetwork; } <<< $( jq -r '.[0][0][1], (.[0][0][0].credential|keys[0]) // "-", (.[0][0][0].credential|flatten[0]) // "-", .[0][0][0].network // "-"' 2> /dev/null <<< ${actionContents})
+							echo -e "\e[0mAction-Content:\e[36m Withdrawal funds from the treasury\n\e[0m"
+
+					                case "${withdrawalsNetwork,,}${withdrawalsKeyType,,}" in
+					                        *"scripthash")	echo -e "\e[0mWithdrawal to\e[32m ScriptHash \e[0m► \e[94m${withdrawalsHash}\e[0m"
+					                                        ;;
+
+					                        "mainnet"*)	withdrawalsAddr=$(${bech32_bin} "stake" <<< "e1${withdrawalsHash}" 2> /dev/null);
+					                                        if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - Could not get Withdrawals Stake-Address from KeyHash '${withdrawalsHash}' !\n\e[0m"; exit 1; fi
+										echo -e "\e[0mWithdrawal to\e[32m StakeAddr \e[0m► \e[94m${withdrawalsAddr}\e[0m"
+					                                        ;;
+
+					                        "testnet"*)	withdrawalsAddr=$(${bech32_bin} "stake_test" <<< "e0${withdrawalsHash}" 2> /dev/null);
+					                                        if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - Could not get Withdrawals Stake-Address from KeyHash '${withdrawalsHash}' !\n\e[0m"; exit 1; fi
+										echo -e "\e[0mWithdrawal to\e[32m StakeAddr \e[0m► \e[94m${withdrawalsAddr}\e[0m"
+					                                        ;;
+
+					                        *)              echo -e "\n\e[35mERROR - Unknown network type ${actionDepositReturnNetwork} for the Withdrawal KeyHash !\n\e[0m"; exit 1;
+					                                        ;;
+					                esac
+			                                echo -e "\e[0mWithdrawal the\e[32m Amount \e[0m► \e[94m$(convertToADA ${withdrawalsAmount}) ADA / ${withdrawalsAmount} lovelaces\e[0m"
+							echo -e "\e[0m";;
 
 			esac
-		fi # actionContents != null
 
 		echo -e "\e[0mCurrent Votes\tYes\tNo\tAbstain"
 		echo -e "\e[0m---------------------------------------"
@@ -416,16 +571,16 @@ do
 		echo -e "\e[94m    Committee\t\e[32m${actionCommitteeVoteYesCount}\t\e[91m${actionCommitteeVoteNoCount}\t\e[33m${actionCommitteeAbstainCount}\e[0m"
 		echo
 
+
+		#### TODO : Stake calculation for the current voting state
+
 		#If there is a voterHash, get the voting answer for it
 		if [[ "${voterHash}" != "" ]]; then
-			voteAnswer=$(jq -r ".dRepVotes[\"keyHash-${voterHash}\"] // .committeeVotes[\"keyHash-${voterHash}\"] // .stakePoolVotes[\"${voterHash}\"]" 2> /dev/null <<< "${actionEntry}")
+			voteAnswer=$(jq -r ".dRepVotes[\"keyHash-${voterHash}\"] // .committeeVotes[\"keyHash-${voterHash}\"] // .dRepVotes[\"scriptHash-${voterHash}\"] // .committeeVotes[\"scriptHash-${voterHash}\"] // .stakePoolVotes[\"${voterHash}\"]" 2> /dev/null <<< "${actionEntry}")
 			echo -ne "\e[97mVoting-Answer of the selected ${voterType}-Voter is: "
 			case "${voteAnswer}" in
-#				"VoteYes")	echo -e "\e[32mYES\e[0m\n";;
 				"VoteYes")	echo -e "\e[102m\e[30m YES \e[0m\n";;
-#				"VoteNo")	echo -e "\e[91mNO\e[0m\n";;
 				"VoteNo")	echo -e "\e[101m\e[30m NO \e[0m\n";;
-#				"Abstain")	echo -e "\e[33mABSTAIN\e[0m\n";;
 				"Abstain")	echo -e "\e[43m\e[30m ABSTAIN \e[0m\n";;
 			esac
 		fi

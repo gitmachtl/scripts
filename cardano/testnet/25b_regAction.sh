@@ -21,10 +21,8 @@
 if [ $# -lt 2 ]; then
 cat >&2 <<EOF
 
-Usage:  $(basename $0) <DRep-Name> <Base/PaymentAddressName (paying for the registration fees)>
+Usage:  $(basename $0) <Base/PaymentAddressName (paying for fees and action-deposit-value)>  <1 or more *.action files>
 
-        [Opt: Anchor-URL, starting with "url: ..."], in Online-/Light-Mode the Hash will be calculated
-        [Opt: Anchor-HASH, starting with "hash: ..."], to overwrite the Anchor-Hash in Offline-Mode
         [Opt: Message comment, starting with "msg: ...", | is the separator]
         [Opt: encrypted message mode "enc:basic". Currently only 'basic' mode is available.]
         [Opt: passphrase for encrypted message mode "pass:<passphrase>", the default passphrase if 'cardano' is not provided]
@@ -49,11 +47,11 @@ Optional parameters:
 
 Examples:
 
-   $(basename $0) myDRep myWallet.payment
-   -> Register the DRep-ID of myDRep (myDRep.drep.*) on Chain, Payment via the myWallet.payment wallet
+   $(basename $0) myDRep myWallet.payment myDrep_240317134558.drep.vote
+   -> Register the given Vote (*.vote) on chain, Signing it with the myDRep secret key, Payment via the myWallet.payment wallet
 
-   $(basename $0) myDRep myWallet.payment "msg: DRep-ID Registration for myWallet"
-   -> Register the DRep-ID of myDREP (myDRep.drep.*) on Chain, Payment via the myWallet.payment wallet, Adding a Transaction-Message
+   $(basename $0) myDRep myfunds mydrep_240317134558.drep.vote mydrep_240317135300.drep.vote "msg: My votings as a DRep, woohoo!"
+   -> Register two Votes (*.vote) on chain, Signing it with the myDRep secret key, Payment via the myfunds wallet, Adding a Transaction-Message
 
 EOF
 exit 1;
@@ -67,47 +65,305 @@ case ${cliEra} in
 esac
 
 #At least 2 parameters were provided, use them
-drepName="$(dirname $1)/$(basename $1 .drep)"; drepName=${drepName/#.\//};
-fromAddr="$(dirname $2)/$(basename $2 .addr)"; fromAddr=${fromAddr/#.\//};
 
-#Check about required files: DRep Verification Key, DRep Signing Key, Payment Address and Payment Signing Key
-#For DRep Registration
-if [ ! -f "${drepName}.drep.vkey" ]; then echo -e "\n\e[35mERROR - \"${drepName}.drep.vkey\" file does not exist! Please create it first with script 21a.\e[0m"; exit 1; fi
-if ! [[ -f "${drepName}.drep.skey" || -f "${drepName}.drep.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${drepName}.drep.skey/hwsfile\" does not exist! Please create it first with script 21a.\n\e[0m"; exit 1; fi
-#For payment
-if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[35mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+#Parameter Count is 2 or more
+fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//};
 
+#Check if the payment wallet is a hw wallet. In that case, throw an error, because actions cannot be paid with hw wallets
+if [[ -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[91mERROR - Its not possible to register/sign an Action-Proposal with a Hardware-Wallet. Please use a regular CLI-Wallet for this, thx.\n\e[0m"; exit 1; fi
+
+#Check presence of payment addr and skey/hwsfile
+if [ ! -f "${fromAddr}.addr" ]; then echo -e "\n\e[91mERROR - \"${fromAddr}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+if ! [[ -f "${fromAddr}.skey" ]]; then echo -e "\n\e[91mERROR - \"${fromAddr}.skey\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
+
+
+#--------------------------------------------------------
+
+echo
+echo -e "\e[0mRegister Action(s) with funds from Address\e[32m ${fromAddr}.addr\e[0m"
+echo
 
 #Setting default variables
-metafileParameter=""; metafile=""; transactionMessage="{}"; enc=""; passphrase="cardano"; anchorURL=""; anchorHASH=""; #Setting defaults
-regType="REG" #REG = Registration, UPD = ReRegistration(Update)
+metafileParameter=""; metafile=""; transactionMessage="{}"; enc=""; passphrase="cardano";
+actionfileParameter=""; actionfileCounter=0; actionfileCollector=""; voteActionDepositTotal=0;
 
 #Check all optional parameters about there types and set the corresponding variables
-#Starting with the 3th parameter (index=2) up to the last parameter
+#Starting with the 2th parameter (index=1) up to the last parameter
 paramCnt=$#;
 allParameters=( "$@" )
-for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
+for (( tmpCnt=1; tmpCnt<${paramCnt}; tmpCnt++ ))
  do
         paramValue=${allParameters[$tmpCnt]}
         #echo -n "${tmpCnt}: ${paramValue} -> "
 
         #Check if an additional metadata.json/.cbor was set as parameter (not a Message, not a UTXO#IDX, not empty, not a number)
-        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^enc:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^pass:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^url:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^hash:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
+        if [[ ! "${paramValue,,}" =~ ^msg:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^enc:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^pass:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^utxolimit:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^onlyutxowithasset:(.*)$ ]] && [[ ! "${paramValue,,}" =~ ^skiputxowithasset:(.*)$ ]] && [[ ! "${paramValue}" =~ ^([[:xdigit:]]+#[[:digit:]]+(\|?)){1,}$ ]] && [[ ! ${paramValue} == "" ]] && [ -z "${paramValue##*[!0-9]*}" ]; then
 
 	     metafile=${paramValue}; metafileExt=${metafile##*.}
              if [[ -f "${metafile}" && "${metafileExt^^}" == "JSON" ]]; then #its a json file
                 #Do a simple basic check if the metadatum is in the 0..65535 range
                 metadatum=$(jq -r "keys_unsorted[0]" "${metafile}" 2> /dev/null)
-                if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - '${metafile}' is not a valid JSON file!\n\e[0m"; exit 1; fi
+                if [[ $? -ne 0 ]]; then echo -e "\n\e[91mERROR - '${metafile}' is not a valid JSON file!\n\e[0m"; exit 1; fi
                 #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
    		if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then
-			echo -e "\n\e[35mERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!\n\e[0m"; exit 1; fi
-                metafileParameter="${metafileParameter}--metadata-json-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
+			echo -e "\n\e[91mERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!\n\e[0m"; exit 1; fi
+                metafileParameter+="--metadata-json-file ${metafile} "; metafileList+="'${metafile}' "
+
              elif [[ -f "${metafile}" && "${metafileExt^^}" == "CBOR" ]]; then #its a cbor file
-                metafileParameter="${metafileParameter}--metadata-cbor-file ${metafile} "; metafileList="${metafileList}'${metafile}' "
-	     else echo -e "\n\e[35mERROR - The specified Metadata JSON/CBOR-File '${metafile}' does not exist. Fileextension must be '.json' or '.cbor' Please try again.\n\e[0m"; exit 1;
+                metafileParameter+="--metadata-cbor-file ${metafile} "; metafileList+="'${metafile}' "
+
+             elif [[ -f "${metafile}" && "${metafileExt^^}" == "ACTION" ]]; then #its an action file
+
+		#Read in the action file
+		actionJSON=$(${cardanocli} ${cliEra} governance action view --output-json --action-file "${metafile}" 2> /dev/null)
+                if [[ $? -ne 0 ]]; then echo -e "\n\e[91mERROR - Could not read in Action-File '${metafile}' !\n\e[0m"; exit 1; fi
+		echo -e "\e[0mReading Action-File: \e[32m${metafile}\e[0m"
+
+
+		#Typical ActionFile view content for an info action
+		#{
+		#  "anchor": {
+		#    "dataHash": "85ef3207d3e342c32040aa6bef7c60afa524f181a18f51c5791d6da2aa7ecae0",
+		#    "url": "https://www.test/test.json"
+		#  },
+		#  "deposit": 123456789,
+		#  "governance action": {
+		#    "tag": "InfoAction"
+		#  },
+		#  "return address": {
+		#    "credential": {
+		#      "keyHash": "c13582aec9a44fcc6d984be003c5058c660e1d2ff1370fd8b49ba73f"
+		#    },
+		#    "network": "Testnet"
+		#  }
+		#}
+
+		#Treasury Withdrawal
+		#  "governance action": {
+		#    "contents": [
+		#      [
+		#        [
+		#          {
+		#            "credential": {
+		#              "keyHash": "468bfb1fc096297a108bfdfb3bd6aa7eb4182f378bbe0241fd50c18c"
+		#            },
+		#            "network": "Testnet"
+		#          },
+		#          623
+		#        ]
+		#      ],
+		#      null
+		#    ],
+		#    "tag": "TreasuryWithdrawals"
+
+		#No confidence
+		#  "governance action": {
+		#    "contents": {
+ 		#     "govActionIx": 0,
+		#      "txId": "6bff8515060c08e9cae4d4e203a4d8b2e876848aae8c4e896acda7202d3ac679"
+		#    },
+		#    "tag": "NoConfidence"
+ 		# },
+
+		#New Constitution
+		#  "governance action": {
+		#    "contents": [
+		#      { //or null if no previous constitution
+		#        "govActionIx": 0,
+		#        "txId": "6bff8515060c08e9cae4d4e203a4d8b2e876848aae8c4e896acda7202d3ac679"
+		#      },
+		#      {
+		#        "anchor": {
+		#          "dataHash": "b4fba3c5a430634f2e5e7007b33be02562efbcd036c0cf3dbb9d9dbdf418ef27",
+		#          "url": "https://my-ip.at/test/atada.metadata.json"
+		#        }
+		#      }
+		#    ],
+		#    "tag": "NewConstitution"
+
+
+		#Hardfork
+		#   "governance action": {
+		#     "contents": [
+		#            {
+		#                "govActionIx": 0,
+		#                "txId": "3ade1c4b1c492ff2b7195203c88e6ea4fc3bf50787bec17f3d4478a789147f16"
+		#            },
+		#            {
+		#                "major": 10,
+		#                "minor": 25
+		#            }
+		#        ],
+		#        "tag": "HardForkInitiation"
+
+
+                #Read the values of the action file
+                { read voteActionTag;
+		  read voteActionContents;
+                  read voteActionDeposit;
+                  read voteActionAnchorHASH;
+                  read voteActionAnchorURL;
+                  read voteActionReturnKeyHash;
+                  read voteActionReturnNetwork;
+                } <<< $(jq -r '."governance action".tag // "-", "\(."governance action".contents)" // "-", .deposit // -1, .anchor.dataHash // "-", .anchor.url // "-", ."return address".credential.keyHash // "-", ."return address".network' <<< "${actionJSON}")
+
+		voteActionContents=$(jq -r "." <<< "${voteActionContents}") #convert it to nice json format
+
+		echo -e "\e[0m         Action-Tag: \e[94m${voteActionTag}\e[0m"
+
+		#Show action-url and hash
+		if [[ "${voteActionAnchorURL}" != "-" && "${voteActionAnchorHASH}" != "-" ]]; then
+			echo -e "\e[0m         Anchor-URL: \e[94m${voteActionAnchorURL}\n\e[0m        Anchor-Hash: \e[94m${voteActionAnchorHASH}\e[0m"
+		fi
+
+		#Show deposit value
+		if [[ ${voteActionDeposit} != "-1" ]]; then
+			voteActionDeposit=$((${voteActionDeposit}+0))
+			echo -e "\e[0m      Deposit-Value: \e[94m$(convertToADA ${voteActionDeposit}) ADA\e[0m"
+			else
+			echo -e "\n\e[91mERROR - There is no deposit value in the Action-File, can't proceed without that value.\n\e[0m"; exit 1;
+		fi
+
+		#Show deposit return stakeaddress
+		case "${voteActionReturnNetwork,,}" in
+			"mainnet")	voteActionReturnAddr=$(${bech32_bin} "stake" <<< "e1${voteActionReturnKeyHash}" 2> /dev/null);
+			                if [[ $? -ne 0 ]]; then echo -e "\n\e[91mERROR - Could not get Deposit-Return Stake-Address from Return-KeyHash '${voteActionReturnKeyHash}' !\n\e[0m"; exit 1; fi
+					;;
+
+			"testnet")	voteActionReturnAddr=$(${bech32_bin} "stake_test" <<< "e0${voteActionReturnKeyHash}" 2> /dev/null);
+			                if [[ $? -ne 0 ]]; then echo -e "\n\e[91mERROR - Could not get Deposit-Return Stake-Address from Return-KeyHash '${voteActionReturnKeyHash}' !\n\e[0m"; exit 1; fi
+					;;
+
+			*)		echo -e "\n\e[91mERROR - Unknown network type ${voteActionReturnNetwork} for the Deposit-Return KeyHash !\n\e[0m"; exit 1;
+					;;
+
+		esac
+		echo -e "\e[0m Deposit-ReturnAddr: \e[33m${voteActionReturnAddr}\e[0m"
+		echo
+
+		#Check that the Deposit-ReturnAddr is registered on the network
+		case ${workMode} in
+	                "online")       showProcessAnimation "Query-StakeAddress-Info: " &
+	                                rewardsJSON=$(${cardanocli} ${cliEra} query stake-address-info --address ${voteActionReturnAddr} 2> /dev/stdout)
+	                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[91mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+	                                ;;
+
+	                "light")        showProcessAnimation "Query-StakeAddress-Info-LightMode: " &
+	                                rewardsJSON=$(queryLight_stakeAddressInfo "${voteActionReturnAddr}")
+	                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[91mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+	                                ;;
+	        esac
+	        rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
+	        if [[ ${rewardsEntryCnt} == 0 ]]; then #not registered yet
+	                echo -e "\n\e[91mERROR - Deposit-Return Address '${voteActionReturnAddr}'\nis NOT registered on the chain! Register it first with script 03b ...\e[0m\n"; exit 1;
+		fi
+
+
+		#Show additional informations depending on the action-type/tag
+		case "${voteActionTag,,}" in
+
+			"treasurywithdrawals")
+				{ read fundsReceivingAmount; read fundsReceivingStakeAddrHash; } <<< $(jq -r '.[0][0][1], .[0][0][0].credential.keyHash' <<< "${voteActionContents}")
+		                echo -e "  Withdrawal-Amount: \e[32m$(convertToADA ${fundsReceivingAmount}) ADA / ${fundsReceivingAmount} lovelaces\e[0m"
+		                #Show withdrawal payout stakeaddress
+		                case "${voteActionReturnNetwork,,}" in
+		                        "mainnet")      fundsReceivingStakeAddr=$(${bech32_bin} "stake" <<< "e1${fundsReceivingStakeAddrHash}" 2> /dev/null);
+		                                        if [[ $? -ne 0 ]]; then echo -e "\n\e[91mERROR - Could not get Withdrawal-Payout Stake-Address from KeyHash '${fundsReceivingStakeAddrHash}' !\n\e[0m"; exit 1; fi
+		                                        ;;
+		                        "testnet")      fundsReceivingStakeAddr=$(${bech32_bin} "stake_test" <<< "e0${fundsReceivingStakeAddrHash}" 2> /dev/null);
+		                                        if [[ $? -ne 0 ]]; then echo -e "\n\e[91mERROR - Could not get Withdrawal-Payout Stake-Address from KeyHash '${fundsReceivingStakeAddrHash}' !\n\e[0m"; exit 1; fi
+		                                        ;;
+		                esac
+				echo -e "    Withdrawal-Addr: \e[32m${fundsReceivingStakeAddr}\e[0m"
+				;;
+
+			"noconfidence")
+		                #Show referencing Action-Id
+				{ read prevActionUTXO; read prevActionIDX; } <<< $(jq -r '.txId // "-", .govActionIx // "-"' <<< "${voteActionContents}")
+				if [[ ${#prevActionUTXO} -gt 1 ]]; then
+			        	echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m"
+					else
+			        	echo -e "Reference-Action-ID: \e[32m(none)\e[0m"
+				fi
+				;;
+
+			"newconstitution")
+		                #Show referencing Action-Id and Constitution-URL/HASH
+				{ read prevActionUTXO; read prevActionIDX; read constitutionURL; read constitutionHASH;} <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", .[1].anchor.url // "-", .[1].anchor.dataHash // "-"' <<< "${voteActionContents}")
+				if [[ ${#prevActionUTXO} -gt 1 ]]; then
+			        	echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m"
+					else
+			        	echo -e "Reference-Action-ID: \e[32m(none)\e[0m"
+				fi
+				echo -e "\e[0m   Constitution-URL: \e[32m${constitutionURL}\n\e[0m  Constitution-Hash: \e[32m${constitutionHASH}\e[0m"
+				;;
+
+			"hardforkinitiation")
+		                #Show referencing Action-Id and Hardfork-Major/Minor-Version
+				{ read prevActionUTXO; read prevActionIDX; read forkMajorVer; read forkMinorVer;} <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", .[1].major // "-", .[1].minor // "-"' <<< "${voteActionContents}")
+				if [[ ${#prevActionUTXO} -gt 1 ]]; then
+			        	echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m"
+					else
+			        	echo -e "Reference-Action-ID: \e[32m(none)\e[0m"
+				fi
+				echo
+				echo -e "\e[0mFork to\e[32m Protocol-Version \e[0m► \e[94m${forkMajorVer}.${forkMinorVer}\e[0m"
+				;;
+
+			"parameterchange")
+				#Show referencing Actio-Id and the content of the parameterchange json section
+				{ read prevActionUTXO; read prevActionIDX; read changeParameters;} <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", "\(.[1])" // "{}"' 2> /dev/null <<< "${voteActionContents}")
+				if [[ ${#prevActionUTXO} -gt 1 ]]; then
+			        	echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m"
+					else
+			        	echo -e "Reference-Action-ID: \e[32m(none)\e[0m"
+				fi
+				changeParameterRender=$(jq -r 'to_entries[] | "\\e[0m   Change parameter:\\e[32m \(.key) \\e[0m► \\e[94m\(.value)\\e[0m"' <<< ${changeParameters} 2> /dev/null)
+				echo
+				echo -e "${changeParameterRender}"
+				;;
+
+			"updatecommittee")
+				#Show referencing Actio-Id and the hashes that are added/removed, also the new threshold
+				{ read prevActionUTXO; read prevActionIDX; read committeeThreshold; } <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", "\(.[3])" // "-"' 2> /dev/null <<< "${voteActionContents}")
+				if [[ ${#prevActionUTXO} -gt 1 ]]; then
+			        	echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m"
+					else
+			        	echo -e "Reference-Action-ID: \e[32m(none)\e[0m"
+				fi
+				echo
+				committeeThresholdType=$(jq -r "type" <<< ${committeeThreshold} 2> /dev/null)
+				case ${committeeThresholdType} in
+					"object")
+						{ read numerator; read denominator; } <<< $(jq -r '.numerator // "-", .denominator // "-"' <<< ${committeeThreshold})
+						echo -e "\e[0mSet\e[32m threshold \e[0m► \e[94m${numerator} out of ${denominator} ($(bc <<< "scale=0; (${numerator}*100/${denominator})/1")%)\e[0m"
+						;;
+
+						"number")
+						echo -e "\e[0mSet\e[32m threshold \e[0m► \e[94m$(bc <<< "scale=0; (${committeeThreshold}*100)/1")%\e[0m"
+						;;
+				esac
+				addHashesRender=$(jq -r '.[2] // {} | to_entries[] | "\\e[0mAdding\\e[32m \(.key)-\(.value)" | split("-") | "\(.[0]) \\e[0m► \\e[94m\(.[1])\\e[0m (max term epoch \(.[2]))"' <<< ${voteActionContents} 2> /dev/null)
+				remHashesRender=$(jq -r '.[1][] // [] | to_entries[] | "\\e[0mRemove\\e[32m \(.key) \\e[0m◄ \\e[91m\(.value)\\e[0m"' <<< ${voteActionContents} 2> /dev/null)
+				echo -e "${addHashesRender}"
+				echo -e "${remHashesRender}"
+				;;
+
+		esac
+
+                #Check that the same Action-File was not added before.
+                if [[ "${actionfileCollector}" == *"${metafile}"* ]]; then echo -e "\n\e[91mERROR - The Action-File '${metafile}' is more than once in the parameters list!\n\e[0m"; exit 1; fi
+                actionfileCollector+="'${metafile}' " #add the current Action-File to the collector
+
+                actionfileParameter+="--proposal-file ${metafile} ";
+		actionfileCounter=$((${actionfileCounter}+1));
+		voteActionDepositTotal=$((${voteActionDepositTotal}+${voteActionDeposit}))
+
+		echo -e "\n\e[90m------------\e[0m\n"
+
+	     else echo -e "\n\e[91mERROR - The specified File JSON/CBOR/ACTION-File '${metafile}' does not exist. Fileextension must be '.json', '.cbor' or '.action'. Please try again.\n\e[0m"; exit 1;
              fi
+
 
 	#Check it its a MessageComment. Adding it to the JSON array if the length is <= 64 chars
 	elif [[ "${paramValue,,}" =~ ^msg:(.*)$ ]]; then #if the parameter starts with "msg:" then add it
@@ -122,36 +378,29 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
 			tmpMessage=${allMessages[tmpCnt2]}
                         if [[ $(byteLength "${tmpMessage}") -le 64 ]]; then
                                                 transactionMessage=$( jq ".\"674\".msg += [ \"${tmpMessage}\" ]" <<< ${transactionMessage} 2> /dev/null);
-                                                if [ $? -ne 0 ]; then echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" contain invalid chars for a JSON!\n\e[0m"; exit 1; fi
-                        else echo -e "\n\e[35mMessage-Adding-ERROR: \"${tmpMessage}\" is too long, max. 64 bytes allowed, yours is $(byteLength "${tmpMessage}") bytes long!\n\e[0m"; exit 1;
+                                                if [ $? -ne 0 ]; then echo -e "\n\e[91mMessage-Adding-ERROR: \"${tmpMessage}\" contain invalid chars for a JSON!\n\e[0m"; exit 1; fi
+                        else echo -e "\n\e[91mMessage-Adding-ERROR: \"${tmpMessage}\" is too long, max. 64 bytes allowed, yours is $(byteLength "${tmpMessage}") bytes long!\n\e[0m"; exit 1;
 			fi
 		done
+
 
         #Check if its a transaction message encryption type
         elif [[ "${paramValue,,}" =~ ^enc:(.*)$ ]]; then #if the parameter starts with "enc:" then set the encryption variable
                 encryption=$(trimString "${paramValue:4}");
 
+
         #Check if its a transaction message encryption passphrase
         elif [[ "${paramValue,,}" =~ ^pass:(.*)$ ]]; then #if the parameter starts with "pass:" then set the passphrase variable
                 passphrase="${paramValue:5}"; #don't do a trimstring here, because also spaces are a valid passphrase !
 
-        #Check if its an anchor-url
-        elif [[ "${paramValue,,}" =~ ^url:(.*)$ ]]; then #if the parameter starts with "url:" then set the anchorURL variable
-                anchorURL=$(trimString "${paramValue:4}");
-		#Check that the provided URL starts with 'https://'
-		if [[ ! "${anchorURL}" =~ https://.* && ! "${anchorURL}" =~ ipfs://.* ]] || [[ ${#anchorURL} -gt 128 ]]; then echo -e "\e[35mERROR - The provided Anchor-URL '${anchorURL}'\ndoes not start with https:// or ipfs:// or is too long. Max. 128 chars allowed !\e[0m\n"; exit 1; fi
-
-        #Check if its an anchor-hash - its only needed to overwrite the value in offline mode
-        elif [[ "${paramValue,,}" =~ ^hash:(.*)$ ]]; then #if the parameter starts with "hash:" then set the anchorHASH variable
-                anchorHASH=$(trimString "${paramValue:5}"); #trim it
-		anchorHASH=${anchorHASH,,}; #lower case
-		#Check that the provided HASH is a valid hex hash
-		if [[ "${anchorHASH//[![:xdigit:]]}" != "${anchorHASH}" || ${#anchorHASH} -ne 64 ]]; then #parameter is not in hex or not 64 chars long
-			echo -e "\e[35mERROR - The provided Anchor-HASH '${anchorHASH}' is not in HEX or not 64chars long !\e[0m\n"; exit 1; fi
 
         fi #end of different parameters check
 
- done
+done
+
+echo -e "\e[0mTotal Deposit-Value: \e[33m$(convertToADA ${voteActionDepositTotal}) ADA\e[0m"
+echo
+
 
 #Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list. Encrypt it if enabled.
 if [[ ! "${transactionMessage}" == "{}" ]]; then
@@ -173,29 +422,23 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 		elif [[ "${encryption}" != "" ]]; then #another encryption method provided
-			echo -e "\n\e[35mERROR - The given encryption mode '${encryption,,}' is not on the supported list of encryption methods. Only 'basic' from CIP-0083 is currently supported\n\n\e[0m"; exit 1;
+			echo -e "\n\e[91mERROR - The given encryption mode '${encryption,,}' is not on the supported list of encryption methods. Only 'basic' from CIP-0083 is currently supported\n\n\e[0m"; exit 1;
 		fi
 
 		echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
 
 	else
-		echo -e "\n\e[35mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1;
+		echo -e "\n\e[91mERROR - Additional Transaction Message-Metafile is not valid:\n\n$${transactionMessage}\n\nPlease check your added Message-Paramters.\n\e[0m"; exit 1;
 	fi
 
 fi
 
 #----------------------------------------------------
 
-echo
-echo -e "\e[0mRegister DRep-ID using\e[32m ${drepName}.drep.vkey\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
-echo
-
 #Read ProtocolParameters
 case ${workMode} in
         "online")       #onlinemode
 			protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
-			governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
-			protocolParametersJSON=$( jq ". += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
 			;;
 
         "light")        #lightmode
@@ -212,171 +455,7 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 #Do a check if we are at least in conway-era (protocol major 9 and above)
 protocolVersionMajor=$(jq -r ".protocolVersion.major // -1" <<< ${protocolParametersJSON})
 if [[ ${protocolVersionMajor} -lt 9 ]]; then
-	echo -e "\n\e[35mERROR - The current era on the chain does not support DRep registration. Needs conway-era and above!\n\e[0m"; exit 1; fi
-
-#Get the the currently set drepDepositFee
-drepDepositFee=$(jq -r ".dRepDeposit // -1" <<< ${protocolParametersJSON})
-if [[ ${drepDepositFee} -lt 0 ]]; then
-	echo -e "\n\e[35mERROR - Could not query the current dRepDeposit fee amount!\n\e[0m"; exit 1; fi
-
-#Get the drepID from the vkey file
-drepID=$(${cardanocli} ${cliEra} governance drep id --drep-verification-key-file "${drepName}.drep.vkey" --out-file /dev/stdout)
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
-#If in online/light mode, check the anchorURL
-if ${onlineMode}; then
-
-
-	#get Anchor-URL content and calculate the Anchor-Hash
-	if [[ ${anchorURL} != "" ]]; then
-
-		#we write out the downloaded content to a file 1:1, so we can do a hash calculation on the file itself rather than on text content
-		tmpAnchorContent="${tempDir}/DRepAnchorURLContent.tmp"; touch "${tmpAnchorContent}"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
-		#check if the URL is a normal one or an ipfs one, in case of ipfs, use https://ipfs.io/ipfs/xxx to load the content
-		if [[ "${anchorURL}" =~ ipfs://.* ]]; then queryURL="https://ipfs.io/ipfs/${anchorURL:7}"; echo -e "\e[0mUsing the Query-URL\e[32m ${queryURL}\e[0m for ipfs\n"; else queryURL="${anchorURL}"; fi
-
-		errorcnt=0; error=-1;
-		showProcessAnimation "Query Anchor-URL content: " &
-		while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
-			error=0
-		        response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${queryURL}" --output "${tmpAnchorContent}" 2> /dev/null)
-			if [[ $? -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
-			errorcnt=$(( ${errorcnt} + 1 ))
-		done
-		stopProcessAnimation;
-
-		#if no error occured, split the response string into the content and the HTTP-ResponseCode
-		if [[ ${error} -eq 0 && "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
-
-                        responseCode="${BASH_REMATCH[2]}"
-
-		        #Check the responseCode
-		        case ${responseCode} in
-		                "200" ) #all good, continue
-					tmp=$(jq . < "${tmpAnchorContent}" 2> /dev/null) #just a short check that the received content is a valid JSON file
-					if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - The content of the Anchor-URL '${anchorURL}'\nis not in valid JSON format!\n\e[0m"; rm "${tmpAnchorContent}"; exit 1; fi
-					contentHASH=$(b2sum -l 256 "${tmpAnchorContent}" 2> /dev/null | cut -d' ' -f 1)
-					checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-					echo -e "\e[0mNew Anchor-URL(HASH):\e[32m ${anchorURL} (${contentHASH})\e[0m"
-					echo
-					if [[ ${anchorHASH} != "" ]]; then echo -e "Provided Anchor-HASH '${anchorHASH}' will be ignored, continue ...\n"; fi
-					anchorHASH="${contentHASH}" #set the anchorHASH not to the provided one, use the one calculated from the online file
-					rm "${tmpAnchorContent}" #cleanup
-					;;
-
-		                "404" ) #file-not-found
-					echo -e "\n\e[35mERROR - No content was not found on the given Anchor-URL '${anchorURL}'\nPlease upload it first to this location, thx!\n\e[0m"; exit 1; #exit with a failure
-					;;
-
-		                * )     echo -e "\n\e[35mERROR - Query of the Anchor-URL failed!\nHTTP Request File: ${anchorURL}\nHTTP Response Code: ${responseCode}\n\e[0m"; exit 1; #exit with a failure and the http response code
-					;;
-		        esac;
-
-		else
-			echo -e "\n\e[35mERROR - Query of the Anchor-URL '${anchorURL}' failed!\n\e[0m"; exit 1;
-		fi #error & response
-		unset errorcnt error
-
-	fi # ${anchorURL} != ""
-
-fi ## ${onlineMode} == true
-
-#In online/light mode we should now have an anchorHASH if an anchorURL was provided
-#Do a check - important for Offline-Mode
-if [[ ${anchorURL} != "" && ${anchorHASH} == "" ]]; then echo -e "\n\e[35mERROR - Please also provide an Anchor-HASH via the parameter \"hash: xxxxx\".\n\e[0m"; exit 1; fi
-if [[ ${anchorURL} == "" && ${anchorHASH} != "" ]]; then echo -e "\n\e[35mERROR - Please also provide an Anchor-URL via the parameter \"url: xxxxx\".\n\e[0m"; exit 1; fi
-
-
-echo -e "\e[0mChecking Information about the DRep-ID:\e[32m ${drepID}\e[0m\n"
-
-#Get state data for the drepID. When in online mode of course from the node and the chain, in light mode via koios
-case ${workMode} in
-
-	"online")       showProcessAnimation "Query DRep-ID Info: " &
-			drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} --include-stake 2> /dev/stdout )
-			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-			drepStateJSON=$(jq -r .[0] <<< "${drepStateJSON}") #get rid of the outer array
-			;;
-
-	"light")        #showProcessAnimation "Query DRep-ID-Info-LightMode: " &
-			echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
-#			drepStateJSON=$(queryLight_drepInfo "${drepID}")
-#			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-			;;
-
-        "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
-                        drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
-                        if [[ "${drepStateJSON}" == null ]]; then echo -e "\e[35mDRep-ID not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-                        ;;
-esac
-
-#{ read drepEntryCnt; read drepDepositAmount; read drepAnchorURL; read drepAnchorHASH; read } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash"' <<< ${drepStateJSON})
-
-{ read drepEntryCnt;
-  read drepDepositAmount;
-  read drepAnchorURL;
-  read drepAnchorHASH;
-  read drepExpireEpoch;
-  read drepDelegatedStake; } <<< $(jq -r 'length, .[1].deposit // 0, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash", .[1].expiry // "-", .[1].stake // 0' <<< ${drepStateJSON})
-
-#Checking about the content
-if [[ ${drepEntryCnt} == 0 ]]; then #not registered yet
-
-	echo -e "\e[0mDRep-ID is\e[33m NOT on the chain\e[0m, we will continue to register it ...\e[0m\n";
-	regType="REG" #set registration type to REGistration
-
-else #already registered -> that would be a DRep-ID update!
-
-	echo -e "\e[0mDRep-ID is \e[32mregistered\e[0m on the chain with a deposit of \e[32m${drepDepositAmount}\e[0m lovelaces\n"
-	echo -e "\e[0mCurrent Anchor-URL(HASH):\e[94m ${drepAnchorURL} (${drepAnchorHASH})\e[0m"
-        echo -e "\e[0m    Current Expire-Epoch:\e[32m ${drepExpireEpoch}\e[0m"
-	echo -e "\e[0m Current Delegated-Stake:\e[32m $(convertToADA ${drepDelegatedStake}) ADA\e[0m\n"
-	regType="UPD" #set registration type to UPDATE, no deposit needed
-
-fi ## ${drepEntryCnt} == 0
-
-
-
-
-
-#GENERATE THE CERTIFICATE
-case ${regType} in
-
-	"REG") #generate the registration certificate
-		echo -e "\e[0mGenerate Registration-Certificate with the currently set deposit fee:\e[32m ${drepDepositFee} lovelaces\e[0m\n"
-		#set anchor data if available
-		if [[ ${anchorURL} != "" ]]; then anchorPARAM="--drep-metadata-url ${anchorURL} --drep-metadata-hash ${anchorHASH}"; else anchorPARAM=""; fi
-		regCert=$(${cardanocli} ${cliEra} governance drep registration-certificate --drep-key-hash ${drepID} --key-reg-deposit-amt "${drepDepositFee}" ${anchorPARAM} --out-file /dev/stdout 2> /dev/null)
-		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-		file_unlock "${drepName}.drep-reg.cert"
-		echo -e "${regCert}" > "${drepName}.drep-reg.cert" 2> /dev/null
-		if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not write out the certificate file ${drepName}.drep-reg.cert !\n\e[0m"; exit 1; fi
-		file_lock "${drepName}.drep-reg.cert"
-		unset regCert
-		;;
-
-	"UPD") #generate an update certificate
-		drepDepositFee=0; #correct value now for the transaction calculation
-		echo -e "\e[0mGenerate an \e[33mUPDATE-Certificate\e[0m without the need to deposit again:\e[0m\n"
-		#set anchor data if available
-		if [[ ${anchorURL} != "" ]]; then anchorPARAM="--drep-metadata-url ${anchorURL} --drep-metadata-hash ${anchorHASH}"; else anchorPARAM=""; fi
-		regCert=$(${cardanocli} ${cliEra} governance drep update-certificate --drep-key-hash ${drepID} ${anchorPARAM} --out-file /dev/stdout 2> /dev/null)
-		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-		file_unlock "${drepName}.drep-reg.cert"
-		echo -e "${regCert}" > "${drepName}.drep-reg.cert" 2> /dev/null
-		if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not write out the certificate file ${drepName}.drep-reg.cert !\n\e[0m"; exit 1; fi
-		file_lock "${drepName}.drep-reg.cert"
-		unset regCert
-		;;
-
-esac
-
-
-echo -e "\e[0mDRep-ID Registration-Certificate built:\e[32m ${drepName}.drep-reg.cert \e[90m"
-cat "${drepName}.drep-reg.cert"
-echo -e "\e[0m"
-
+	echo -e "\n\e[91mERROR - The current era on the chain does not support submitting governance actions. Needs conway-era and above!\n\e[0m"; exit 1; fi
 
 #get live values
 currentTip=$(get_currentTip); checkError "$?";
@@ -384,7 +463,7 @@ ttl=$(( ${currentTip} + ${defTTL} ))
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
 
-#adaToSend + fees will be taken out of the sendFromUTXO and sent back to the same Address
+#adaToSend + fees + actionDeposit will be taken out of the sendFromUTXO and sent back to the same Address
 
 rxcnt="1"               #transmit to one destination addr. all utxos will be sent back to the fromAddr
 
@@ -392,7 +471,7 @@ sendFromAddr=$(cat ${fromAddr}.addr); check_address "${sendFromAddr}"; checkErro
 sendToAddr=${sendFromAddr}
 
 echo
-echo -e "Pay fees from Address\e[32m ${fromAddr}.addr\e[0m: ${sendFromAddr}"
+echo -e "Pay fees and Action-Deposit from Address\e[32m ${fromAddr}.addr\e[0m: ${sendFromAddr}"
 echo
 
 #------------------------------------------------
@@ -403,29 +482,29 @@ echo
         #Get UTX0 Data for the address. When in online mode of course from the node and the chain, in lightmode via API requests, in offlinemode from the transferFile
         case ${workMode} in
                 "online")	#check that the node is fully synced, otherwise the query would mabye return a false state
-				if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
+				if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[91mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
 				showProcessAnimation "Query-UTXO: " &
 				utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} 2> /dev/stdout);
-				if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+				if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[91mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
                                 ;;
 
                 "light")	showProcessAnimation "Query-UTXO-LightMode: " &
 				utxo=$(queryLight_UTXO "${sendFromAddr}");
-				if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+				if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[91mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
                                 ;;
 
                 "offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
                                 utxoJSON=$(jq -r ".address.\"${sendFromAddr}\".utxoJSON" <<< ${offlineJSON} 2> /dev/null)
-                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[35mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
+                                if [[ "${utxoJSON}" == null ]]; then echo -e "\e[91mPayment-Address not included in the offline transferFile, please include it first online!\e[0m\n"; exit 1; fi
                                 ;;
         esac
 
 	txcnt=$(jq length <<< ${utxoJSON}) #Get number of UTXO entries (Hash#Idx), this is also the number of --tx-in for the transaction
-	if [[ ${txcnt} == 0 ]]; then echo -e "\e[35mNo funds on the Source Address!\e[0m\n"; exit 1; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
+	if [[ ${txcnt} == 0 ]]; then echo -e "\e[91mNo funds on the Source Address!\e[0m\n"; exit 1; else echo -e "\e[32m${txcnt} UTXOs\e[0m found on the Source Address!\n"; fi
 
 	#Calculating the total amount of lovelaces in all utxos on this address
         #totalLovelaces=$(jq '[.[].amount[0]] | add' <<< ${utxoJSON})
@@ -570,106 +649,93 @@ minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000$
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"; rm ${txBodyFile} 2> /dev/null
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --certificate ${drepName}.drep-reg.cert --out-file ${txBodyFile}
+${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #calculate the transaction fee. new parameters since cardano-cli 8.21.0
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 --reference-script-size 0 2> /dev/stdout)
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 2> /dev/stdout)
 if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
 fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
 
-echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
+echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 echo
 
-echo -ne "\e[0mDRep-ID Deposit Fee: \e[32m ${drepDepositFee} lovelaces \e[0m"
-if [[ ${drepDepositFee} -eq 0 ]]; then echo -e "\e[33m-> UPDATE\e[0m"; else echo; fi
-
-minRegistrationFund=$(( ${drepDepositFee}+${fee}+${minOutUTXO} ))
+minRegistrationFund=$(( ${fee}+${minOutUTXO}+${voteActionDepositTotal} ))
 
 echo
-echo -e "\e[0mMimimum funds required for registration (Sum of fees): \e[32m ${minRegistrationFund} lovelaces \e[90m"
+echo -e "\e[0mMimimum funds required for registration (Sum of fees + ActionDeposit): \e[32m $(convertToADA ${minRegistrationFund}) ADA / ${minRegistrationFund} lovelaces \e[90m"
+echo
+echo -e "\e[0mTotal Deposit-Value: \e[33m$(convertToADA ${voteActionDepositTotal}) ADA\e[0m"
 echo
 
 #calculate new balance for destination address
-lovelacesToSend=$(( ${totalLovelaces}-${fee}-${drepDepositFee} ))
+lovelacesToSend=$(( ${totalLovelaces}-${fee}-${voteActionDepositTotal} ))
 
-echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees): \e[32m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
+echo -e "\e[0mLovelaces that will be returned to payment Address (UTXO-Sum minus fees minus ActionDeposit): \e[32m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m (min. required ${minOutUTXO} lovelaces)"
 echo
 
 #Checking about minimum funds in the UTX0
-if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
+if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[91mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit; fi
 
 txBodyFile="${tempDir}/$(basename ${fromAddr}).txbody"
-txWitnessFile="${tempDir}/$(basename ${fromAddr}).txwitness"; rm ${txWitnessFile} 2> /dev/null		#used for hw signing - one witness is for the payment key, the other one for the DRep key
-txWitnessFile2="${tempDir}/$(basename ${fromAddr}).txwitness2"; rm ${txWitnessFile2} 2> /dev/null	#used for hw signing - one witness is for the payment key, the other one for the DRep key
+txWitnessFile="${tempDir}/$(basename ${fromAddr}).txwitness"; rm ${txWitnessFile} 2> /dev/null	#witness for the payment signing
 txFile="${tempDir}/$(basename ${fromAddr}).tx"
 
-echo -e "\e[0mBuilding the unsigned transaction body with the\e[32m ${drepName}.drep-reg.cert\e[0m certificate: \e[32m ${txBodyFile} \e[90m"
+echo -e "\e[0mBuilding the unsigned transaction body: \e[32m ${txBodyFile} \e[90m"
 echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --certificate ${drepName}.drep-reg.cert --out-file ${txBodyFile}
+${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
 
-#Sign the unsigned transaction body with the SigningKey
-rm ${txFile} 2> /dev/null
-
-#Choose Signing-Method
-if [[ -f "${fromAddr}.hwsfile" && -f "${drepName}.drep.hwsfile" ]]; then
-
-#	#remove the tag(258) from the txBodyFile
-	sed -si 's/04d901028184/048184/g' "${txBodyFile}"
+#If payment address is a hardware wallet, use the cardano-hw-cli for the signing
+if [[ -f "${fromAddr}.hwsfile" ]]; then
 
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
-        tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
+        tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[91m${tmp}\e[0m\n\n"; exit 1; fi
         echo -e "\e[32m${tmp}\e[90m\n"
 
-	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
-	echo
-
-        echo -e "\e[0mSign (Witness+Assemble) the unsigned transaction body with the \e[32m${fromAddr}.hwsfile\e[0m & \e[32m${drepName}.drep.hwsfile\e[0m: \e[32m ${txFile} \e[90m"
+        dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
         echo
 
-        #Witness and Assemble the TxFile
-        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        echo -e "\e[0mSign (Witness+Assemble) the unsigned transaction body with the \e[32m${fromAddr}.hwsfile\e[0m: \e[32m ${txFile}\e[0m"
+        echo
 
         #lets check if its a base payment address, in that case we also need to add the staking.hwsfile to not have a strange hw gui output
         hwWalletReturnStr=""
         stakeFromAddr="$(dirname ${fromAddr})/$(basename ${fromAddr} .payment).staking"
         if [[ -f "${stakeFromAddr}.hwsfile" ]]; then hwWalletReturnStr="--change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeFromAddr}.hwsfile"; fi
 
-        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} --hw-signing-file ${drepName}.drep.hwsfile ${magicparam} --out-file ${txWitnessFile} --out-file ${txWitnessFile2} 2> /dev/stdout)
+        #Witness and Assemble the TxFile
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txWitnessFile} 2> /dev/stdout)
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[91m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
 
-        ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txWitnessFile2} --out-file ${txFile}
+        ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo -e "Assembled ... \e[32mDONE\e[0m\n";
 
-elif [[ -f "${fromAddr}.skey" && -f "${drepName}.drep.skey" ]]; then #with the normal cli skey
+else
 
         #read the needed signing keys into ram and sign the transaction
-        skeyJSON1=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON1}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
-        skeyJSON2=$(read_skeyFILE "${drepName}.drep.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON2}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+        skeyJSON=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[91m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
-        echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey & ${drepName}.drep.skey\e[0m: \e[32m ${txFile}\e[0m"
+        echo -e "\e[0mSign the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m: \e[32m ${txFile}\e[0m"
         echo
 
-        ${cardanocli} ${cliEra} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON1}") --signing-key-file <(echo "${skeyJSON2}") --out-file ${txFile}
+        ${cardanocli} ${cliEra} transaction sign --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         #forget the signing keys
-        unset skeyJSON1
-	unset skeyJSON2
+        unset skeyJSON
 
-else
-echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet must be used to pay for its own DRep-ID on the chain.\e[0m\n"; exit 1;
 fi
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
 echo -ne "\e[90m"
 dispFile=$(cat ${txFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
@@ -679,7 +745,7 @@ cborHex=$(jq -r .cborHex < ${txFile})
 txSize=$(( ${#cborHex} / 2 ))
 maxTxSize=$(jq -r .maxTxSize <<< ${protocolParametersJSON})
 if [[ ${txSize} -le ${maxTxSize} ]]; then echo -e "\e[0mTransaction-Size: ${txSize} bytes (max. ${maxTxSize})\n"
-                                     else echo -e "\n\e[35mError - ${txSize} bytes Transaction-Size is too big! The maximum is currently ${maxTxSize} bytes.\e[0m\n"; exit 1; fi
+                                     else echo -e "\n\e[91mError - ${txSize} bytes Transaction-Size is too big! The maximum is currently ${maxTxSize} bytes.\e[0m\n"; exit 1; fi
 
 #If you wanna skip the Prompt, set the environment variable ENV_SKIP_PROMPT to "YES" - be careful!!!
 #if ask "\e[33mDoes this look good for you, continue ?" N; then
@@ -695,9 +761,17 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
                                 echo -e "\e[32mDONE\n"
 
-                                #Show the TxID
-                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+                                #Get the TxID
+                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile});
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+
+				echo -e "\e[0mYour Action-ID(s):\n"
+				for (( tmpCnt=0; tmpCnt<${actionfileCounter}; tmpCnt++ ))
+				do
+					echo -e "\e\t\e[32m${txID}#${tmpCnt}\e[0m"
+				done
+				echo
+
                                 if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
                                 ;;
 
@@ -705,25 +779,44 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
                                 #lightmode submit
                                 showProcessAnimation "Submit-Transaction-LightMode: " &
                                 txID=$(submitLight "${txFile}");
-                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[91mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 echo -e "\e[0mSubmit-Transaction-LightMode: \e[32mDONE\n"
-                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+
+				echo -e "\e[0mYour Action-ID(s):\n"
+				for (( tmpCnt=0; tmpCnt<${actionfileCounter}; tmpCnt++ ))
+				do
+					echo -e "\e\t\e[32m${txID}#${tmpCnt}\e[0m"
+				done
+				echo
+
+                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mYour Action-ID is: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
                                 ;;
 
+
         "offline")
-                          	#offlinestore
+                                #offlinestore
+                                #Get the TxID
+                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile});
+                                checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+
+				echo -e "\e[0mYour Action-ID(s) will be:\n"
+				for (( tmpCnt=0; tmpCnt<${actionfileCounter}; tmpCnt++ ))
+				do
+					echo -e "\e\t\e[32m${txID}#${tmpCnt}\e[0m"
+				done
+				echo
+
                                 txFileJSON=$(cat ${txFile} | jq .)
                                 offlineJSON=$( jq ".transactions += [ { date: \"$(date -R)\",
-                                                                        type: \"DRepIDRegistration\",
+                                                                        type: \"Transaction\",
                                                                         era: \"$(jq -r .protocol.era <<< ${offlineJSON})\",
-                                                                        drepName: \"${drepName}\",
                                                                         fromAddr: \"${fromAddr}\",
                                                                         sendFromAddr: \"${sendFromAddr}\",
                                                                         toAddr: \"${fromAddr}\",
                                                                         sendToAddr: \"${sendToAddr}\",
                                                                         txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
                                 #Write the new offileFile content
-                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed drep-id registration transaction for '${drepName}', payment via '${fromAddr}'\" } ]" <<< ${offlineJSON})
+                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed utxo-transaction from '${fromAddr}' to '${toAddr}'\" } ]" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
                                 echo "${offlineJSON}" > ${offlineFile}
                                 #Readback the tx content and compare it to the current one
@@ -732,9 +825,9 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
                                                         showOfflineFileInfo;
                                                         echo -e "\e[33mTransaction txJSON has been stored in the '$(basename ${offlineFile})'.\nYou can now transfer it to your online machine for execution.\e[0m\n";
                                                  else
-                                                        echo -e "\e[35mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
+                                                        echo -e "\e[91mERROR - Could not verify the written data in the '$(basename ${offlineFile})'. Retry again or generate a new '$(basename ${offlineFile})'.\e[0m\n";
                                 fi
-				;;
+                                ;;
 
         esac
 

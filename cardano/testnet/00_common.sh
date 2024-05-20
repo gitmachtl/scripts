@@ -235,6 +235,20 @@ case "${network,,}" in
 		_byronToShelleyEpochs=0
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer=
+		_koiosAPI="https://sancho.koios.rest/api/v1"
+		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
+		_adahandleAPI=
+		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_lightModeParametersURL="https://uptime.live/data/cardano/parms/sanchonet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+		;;
+
+	"privatetest" )
+		network="PrivateNet"
+		_magicparam="--testnet-magic 5"
+		_addrformat="--testnet-magic 5"
+		_byronToShelleyEpochs=0
+		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
+		_transactionExplorer=
 		_koiosAPI=
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		_adahandleAPI=
@@ -285,9 +299,9 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="8.22.0"  		#minimum allowed cli version for this script-collection version
+minCliVersion="8.23.0"  		#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="8.10.0"  		#minimum allowed node version for this script-collection version
+minNodeVersion="8.11.0"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion="7.1.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.6.0"  	#minimum version for the firmware on the Trezor HW-Wallet
@@ -1118,11 +1132,13 @@ calc_minOutUTXOcli() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
-local protocolParam=${1}
+local allParameters=( "$@" )
+local protocolParam=${allParameters[0]}
+local txOut=${allParameters[1]}
 ###local multiAsset=$(echo ${2} | cut -d'+' -f 3-) #split at the + marks and only keep assets
-tmp=$(${cardanocli} transaction calculate-min-required-utxo ${nodeEraParam} --protocol-params-file <(echo "${protocolParam}") --tx-out "${2}" 2> /dev/null)
+tmp=$(${cardanocli} ${cliEra} transaction calculate-min-required-utxo --protocol-params-file <(echo "${protocolParam}") --tx-out "${txOut}" 2> /dev/stdout)
 
-if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Can't calculate minValue for the given tx-out string: ${2} !\e[0m"; exit 1; fi
+if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Can't calculate minValue for the given tx-out string:\n${txOut}\n\nError: ${tmp}\e[0m" > /dev/stderr; exit 1; fi
 echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second part
 }
 #-------------------------------------------------------
@@ -1144,7 +1160,7 @@ local protocolVersionMajor=$(jq -r ".protocolVersion.major | select (.!=null)" <
 
 
 ### switch the method of the minOutUTXO calculation depending on the current era, starting with protocolVersionMajor>=7 (babbage)
-if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 9=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
+if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 9+10=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
 
 	#chain constants for babbage
 	local constantOverhead=160 #constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions in babbage era

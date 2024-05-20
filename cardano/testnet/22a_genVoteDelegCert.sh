@@ -26,6 +26,14 @@ Usage:  $(basename $0) <DRep-Name | DRepID-Hex | DRepID-Bech "drep1..." | always
 EOF
   exit 1;; esac
 
+#exit with an information, that the script needs at least conway era
+case ${cliEra} in
+        "babbage"|"alonzo"|"mary"|"allegra"|"shelley")
+                echo -e "\n\e[91mINFORMATION - The chain is not in conway era yet. This script will start to work once we forked into conway era. Please check back later!\n\e[0m"; exit;
+                ;;
+esac
+
+
 #Checks for needed files
 if [ ! -f "${delegateStakeAddr}.staking.vkey" ]; then echo -e "\n\e[35mERROR - \"${delegateStakeAddr}.staking.vkey\" does not exist! Please create it first with script 03a.\e[0m"; exit 1; fi
 

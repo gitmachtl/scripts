@@ -57,8 +57,16 @@ EOF
 exit 1;
 fi
 
-#At least 3 parameters were provided, use them
+#exit with an information, that the script needs at least conway era
+case ${cliEra} in
+        "babbage"|"alonzo"|"mary"|"allegra"|"shelley")
+                echo -e "\n\e[91mINFORMATION - The chain is not in conway era yet. This script will start to work once we forked into conway era. Please check back later!\n\e[0m"; exit;
+                ;;
+esac
 
+
+
+#At least 3 parameters were provided, use them
 
 #Parameter Count is 3 or more
 voterName="${1}"; voterName=${voterName%\.};
@@ -525,9 +533,10 @@ rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} ${votefileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-#cardano-cli with new fee calculation since cli 8.21.0
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 --reference-script-size 0 | awk '{ print $1 }')
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+#calculate the transaction fee. new parameters since cardano-cli 8.21.0
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 2 --reference-script-size 0 2> /dev/stdout)
+if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
+fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
 
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 echo

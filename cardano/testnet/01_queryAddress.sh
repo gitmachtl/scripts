@@ -238,6 +238,8 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
         esac
 
+#	jq -r . <<< ${rewardsJSON}
+
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
         if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "\e[35mStaking Address is not on the chain, register it first !\e[0m\n"; exit 1;
@@ -252,6 +254,8 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 	rewardsAmountInADA=$(bc <<< "scale=6; ${rewardsAmount} / 1000000")
 
         delegationPoolID=$(jq -r ".[${tmpCnt}].delegation // .[${tmpCnt}].stakeDelegation" <<< ${rewardsJSON})
+
+        drepDelegationHASH=$(jq -r ".[${tmpCnt}].voteDelegation // \"notSet\"" <<< ${rewardsJSON})
 
         rewardsSum=$((${rewardsSum}+${rewardsAmount}))
 	rewardsSumInADA=$(bc <<< "scale=6; ${rewardsSum} / 1000000")
@@ -305,6 +309,33 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 		echo -e "   \tAccount is not delegated to a Pool !";
 
 	fi
+
+	#Show the current status of the voteDelegation
+	case ${drepDelegationHASH} in
+		"alwaysNoConfidence")
+			#always-no-confidence
+			echo -e "   \t\e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m\n";
+			;;
+
+		"alwaysAbstain")
+			#always-abstain
+			echo -e "   \t\e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS ABSTAIN\e[0m\n";
+			;;
+
+		"notSet")
+			#no votingpower delegated
+			echo -e "   \t\e[0mVoting-Power of Staking Address is not delegated to a DRep !\e[0m\n";
+			;;
+
+		*)
+		#normal drep-id
+		drepDelegationHASH=${drepDelegationHASH: -56} #last 56chars of the entry is the hash itself
+		drepDelegationID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH}" 2> /dev/null)
+		if [[ $? -eq 0 ]]; then
+			echo -e "   \t\e[0mVoting-Power of Staking Address is delegated to DRepID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH}\e[0m)\n";
+		fi
+		;;
+	esac
 
         echo
 

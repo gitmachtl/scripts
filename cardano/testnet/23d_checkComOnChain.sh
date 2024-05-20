@@ -25,13 +25,20 @@ Usage:  $(basename $0) <Committee-Name | committeeHASH-Hex | committeeHASH-Bech 
 EOF
   exit 1;; esac
 
+#exit with an information, that the script needs at least conway era
+case ${cliEra} in
+        "babbage"|"alonzo"|"mary"|"allegra"|"shelley")
+                echo -e "\n\e[91mINFORMATION - The chain is not in conway era yet. This script will start to work once we forked into conway era. Please check back later!\n\e[0m"; exit;
+                ;;
+esac
+
 #Check can only be done in online mode
 if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to do this!\e[0m\n"; exit 1; fi
 
 echo -e "\e[0mChecking CommitteeKey-Information on Chain - Resolving given Info into CommitteeKey-HASH:\n"
 
 #Check about the various input options: hex hash, bech id, .hash file, .cc-cold.hash file, .cc-hot.hash file, .vkey file, .cc-cold.vkey file, .cc-hot.vkey file
-if [[ "${checkCommiteeID//[![:xdigit:]]}" == "${checkCommiteeID}" && ${#checkCommiteeID} -eq 56 ]]; then #parameter is a hex-drepid
+if [[ "${checkCommiteeID//[![:xdigit:]]}" == "${checkCommiteeID}" && ${#checkCommiteeID} -eq 56 ]]; then #parameter is a committee-hash
 
 	#Its a hex HASH
 	committeeHASH=${checkCommiteeID}
@@ -142,7 +149,8 @@ case ${workMode} in
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                         ;;
 
-#       "light")        ;;
+	"light")	echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
+			;;
 #
 #        "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
 #                        drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
