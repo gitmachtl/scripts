@@ -20,7 +20,7 @@ case $# in
   1 ) checkDRepName="$(dirname $1)/$(basename $(basename $1 .id) .drep)"; checkDRepName=${checkDRepName/#.\//};
       checkDRepID=${1,,};;
   * ) cat >&2 <<EOF
-Usage:  $(basename $0) <DRep-Name | DRepID-Hex | DRepID-Bech "drep1...">
+Usage:  $(basename $0) <DRep-Name | DRepID-Hex | DRepID-Bech "drep1.../drep_script1...">
 
 EOF
   exit 1;; esac
@@ -75,6 +75,15 @@ elif [ -f "${checkDRepName}.drep.id" ]; then #parameter is a DRep verification i
         if [ $? -ne 0 ]; then echo -e "\e[35mERROR - \"${checkDRepID}\" is not a valid Bech32 DRep-ID.\e[0m"; exit 1; fi
 	drepID=${checkDRepID}
 
+elif [[ "${checkDRepID:0:12}" == "drep_script1" && ${#checkDRepID} -eq 63 ]]; then #parameter is most likely a bech32-drep-script-id
+
+	echo -ne "\e[0mCheck if given DRep-Script-ID\e[32m ${checkDRepID}\e[0m is valid ..."
+	#lets do some further testing by converting the bech32 DRep-id into a Hex-DRep-ID
+	tmp=$(${bech32_bin} 2> /dev/null <<< "${checkDRepID}") #will have returncode 0 if the bech was valid
+        if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - \"${checkDRepID}\" is not a valid Bech32 DRep-ID.\e[0m"; exit 1; fi
+	echo -e "\e[32m OK\e[0m\n"
+	drepID=${checkDRepID}
+
 else
 	echo -e "\n\e[35mERROR - \"${checkDRepName}.drep.vkey/id\" does not exist, nor is \"${checkDRepID}\" a valid DRep-ID in Hex- or Bech-Format!\e[0m"; exit 1
 fi
@@ -90,7 +99,7 @@ echo -e "\e[0m                             DRep-HASH:\e[94m ${drepHASH}\e[0m\n"
 case ${workMode} in
 
         "online")       showProcessAnimation "Query DRep-ID Info: " &
-                        drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} --include-stake 2> /dev/stdout )
+                        drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepHASH} --drep-script-hash ${drepHASH} --include-stake 2> /dev/stdout )
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                         drepStateJSON=$(jq -r .[0] <<< "${drepStateJSON}") #get rid of the outer array
                         ;;
@@ -116,7 +125,8 @@ esac
   read drepAnchorURL;
   read drepAnchorHASH;
   read drepExpireEpoch;
-  read drepDelegatedStake; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "-", .[1].anchor.dataHash // "-", .[1].expiry // "-", .[1].stake // 0' <<< ${drepStateJSON})
+  read drepDelegatedStake;
+  read drepKeyType; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "-", .[1].anchor.dataHash // "-", .[1].expiry // "-", .[1].stake // 0, ( .[0] | keys[0] ) // "-"' <<< ${drepStateJSON})
 
 #Checking about the content
 if [[ ${drepEntryCnt} == 0 ]]; then #not registered yet
@@ -133,6 +143,8 @@ else #normal registration and not expired
 	echo -e "\e[0m Deposit-Amount:\e[32m ${drepDepositAmount}\e[0m lovelaces"
 	echo -e "\e[0m   Expire-Epoch:\e[32m ${drepExpireEpoch}\e[0m"
 fi
+
+echo -e "\e[0m   DRep-KeyType:\e[94m ${drepKeyType}\e[0m"
 
 echo -e "\e[0m     Anchor-URL:\e[32m ${drepAnchorURL}\e[0m"
 echo -e "\e[0m    Anchor-HASH:\e[32m ${drepAnchorHASH}\e[0m"
