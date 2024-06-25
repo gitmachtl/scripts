@@ -781,17 +781,16 @@ case ${workMode} in
                         if [[ $? -ne 0 ]]; then majorError "${currentEpoch}"; exit 1; fi
                         ;;
 
-        "offline")      #Offline-Mode, calculate the tip from the genesis files
+        "offline")      #Offline-Mode, calculate from the genesis files
 
 			#Check path to genesis files
 			if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
 			if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
 			#read byron genesis values
-			local byronSlotLength; 		#In Secs
+			local byronSlotLength; 		#In Milliseconds
 			local byronK;			#Int
 			local byronStartTimeSec;	#In Secs (abs/UTC)
-
 			{ read byronSlotLength; read byronK; read byronStartTimeSec; } <<< $(jq -r ".blockVersionData.slotDuration // \"null\", .protocolConsts.k // \"null\", .startTime // \"null\"" < ${genesisfile_byron} 2> /dev/null)
 			local byronEpochLength=$(( 10 * ${byronK} ));		#In Secs
 			local byronEndTimeSec=$(( ${byronStartTimeSec} + ((${byronToShelleyEpochs} * ${byronEpochLength} * ${byronSlotLength})/1000) ))
@@ -799,9 +798,7 @@ case ${workMode} in
 			#read shelley genesis values
 			local slotLength; 		#In Secs
 			local epochLength;		#In Secs
-			local startTimeGenesis;		#In Text
-			{ read slotLength; read epochLength; read startTimeGenesis; } <<< $(jq -r ".slotLength // \"null\", .epochLength // \"null\", .systemStart // \"null\"" < ${genesisfile} 2> /dev/null)
-			local startTimeSec=$(date --date=${startTimeGenesis} +%s)	#In Secs(abs/UTC)
+			{ read slotLength; read epochLength; } <<< $(jq -r ".slotLength // \"null\", .epochLength // \"null\"" < ${genesisfile} 2> /dev/null)
 
 			#get current time
 			local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
@@ -866,7 +863,7 @@ case ${workMode} in
 			if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
 			#read byron genesis values
-			local byronSlotLength; 		#In Secs
+			local byronSlotLength; 		#In Milliseconds
 			local byronK;			#Int
 			local byronStartTimeSec;	#In Secs (abs/UTC)
 			{ read byronSlotLength; read byronK; read byronStartTimeSec; } <<< $(jq -r ".blockVersionData.slotDuration // \"null\", .protocolConsts.k // \"null\", .startTime // \"null\"" < ${genesisfile_byron} 2> /dev/null)
