@@ -178,7 +178,7 @@ case "${network,,}" in
 		_koiosAPI="https://api.koios.rest/api/v1"			#Koios-API URLs -> autoresolve into ${koiosAPI}
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		_adahandleAPI="https://api.handle.me"				#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
-		_catalystAPI="https://api.testnet.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_catalystAPI="https://api.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/mainnet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
@@ -242,20 +242,6 @@ case "${network,,}" in
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/sanchonet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
-	"privatetest" )
-		network="PrivateNet"
-		_magicparam="--testnet-magic 5"
-		_addrformat="--testnet-magic 5"
-		_byronToShelleyEpochs=0
-		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
-		_transactionExplorer=
-		_koiosAPI=
-		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
-		_adahandleAPI=
-		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
-		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
-		;;
-
 
 	"legacy"|"testnet" ) #Only for documentation purpose, network is inactive
 		network="Legacy"
@@ -306,7 +292,7 @@ maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so
 minLedgerCardanoAppVersion="7.1.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.6.5"  	#minimum version for the firmware on the Trezor HW-Wallet
 minHardwareCliVersion="1.15.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.16.0"	#minimum version for the cardano-signer binary
+minCardanoSignerVersion="1.16.1"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
@@ -795,18 +781,35 @@ case ${workMode} in
                         if [[ $? -ne 0 ]]; then majorError "${currentEpoch}"; exit 1; fi
                         ;;
 
-        "offline")      #Offline-Mode, calculate the tip from the genesis file
-                        #Static
+        "offline")      #Offline-Mode, calculate the tip from the genesis files
 
 			#Check path to genesis files
 			if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+			if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
-			local startTimeGenesis; local epochLength;
-			{ read startTimeGenesis; read epochLength; } <<< $( jq -r ".systemStart // \"null\", .epochLength // \"null\"" < ${genesisfile} 2> /dev/null)
-			local startTimeSec=$(date --date=${startTimeGenesis} +%s)     #in seconds (UTC)
+			#read byron genesis values
+			local byronSlotLength; 		#In Secs
+			local byronK;			#Int
+			local byronStartTimeSec;	#In Secs (abs/UTC)
+
+			{ read byronSlotLength; read byronK; read byronStartTimeSec; } <<< $(jq -r ".blockVersionData.slotDuration // \"null\", .protocolConsts.k // \"null\", .startTime // \"null\"" < ${genesisfile_byron} 2> /dev/null)
+			local byronEpochLength=$(( 10 * ${byronK} ));		#In Secs
+			local byronEndTimeSec=$(( ${byronStartTimeSec} + ((${byronToShelleyEpochs} * ${byronEpochLength} * ${byronSlotLength})/1000) ))
+
+			#read shelley genesis values
+			local slotLength; 		#In Secs
+			local epochLength;		#In Secs
+			local startTimeGenesis;		#In Text
+			{ read slotLength; read epochLength; read startTimeGenesis; } <<< $(jq -r ".slotLength // \"null\", .epochLength // \"null\", .systemStart // \"null\"" < ${genesisfile} 2> /dev/null)
+			local startTimeSec=$(date --date=${startTimeGenesis} +%s)	#In Secs(abs/UTC)
+
+			#get current time
 			local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
-			local currentEpoch=$(( (${currentTimeSec}-${startTimeSec}) / ${epochLength} ))  #returns a integer number, we like that
+
+			#now lets calculate the current epoch
+			local currentEpoch=$(( ${byronToShelleyEpochs} + ((${currentTimeSec} - ${byronEndTimeSec}) / ${slotLength} / ${epochLength}) ))  #returns a integer number, we like that
                         ;;
+
 esac
 
 echo ${currentEpoch}
@@ -856,32 +859,34 @@ case ${workMode} in
 			if [[ $? -ne 0 ]]; then majorError "${currentTip}"; exit 1; fi
 			;;
 
-	"offline")	#Offline-Mode, calculate the tip from the genesis file
-			#Static
+	"offline")	#Offline-Mode, calculate the tip from the genesis files
 
-                        if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
-                        if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
+			#Check path to genesis files
+			if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+			if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
+			#read byron genesis values
+			local byronSlotLength; 		#In Secs
+			local byronK;			#Int
+			local byronStartTimeSec;	#In Secs (abs/UTC)
+			{ read byronSlotLength; read byronK; read byronStartTimeSec; } <<< $(jq -r ".blockVersionData.slotDuration // \"null\", .protocolConsts.k // \"null\", .startTime // \"null\"" < ${genesisfile_byron} 2> /dev/null)
+			local byronEpochLength=$(( 10 * ${byronK} ));		#In Secs
+			local byronEndTimeSec=$(( ${byronStartTimeSec} + ((${byronToShelleyEpochs} * ${byronEpochLength} * ${byronSlotLength})/1000) ))
+
+			#read shelley genesis values
 			local slotLength; 		#In Secs
-			local epochLength;		#In Secs
-			local slotsPerKESPeriod; 	#Number
-			local startTimeGenesis;		#In Text
-			{ read slotLength; read epochLength; read slotsPerKESPeriod; read startTimeGenesis; } <<< $(jq -r ".slotLength // \"null\", .epochLength // \"null\", .slotsPerKESPeriod // \"null\", .systemStart // \"null\"" < ${genesisfile} 2> /dev/null)
-			local startTimeByron=$(jq -r .startTime < ${genesisfile_byron} 2> /dev/null)           #In Secs(abs)
-			local startTimeSec=$(date --date=${startTimeGenesis} +%s)                     #In Secs(abs)
-			local transTimeEnd=$(( ${startTimeSec}+(${byronToShelleyEpochs}*${epochLength}) ))                    #In Secs(abs) End of the TransitionPhase
-			local byronSlots=$(( (${startTimeSec}-${startTimeByron}) / 20 ))              #NumSlots between ByronChainStart and ShelleyGenesisStart(TransitionStart)
-			local transSlots=$(( (${byronToShelleyEpochs}*${epochLength}) / 20 ))         #NumSlots in the TransitionPhase
+			{ read slotLength; } <<< $(jq -r ".slotLength // \"null\"" < ${genesisfile} 2> /dev/null)
 
-			#Dynamic
-			local currentTimeSec=$(date -u +%s)
+			#get current time
+			local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
 
 			#Calculate current slot
-			if [[ "${currentTimeSec}" -lt "${transTimeEnd}" ]];
-			        then #In Transistion Phase between ShelleyGenesisStart and TransitionEnd
-			        local currentTip=$(( ${byronSlots} + (${currentTimeSec}-${startTimeSec}) / 20 ))
-			        else #After Transition Phase
-			        local currentTip=$(( ${byronSlots} + ${transSlots} + ((${currentTimeSec}-${transTimeEnd}) / ${slotLength}) ))
+			if [[ "${currentTimeSec}" -lt "${byronEndTimeSec}" ]]; then #we are in byron era
+			        local currentTip=$(( ((${currentTimeSec}-${byronStartTimeSec})*1000) / ${byronSlotLength} ))
+		        else #we are in shelley+ era
+				local byronSlots=$(( (${byronToShelleyEpochs} * ${byronEpochLength}) ))
+				local shelleySlots=$(( (${currentTimeSec}-${byronEndTimeSec}) / ${slotLength} ))
+			        local currentTip=$(( ${byronSlots} + ${shelleySlots} ))
 			fi
 			;;
 
@@ -1443,16 +1448,19 @@ queryLight_stakeAddressInfo() { #${1} = address to query
 	if [[ $(jq -r ".[0].status" <<< "${responseJSON}" 2> /dev/null) != "registered" ]]; then
 		printf "[]"; #stakeAddress not registered on chain, return an empty array
 		else
-#		local delegation=$(jq -r ".[0].delegated_pool" <<< "${responseJSON}" 2> /dev/null)
-#		local rewardAccountBalance=$(jq -r ".[0].rewards_available" <<< "${responseJSON}" 2> /dev/null)
-		local delegation; local rewardAccountBalance; local delegationDeposit; #define local variables so we can read it in one go with the next jq command
-		{ read delegation; read rewardAccountBalance; read delegationDeposit; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\"" <<< "${responseJSON}" 2> /dev/null)
+
+		local delegation; local rewardAccountBalance; local delegationDeposit; local voteDelegation; #define local variables so we can read it in one go with the next jq command
+		{ read delegation; read rewardAccountBalance; read delegationDeposit; read voteDelegation; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\", .[0].vote_delegation // \"null\"" <<< "${responseJSON}" 2> /dev/null)
 
 		#deposit value, always 2000000 lovelaces until conway
-#		local delegationDeposit=$(jq -r ".[0].deposit" <<< "${responseJSON}" 2> /dev/null)
 		if [[ ${delegationDeposit} == null ]]; then delegationDeposit=2000000; fi
 
-		jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": \"${delegation}\", \"delegationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance} } ]" #compose a json like the cli output
+
+		#convert bech-voteDelegation into keyHash-voteDelegation
+		if [[ ${voteDelegation} != null ]]; then voteDelegation="keyHash-$(${bech32_bin} <<< ${voteDelegation})"; fi
+
+
+		jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": \"${delegation}\", \"delegationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance},  \"voteDelegation\": \"${voteDelegation}\" } ]" #compose a json like the cli output
 		#return the composed json
 		printf "${jsonRet}"
 	fi
