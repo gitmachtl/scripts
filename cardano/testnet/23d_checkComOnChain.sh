@@ -18,7 +18,7 @@
 
 case $# in
   1 ) checkCommitteeName="$(dirname $1)/$(basename $1 .hash)"; checkCommitteeName=${checkCommitteeName/#.\//};
-      checkCommiteeID=${1,,};;
+      checkCommitteeID=${1,,};;
   * ) cat >&2 <<EOF
 Usage:  $(basename $0) <Committee-Name | committeeHASH-Hex | committeeHASH-Bech "cc_cold1.../cc_hot1...">
 
@@ -38,19 +38,19 @@ if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to
 echo -e "\e[0mChecking CommitteeKey-Information on Chain - Resolving given Info into CommitteeKey-HASH:\n"
 
 #Check about the various input options: hex hash, bech id, .hash file, .cc-cold.hash file, .cc-hot.hash file, .vkey file, .cc-cold.vkey file, .cc-hot.vkey file
-if [[ "${checkCommiteeID//[![:xdigit:]]}" == "${checkCommiteeID}" && ${#checkCommiteeID} -eq 56 ]]; then #parameter is a committee-hash
+if [[ "${checkCommitteeID//[![:xdigit:]]}" == "${checkCommitteeID}" && ${#checkCommitteeID} -eq 56 ]]; then #parameter is a committee-hash
 
 	#Its a hex HASH
-	committeeHASH=${checkCommiteeID}
+	committeeHASH=${checkCommitteeID}
 
 
-elif [[ ("${checkCommiteeID:0:8}" == "cc_cold1" || "${checkCommiteeID:0:7}" == "cc_hot1") && (${#checkCommiteeID} -eq 59 || ${#checkCommiteeID} -eq 58) ]]; then #parameter is most likely a bech32-id
+elif [[ ("${checkCommitteeID:0:8}" == "cc_cold1" || "${checkCommitteeID:0:7}" == "cc_hot1") && (${#checkCommitteeID} -eq 59 || ${#checkCommitteeID} -eq 58) ]]; then #parameter is most likely a bech32-id
 
 	#Its a bech ID cc_cold1... or cc_hot1...
-	echo -ne "\e[0mCheck if given Bech-ID\e[32m ${checkCommiteeID}\e[0m is valid ..."
+	echo -ne "\e[0mCheck if given Bech-ID\e[32m ${checkCommitteeID}\e[0m is valid ..."
 	#lets do some further testing by converting the bech32 Committee-id into a Hex-Committee-HASH
-	committeeHASH=$(${bech32_bin} 2> /dev/null <<< "${checkCommiteeID}") #will have returncode 0 if the bech was valid
-        if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - \"${checkCommiteeID}\" is not a valid Bech32 Committee-HASH.\e[0m"; exit 1; fi
+	committeeHASH=$(${bech32_bin} 2> /dev/null <<< "${checkCommitteeID}") #will have returncode 0 if the bech was valid
+        if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - \"${checkCommitteeID}\" is not a valid Bech32 Committee-HASH.\e[0m"; exit 1; fi
 	echo -e "\e[32m OK\e[0m\n"
 
 
@@ -58,42 +58,42 @@ elif [ -f "${checkCommitteeName}.hash" ]; then #parameter is a Committee hash fi
 
 	#Its a *.hash file
 	echo -ne "\e[0mReading from Committee-HASH-File\e[32m ${checkCommitteeName}.hash\e[0m ..."
-	checkCommiteeID=$(cat "${checkCommitteeName}.hash" 2> /dev/null)
+	checkCommitteeID=$(cat "${checkCommitteeName}.hash" 2> /dev/null)
         if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Could not read from file \"${checkCommitteeName}.hash\"\e[0m"; exit 1; fi
 	echo -e "\e[32m OK\e[0m\n"
 	#lets do some further testing that the read hash is in hex format
-	if [[ "${checkCommiteeID//[![:xdigit:]]}" != "${checkCommiteeID}" || ${#checkCommiteeID} -ne 56 ]]; then #parameter is a hex-drepid
-		echo -e "\e[35mERROR - \"${checkCommiteeID}\" is not a valid Bech32 Committee-HASH.\e[0m"; exit 1;
+	if [[ "${checkCommitteeID//[![:xdigit:]]}" != "${checkCommitteeID}" || ${#checkCommitteeID} -ne 56 ]]; then #parameter is a hex-drepid
+		echo -e "\e[35mERROR - \"${checkCommitteeID}\" is not a valid Bech32 Committee-HASH.\e[0m"; exit 1;
 	fi
-	committeeHASH=${checkCommiteeID}
+	committeeHASH=${checkCommitteeID}
 
 
 elif [ -f "${checkCommitteeName}.cc-cold.hash" ]; then #parameter is a Committee Cold hash file, containing the hash id
 
 	#Its a *.cc-cold.hash file
 	echo -ne "\e[0mReading from Committee-Cold-HASH-File\e[32m ${checkCommitteeName}.cc-cold.hash\e[0m ..."
-	checkCommiteeID=$(cat "${checkCommitteeName}.cc-cold.hash" 2> /dev/null)
+	checkCommitteeID=$(cat "${checkCommitteeName}.cc-cold.hash" 2> /dev/null)
         if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Could not read from file \"${checkCommitteeName}.cc-cold.hash\"\e[0m"; exit 1; fi
 	echo -e "\e[32m OK\e[0m\n"
 	#lets do some further testing that the read hash is in hex format
-	if [[ "${checkCommiteeID//[![:xdigit:]]}" != "${checkCommiteeID}" || ${#checkCommiteeID} -ne 56 ]]; then #parameter is a hex-drepid
-		echo -e "\e[35mERROR - \"${checkCommiteeID}\" is not a valid Bech32 Committee-HASH.\e[0m"; exit 1;
+	if [[ "${checkCommitteeID//[![:xdigit:]]}" != "${checkCommitteeID}" || ${#checkCommitteeID} -ne 56 ]]; then #parameter is a hex-drepid
+		echo -e "\e[35mERROR - \"${checkCommitteeID}\" is not a valid Bech32 Committee-HASH.\e[0m"; exit 1;
 	fi
-	committeeHASH=${checkCommiteeID}
+	committeeHASH=${checkCommitteeID}
 
 
 elif [ -f "${checkCommitteeName}.cc-hot.hash" ]; then #parameter is a Committee Hot hash file, containing the hash id
 
 	#Its a *.cc-hot.hash file
 	echo -ne "\e[0mReading from Committee-Hot-HASH-File\e[32m ${checkCommitteeName}.cc-hot.hash\e[0m ..."
-	checkCommiteeID=$(cat "${checkCommitteeName}.cc-hot.hash" 2> /dev/null)
+	checkCommitteeID=$(cat "${checkCommitteeName}.cc-hot.hash" 2> /dev/null)
         if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Could not read from file \"${checkCommitteeName}.cc-hot.hash\"\e[0m"; exit 1; fi
 	echo -e "\e[32m OK\e[0m\n"
 	#lets do some further testing that the read hash is in hex format
-	if [[ "${checkCommiteeID//[![:xdigit:]]}" != "${checkCommiteeID}" || ${#checkCommiteeID} -ne 56 ]]; then #parameter is a hex-drepid
-		echo -e "\e[35mERROR - \"${checkCommiteeID}\" is not a valid Bech32 Committee-HASH.\e[0m"; exit 1;
+	if [[ "${checkCommitteeID//[![:xdigit:]]}" != "${checkCommitteeID}" || ${#checkCommitteeID} -ne 56 ]]; then #parameter is a hex-drepid
+		echo -e "\e[35mERROR - \"${checkCommitteeID}\" is not a valid Bech32 Committee-HASH.\e[0m"; exit 1;
 	fi
-	committeeHASH=${checkCommiteeID}
+	committeeHASH=${checkCommitteeID}
 
 
 elif [ -f "${checkCommitteeName}.vkey" ]; then #parameter is a Committee verification key file
@@ -128,7 +128,7 @@ elif [ -f "${checkCommitteeName}.cc-hot.vkey" ]; then #parameter is a Committee 
 
 else
 
-	echo -e "\n\e[35mERROR - \"Cannot read in information for ${checkCommitteeName}.[cc-cold/cc-hot].[hash/vkey]\"\n\"${checkCommiteeID}\" is also not a valid Committee-HASH in Hex- or Bech-Format!\e[0m"; exit 1
+	echo -e "\n\e[35mERROR - \"Cannot read in information for ${checkCommitteeName}.[cc-cold/cc-hot].[hash/vkey]\"\n\"${checkCommitteeID}\" is also not a valid Committee-HASH in Hex- or Bech-Format!\e[0m"; exit 1
 
 fi
 

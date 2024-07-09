@@ -126,7 +126,7 @@ esac
   read drepAnchorHASH;
   read drepExpireEpoch;
   read drepDelegatedStake;
-  read drepKeyType; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "-", .[1].anchor.dataHash // "-", .[1].expiry // "-", .[1].stake // 0, ( .[0] | keys[0] ) // "-"' <<< ${drepStateJSON})
+  read drepKeyType; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "-", .[1].anchor.dataHash // "-", .[1].expiry // "-", .[1].stake // 0, ( .[0] | keys[0] ) // "-"' <<< ${drepStateJSON} 2> /dev/null)
 
 #Checking about the content
 if [[ ${drepEntryCnt} == 0 ]]; then #not registered yet

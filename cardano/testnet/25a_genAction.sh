@@ -206,15 +206,13 @@ if [[ ${anchorURL} != "" && ${anchorHASH} == "" ]]; then echo -e "\n\e[91mERROR 
 case ${workMode} in
         "online")       #onlinemode
 			protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
-			governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
-
+			constitutionParametersJSON=$(${cardanocli} ${cliEra} query constitution 2> /dev/null | jq -r . 2> /dev/null)
+			if [[ ${constitutionParametersJSON} == "" ]]; then echo -e "\n\e[91mERROR - Could not query constitution state.\e[0m"; exit 1; fi
 			#get the previous actions ids for the various action types
 			prevActionIDsJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".nextRatifyState.nextEnactState.prevGovActionIds")
 			if [[ ${prevActionIDsJSON} == "" ]]; then echo -e "\n\e[91mERROR - Could not query last used Action-IDs.\e[0m"; exit 1; fi
-
 			#merge the governanceParameters and prevActionIDs into the normal protocolParameters
-			protocolParametersJSON=$( jq --sort-keys ". += ${governanceParametersJSON} | .prevActionIDs += ${prevActionIDsJSON}" <<< ${protocolParametersJSON})
-#			protocolParametersJSON=$( jq --sort-keys ".prevActionIDs += ${prevActionIDsJSON}" <<< ${protocolParametersJSON})
+			protocolParametersJSON=$( jq --sort-keys ".constitution += ${constitutionParametersJSON} | .prevActionIDs += ${prevActionIDsJSON}" <<< ${protocolParametersJSON})
 			;;
 
         "light")        #lightmode
@@ -691,6 +689,13 @@ case "${govActionType,,}" in
 		tmp=$(${bech32_bin} <<< ${fundsReceivingStakeAddr} 2> /dev/null)
 		if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - Could not generate HASH from ${fundsReceivingStakeAddr}\n\e[0m"; exit 1; fi
 		fundsReceivingStakeKeyHash=${tmp:2}
+
+		{ read constitutionScriptHash; } <<< $(jq -r ".constitution.script // \"-\"" <<< ${protocolParametersJSON} 2> /dev/null)
+
+		if [[ ${constitutionScriptHash} != "-" ]]; then #constitution script hash present
+			commonParam+=" --constitution-script-hash ${constitutionScriptHash}"
+		fi
+
 		actionFileContent=$(${cardanocli} ${cliEra} governance action create-treasury-withdrawal ${commonParam} --funds-receiving-stake-key-hash ${fundsReceivingStakeKeyHash} --transfer ${fundsReceivingAmount} 2> /dev/stdout)
 		;;
 
@@ -741,12 +746,17 @@ case "${govActionType,,}" in
 
         "parameterchange") #common parameters + parameters to update + last action id for same action
 
-		{ read prevActionUTXO; read prevActionIDX; } <<< $(jq -r ".prevActionIDs.PParamUpdate.txId // \"-\", .prevActionIDs.PParamUpdate.govActionIx // \"-\"" <<< ${protocolParametersJSON} 2> /dev/null)
-		if [[ ${prevActionUTXO} == "-" ]]; then #no previous action id
-			actionFileContent=$(${cardanocli} ${cliEra} governance action create-protocol-parameters-update ${commonParam} ${paramUpdateStr} 2> /dev/stdout)
-			else
-			actionFileContent=$(${cardanocli} ${cliEra} governance action create-protocol-parameters-update ${commonParam} --prev-governance-action-tx-id ${prevActionUTXO} --prev-governance-action-index ${prevActionIDX} ${paramUpdateStr} 2> /dev/stdout)
+		{ read prevActionUTXO; read prevActionIDX; read constitutionScriptHash; } <<< $(jq -r ".prevActionIDs.PParamUpdate.txId // \"-\", .prevActionIDs.PParamUpdate.govActionIx // \"-\", .constitution.script // \"-\"" <<< ${protocolParametersJSON} 2> /dev/null)
+
+		if [[ ${constitutionScriptHash} != "-" ]]; then #constitution script hash present
+			commonParam+=" --constitution-script-hash ${constitutionScriptHash}"
 		fi
+
+		if [[ ${prevActionUTXO} != "-" ]]; then #previous action id present
+			commonParam+=" --prev-governance-action-tx-id ${prevActionUTXO} --prev-governance-action-index ${prevActionIDX}"
+		fi
+
+		actionFileContent=$(${cardanocli} ${cliEra} governance action create-protocol-parameters-update ${commonParam} ${paramUpdateStr} 2> /dev/stdout)
 		;;
 
 esac
@@ -761,6 +771,7 @@ echo -e "\e[32mOK\n\e[0m"
 
 if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "\e[0mReferencing last Action-ID:\e[32m ${prevActionUTXO}#${prevActionIDX}\n\e[0m"; fi
 
+if [[ ${constitutionScriptHash} != "-" ]]; then	echo -e "\e[0mReferencing Constitution-Script-HASH:\e[32m ${constitutionScriptHash}\n\e[0m"; fi
 
 echo -e "\e[0mAction-File built:\e[32m ${actionFile}\e[90m"
 cat "${actionFile}"

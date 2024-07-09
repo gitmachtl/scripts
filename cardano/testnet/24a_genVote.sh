@@ -239,10 +239,11 @@ case ${workMode} in
 #                       if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 			;;
 #
-#        "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
+        "offline")      echo -e "\n\e[91mINFORMATION - This script does not support Offline-Mode yet, waiting for Koios support!\n\e[0m"; exit;
+#			readOfflineFile; #Reads the offlinefile into the offlineJSON variable
 #                        drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
-#                        if [[ "${drepStateJSON}" == null ]]; then echo -e "\e[35mDRep-ID not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-#                        ;;
+#                       if [[ "${drepStateJSON}" == null ]]; then echo -e "\e[35mDRep-ID not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
+                        ;;
 
 esac
 

@@ -146,9 +146,15 @@ case ${action} in
 		case ${workMode} in
 
 		        "online") #onlinemode
+				#get the normal parameters
 				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
-	                        governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
-				protocolParametersJSON=$( jq ". += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
+	                        #get the previous actions ids for the various action types and the constitution state
+	                        prevActionIDsJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".nextRatifyState.nextEnactState.prevGovActionIds" 2> /dev/null)
+				if [[ ${prevActionIDsJSON} == "" ]]; then prevActionIDsJSON='{}'; fi
+				constitutionParametersJSON=$(${cardanocli} ${cliEra} query constitution 2> /dev/null | jq -r "." 2> /dev/null)
+				if [[ ${constitutionParametersJSON} == "" ]]; then constitutionParametersJSON='{}'; fi
+				#merge them together
+	                        protocolParametersJSON=$( jq --sort-keys ".constitution += ${constitutionParametersJSON} | .prevActionIDs += ${prevActionIDsJSON}" <<< ${protocolParametersJSON})
 				;;
 
 		        "light") #lightmode
@@ -180,9 +186,15 @@ case ${action} in
 		case ${workMode} in
 
 		        "online") #onlinemode
+				#get the normal parameters
 				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
-	                        governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
-				protocolParametersJSON=$( jq ". += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
+	                        #get the previous actions ids for the various action types and the constitution state
+	                        prevActionIDsJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".nextRatifyState.nextEnactState.prevGovActionIds" 2> /dev/null)
+				if [[ ${prevActionIDsJSON} == "" ]]; then prevActionIDsJSON='{}'; fi
+				constitutionParametersJSON=$(${cardanocli} ${cliEra} query constitution 2> /dev/null | jq -r "." 2> /dev/null)
+				if [[ ${constitutionParametersJSON} == "" ]]; then constitutionParametersJSON='{}'; fi
+				#merge them together
+	                        protocolParametersJSON=$( jq --sort-keys ".constitution += ${constitutionParametersJSON} | .prevActionIDs += ${prevActionIDsJSON}" <<< ${protocolParametersJSON})
 				;;
 
 		        "light") #lightmode

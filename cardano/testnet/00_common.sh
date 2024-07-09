@@ -285,12 +285,12 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="8.23.1"  		#minimum allowed cli version for this script-collection version
+minCliVersion="9.0.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="8.11.0"  		#minimum allowed node version for this script-collection version
+minNodeVersion="8.12.2"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion="7.1.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
-minTrezorCardanoAppVersion="2.6.5"  	#minimum version for the firmware on the Trezor HW-Wallet
+minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minHardwareCliVersion="1.15.0" 		#minimum version for the cardano-hw-cli
 minCardanoSignerVersion="1.16.1"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
@@ -577,10 +577,10 @@ fi
 
 #-------------------------------------------------------------
 #Check if curl, jq, bc and xxd is installed
-if ! exists curl; then echo -e "\e[33mYou need the little tool 'curl', its needed to fetch online data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install curl\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
-if ! exists jq; then echo -e "\e[33mYou need the little tool 'jq', its needed to do the json processing !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install jq\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
-if ! exists bc; then echo -e "\e[33mYou need the little tool 'bc', its needed to do larger number calculations !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install bc\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
-if ! exists xxd; then echo -e "\e[33mYou need the little tool 'xxd', its needed to convert hex strings !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install xxd\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! ${offlineMode} && ! exists curl; then echo -e "\n\n\e[33mYou need the little tool 'curl', its needed to fetch online data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install curl\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! exists jq; then echo -e "\n\n\e[33mYou need the little tool 'jq', its needed to do the json processing !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install jq\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! exists bc; then echo -e "\n\n\e[33mYou need the little tool 'bc', its needed to do larger number calculations !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install bc\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! exists xxd; then echo -e "\n\n\e[33mYou need the little tool 'xxd', its needed to convert hex strings !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install xxd\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
 
 
 #-------------------------------------------------------------

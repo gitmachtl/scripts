@@ -21,7 +21,7 @@
 if [ $# -lt 2 ]; then
 cat >&2 <<EOF
 
-Usage:  $(basename $0) <CommiteeColdName> <Base/PaymentAddressName (paying for the transaction fees)>
+Usage:  $(basename $0) <CommitteeColdName> <Base/PaymentAddressName (paying for the transaction fees)>
 
         [Opt: Anchor-URL, starting with "url: ..."], in Online-/Light-Mode the Hash will be calculated
         [Opt: Anchor-HASH, starting with "hash: ..."], to overwrite the Anchor-Hash in Offline-Mode
@@ -49,10 +49,10 @@ Optional parameters:
 
 Examples:
 
-   $(basename $0) myCommiteeCold funds "url: https://mydomain.com/myresignation.json"
-   -> Retires the Commitee Cold Key 'myCommiteeCold' with an Anchor-URL, the wallet 'funds' is paying for the transaction
+   $(basename $0) myCommitteeCold funds "url: https://mydomain.com/myresignation.json"
+   -> Retires the Committee Cold Key 'myCommitteeCold' with an Anchor-URL, the wallet 'funds' is paying for the transaction
 
-   $(basename $0) myCommiteeCold funds "msg: This is the resignation of myCommiteeCold"
+   $(basename $0) myCommitteeCold funds "msg: This is the resignation of myCommitteeCold"
    -> Same as above, but with an additional transaction message to keep track of your transactions
 
 EOF
@@ -71,8 +71,8 @@ esac
 comColdName="$(dirname $1)/$(basename $1 .cc-cold)"; comColdName=${comColdName/#.\//};
 retPayName="$(dirname $2)/$(basename $2 .addr)"; retPayName=${retPayName/#.\//};
 
-#Check about required files: Commitee-Cold-VKEY/SKEY, Payment Signing Key and Address of the payment Account
-#For CommiteeCold
+#Check about required files: Committee-Cold-VKEY/SKEY, Payment Signing Key and Address of the payment Account
+#For CommitteeCold
 if [ ! -f "${comColdName}.cc-cold.vkey" ]; then echo -e "\n\e[35mERROR - \"${comColdName}.cc-cold.vkey\" does not exist! Please create it first with script 23a.\n\e[0m"; exit 1; fi
 if ! [[ -f "${comColdName}.cc-cold.skey" || -f "${comColdName}.cc-cold.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${comColdName}.cc-cold.skey/hwsfile\" does not exist! Please create it first with script 23a.\n\e[0m"; exit 1; fi
 if [ ! -f "${comColdName}.cc-cold.hash" ]; then echo -e "\n\e[35mERROR - \"${comColdName}.cc-cold.hash\" does not exist! Please create it first with script 23a.\n\e[0m"; exit 1; fi
@@ -212,10 +212,11 @@ case ${workMode} in
 			;;
 #
 #
-#        "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
+        "offline")      echo -e "\n\e[91mINFORMATION - This script does not support Offline-Mode yet, waiting for Koios support!\n\e[0m"; exit;
+#			readOfflineFile; #Reads the offlinefile into the offlineJSON variable
 #                        drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
 #                        if [[ "${drepStateJSON}" == null ]]; then echo -e "\e[35mDRep-ID not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-#                        ;;
+                        ;;
 
 	*) ;;
 

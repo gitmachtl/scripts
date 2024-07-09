@@ -263,6 +263,10 @@ for (( tmpCnt=1; tmpCnt<${paramCnt}; tmpCnt++ ))
 		case "${voteActionTag,,}" in
 
 			"treasurywithdrawals")
+
+				### Temporary disabled because of the ongoing changes to the constitution script hash usage / Plutus / Collateral
+				echo -e "\n\e[33mSORRY - This function is currently disabled, because of the ongoing changes with the constitution script hash / plutus script / collateral handling!\e[0m\n"; exit 1;
+
 				{ read fundsReceivingAmount; read fundsReceivingStakeAddrHash; } <<< $(jq -r '.[0][0][1], .[0][0][0].credential.keyHash' <<< "${voteActionContents}")
 		                echo -e "  Withdrawal-Amount: \e[32m$(convertToADA ${fundsReceivingAmount}) ADA / ${fundsReceivingAmount} lovelaces\e[0m"
 		                #Show withdrawal payout stakeaddress
@@ -311,6 +315,10 @@ for (( tmpCnt=1; tmpCnt<${paramCnt}; tmpCnt++ ))
 				;;
 
 			"parameterchange")
+
+				### Temporary disabled because of the ongoing changes to the constitution script hash usage / Plutus / Collateral
+				echo -e "\n\e[33mSORRY - This function is currently disabled, because of the ongoing changes with the constitution script hash / plutus script / collateral handling!\e[0m\n"; exit 1;
+
 				#Show referencing Actio-Id and the content of the parameterchange json section
 				{ read prevActionUTXO; read prevActionIDX; read changeParameters;} <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", "\(.[1])" // "{}"' 2> /dev/null <<< "${voteActionContents}")
 				if [[ ${#prevActionUTXO} -gt 1 ]]; then

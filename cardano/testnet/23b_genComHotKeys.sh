@@ -20,7 +20,7 @@
 #Check command line parameter
 if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|ENC|MNEMONICS)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <CommiteeName> <KeyType: cli | enc | hw | mnemonics>
+ERROR - Usage: $(basename $0) <CommitteeName> <KeyType: cli | enc | hw | mnemonics>
 
 Optional parameters:
 
@@ -109,7 +109,7 @@ terminate(){
 #warning if hot-keys already present with that name
 if [[ -f "${comHotName}.cc-hot.vkey" || -f "${comHotName}.cc-hot.skey" || -f "${comHotName}.cc-hot.hwsfile" || -f "${comHotName}.cc-hot.hash" ]]; then
 
-	if ask "\n\e[33mWARNING - There are already Commitee-Hot-Keys with the name '${comHotName}' present, do you wanna delete them and generate new ones ?" N; then
+	if ask "\n\e[33mWARNING - There are already Committee-Hot-Keys with the name '${comHotName}' present, do you wanna delete them and generate new ones ?" N; then
 	        echo -ne "\n\e[0mDeleting '\e[32m${comHotName}.cc-hot.vkey/skey/hwsfile/hash/mnemonics\e[0m' files ... "
 		file_unlock "${comHotName}.cc-hot.vkey"
 		rm -f "${comHotName}.cc-hot.vkey" 2> /dev/null
@@ -132,32 +132,32 @@ fi #warning
 
 
 ##############################
-#### Building the Commitee Hot Keys
+#### Building the Committee Hot Keys
 ##############################
 
-if [[ "${keyType}" == "CLI" ]]; then #Commitee Hot Keys via CLI (unencrypted)
+if [[ "${keyType}" == "CLI" ]]; then #Committee Hot Keys via CLI (unencrypted)
 
-	#We need a normal Commitee Hot keypair with vkey and skey, so let's create that one
+	#We need a normal Committee Hot keypair with vkey and skey, so let's create that one
 	${cardanocli} ${cliEra} governance committee key-gen-hot --verification-key-file "${comHotName}.cc-hot.vkey" --signing-key-file "${comHotName}.cc-hot.skey"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${comHotName}.cc-hot.vkey
 	file_lock ${comHotName}.cc-hot.skey
-	echo -e "\e[0mCommitee Hot-Verification-Key: \e[32m ${comHotName}.cc-hot.vkey \e[90m"
+	echo -e "\e[0mCommittee Hot-Verification-Key: \e[32m ${comHotName}.cc-hot.vkey \e[90m"
 	cat ${comHotName}.cc-hot.vkey
 	echo
-	echo -e "\e[0mCommitee Hot-Signing-Key: \e[32m ${comHotName}.cc-hot.skey \e[90m"
+	echo -e "\e[0mCommittee Hot-Signing-Key: \e[32m ${comHotName}.cc-hot.skey \e[90m"
 	cat ${comHotName}.cc-hot.skey
 	echo
 
 
 
-elif [[ "${keyType}" == "MNEMONICS" ]]; then #Commitee Hot Keys via Mnemonics (unencrypted)
+elif [[ "${keyType}" == "MNEMONICS" ]]; then #Committee Hot Keys via Mnemonics (unencrypted)
 
 	#Check warnings
 	if [ -f "${comHotName}.cc-hot.mnemonics" ]; then echo -e "\e[35mWARNING - ${comHotName}.cc-hot.mnemonics already present, delete it or use another name !\e[0m"; exit 1; fi
 
 	echo
-	echo -e "\e[0mGenerating CLI Commitee Hot-Keys via Derivation-Path:\e[32m 1852H/1815H/${accNo}H/5/${idxNo}\e[0m"
+	echo -e "\e[0mGenerating CLI Committee Hot-Keys via Derivation-Path:\e[32m 1852H/1815H/${accNo}H/5/${idxNo}\e[0m"
 	echo
 
 	#Check the cardano-signer binary existance and version
@@ -200,22 +200,22 @@ elif [[ "${keyType}" == "MNEMONICS" ]]; then #Commitee Hot Keys via Mnemonics (u
 	file_lock ${comHotName}.cc-hot.vkey
 	file_lock ${comHotName}.cc-hot.skey
 
-        echo -e "\e[0mCommitee Hot-Verification-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comHotName}.cc-hot.vkey \e[90m"
+        echo -e "\e[0mCommittee Hot-Verification-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comHotName}.cc-hot.vkey \e[90m"
         cat ${comHotName}.cc-hot.vkey
         echo
-        echo -e "\e[0mCommitee Hot-Signing-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comHotName}.cc-hot.skey \e[90m"
+        echo -e "\e[0mCommittee Hot-Signing-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comHotName}.cc-hot.skey \e[90m"
         cat ${comHotName}.cc-hot.skey
         echo
 
 
-elif [[ "${keyType}" == "ENC" ]]; then #Commitee Hot Keys via CLI (encrypted)
+elif [[ "${keyType}" == "ENC" ]]; then #Committee Hot Keys via CLI (encrypted)
 
-	#We need a normal Commitee Hot keypair with vkey and skey, so let's create that one
+	#We need a normal Committee Hot keypair with vkey and skey, so let's create that one
         skeyJSON=$(${cardanocli} ${cliEra} governance committee key-gen-hot --verification-key-file "${comHotName}.cc-hot.vkey" --signing-key-file /dev/stdout 2> /dev/null)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${comHotName}.cc-hot.vkey
 
-        echo -e "\e[0mCommitee Hot-Verification-Key: \e[32m ${comHotName}.cc-hot.vkey \e[90m"
+        echo -e "\e[0mCommittee Hot-Verification-Key: \e[32m ${comHotName}.cc-hot.vkey \e[90m"
         cat ${comHotName}.cc-hot.vkey
         echo
 
@@ -227,11 +227,11 @@ elif [[ "${keyType}" == "ENC" ]]; then #Commitee Hot Keys via CLI (encrypted)
 
                         #Read in the password
                         echo -e "\e[0mPlease provide a strong password (min. 10 chars, uppercase, lowercase, specialchars) for the encryption ...\n";
-                        pass_1=$(ask_pass "\e[33mEnter a strong Password for the Commitee Hot-SKEY (empty to abort)")
+                        pass_1=$(ask_pass "\e[33mEnter a strong Password for the Committee Hot-SKEY (empty to abort)")
                         if [[ ${pass_1} == "" ]]; then echo -e "\n\e[35mAborted\e[0m\n\n"; file_unlock "${comHotName}.cc-hot.vkey"; rm -f "${comHotName}.cc-hot.vkey"; exit 1; fi #abort and remove the vkey file
                         while [[ $(is_strong_password "${pass_1}") != "true" ]]; do
                                 echo -e "\n\e[35mThis is not a strong password, lets try it again...\e[0m\n"
-                                pass_1=$(ask_pass "\e[33mEnter a strong Password for the Commitee Hot-SKEY (empty to abort)")
+                                pass_1=$(ask_pass "\e[33mEnter a strong Password for the Committee Hot-SKEY (empty to abort)")
                                 if [[ ${pass_1} == "" ]]; then echo -e "\n\e[35mAborted\e[0m\n\n"; file_unlock "${comHotName}.cc-hot.vkey"; rm -f "${comHotName}.cc-hot.vkey"; exit 1; fi #abort and remove the vkey file
                         done
                         echo -e "\e[0m";
@@ -275,16 +275,16 @@ elif [[ "${keyType}" == "ENC" ]]; then #Commitee Hot Keys via CLI (encrypted)
 
 	trap - SIGINT INT
 
-	echo -e "\e[0mCommitee Hot-Signing-Key: \e[32m ${comHotName}.cc-hot.skey \e[90m"
+	echo -e "\e[0mCommittee Hot-Signing-Key: \e[32m ${comHotName}.cc-hot.skey \e[90m"
 	cat ${comHotName}.cc-hot.skey
 	echo
 
-else  #Commitee Hot Keys via HW-Wallet
+else  #Committee Hot Keys via HW-Wallet
 
-	echo -e "\e[0mGenerating HW-Commitee Hot Keys via Derivation-Path:\e[32m 1852H/1815H/${accNo}H/5/${idxNo}\e[0m"
+	echo -e "\e[0mGenerating HW-Committee Hot Keys via Derivation-Path:\e[32m 1852H/1815H/${accNo}H/5/${idxNo}\e[0m"
 	echo
 
-	#We need a Commitee Hot keypair with vkey and hwsfile from a Hardware-Key, sol lets create them
+	#We need a Committee Hot keypair with vkey and hwsfile from a Hardware-Key, sol lets create them
 	#ONLY LEDGER HW WALLET SUPPORTS THIS ACTION
         start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
   	tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/${accNo}H/5/${idxNo} --verification-key-file ${comHotName}.cc-hot.vkey --hw-signing-file ${comHotName}.cc-hot.hwsfile 2> /dev/stdout)
@@ -301,18 +301,18 @@ else  #Commitee Hot Keys via HW-Wallet
         file_lock ${comHotName}.cc-hot.vkey
         file_lock ${comHotName}.cc-hot.hwsfile
 
-        echo -e "\e[0mCommitee Hot-Verification-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comHotName}.cc-hot.vkey \e[90m"
+        echo -e "\e[0mCommittee Hot-Verification-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comHotName}.cc-hot.vkey \e[90m"
         cat ${comHotName}.cc-hot.vkey
         echo
 	echo
-        echo -e "\e[0mCommitee Hot-HardwareSigning-File (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comHotName}.cc-hot.hwsfile \e[90m"
+        echo -e "\e[0mCommittee Hot-HardwareSigning-File (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comHotName}.cc-hot.hwsfile \e[90m"
         cat ${comHotName}.cc-hot.hwsfile
         echo
 	echo
 
 fi
 
-#Building the Commitee Hot HASH
+#Building the Committee Hot HASH
 ${cardanocli} ${cliEra} governance committee key-hash --verification-key-file "${comHotName}.cc-hot.vkey" > "${comHotName}.cc-hot.hash"
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock "${comHotName}.cc-hot.hash"

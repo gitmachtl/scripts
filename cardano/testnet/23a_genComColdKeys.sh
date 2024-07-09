@@ -20,7 +20,7 @@
 #Check command line parameter
 if [ $# -lt 2 ] || [[ ! ${2^^} =~ ^(CLI|HW|ENC|MNEMONICS)$ ]]; then
 cat >&2 <<EOF
-ERROR - Usage: $(basename $0) <CommiteeName> <KeyType: cli | enc | hw | mnemonics>
+ERROR - Usage: $(basename $0) <CommitteeName> <KeyType: cli | enc | hw | mnemonics>
 
 Optional parameters:
 
@@ -114,32 +114,32 @@ if [ -f "${comColdName}.cc-cold.hash" ]; then echo -e "\e[35mWARNING - ${comCold
 
 
 ##############################
-#### Building the Commitee Cold Keys
+#### Building the Committee Cold Keys
 ##############################
 
-if [[ "${keyType}" == "CLI" ]]; then #Commitee Cold Keys via CLI (unencrypted)
+if [[ "${keyType}" == "CLI" ]]; then #Committee Cold Keys via CLI (unencrypted)
 
-	#We need a normal Commitee Cold keypair with vkey and skey, so let's create that one
+	#We need a normal Committee Cold keypair with vkey and skey, so let's create that one
 	${cardanocli} ${cliEra} governance committee key-gen-cold --cold-verification-key-file "${comColdName}.cc-cold.vkey" --cold-signing-key-file "${comColdName}.cc-cold.skey"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	file_lock ${comColdName}.cc-cold.vkey
 	file_lock ${comColdName}.cc-cold.skey
-	echo -e "\e[0mCommitee Cold-Verification-Key: \e[32m ${comColdName}.cc-cold.vkey \e[90m"
+	echo -e "\e[0mCommittee Cold-Verification-Key: \e[32m ${comColdName}.cc-cold.vkey \e[90m"
 	cat ${comColdName}.cc-cold.vkey
 	echo
-	echo -e "\e[0mCommitee Cold-Signing-Key: \e[32m ${comColdName}.cc-cold.skey \e[90m"
+	echo -e "\e[0mCommittee Cold-Signing-Key: \e[32m ${comColdName}.cc-cold.skey \e[90m"
 	cat ${comColdName}.cc-cold.skey
 	echo
 
 
 
-elif [[ "${keyType}" == "MNEMONICS" ]]; then #Commitee Cold Keys via Mnemonics (unencrypted)
+elif [[ "${keyType}" == "MNEMONICS" ]]; then #Committee Cold Keys via Mnemonics (unencrypted)
 
 	#Check warnings
 	if [ -f "${comColdName}.cc-cold.mnemonics" ]; then echo -e "\e[35mWARNING - ${comColdName}.cc-cold.mnemonics already present, delete it or use another name !\e[0m"; exit 1; fi
 
 	echo
-	echo -e "\e[0mGenerating CLI Commitee Cold-Keys via Derivation-Path:\e[32m 1852H/1815H/${accNo}H/4/${idxNo}\e[0m"
+	echo -e "\e[0mGenerating CLI Committee Cold-Keys via Derivation-Path:\e[32m 1852H/1815H/${accNo}H/4/${idxNo}\e[0m"
 	echo
 
 	#Check the cardano-signer binary existance and version
@@ -182,22 +182,22 @@ elif [[ "${keyType}" == "MNEMONICS" ]]; then #Commitee Cold Keys via Mnemonics (
 	file_lock ${comColdName}.cc-cold.vkey
 	file_lock ${comColdName}.cc-cold.skey
 
-        echo -e "\e[0mCommitee Cold-Verification-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comColdName}.cc-cold.vkey \e[90m"
+        echo -e "\e[0mCommittee Cold-Verification-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comColdName}.cc-cold.vkey \e[90m"
         cat ${comColdName}.cc-cold.vkey
         echo
-        echo -e "\e[0mCommitee Cold-Signing-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comColdName}.cc-cold.skey \e[90m"
+        echo -e "\e[0mCommittee Cold-Signing-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comColdName}.cc-cold.skey \e[90m"
         cat ${comColdName}.cc-cold.skey
         echo
 
 
-elif [[ "${keyType}" == "ENC" ]]; then #Commitee Cold Keys via CLI (encrypted)
+elif [[ "${keyType}" == "ENC" ]]; then #Committee Cold Keys via CLI (encrypted)
 
-	#We need a normal Commitee Cold keypair with vkey and skey, so let's create that one
+	#We need a normal Committee Cold keypair with vkey and skey, so let's create that one
         skeyJSON=$(${cardanocli} ${cliEra} governance committee key-gen-cold --cold-verification-key-file "${comColdName}.cc-cold.vkey" --cold-signing-key-file /dev/stdout 2> /dev/null)
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${comColdName}.cc-cold.vkey
 
-        echo -e "\e[0mCommitee Cold-Verification-Key: \e[32m ${comColdName}.cc-cold.vkey \e[90m"
+        echo -e "\e[0mCommittee Cold-Verification-Key: \e[32m ${comColdName}.cc-cold.vkey \e[90m"
         cat ${comColdName}.cc-cold.vkey
         echo
 
@@ -209,11 +209,11 @@ elif [[ "${keyType}" == "ENC" ]]; then #Commitee Cold Keys via CLI (encrypted)
 
                         #Read in the password
                         echo -e "\e[0mPlease provide a strong password (min. 10 chars, uppercase, lowercase, specialchars) for the encryption ...\n";
-                        pass_1=$(ask_pass "\e[33mEnter a strong Password for the Commitee Cold-SKEY (empty to abort)")
+                        pass_1=$(ask_pass "\e[33mEnter a strong Password for the Committee Cold-SKEY (empty to abort)")
                         if [[ ${pass_1} == "" ]]; then echo -e "\n\e[35mAborted\e[0m\n\n"; file_unlock "${comColdName}.cc-cold.vkey"; rm -f "${comColdName}.cc-cold.vkey"; exit 1; fi #abort and remove the vkey file
                         while [[ $(is_strong_password "${pass_1}") != "true" ]]; do
                                 echo -e "\n\e[35mThis is not a strong password, lets try it again...\e[0m\n"
-                                pass_1=$(ask_pass "\e[33mEnter a strong Password for the Commitee Cold-SKEY (empty to abort)")
+                                pass_1=$(ask_pass "\e[33mEnter a strong Password for the Committee Cold-SKEY (empty to abort)")
                                 if [[ ${pass_1} == "" ]]; then echo -e "\n\e[35mAborted\e[0m\n\n"; file_unlock "${comColdName}.cc-cold.vkey"; rm -f "${comColdName}.cc-cold.vkey"; exit 1; fi #abort and remove the vkey file
                         done
                         echo -e "\e[0m";
@@ -257,16 +257,16 @@ elif [[ "${keyType}" == "ENC" ]]; then #Commitee Cold Keys via CLI (encrypted)
 
 	trap - SIGINT INT
 
-	echo -e "\e[0mCommitee Cold-Signing-Key: \e[32m ${comColdName}.cc-cold.skey \e[90m"
+	echo -e "\e[0mCommittee Cold-Signing-Key: \e[32m ${comColdName}.cc-cold.skey \e[90m"
 	cat ${comColdName}.cc-cold.skey
 	echo
 
-else  #Commitee Cold Keys via HW-Wallet
+else  #Committee Cold Keys via HW-Wallet
 
-	echo -e "\e[0mGenerating HW-Commitee Cold Keys via Derivation-Path:\e[32m 1852H/1815H/${accNo}H/4/${idxNo}\e[0m"
+	echo -e "\e[0mGenerating HW-Committee Cold Keys via Derivation-Path:\e[32m 1852H/1815H/${accNo}H/4/${idxNo}\e[0m"
 	echo
 
-	#We need a Commitee Cold keypair with vkey and hwsfile from a Hardware-Key, sol lets create them
+	#We need a Committee Cold keypair with vkey and hwsfile from a Hardware-Key, sol lets create them
 	#ONLY LEDGER HW WALLET SUPPORTS THIS ACTION
         start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
   	tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/${accNo}H/4/${idxNo} --verification-key-file ${comColdName}.cc-cold.vkey --hw-signing-file ${comColdName}.cc-cold.hwsfile 2> /dev/stdout)
@@ -274,25 +274,25 @@ else  #Commitee Cold Keys via HW-Wallet
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #	#Edit the type+description in the vkey file temporary
-#	vkeyJSON=$(cat ${comColdName}.cc-cold.vkey | jq ".type = \"Commitee ColdVerificationKey_ed25519\" " | jq ".description = \"Hardware Delegate Representative Verification Key\" ")
+#	vkeyJSON=$(cat ${comColdName}.cc-cold.vkey | jq ".type = \"Committee ColdVerificationKey_ed25519\" " | jq ".description = \"Hardware Delegate Representative Verification Key\" ")
 #	echo "${vkeyJSON}" > ${comColdName}.cc-cold.vkey
 #	#Edit the type+description in the hwsfile file temporary
-#	hwsfileJSON=$(cat ${comColdName}.cc-cold.hwsfile | jq ".type = \"Commitee ColdHWSigningFile_ed25519\" " | jq ".description = \"Hardware Delegate Representative Signing Key\" ")
+#	hwsfileJSON=$(cat ${comColdName}.cc-cold.hwsfile | jq ".type = \"Committee ColdHWSigningFile_ed25519\" " | jq ".description = \"Hardware Delegate Representative Signing Key\" ")
 #	echo "${hwsfileJSON}" > ${comColdName}.cc-cold.hwsfile
 
         file_lock ${comColdName}.cc-cold.vkey
         file_lock ${comColdName}.cc-cold.hwsfile
 
-        echo -e "\e[0mCommitee Cold-Verification-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comColdName}.cc-cold.vkey \e[90m"
+        echo -e "\e[0mCommittee Cold-Verification-Key (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comColdName}.cc-cold.vkey \e[90m"
         cat ${comColdName}.cc-cold.vkey
         echo
-        echo -e "\e[0mCommitee Cold-HardwareSigning-File (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comColdName}.cc-cold.hwsfile \e[90m"
+        echo -e "\e[0mCommittee Cold-HardwareSigning-File (Acc# ${accNo}, Idx# ${idxNo}): \e[32m ${comColdName}.cc-cold.hwsfile \e[90m"
         cat ${comColdName}.cc-cold.hwsfile
         echo
 
 fi
 
-#Building the Commitee Cold HASH
+#Building the Committee Cold HASH
 ${cardanocli} ${cliEra} governance committee key-hash --verification-key-file "${comColdName}.cc-cold.vkey" > "${comColdName}.cc-cold.hash"
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_lock "${comColdName}.cc-cold.hash"

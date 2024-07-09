@@ -124,12 +124,18 @@ if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
                                         ;;
 
                                 *)
-                                        #normal drep-id
-					drepDelegationHASH=${drepDelegationHASH: -56} #last 56chars of the entry is the hash itself
-					drepDelegationID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH}" 2> /dev/null)
-					if [[ $? -eq 0 ]]; then
-	                                        echo -e "\e[0mVoting-Power of Staking Address is delegated to DRepID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH}\e[0m)\n";
-					fi
+                                        #normal drep-id or drep-script-id
+					case "${drepDelegationHASH%%-*}" in
+						"keyHash")	drepDelegationID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+								echo -e "\e[0mVoting-Power of Staking Address is delegated to DRepID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
+								;;
+						"scriptHash")	drepDelegationID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+								echo -e "\e[0mVoting-Power of Staking Address is delegated to DRep-Script-ID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
+								;;
+						*)		drepDelegationID="" #unknown type
+								echo -e "\e[0mVoting-Power of Staking Address is delegated to DRep-HASH: \e[32m${drepDelegationHASH}\e[0m\n";
+								;;
+					esac
                                         ;;
                         esac
 

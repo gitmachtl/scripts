@@ -21,7 +21,7 @@
 if [ $# -lt 3 ]; then
 cat >&2 <<EOF
 
-Usage:  $(basename $0) <CommiteeColdName> <CommiteeHotName> <Base/PaymentAddressName (paying for the registration fees)>
+Usage:  $(basename $0) <CommitteeColdName> <CommitteeHotName> <Base/PaymentAddressName (paying for the registration fees)>
 
         [Opt: Message comment, starting with "msg: ...", | is the separator]
         [Opt: encrypted message mode "enc:basic". Currently only 'basic' mode is available.]
@@ -47,10 +47,10 @@ Optional parameters:
 
 Examples:
 
-   $(basename $0) myCommiteeCold myCommiteeHot funds
-   -> Register/Authorize the Commitee Hot Key 'myCommiteeHot' for the Commitee Cold Key 'myCommiteeCold', the wallet 'funds' is paying for the transaction
+   $(basename $0) myCommitteeCold myCommitteeHot funds
+   -> Register/Authorize the Committee Hot Key 'myCommitteeHot' for the Committee Cold Key 'myCommitteeCold', the wallet 'funds' is paying for the transaction
 
-   $(basename $0) myCommiteeCold myCommiteeHot funds "msg: Authorize CC-Hot-Keys for myCommiteeCold"
+   $(basename $0) myCommitteeCold myCommitteeHot funds "msg: Authorize CC-Hot-Keys for myCommitteeCold"
    -> Same as above, but with an additional transaction message to keep track of your transactions
 
 EOF
@@ -69,12 +69,12 @@ comColdName="$(dirname $1)/$(basename $1 .cc-cold)"; comColdName=${comColdName/#
 comHotName="$(dirname $2)/$(basename $2 .cc-hot)"; comHotName=${comHotName/#.\//};
 regPayName="$(dirname $3)/$(basename $3 .addr)"; regPayName=${regPayName/#.\//};
 
-#Check about required files: Commitee-Cold-VKEY/SKEY, Commitee-Hot-VKEY, Payment Signing Key and Address of the payment Account
-#For CommiteeCold
+#Check about required files: Committee-Cold-VKEY/SKEY, Committee-Hot-VKEY, Payment Signing Key and Address of the payment Account
+#For CommitteeCold
 if [ ! -f "${comColdName}.cc-cold.vkey" ]; then echo -e "\n\e[35mERROR - \"${comColdName}.cc-cold.vkey\" does not exist! Please create it first with script 23a.\n\e[0m"; exit 1; fi
 if ! [[ -f "${comColdName}.cc-cold.skey" || -f "${comColdName}.cc-cold.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${comColdName}.cc-cold.skey/hwsfile\" does not exist! Please create it first with script 23a.\n\e[0m"; exit 1; fi
 if [ ! -f "${comColdName}.cc-cold.hash" ]; then echo -e "\n\e[35mERROR - \"${comColdName}.cc-cold.hash\" does not exist! Please create it first with script 23a.\n\e[0m"; exit 1; fi
-#For CommiteeHot
+#For CommitteeHot
 if [ ! -f "${comHotName}.cc-hot.vkey" ]; then echo -e "\n\e[35mERROR - \"${comHotName}.cc-hot.vkey\" does not exist! Please create it first with script 23b.\n\e[0m"; exit 1; fi
 if [ ! -f "${comHotName}.cc-hot.hash" ]; then echo -e "\n\e[35mERROR - \"${comHotName}.cc-hot.hash\" does not exist! Please create it first with script 23b.\n\e[0m"; exit 1; fi
 #For payment
@@ -200,10 +200,11 @@ case ${workMode} in
 			;;
 #
 #
-#        "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
+        "offline")	echo -e "\n\e[91mINFORMATION - This script does not support Offline-Mode yet, waiting for Koios support!\n\e[0m"; exit;
+#			readOfflineFile; #Reads the offlinefile into the offlineJSON variable
 #                        drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
 #                        if [[ "${drepStateJSON}" == null ]]; then echo -e "\e[35mDRep-ID not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-#                        ;;
+                        ;;
 
 	*) ;;
 
@@ -274,11 +275,10 @@ echo
 
 #generate the authorization certificate
 echo -ne "\e[0mGenerating Authorization-Certificate for\e[32m ${comHotName}.cc-hot.vkey\e[0m ... "
-regCert=$(${cardanocli} ${cliEra} governance committee create-hot-key-authorization-certificate --cold-verification-key-file "${comColdName}.cc-cold.vkey" --hot-key-file "${comHotName}.cc-hot.vkey" --out-file /dev/stdout 2> /dev/null)
+regCert=$(${cardanocli} ${cliEra} governance committee create-hot-key-authorization-certificate --cold-verification-key-file "${comColdName}.cc-cold.vkey" --hot-verification-key-file "${comHotName}.cc-hot.vkey" --out-file /dev/stdout 2> /dev/null)
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_unlock "${comHotName}.cc-hot.cert"
 echo -e "${regCert}" > "${comHotName}.cc-hot.cert" 2> /dev/null
-#echo -e '{"type":"CertificateShelley","description":"Constitutional Committee Hot Key Registration Certificate","cborHex":"830e8200581c5f1b4429fe3bda963a7b70ab81135112a785afcf55ccd695b122e7948200581c212f86a07149f5d19e1f841d065f9e76c6b4a76db727ae7afc2cb2e4"}' > "${comHotName}.cc-hot.cert" 2> /dev/null
 if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not write out the certificate file ${comHotName}.cc-hot.cert !\n\e[0m"; exit 1; fi
 file_lock "${comHotName}.cc-hot.cert"
 unset regCert
@@ -286,7 +286,6 @@ echo -e "\e[32mDONE\e[0m\n"
 echo -e "\e[0mCommittee-Hot-Key Authorization-Certificate built:\e[32m ${comHotName}.cc-hot.cert \e[90m"
 cat "${comHotName}.cc-hot.cert"
 echo -e "\e[0m\n"
-
 
 
 #get values to register the committee hot/cold authorization certificate on the blockchain
@@ -536,7 +535,7 @@ rm ${txFile} 2> /dev/null
 if [[ -f "${regPayName}.hwsfile" && -f "${comColdName}.cc-cold.hwsfile" ]]; then
 
 #       #remove the tag(258) from the txBodyFile
-        sed -si 's/04d901028183/048183/g' "${txBodyFile}"
+#       sed -si 's/04d901028183/048183/g' "${txBodyFile}"
 
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
         tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi

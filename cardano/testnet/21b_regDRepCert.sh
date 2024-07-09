@@ -194,8 +194,9 @@ echo
 case ${workMode} in
         "online")       #onlinemode
 			protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
-			governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
-			protocolParametersJSON=$( jq ". += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
+#not needed anymore since cli 8.24.0.0
+#			governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
+#			protocolParametersJSON=$( jq ". += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
 			;;
 
         "light")        #lightmode
@@ -581,7 +582,7 @@ fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
 echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & 1x Certificate: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
 echo
 
-echo -ne "\e[0mDRep-ID Deposit Fee: \e[32m ${drepDepositFee} lovelaces \e[0m"
+echo -ne "\e[0mDRep-ID Deposit Fee: \e[32m $(convertToADA ${drepDepositFee}) ADA / ${drepDepositFee} lovelaces \e[0m"
 if [[ ${drepDepositFee} -eq 0 ]]; then echo -e "\e[33m-> UPDATE\e[0m"; else echo; fi
 
 minRegistrationFund=$(( ${drepDepositFee}+${fee}+${minOutUTXO} ))
