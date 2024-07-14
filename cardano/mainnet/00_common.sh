@@ -2,7 +2,12 @@
 unset magicparam network addrformat
 
 ##############################################################################################################################
-#
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
 # MAIN CONFIG FILE:
 #
 # Please set the following variables to your needs, you can overwrite them dynamically
@@ -173,7 +178,7 @@ case "${network,,}" in
 		_koiosAPI="https://api.koios.rest/api/v1"			#Koios-API URLs -> autoresolve into ${koiosAPI}
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		_adahandleAPI="https://api.handle.me"				#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
-		_catalystAPI="https://api.projectcatalyst.io/api/v1"		#Catalyst-API URLs -> autoresolve into ${catalystAPI}
+		_catalystAPI="https://api.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/mainnet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
@@ -230,11 +235,11 @@ case "${network,,}" in
 		_byronToShelleyEpochs=0
 		_tokenMetaServer="https://metadata.cardano-testnet.iohkdev.io/metadata"
 		_transactionExplorer=
-		_koiosAPI=
+		_koiosAPI="https://sancho.koios.rest/api/v1"
 		_adahandlePolicyID="f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"	#PolicyIDs for the adaHandles -> autoresolve into ${adahandlePolicyID}
 		_adahandleAPI=
 		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
-		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+		_lightModeParametersURL="https://uptime.live/data/cardano/parms/sanchonet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		;;
 
 
@@ -280,14 +285,14 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="8.17.0"  		#minimum allowed cli version for this script-collection version
+minCliVersion="9.0.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="8.7.2"  		#minimum allowed node version for this script-collection version
+minNodeVersion="8.12.2"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
-minLedgerCardanoAppVersion="5.0.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
-minTrezorCardanoAppVersion="2.6.0"  	#minimum version for the firmware on the Trezor HW-Wallet
-minHardwareCliVersion="1.12.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.15.2"	#minimum version for the cardano-signer binary
+minLedgerCardanoAppVersion="7.1.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
+minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
+minHardwareCliVersion="1.15.0" 		#minimum version for the cardano-hw-cli
+minCardanoSignerVersion="1.16.1"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
@@ -572,10 +577,10 @@ fi
 
 #-------------------------------------------------------------
 #Check if curl, jq, bc and xxd is installed
-if ! exists curl; then echo -e "\e[33mYou need the little tool 'curl', its needed to fetch online data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install curl\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
-if ! exists jq; then echo -e "\e[33mYou need the little tool 'jq', its needed to do the json processing !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install jq\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
-if ! exists bc; then echo -e "\e[33mYou need the little tool 'bc', its needed to do larger number calculations !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install bc\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
-if ! exists xxd; then echo -e "\e[33mYou need the little tool 'xxd', its needed to convert hex strings !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install xxd\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! ${offlineMode} && ! exists curl; then echo -e "\n\n\e[33mYou need the little tool 'curl', its needed to fetch online data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install curl\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! exists jq; then echo -e "\n\n\e[33mYou need the little tool 'jq', its needed to do the json processing !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install jq\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! exists bc; then echo -e "\n\n\e[33mYou need the little tool 'bc', its needed to do larger number calculations !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install bc\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
+if ! exists xxd; then echo -e "\n\n\e[33mYou need the little tool 'xxd', its needed to convert hex strings !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install xxd\n\n\e[33mThx! :-)\e[0m\n"; exit 2; fi
 
 
 #-------------------------------------------------------------
@@ -776,18 +781,32 @@ case ${workMode} in
                         if [[ $? -ne 0 ]]; then majorError "${currentEpoch}"; exit 1; fi
                         ;;
 
-        "offline")      #Offline-Mode, calculate the tip from the genesis file
-                        #Static
+        "offline")      #Offline-Mode, calculate from the genesis files
 
 			#Check path to genesis files
 			if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+			if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
-			local startTimeGenesis; local epochLength;
-			{ read startTimeGenesis; read epochLength; } <<< $( jq -r ".systemStart // \"null\", .epochLength // \"null\"" < ${genesisfile} 2> /dev/null)
-			local startTimeSec=$(date --date=${startTimeGenesis} +%s)     #in seconds (UTC)
+			#read byron genesis values
+			local byronSlotLength; 		#In Milliseconds
+			local byronK;			#Int
+			local byronStartTimeSec;	#In Secs (abs/UTC)
+			{ read byronSlotLength; read byronK; read byronStartTimeSec; } <<< $(jq -r ".blockVersionData.slotDuration // \"null\", .protocolConsts.k // \"null\", .startTime // \"null\"" < ${genesisfile_byron} 2> /dev/null)
+			local byronEpochLength=$(( 10 * ${byronK} ));		#In Secs
+			local byronEndTimeSec=$(( ${byronStartTimeSec} + ((${byronToShelleyEpochs} * ${byronEpochLength} * ${byronSlotLength})/1000) ))
+
+			#read shelley genesis values
+			local slotLength; 		#In Secs
+			local epochLength;		#In Secs
+			{ read slotLength; read epochLength; } <<< $(jq -r ".slotLength // \"null\", .epochLength // \"null\"" < ${genesisfile} 2> /dev/null)
+
+			#get current time
 			local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
-			local currentEpoch=$(( (${currentTimeSec}-${startTimeSec}) / ${epochLength} ))  #returns a integer number, we like that
+
+			#now lets calculate the current epoch
+			local currentEpoch=$(( ${byronToShelleyEpochs} + ((${currentTimeSec} - ${byronEndTimeSec}) / ${slotLength} / ${epochLength}) ))  #returns a integer number, we like that
                         ;;
+
 esac
 
 echo ${currentEpoch}
@@ -837,32 +856,34 @@ case ${workMode} in
 			if [[ $? -ne 0 ]]; then majorError "${currentTip}"; exit 1; fi
 			;;
 
-	"offline")	#Offline-Mode, calculate the tip from the genesis file
-			#Static
+	"offline")	#Offline-Mode, calculate the tip from the genesis files
 
-                        if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
-                        if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
+			#Check path to genesis files
+			if [[ ! -f "${genesisfile}" ]]; then majorError "Path ERROR - Path to the shelley genesis file '${genesisfile}' is wrong or the file is missing!"; exit 1; fi
+			if [[ ! -f "${genesisfile_byron}" ]]; then majorError "Path ERROR - Path to the byron genesis file '${genesisfile_byron}' is wrong or the file is missing!"; exit 1; fi
 
+			#read byron genesis values
+			local byronSlotLength; 		#In Milliseconds
+			local byronK;			#Int
+			local byronStartTimeSec;	#In Secs (abs/UTC)
+			{ read byronSlotLength; read byronK; read byronStartTimeSec; } <<< $(jq -r ".blockVersionData.slotDuration // \"null\", .protocolConsts.k // \"null\", .startTime // \"null\"" < ${genesisfile_byron} 2> /dev/null)
+			local byronEpochLength=$(( 10 * ${byronK} ));		#In Secs
+			local byronEndTimeSec=$(( ${byronStartTimeSec} + ((${byronToShelleyEpochs} * ${byronEpochLength} * ${byronSlotLength})/1000) ))
+
+			#read shelley genesis values
 			local slotLength; 		#In Secs
-			local epochLength;		#In Secs
-			local slotsPerKESPeriod; 	#Number
-			local startTimeGenesis;		#In Text
-			{ read slotLength; read epochLength; read slotsPerKESPeriod; read startTimeGenesis; } <<< $(jq -r ".slotLength // \"null\", .epochLength // \"null\", .slotsPerKESPeriod // \"null\", .systemStart // \"null\"" < ${genesisfile} 2> /dev/null)
-			local startTimeByron=$(jq -r .startTime < ${genesisfile_byron} 2> /dev/null)           #In Secs(abs)
-			local startTimeSec=$(date --date=${startTimeGenesis} +%s)                     #In Secs(abs)
-			local transTimeEnd=$(( ${startTimeSec}+(${byronToShelleyEpochs}*${epochLength}) ))                    #In Secs(abs) End of the TransitionPhase
-			local byronSlots=$(( (${startTimeSec}-${startTimeByron}) / 20 ))              #NumSlots between ByronChainStart and ShelleyGenesisStart(TransitionStart)
-			local transSlots=$(( (${byronToShelleyEpochs}*${epochLength}) / 20 ))         #NumSlots in the TransitionPhase
+			{ read slotLength; } <<< $(jq -r ".slotLength // \"null\"" < ${genesisfile} 2> /dev/null)
 
-			#Dynamic
-			local currentTimeSec=$(date -u +%s)
+			#get current time
+			local currentTimeSec=$(date -u +%s)                           #in seconds (UTC)
 
 			#Calculate current slot
-			if [[ "${currentTimeSec}" -lt "${transTimeEnd}" ]];
-			        then #In Transistion Phase between ShelleyGenesisStart and TransitionEnd
-			        local currentTip=$(( ${byronSlots} + (${currentTimeSec}-${startTimeSec}) / 20 ))
-			        else #After Transition Phase
-			        local currentTip=$(( ${byronSlots} + ${transSlots} + ((${currentTimeSec}-${transTimeEnd}) / ${slotLength}) ))
+			if [[ "${currentTimeSec}" -lt "${byronEndTimeSec}" ]]; then #we are in byron era
+			        local currentTip=$(( ((${currentTimeSec}-${byronStartTimeSec})*1000) / ${byronSlotLength} ))
+		        else #we are in shelley+ era
+				local byronSlots=$(( (${byronToShelleyEpochs} * ${byronEpochLength}) ))
+				local shelleySlots=$(( (${currentTimeSec}-${byronEndTimeSec}) / ${slotLength} ))
+			        local currentTip=$(( ${byronSlots} + ${shelleySlots} ))
 			fi
 			;;
 
@@ -1113,11 +1134,13 @@ calc_minOutUTXOcli() {
         #${1} = protocol-parameters(json format) content
         #${2} = tx-out string
 
-local protocolParam=${1}
+local allParameters=( "$@" )
+local protocolParam=${allParameters[0]}
+local txOut=${allParameters[1]}
 ###local multiAsset=$(echo ${2} | cut -d'+' -f 3-) #split at the + marks and only keep assets
-tmp=$(${cardanocli} transaction calculate-min-required-utxo ${nodeEraParam} --protocol-params-file <(echo "${protocolParam}") --tx-out "${2}" 2> /dev/null)
+tmp=$(${cardanocli} ${cliEra} transaction calculate-min-required-utxo --protocol-params-file <(echo "${protocolParam}") --tx-out "${txOut}" 2> /dev/stdout)
 
-if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Can't calculate minValue for the given tx-out string: ${2} !\e[0m"; exit 1; fi
+if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - Can't calculate minValue for the given tx-out string:\n${txOut}\n\nError: ${tmp}\e[0m" > /dev/stderr; exit 1; fi
 echo ${tmp} | cut -d' ' -f 2 #Output is "Lovelace xxxxxx", so return the second part
 }
 #-------------------------------------------------------
@@ -1139,7 +1162,7 @@ local protocolVersionMajor=$(jq -r ".protocolVersion.major | select (.!=null)" <
 
 
 ### switch the method of the minOutUTXO calculation depending on the current era, starting with protocolVersionMajor>=7 (babbage)
-if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 8=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
+if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 9+10=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
 
 	#chain constants for babbage
 	local constantOverhead=160 #constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions in babbage era
@@ -1249,9 +1272,9 @@ if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 8=Conway ..., new since
 	fi #only lovelaces or lovelaces + assets
 
 	#We need to get the CostPerByte. This is reported via the protocol-parameters in the utxoCostPerByte or utxoCostPerWord parameter
-	local utxoCostPerByte=$(jq -r ".utxoCostPerByte | select (.!=null)" <<< ${protocolParam}); #babbage
+	local utxoCostPerByte=$(jq -r ".utxoCostPerByte // .coinsPerUTxOByte // \"\"" <<< ${protocolParam}); #babbage
 	if [[ "${utxoCostPerByte}" == "" ]]; then #if the parameter is not present, use the utxoCostPerWord one. a word is 8 bytes
-						local utxoCostPerWord=$(jq -r ".utxoCostPerWord | select (.!=null)" <<< ${protocolParam});
+						local utxoCostPerWord=$(jq -r ".utxoCostPerWord // \"\"" <<< ${protocolParam});
 						local utxoCostPerByte=$(( ${utxoCostPerWord} / 8 ))
 	fi
 
@@ -1261,7 +1284,7 @@ if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 8=Conway ..., new since
 	exit #calculation for babbage is done, leave the function
 fi
 
-### if we are here, it was not a babbage style calculation, so lets do it for the other eras
+### if we are here, it was not a babbage or conway style calculation, so lets do it for the other eras
 ### do the calculation for shelley, allegra, mary, alonzo
 
 #chain constants, based on the specifications: https://hydra.iohk.io/build/5949624/download/1/shelley-ma.pdf
@@ -1422,16 +1445,19 @@ queryLight_stakeAddressInfo() { #${1} = address to query
 	if [[ $(jq -r ".[0].status" <<< "${responseJSON}" 2> /dev/null) != "registered" ]]; then
 		printf "[]"; #stakeAddress not registered on chain, return an empty array
 		else
-#		local delegation=$(jq -r ".[0].delegated_pool" <<< "${responseJSON}" 2> /dev/null)
-#		local rewardAccountBalance=$(jq -r ".[0].rewards_available" <<< "${responseJSON}" 2> /dev/null)
-		local delegation; local rewardAccountBalance; local delegationDeposit; #define local variables so we can read it in one go with the next jq command
-		{ read delegation; read rewardAccountBalance; read delegationDeposit; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\"" <<< "${responseJSON}" 2> /dev/null)
+
+		local delegation; local rewardAccountBalance; local delegationDeposit; local voteDelegation; #define local variables so we can read it in one go with the next jq command
+		{ read delegation; read rewardAccountBalance; read delegationDeposit; read voteDelegation; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\", .[0].vote_delegation // \"null\"" <<< "${responseJSON}" 2> /dev/null)
 
 		#deposit value, always 2000000 lovelaces until conway
-#		local delegationDeposit=$(jq -r ".[0].deposit" <<< "${responseJSON}" 2> /dev/null)
 		if [[ ${delegationDeposit} == null ]]; then delegationDeposit=2000000; fi
 
-		jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": \"${delegation}\", \"delegationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance} } ]" #compose a json like the cli output
+
+		#convert bech-voteDelegation into keyHash-voteDelegation
+		if [[ ${voteDelegation} != null ]]; then voteDelegation="keyHash-$(${bech32_bin} <<< ${voteDelegation})"; fi
+
+
+		jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": \"${delegation}\", \"delegationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance},  \"voteDelegation\": \"${voteDelegation}\" } ]" #compose a json like the cli output
 		#return the composed json
 		printf "${jsonRet}"
 	fi
@@ -1882,7 +1908,7 @@ int_from_cbor() {
 	elif [[ ${retCode} -eq 0 && ${entryCnt} -ne 0 ]]; then
 		entryCnt=$(( ${entryCnt} -1 )); tmp=$(int_from_cbor "${cborHexString:${charLen} }" "${entryCnt}"); retCode=$?; echo -n "${tmp}"; exit ${retCode}; #itteration, go to the next number
 	else
-		 echo -n "error"; exit 1; #an error occured
+		 echo -n "${cborHexString}"; exit 1; #an error occured (not a int number), so lets exit with exit code 1 and return the leftover cbor string
 	fi
 
 }
@@ -1917,10 +1943,11 @@ if ${offlineMode}; then
 			echo -ne "\e[0m    Offline Version:"
 			local versionTmp=$(jq -r ".general.offlineCLI" <<< ${offlineJSON}); if [[ "${versionTmp}" == null ]]; then versionTmp="-.--.-"; fi; echo -e "\e[32m cli ${versionTmp}\e[0m"
 fi
+
+#addresses
 echo
 local addressCnt=$(jq -r ".address | length" <<< ${offlineJSON})
 echo -e "\e[0m    Address-Entries:\e[32m ${addressCnt}\e[0m\t";
-
 for (( tmpCnt=0; tmpCnt<${addressCnt}; tmpCnt++ ))
 do
   local addressKey=$(jq -r ".address | keys[${tmpCnt}]" <<< ${offlineJSON})
@@ -1939,8 +1966,24 @@ do
 					     fi
   echo -e "\n\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${addressName} \e[90m(${addressAmount}, ${addressDate}) \e[35m${addressUsed}\e[0m\n\t   \t\e[90m${addressKey}\e[0m"
 done
-local filesCnt=$(jq -r ".files | length" <<< ${offlineJSON});
+
+#dreps
 echo
+local drepCnt=$(jq -r ".drep | length" <<< ${offlineJSON})
+echo -e "\e[0m       DRep-Entries:\e[32m ${drepCnt}\e[0m\t";
+for (( tmpCnt=0; tmpCnt<${drepCnt}; tmpCnt++ ))
+do
+  local Key=$(jq -r ".drep | keys[${tmpCnt}]" <<< ${offlineJSON})
+  local drepName=$(jq -r ".drep.\"${Key}\".name" <<< ${offlineJSON})
+  local drepDeposit=$(jq -r ".drep.\"${Key}\".deposit // \"\"" <<< ${offlineJSON})
+  if [[ ${drepDeposit} != "" ]]; then drepDeposit="Deposit: $(convertToADA ${drepDeposit}) ADA"; else drepDeposit="not registered"; fi
+  local drepDate=$(jq -r ".drep.\"${Key}\".date" <<< ${offlineJSON})
+  echo -e "\n\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${drepName} \e[90m(${drepDeposit}, ${drepDate})\e[0m\n\t   \t\e[90m${Key}\e[0m"
+done
+
+#files
+echo
+local filesCnt=$(jq -r ".files | length" <<< ${offlineJSON});
 echo -e "\e[0m     Files-Attached:\e[32m ${filesCnt}\e[0m"; if [[ ${filesCnt} -gt 0 ]]; then echo; fi
 for (( tmpCnt=0; tmpCnt<${filesCnt}; tmpCnt++ ))
 do
@@ -1984,7 +2027,7 @@ do
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         ;;
 
-        DelegationCertRegistration )
+        DelegationCertRegistration|VoteDelegationCertRegistration )
                         #Delegation Certificate Registration
                         local transactionDelegName=$(jq -r ".transactions[${tmpCnt}].delegName" <<< ${offlineJSON})
                         echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${transactionType}[${transactionEra}] for '${transactionDelegName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
@@ -1998,9 +2041,16 @@ do
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         ;;
 
+        DRepIDRegistration|DRepIDReRegistration|DRepIDRetirement )
+                        #DRep ID Certificate Registration/Update/Deregistration
+                        local transactionDRepName=$(jq -r ".transactions[${tmpCnt}].drepName" <<< ${offlineJSON})
+                        echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[0m${transactionType}[${transactionEra}] for '${transactionDRepName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
+                        echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
+                        ;;
+
 
 	* )		#Unknown Transaction Type !?
-			echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[35mUnknown transaction type\e[0m" 
+			echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[35mUnknown transaction type\e[0m"
 			;;
   esac
 

@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -16,6 +27,9 @@ Usage:    $(basename $0) <ENC|ENCRYPT|DEC|DECRYPT> <Name of SKEY-File>
 Example:  $(basename $0) enc mywallet          ... Encrypts the mywallet.skey file
           $(basename $0) enc owner.payment     ... Encrypts the owner.payment.skey file
           $(basename $0) enc mypool.node.skey  ... Encrypts the mypool.node.skey file
+          $(basename $0) enc mydrep.drep       ... Encrypts the mydrep.drep.skey file
+          $(basename $0) enc mycom.cc-hot.skey ... Encrypts the mycom.cc-hot.skey file
+
 
           $(basename $0) dec mywallet          ... Decrypts the mywallet.skey file
           $(basename $0) dec owner.staking     ... Decrypts the owner.staking.skey file

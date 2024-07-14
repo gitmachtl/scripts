@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -227,6 +238,8 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
         esac
 
+#	jq -r . <<< ${rewardsJSON}
+
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
         if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "\e[35mStaking Address is not on the chain, register it first !\e[0m\n"; exit 1;
@@ -241,6 +254,8 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 	rewardsAmountInADA=$(bc <<< "scale=6; ${rewardsAmount} / 1000000")
 
         delegationPoolID=$(jq -r ".[${tmpCnt}].delegation // .[${tmpCnt}].stakeDelegation" <<< ${rewardsJSON})
+
+        drepDelegationHASH=$(jq -r ".[${tmpCnt}].voteDelegation // \"notSet\"" <<< ${rewardsJSON})
 
         rewardsSum=$((${rewardsSum}+${rewardsAmount}))
 	rewardsSumInADA=$(bc <<< "scale=6; ${rewardsSum} / 1000000")
@@ -294,6 +309,40 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 		echo -e "   \tAccount is not delegated to a Pool !";
 
 	fi
+
+	#Show the current status of the voteDelegation
+	case ${drepDelegationHASH} in
+		"alwaysNoConfidence")
+			#always-no-confidence
+			echo -e "   \t\e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m\n";
+			;;
+
+		"alwaysAbstain")
+			#always-abstain
+			echo -e "   \t\e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS ABSTAIN\e[0m\n";
+			;;
+
+		"notSet")
+			#no votingpower delegated
+			echo -e "   \t\e[0mVoting-Power of Staking Address is not delegated to a DRep !\e[0m\n";
+			;;
+
+		*)
+			#normal drep-id or drep-script-id
+			case "${drepDelegationHASH%%-*}" in
+				"keyHash")	drepDelegationID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+						echo -e "   \t\e[0mVoting-Power of Staking Address is delegated to DRepID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
+						;;
+				"scriptHash")   drepDelegationID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+						echo -e "   \t\e[0mVoting-Power of Staking Address is delegated to DRep-Script-ID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
+						;;
+				*)		#unknown type
+						echo -e "   \t\e[0mVoting-Power of Staking Address is delegated to DRep-HASH: \e[32m${drepDelegationHASH}\e[0m\n";
+						;;
+			esac
+			;;
+
+	esac
 
         echo
 

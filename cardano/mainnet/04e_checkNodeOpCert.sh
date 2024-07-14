@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -194,6 +205,7 @@ case ${workMode} in
                 onDiskOpcertCount=$(int_from_cbor "${cborHex:72}") #opcert counter starts at index 72, lets decode the unsigned integer number
                 if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't decode opcert counter from file '${opCertFile}' !\e[0m"; echo; exit 2; fi
 		onDiskKESStart=$(int_from_cbor "${cborHex:72}" 1) #kes start counter is the next number after the opcert number, so lets skip 1 number
+                if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Couldn't decode KES start from file '${opCertFile}' !\e[0m"; echo; exit 2; fi
 		#get the pool id from the node vkey information within the opcert file
 		poolID=$(xxd -r -ps <<< ${cborHex: -64} | b2sum -l 224 -b | cut -d' ' -f 1 | ${bech32_bin} "pool")
 

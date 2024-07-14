@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -14,6 +25,7 @@ Usage:    $(basename $0) new                ... Resets the '$(basename ${offline
 
 	  $(basename $0) add mywallet       ... Adds the UTXO info of mywallet.addr to the '$(basename ${offlineFile})'
           $(basename $0) add owner.staking  ... Adds the Rewards info of owner.staking to the '$(basename ${offlineFile})'
+          $(basename $0) add mydrep.drep    ... Adds the DRep info of mydrep.drep.id to the '$(basename ${offlineFile})'
 
           $(basename $0) execute            ... Executes the first cued transaction in the '$(basename ${offlineFile})'
           $(basename $0) execute 3          ... Executes the third cued transaction in the '$(basename ${offlineFile})'
@@ -49,8 +61,26 @@ case ${1} in
 		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT MODE to do this!\e[0m\n"; exit 1; #exit if command is called in offline mode, needs to be in online mode
 		elif [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mYour ONLINE/LIGHT Node must be fully synced, please wait a bit!\e[0m\n"; exit 1; #check that the node is fully synced
 		fi
-		if [[ $# -eq 2 ]]; then addrName="$(dirname $2)/$(basename $2 .addr)"; addrName=${addrName/#.\//}; else echo -e "\e[35mMissing AddressName for the Address!\e[0m\n"; showUsage; exit 1; fi
-		if [ ! -f "${addrName}.addr" ]; then echo -e "\e[35mNo ${addrName}.addr file found for the Address!\e[0m\n"; showUsage; exit 1; fi
+		if [[ $# -eq 2 ]]; then
+
+			#check what it is
+			case "$(basename ${2})" in
+
+				*".drep"*) #if it contains the string ".drep", check if there is a *.drep.id file
+					drepName="$(dirname $2)/$(basename $2 .id)"; drepName=${drepName/#.\//};
+					if [ ! -f "${drepName}.id" ]; then echo -e "\e[35mNo ${drepName}.id file found for adding a DRep!\e[0m\n"; showUsage; exit 1; fi
+					action="add-drep";
+					;;
+
+				*) #nothing matched, should be a payment/stake address than. check that there is a *.addr file
+					addrName="$(dirname $2)/$(basename $2 .addr)"; addrName=${addrName/#.\//};
+					if [ ! -f "${addrName}.addr" ]; then echo -e "\e[35mNo ${addrName}.addr file found for adding a Address!\e[0m\n"; showUsage; exit 1; fi
+					;;
+			esac
+
+		else
+			echo -e "\e[35mMissing AddressName/DRepName for the Input!\e[0m\n"; showUsage; exit 1;
+		fi # $# -eq 2
 		;;
 
   attach )
@@ -114,8 +144,23 @@ case ${action} in
 
 		#Read ProtocolParameters
 		case ${workMode} in
-		        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters );; #onlinemode
-		        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+
+		        "online") #onlinemode
+				#get the normal parameters
+				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
+	                        #get the previous actions ids for the various action types and the constitution state
+	                        prevActionIDsJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".nextRatifyState.nextEnactState.prevGovActionIds" 2> /dev/null)
+				if [[ ${prevActionIDsJSON} == "" ]]; then prevActionIDsJSON='{}'; fi
+				constitutionParametersJSON=$(${cardanocli} ${cliEra} query constitution 2> /dev/null | jq -r "." 2> /dev/null)
+				if [[ ${constitutionParametersJSON} == "" ]]; then constitutionParametersJSON='{}'; fi
+				#merge them together
+	                        protocolParametersJSON=$( jq --sort-keys ".constitution += ${constitutionParametersJSON} | .prevActionIDs += ${prevActionIDsJSON}" <<< ${protocolParametersJSON})
+				;;
+
+		        "light") #lightmode
+				protocolParametersJSON=${lightModeParametersJSON}
+				;;
+
 		esac
 		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
@@ -136,11 +181,26 @@ case ${action} in
                 exit;
                 ;;
 
-  add )
+  add|add-drep )
 		#Updating the current protocolParameters before doing other stuff later on
 		case ${workMode} in
-		        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters );; #onlinemode
-		        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+
+		        "online") #onlinemode
+				#get the normal parameters
+				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
+	                        #get the previous actions ids for the various action types and the constitution state
+	                        prevActionIDsJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".nextRatifyState.nextEnactState.prevGovActionIds" 2> /dev/null)
+				if [[ ${prevActionIDsJSON} == "" ]]; then prevActionIDsJSON='{}'; fi
+				constitutionParametersJSON=$(${cardanocli} ${cliEra} query constitution 2> /dev/null | jq -r "." 2> /dev/null)
+				if [[ ${constitutionParametersJSON} == "" ]]; then constitutionParametersJSON='{}'; fi
+				#merge them together
+	                        protocolParametersJSON=$( jq --sort-keys ".constitution += ${constitutionParametersJSON} | .prevActionIDs += ${prevActionIDsJSON}" <<< ${protocolParametersJSON})
+				;;
+
+		        "light") #lightmode
+				protocolParametersJSON=${lightModeParametersJSON}
+				;;
+
 		esac
 		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
@@ -475,6 +535,90 @@ fi # END
 
 ###########################################
 ###
+### action = add-drep
+###
+###########################################
+#
+# START
+
+if [[ "${action}" == "add-drep" ]]; then
+
+drepID=$(cat ${drepName}.id) #we already checked that the file is present, so load the id from it
+
+#do a short check if its a valid bech string
+tmp=$(${bech32_bin} <<< ${drepID} 2> /dev/null)
+if [ $? -ne 0 ]; then echo -e "\e[35mERROR - The content of '${drepName}.id' is not a valid DRep-Bech-ID.\e[0m\n"; exit 1; fi;
+
+        echo -e "\e[0mChecking current Status about the DRep-ID:\e[32m ${drepID}\e[0m\n"
+
+        #Get state data for the drepID. When in online mode of course from the node and the chain, in light mode via koios
+        case ${workMode} in
+
+                "online")       showProcessAnimation "Query DRep-ID Info: " &
+                                drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} --include-stake 2> /dev/stdout )
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                                drepStateJSON=$(jq -r ".[0] // []" <<< "${drepStateJSON}") #get rid of the outer array. if null, make an empty array
+                                ;;
+
+#                "light")        showProcessAnimation "Query DRep-ID-Info-LightMode: " &
+#                                drepStateJSON=$(queryLight_drepInfo "${drepID}")
+#                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+#                                ;;
+
+        esac
+
+#        { read drepEntryCnt; read drepDepositAmount; read drepAnchorURL; read drepAnchorHASH; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash"' <<< ${drepStateJSON})
+
+	{ read drepEntryCnt;
+	  read drepDepositAmount;
+	  read drepAnchorURL;
+	  read drepAnchorHASH;
+	  read drepExpireEpoch;
+	  read drepDelegatedStake; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash", .[1].expiry // "-", .[1].stake // 0' <<< ${drepStateJSON})
+
+        #Checking about the content
+        if [[ ${drepEntryCnt} == 0 ]]; then #not registered yet
+                echo -e "\e[0mDRep-ID is NOT on the chain, we will add this information to register it offline.\e[0m\n";
+	else
+		echo -e "\e[0mDRep-ID is \e[32mregistered\e[0m on the chain with a deposit of \e[32m${drepDepositAmount}\e[0m lovelaces"
+		echo -e "\e[0mCurrent Anchor-URL(HASH):\e[94m ${drepAnchorURL} (${drepAnchorHASH})\e[0m"
+	        echo -e "\e[0m    Current Expire-Epoch:\e[32m ${drepExpireEpoch}\e[0m"
+	        echo -e "\e[0m Current Delegated-Stake:\e[32m $(convertToADA ${drepDelegatedStake}) ADA\e[0m\n"
+	fi
+
+        echo
+
+        #Add this DRep-ID to the offline.json file
+        offlineJSON=$( jq ".drep.\"${drepID}\" += {name: \"${drepName}\" }" <<< ${offlineJSON})
+        offlineJSON=$( jq ".drep.\"${drepID}\" += {deposit: ${drepDepositAmount} }" <<< ${offlineJSON})
+        offlineJSON=$( jq ".drep.\"${drepID}\" += {date: \"$(date -R)\" }" <<< ${offlineJSON})
+        offlineJSON=$( jq ".drep.\"${drepID}\" += {drepStateJSON: ${drepStateJSON} }" <<< ${offlineJSON})
+
+        offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"added drep-id info for '${drepName}'\" } ]" <<< ${offlineJSON})
+
+        #Write the new offileFile content
+        echo "${offlineJSON}" > ${offlineFile}
+
+        #Readback the content and compare it to the current one
+        readback=$(cat ${offlineFile} | jq -r ".drep.\"${drepID}\".drepStateJSON")
+        if [[ "${drepStateJSON}" == "${readback}" ]]; then
+							showOfflineFileInfo;
+							echo -e "\e[33mLatest Information about this DRep-ID was added to the '$(basename ${offlineFile})'.\nYou can now transfer it to your offline machine to work with it, or you can\nadd another address/drep information to the file by re-running this script.\e[0m\n";
+                                                 else
+                                                        echo -e "\e[35mERROR - Could not verify the written data in the offlineFile '${offlineFile}'. Retry or delete the offlineFile and retry again.\e[0m\n";
+        fi
+
+fi # END
+#
+###########################################
+###
+### action = add-drep
+###
+###########################################
+
+
+###########################################
+###
 ### action = execute
 ###
 ###########################################
@@ -745,7 +889,7 @@ case ${transactionType} in
                         ;;
 
 
-        DelegationCertRegistration )
+        DelegationCertRegistration|VoteDelegationCertRegistration )
                         #StakeKey Registration of De-Registration Transaction
                         transactionDelegName=$(jq -r ".transactions[${transactionIdx}].delegName" <<< ${offlineJSON})
 
@@ -803,7 +947,74 @@ case ${transactionType} in
 
                                 #Write the new offileFile content
 				offlineJSON=$( jq ".address.\"${transactionFromAddr}\" += {used: \"yes\" }" <<< ${offlineJSON})
-                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"tx submit ${txID} - ${transactionType} for '${transactionStakeName}', payment via '${transactionFromName}'\" } ]" <<< ${offlineJSON})
+                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"tx submit ${txID} - ${transactionType} for '${transactionDelegName}', payment via '${transactionFromName}'\" } ]" <<< ${offlineJSON})
+                                offlineJSON=$( jq "del (.transactions[${transactionIdx}])" <<< ${offlineJSON})
+                                echo "${offlineJSON}" > ${offlineFile}
+                                showOfflineFileInfo;
+                                echo
+                        fi
+                        ;;
+
+
+        DRepIDRegistration|DRepIDReRegistration|DRepIDRetirement )
+                        #DRep-ID Registration, Update or Retirement Transaction
+                        transactionDRepName=$(jq -r ".transactions[${transactionIdx}].drepName" <<< ${offlineJSON})
+
+			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
+		        case ${workMode} in
+		                "online")	showProcessAnimation "Query-UTXO: " &
+						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+
+		                "light")	showProcessAnimation "Query-UTXO-LightMode: " &
+						utxo=$(queryLight_UTXO "${transactionFromAddr}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						;;
+			esac
+                        showProcessAnimation "Convert-UTXO: " &
+                        utxoLiveJSON=$(generate_UTXO "${utxo}" "${transactionFromAddr}"); stopProcessAnimation;
+			utxoLiveJSON=$(jq . <<< ${utxoLiveJSON}) #to bring it in the jq format if compressed
+
+			utxoOfflineJSON=$(jq -r ".address.\"${transactionFromAddr}\".utxoJSON" <<< ${offlineJSON})
+
+	             	if [[ ! "${utxoLiveJSON}" == "${utxoOfflineJSON}" ]]; then echo -e "\e[35mERROR - The UTXO status between the offline capture and now has changed for the payment address '${transactionFromName}' !\e[0m\n"; exit 1; fi
+
+                        echo -e "\e[90m\t[${transactionCue}]\t\e[0m${transactionType}[${transactionEra}] for '${transactionDRepName}', payment via '${transactionFromName}' \e[90m(${transactionDate})"
+                        echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
+                        echo
+
+                        if ask "\e[33mDoes this look good for you, continue ?" N; then
+
+		       		echo
+				case ${workMode} in
+					"online")
+						#onlinesubmit
+						echo -ne "\e[0mSubmitting the transaction via the node ... "
+						${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
+
+						#Show the TxID
+						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+
+					"light")
+						#lightmode submit
+						showProcessAnimation "Submit-Transaction-LightMode: " &
+						txID=$(submitLight "${txFile}");
+						if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${txID}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+						echo -e "\e[0mSubmit-Transaction-LightMode ... \e[32mDONE\n"
+						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+						;;
+				esac
+				echo
+
+                                #Write the new offileFile content
+				offlineJSON=$( jq ".address.\"${transactionFromAddr}\" += {used: \"yes\" }" <<< ${offlineJSON})
+                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"tx submit ${txID} - ${transactionType} for '${transactionDRepName}', payment via '${transactionFromName}'\" } ]" <<< ${offlineJSON})
                                 offlineJSON=$( jq "del (.transactions[${transactionIdx}])" <<< ${offlineJSON})
                                 echo "${offlineJSON}" > ${offlineFile}
                                 showOfflineFileInfo;
