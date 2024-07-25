@@ -285,11 +285,11 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="9.0.0"			#minimum allowed cli version for this script-collection version
+minCliVersion="9.2.1"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="8.12.2"  		#minimum allowed node version for this script-collection version
+minNodeVersion="9.1.0"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
-minLedgerCardanoAppVersion="7.1.0"  	#minimum version for the cardano-app on the Ledger HW-Wallet
+minLedgerCardanoAppVersion="7.1.1"  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minHardwareCliVersion="1.15.0" 		#minimum version for the cardano-hw-cli
 minCardanoSignerVersion="1.16.1"	#minimum version for the cardano-signer binary
