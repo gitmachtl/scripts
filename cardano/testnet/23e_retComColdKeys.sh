@@ -202,25 +202,27 @@ echo -e "\e[0mCommittee-Cold-Key HASH: \e[32m${comColdHash} \e[0m(\e[32m${comCol
 case ${workMode} in
 
         "online")
-			#echo -e "\e[0mChecking Information about the Committee-Cold-Key HASH:\e[0m\n"
-			showProcessAnimation "Query Committee-State Info: " &
+                        showProcessAnimation "Query Committee-State Info: " &
                         committeeStateJSON=$(${cardanocli} ${cliEra} query committee-state --cold-verification-key-hash ${comColdHash} 2> /dev/stdout )
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                         ;;
 
-	"light")	echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
-			;;
-#
-#
+        "light")
+                        showProcessAnimation "Query Committee-State Info-LightMode: " &
+                        committeeStateJSON=$(queryLight_committeeState "${comColdHash}")
+                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                        ;;
+
         "offline")      echo -e "\n\e[91mINFORMATION - This script does not support Offline-Mode yet, waiting for Koios support!\n\e[0m"; exit;
-#			readOfflineFile; #Reads the offlinefile into the offlineJSON variable
-#                        drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
-#                        if [[ "${drepStateJSON}" == null ]]; then echo -e "\e[35mDRep-ID not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
                         ;;
 
 	*) ;;
 
+
 esac
+
+jq -r <<< ${committeeStateJSON}
+
 
 #### DATA FORMAT
 #{
@@ -245,7 +247,7 @@ esac
   read comColdHotAuthHash;
   read comColdExpirationEpoch;
   read comColdStatus;
-  read comColdNextEpochChange; } <<< $(jq -r ".committee | length, ( .\"keyHash-${comColdHash}\" | .hotCredsAuthStatus.contents.keyHash // \"-\", .expiration // \"-\", .status // \"-\", .nextEpochChange // \"-\")" <<< ${committeeStateJSON})
+  read comColdNextEpochChange; } <<< $(jq -r ".committee | length, ( .\"keyHash-${comColdHash}\" | .hotCredsAuthStatus.contents.keyHash // \"-\", .expiration // \"-\", .status // \"-\", .nextEpochChange.tag // \"-\")" <<< ${committeeStateJSON})
 
 #Checking about the content
 if [[ ${comColdEntryCnt} == 0 ]]; then #not registered yet

@@ -211,11 +211,11 @@ case ${workMode} in
 			drepStateJSON=$(jq -r .[0] <<< "${drepStateJSON}") #get rid of the outer array
 			;;
 
-	"light")        #showProcessAnimation "Query DRep-ID-Info-LightMode: " &
-			echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
-#			drepStateJSON=$(queryLight_drepInfo "${drepID}")
-#			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-			;;
+        "light")        showProcessAnimation "Query DRep-ID-Info-LightMode: " &
+                        drepStateJSON=$(queryLight_drepInfo "${drepID}")
+                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                        drepStateJSON=$(jq -r ".[0] // []" <<< "${drepStateJSON}") #get rid of the outer array
+                        ;;
 
         "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
                         drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
@@ -223,7 +223,7 @@ case ${workMode} in
                         ;;
 esac
 
-{ read drepEntryCnt; read drepDepositAmount; read drepAnchorURL; read drepAnchorHASH; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash"' <<< ${drepStateJSON})
+{ read drepEntryCnt; read drepDepositAmount; read drepAnchorURL; read drepAnchorHASH; } <<< $(jq -r 'length, .[1].deposit // 0, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash"' <<< ${drepStateJSON})
 
 #Checking about the content
 if [[ ${drepEntryCnt} == 0 ]]; then #not registered yet

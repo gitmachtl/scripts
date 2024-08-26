@@ -424,7 +424,7 @@ fi
 
 #Read ProtocolParameters
 case ${workMode} in
-	"online")	protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters | jq -r ".extraPraosEntropy+= null");; #onlinemode
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters );; #onlinemode
 	"light")	protocolParametersJSON=${lightModeParametersJSON};; #lightmode
 	"offline")	protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
 esac

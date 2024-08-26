@@ -526,7 +526,7 @@ stakingName=$(basename ${stakeAddr} .staking) #contains the name before the .sta
 if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" == "${stakingName}" ]]; then
 
         #remove the tag(258) from the txBodyFile
-        sed -si 's/04d90102818308/04818308/g' "${txBodyFile}"
+#        sed -si 's/04d90102818308/04818308/g' "${txBodyFile}"
 
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
         tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi

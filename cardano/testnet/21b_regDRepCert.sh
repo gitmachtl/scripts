@@ -194,9 +194,6 @@ echo
 case ${workMode} in
         "online")       #onlinemode
 			protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
-#not needed anymore since cli 8.24.0.0
-#			governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".currentPParams")
-#			protocolParametersJSON=$( jq ". += ${governanceParametersJSON} " <<< ${protocolParametersJSON}) #embedding the governance parameters into the normal protocolParameters
 			;;
 
         "light")        #lightmode
@@ -226,7 +223,6 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 #If in online/light mode, check the anchorURL
 if ${onlineMode}; then
-
 
 	#get Anchor-URL content and calculate the Anchor-Hash
 	if [[ ${anchorURL} != "" ]]; then
@@ -300,10 +296,10 @@ case ${workMode} in
 			drepStateJSON=$(jq -r .[0] <<< "${drepStateJSON}") #get rid of the outer array
 			;;
 
-	"light")        #showProcessAnimation "Query DRep-ID-Info-LightMode: " &
-			echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
-#			drepStateJSON=$(queryLight_drepInfo "${drepID}")
-#			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+	"light")        showProcessAnimation "Query DRep-ID-Info-LightMode: " &
+			drepStateJSON=$(queryLight_drepInfo "${drepID}")
+			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+			drepStateJSON=$(jq -r .[0] <<< "${drepStateJSON}") #get rid of the outer array
 			;;
 
         "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable

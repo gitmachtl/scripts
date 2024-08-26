@@ -196,10 +196,13 @@ case ${workMode} in
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                         ;;
 
-	"light")	echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
-			;;
-#
-#
+
+        "light")
+                        showProcessAnimation "Query Committee-State Info-LightMode: " &
+                        committeeStateJSON=$(queryLight_committeeState "${commColdHash}")
+                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+                        ;;
+
         "offline")	echo -e "\n\e[91mINFORMATION - This script does not support Offline-Mode yet, waiting for Koios support!\n\e[0m"; exit;
 #			readOfflineFile; #Reads the offlinefile into the offlineJSON variable
 #                        drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
@@ -607,7 +610,7 @@ if ask "\e[33mDoes this look good for you ?" N; then
 				#onlinesubmit
                                 echo -ne "\e[0mSubmitting the transaction via the node... "
                                 ${cardanocli} ${cliEra} transaction submit --tx-file ${txFile}
-                                if [ $? -ne 0 ]; then echo -e "\n\e[35mError - Make sure the pool is already registered.\n\e[0m\n"; exit $?; fi
+                                if [ $? -ne 0 ]; then echo -e "\n\e[35mError - Cannot authorize this Committee-Cold-Hash.\n\e[0m\n"; exit $?; fi
                                 echo -e "\e[32mDONE\n"
 
                                 #Show the TxID

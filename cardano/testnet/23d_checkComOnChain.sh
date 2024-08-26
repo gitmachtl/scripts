@@ -35,7 +35,7 @@ esac
 #Check can only be done in online mode
 if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to do this!\e[0m\n"; exit 1; fi
 
-echo -e "\e[0mChecking CommitteeKey-Information on Chain - Resolving given Info into CommitteeKey-HASH:\n"
+echo -e "\e[0mChecking CommitteeKey-Information on Chain - Resolving given Info into Committee-HASH:\n"
 
 #Check about the various input options: hex hash, bech id, .hash file, .cc-cold.hash file, .cc-hot.hash file, .vkey file, .cc-cold.vkey file, .cc-hot.vkey file
 if [[ "${checkCommitteeID//[![:xdigit:]]}" == "${checkCommitteeID}" && ${#checkCommitteeID} -eq 56 ]]; then #parameter is a committee-hash
@@ -132,79 +132,37 @@ else
 
 fi
 
-echo -e "\e[0mChecking Information about the CommitteeKey-HASH:\e[32m ${committeeHASH}\e[0m\n"
+echo -e "\e[0mChecking Information about the Committee-HASH:\e[32m ${committeeHASH}\e[0m\n"
 
 
 # We don't make a difference if the given CommitteeKey-HASH is for a Cold-Key or for a Hot-Key, we query for both
-
+# For the CLI, we have to do the lookup in two steps, because CLI does not support to search for cold and hot keys at the same time
 # Get state data for the committeeHASH. When in online mode of course from the node and the chain, in light mode via koios
-
 # COLD KEY CHECK
 case ${workMode} in
 
         "online")
-                        #echo -e "\e[0mChecking Information about the Committee-COLD-HASH:\e[0m\n"
                         showProcessAnimation "Query Committee-State Info: " &
-                        committeeStateJSON=$(${cardanocli} ${cliEra} query committee-state --cold-verification-key-hash ${committeeHASH} 2> /dev/stdout )
+                        committeeStateJSON=$(${cardanocli} ${cliEra} query committee-state --cold-verification-key-hash ${committeeHASH} --cold-script-hash ${committeeHASH} 2> /dev/stdout )
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+
+			#If there is no information in the result (length of the committee entrie is zero), try to query for the committeeHASH as a Hot-Key
+			if [[ $(jq -r ".committee | length" <<< ${committeeStateJSON}) -eq 0 ]]; then
+				showProcessAnimation "Query Committee-State Info: " &
+				committeeStateJSON=$(${cardanocli} ${cliEra} query committee-state --hot-key-hash ${committeeHASH} --hot-script-hash ${committeeHASH} 2> /dev/stdout )
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+			fi
                         ;;
 
-	"light")	echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
+	"light")
+			showProcessAnimation "Query Committee-State Info-LightMode: " &
+                        committeeStateJSON=$(queryLight_committeeState "${committeeHASH}")
+                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 			;;
-#
-#        "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
-#                        drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
-#                        if [[ "${drepStateJSON}" == null ]]; then echo -e "\e[35mDRep-ID not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-#                        ;;
+
         *) ;;
 
 esac
-
-
-#If there is no information in the result (length of the committee entrie is zero), try to query for the committeeHASH as a Hot-Key
-if [[ $(jq -r ".committee | length" <<< ${committeeStateJSON}) -eq 0 ]]; then
-
-	# HOT KEY CHECK
-	case ${workMode} in
-
-	        "online")
-	                        #echo -e "\e[0mChecking Information about the Committee-HOT-HASH:\e[0m\n"
-	                        showProcessAnimation "Query Committee-State Info: " &
-	                        committeeStateJSON=$(${cardanocli} ${cliEra} query committee-state --hot-key-hash ${committeeHASH} 2> /dev/stdout )
-	                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-	                        ;;
-
-	#       "light")        ;;
-	#
-	#        "offline")      readOfflineFile; #Reads the offlinefile into the offlineJSON variable
-	#                        drepStateJSON=$(jq -r ".drep.\"${drepID}\".drepStateJSON" <<< ${offlineJSON} 2> /dev/null)
-	#                        if [[ "${drepStateJSON}" == null ]]; then echo -e "\e[35mDRep-ID not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-	#                        ;;
-	        *) ;;
-
-	esac
-fi
-
-#### DATA FORMAT
-#{
-#    "committee": {
-#        "keyHash-5f1b4429fe3bda963a7b70ab81135112a785afcf55ccd695b122e794": {
-#            "expiration": null,
-#            "hotCredsAuthStatus": {
-#                "contents": {
-#                    "keyHash": "5aa349227e4068c85c03400396bcea13c7fd57d0ec78c604bc768fc5"
-#                },
-#                "tag": "MemberAuthorized"
-#            },
-#            "nextEpochChange": {
-#                "tag": "ToBeRemoved"
-#            },
-#            "status": "Unrecognized"
-#        }
-#    },
-#    "epoch": 240,
-#    "quorum": 0.0
-#}
 
 comColdHashArray=(); readarray -t comColdHashArray <<< $(jq -r ".committee | keys_unsorted[]" <<< "${committeeStateJSON}" 2> /dev/null)
 comColdHashArrayCnt=$(jq -r ".committee | length" <<< "${committeeStateJSON}" 2> /dev/null)
@@ -212,7 +170,7 @@ comColdHashArrayCnt=$(jq -r ".committee | length" <<< "${committeeStateJSON}" 2>
 #If the amount of entries is zero, exit with a message that no information was found
 if [[ ${comColdHashArrayCnt} == 0 ]]; then
 	echo -e "\e[0mFound: \e[33m0 entries\e[0m\n"
-	echo -e "\e[0mCommitteeKey HASH is \e[33mNOT\e[0m on the chain, no informations found!\n\e[0m";
+	echo -e "\e[0mCommitteeKey/Script HASH is \e[33mNOT\e[0m on the chain, no informations found!\n\e[0m";
 	exit;
 fi
 
@@ -229,7 +187,7 @@ do
 	  read comColdHotAuthTag;
 	  read comColdExpirationEpoch;
 	  read comColdStatus;
-	  read comColdNextEpochChange; } <<< $(jq -r ".committee | length, ( .\"${comColdEntry}\" | .hotCredsAuthStatus.contents.keyHash // \"-\", .hotCredsAuthStatus.tag // \"-\", .expiration // \"-\", .status // \"-\", .nextEpochChange.tag // \"-\")" <<< ${committeeStateJSON})
+	  read comColdNextEpochChange; } <<< $(jq -r ".committee | length, ( .\"${comColdEntry}\" | .hotCredsAuthStatus.contents.keyHash // .hotCredsAuthStatus.contents.scriptHash // \"-\", .hotCredsAuthStatus.tag // \"-\", .expiration // \"-\", .status // \"-\", .nextEpochChange.tag // \"-\")" <<< ${committeeStateJSON})
 
 	comColdHash=${comColdEntry: -56} #last 56chars of the entry is the hash itself
 
@@ -238,21 +196,21 @@ do
 	case ${comColdHotAuthTag} in
 
 		"MemberResigned") #Resigned
-		        echo -e "\e[0m Committee-Cold-Key HASH: \e[33m${comColdHash} (RESIGNED) ";;
+		        echo -e "\e[0m Committee-Cold-Key/Script HASH: \e[33m${comColdHash} (RESIGNED) ";;
 
 		*) #Registered
 			#Highlight the entry in green if it was the hash we initially searched for
 			if [[ "${comColdHash}" == "${committeeHASH}" ]]; then activeColor="\e[32m"; else activeColor="\e[94m"; fi
-		        echo -e "\e[0m Committee-Cold-Key HASH: ${activeColor}${comColdHash}";;
+		        echo -e "\e[0m Committee-Cold-Key/Script HASH: ${activeColor}${comColdHash}";;
 
 	esac
 
 	#Highlight the entry in green if it was the hash we initially searched for
 	if [[ "${comColdHotAuthHash}" == "${committeeHASH}" ]]; then activeColor="\e[32m"; else activeColor="\e[94m"; fi
-        echo -e "\e[0mAuthorizing-Hot-Key HASH: ${activeColor}${comColdHotAuthHash}\e[0m"
-        echo -e "\e[0m    Current Status / Tag: \e[94m${comColdStatus} / ${comColdHotAuthTag}\e[0m"
-        echo -e "\e[0m        Expiration Epoch: \e[94m${comColdExpirationEpoch}\e[0m"
-        echo -e "\e[0m       Next Epoch Change: \e[94m${comColdNextEpochChange}\e[0m"
+        echo -e "\e[0mAuthorizing-Hot-Key/Script HASH: ${activeColor}${comColdHotAuthHash}\e[0m"
+        echo -e "\e[0m           Current Status / Tag: \e[94m${comColdStatus} / ${comColdHotAuthTag}\e[0m"
+        echo -e "\e[0m               Expiration Epoch: \e[94m${comColdExpirationEpoch}\e[0m"
+        echo -e "\e[0m              Next Epoch Change: \e[94m${comColdNextEpochChange}\e[0m"
         echo
 	echo
 

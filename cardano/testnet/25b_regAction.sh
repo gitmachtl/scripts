@@ -797,7 +797,7 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
 				done
 				echo
 
-                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mYour Action-ID is: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
+                                if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
                                 ;;
 
 

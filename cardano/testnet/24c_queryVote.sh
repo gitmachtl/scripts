@@ -75,6 +75,7 @@ if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to
 
 #Default Variables
 govActionID=""; voterHash=""; voterType=""; returnHash="";
+voterID="-" #voterID="-" -> disabled currently for light mode
 
 #Parameter Count is 1 or more
 
@@ -93,12 +94,25 @@ for (( tmpCnt=0; tmpCnt<${paramCnt}; tmpCnt++ ))
 	        echo -e "\e[0mUsing Governance Action-ID:\e[32m ${govActionID}\e[0m\n"
 		govActionUTXO=${govActionID:0:64}
 		govActionIdx=$(( ${govActionID:65} + 0 )) #make sure to have single digits if provided like #00 #01 #02...
+		voterID=""
+
+	#Check if its a Governance Action-ID in Bech-Format
+	elif [[ "${paramValue:0:11}" == "gov_action1" ]]; then #parameter is most likely a bech32-action-id
+	        echo -ne "\e[0mCheck if given Action Bech-ID\e[32m ${paramValue}\e[0m is valid ..."
+	        #lets do some further testing by converting the bech32 DRep-id into a Hex-DRep-ID
+	        govActionID=$(convert_actionBech2UTXO ${paramValue}) #converts the given action bech id (CIP-129) into standard UTXO#IDX format
+	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid Bech32 ACTION-ID.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+	        echo -e "\e[0mUsing Governance Action-ID:\e[32m ${govActionID}\e[0m\n"
+		govActionUTXO=${govActionID:0:64}
+		govActionIdx=$(( ${govActionID:65} + 0 )) #make sure to have single digits if provided like #00 #01 #02...
+		voterID=""
 
 	#Check if its a Voter-Hash. Could be a DRep, CC-Hot or Pool-Hash. We don't know.
 	elif [[ "${paramValue,,}" =~ ^([[:xdigit:]]{56})$ ]]; then
 		if [[ "${voterHash}" != "" ]]; then echo -e "\n\e[91mERROR - Only one Voter-Hash is allowed as parameter!\e[0m\n"; exit 1; fi
 		voterHash="${paramValue,,}"
-		voterType="Hash"
+		voterType="Hash";
 
 	#Check if its a DRep-ID in Bech-Format
 	elif [[ "${paramValue:0:5}" == "drep1" && ${#paramValue} -eq 56 ]]; then #parameter is most likely a bech32-drep-id
@@ -107,7 +121,26 @@ for (( tmpCnt=0; tmpCnt<${paramCnt}; tmpCnt++ ))
 	        voterHash=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
 	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid Bech32 DRep-ID.\e[0m"; exit 1; fi
 	        echo -e "\e[32m OK\e[0m\n"
-		voterType="DRep"
+		voterType="DRep"; voterID=${paramValue,,}
+
+	#Check if its a DRep-ID in Bech-Format
+	elif [[ "${paramValue:0:12}" == "drep_script1" && ${#paramValue} -eq 63 ]]; then #parameter is most likely a bech32-drep-id
+	        echo -ne "\e[0mCheck if given DRep-Script Bech-ID\e[32m ${paramValue}\e[0m is valid ..."
+	        #lets do some further testing by converting the bech32 DRep-id into a Hex-DRep-ID
+	        voterHash=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
+	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid Bech32 DRep-Script-ID.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		voterType="DRep"; voterID=${paramValue,,}
+
+	#Check if its a DRep-ID in CIP129-Bech-Format
+	elif [[ "${paramValue:0:5}" == "drep1" && ${#paramValue} -eq 58 ]]; then #parameter is most likely a CIP129 bech32-drep-id
+	        echo -ne "\e[0mCheck if given CIP129 DRep Bech-ID\e[32m ${paramValue}\e[0m is valid ..."
+	        #lets do some further testing by converting the bech32 DRep-id into a Hex-DRep-ID
+	        voterHash=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
+	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid CIP129 Bech32 DRep-ID.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		voterHash=${voterHash: -56}
+		voterType="DRep"; voterID=${paramValue,,}
 
 	#Check if its a DRep-ID file with a Bech-ID
 	elif [[ -f "${paramValue}.drep.id" ]]; then #parameter is a DRep id file, containing a bech32 id
@@ -119,16 +152,35 @@ for (( tmpCnt=0; tmpCnt<${paramCnt}; tmpCnt++ ))
 	        voterHash=$(${bech32_bin} 2> /dev/null <<< "${drepID}") #will have returncode 0 if the bech was valid
 	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${drepID}\" is not a valid Bech32 DRep-ID.\e[0m"; exit 1; fi
 		echo -e "\e[32m OK\e[0m\n"
-		voterType="DRep"
+		voterType="DRep"; voterID=${drepID}
 
 	#Check if its a Committee-Hot-ID in Bech-Format
 	elif [[ "${paramValue:0:7}" == "cc_hot1" && ${#paramValue} -eq 58 ]]; then #parameter is most likely a bech32-committee-hot-id
 	        echo -ne "\e[0mCheck if given Committee-Hot Bech-ID\e[32m ${paramValue}\e[0m is valid ..."
-	        #lets do some further testing by converting the bech32 DRep-id into a Hex-DRep-ID
+	        #lets do some further testing by converting the bech32 Committee-id into a Hex-Committee-ID
 	        voterHash=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
 	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid Bech32 Committee-Hot-ID.\e[0m"; exit 1; fi
 	        echo -e "\e[32m OK\e[0m\n"
-		voterType="Committee-Hot"
+		voterType="Committee-Hot"; voterID=${paramValue,,}
+
+	#Check if its a Committee-Hot-ID in Bech-Format
+	elif [[ "${paramValue:0:14}" == "cc_hot_script1" && ${#paramValue} -eq 65 ]]; then #parameter is most likely a bech32-committee-hot-id
+	        echo -ne "\e[0mCheck if given Committee-Script-Hot Bech-ID\e[32m ${paramValue}\e[0m is valid ..."
+	        #lets do some further testing by converting the bech32 Committee-id into a Hex-Committee-ID
+	        voterHash=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
+	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid Bech32 Committee-Script-Hot-ID.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		voterType="Committee-Hot"; voterID=${paramValue,,}
+
+	#Check if its a Committee-Hot-ID in CIP129-Bech-Format
+	elif [[ "${paramValue:0:7}" == "cc_hot1" && ${#paramValue} -eq 60 ]]; then #parameter is most likely a CIP129 bech32-committee-hot-id
+	        echo -ne "\e[0mCheck if given CIP129 Committee-Hot Bech-ID\e[32m ${paramValue}\e[0m is valid ..."
+	        #lets do some further testing by converting the bech32 Committee-id into a Hex-Committee-ID
+	        voterHash=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
+	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid CIP129 Bech32 Committee-Hot-ID.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		voterHash=${voterHash: -56}
+		voterType="Committee-Hot"; voterID=${paramValue,,}
 
 	#Check if its a Committee-Hot-Hash File
 	elif [[ -f "${paramValue}.cc-hot.hash" ]]; then #parameter is a Committee Hot hash file, containing the hash id
@@ -137,7 +189,7 @@ for (( tmpCnt=0; tmpCnt<${paramCnt}; tmpCnt++ ))
 	        if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Could not read from file \"${paramValue}.cc-hot.hash\"\e[0m"; exit 1; fi
 	        echo -e "\e[32m OK\e[0m\n"
 		if [[ ! "${voterHash,,}" =~ ^([[:xdigit:]]{56})$ ]]; then echo -e "\n\e[91mERROR - Content of Committee-Hot-Hash File '${paramValue}.cc-hot.hash' is not a valid Voter-Hash!\n\e[0m"; exit 1; fi
-		voterType="Committee-Hot"
+		voterType="Committee-Hot";
 
 	#Check if its a Pool-ID in Bech-Format
 	elif [[ "${paramValue:0:5}" == "pool1" && ${#paramValue} -eq 56 ]]; then #parameter is most likely a bech32-pool-id
@@ -146,7 +198,7 @@ for (( tmpCnt=0; tmpCnt<${paramCnt}; tmpCnt++ ))
 	        voterHash=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
 	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid Bech32 Pool-ID.\e[0m"; exit 1; fi
 	        echo -e "\e[32m OK\e[0m\n"
-		voterType="Pool"
+		voterType="Pool"; voterID=${paramValue,,}
 
 	#Check if its a Pool-ID File with the hex Pool-ID
 	elif [[ -f "${paramValue}.pool.id" ]]; then #parameter is a Pool-ID file, containing the hash id in hex format
@@ -155,7 +207,7 @@ for (( tmpCnt=0; tmpCnt<${paramCnt}; tmpCnt++ ))
 	        if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Could not read from file \"${paramValue}.pool.id\"\e[0m"; exit 1; fi
 	        echo -e "\e[32m OK\e[0m\n"
 		if [[ ! "${voterHash,,}" =~ ^([[:xdigit:]]{56})$ ]]; then echo -e "\n\e[91mERROR - Content of Pool-ID File '${paramValue}.pool.id' is not a valid Voter-Hash!\n\e[0m"; exit 1; fi
-		voterType="Pool"
+		voterType="Pool";
 
 	#Check VKEY Files for all three types
 	elif [[ -f "${paramValue}.vkey" ]]; then #parameter was the first part of a vkey file
@@ -228,7 +280,7 @@ for (( tmpCnt=0; tmpCnt<${paramCnt}; tmpCnt++ ))
 
 	#Exit the check if the keyword 'all' was used -> don't filter on a action-id or voter-hash or action-type
 	elif [[ "${paramValue,,}" == "all" ]]; then
-		voterType=""; voterHash=""; govActionID=""; govActionUTXO=""; govActionIdx=""; govActionType="";
+		voterType=""; voterHash=""; govActionID=""; govActionUTXO=""; govActionIdx=""; govActionType=""; voterID="";
 		break;
 
 	#Unknown parameter
@@ -246,29 +298,86 @@ if [[ "${voterHash}" != "" ]]; then echo -e "\e[0mVoter-Type is\e[32m ${voterTyp
 case ${workMode} in
 
         "online")       showProcessAnimation "Query Governance-Action Info: " &
-			actionStateJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/stdout)
+			govStateJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/stdout)
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${actionStateJSON}\e[0m\n"; exit 1; else stopProcessAnimation; fi;
-			actionStateJSON=$(jq -r ".proposals | to_entries[] | .value" 2> /dev/null <<< "${actionStateJSON}")
+			actionStateJSON=$(jq -r ".proposals | to_entries[] | .value" 2> /dev/null <<< "${govStateJSON}")
                         if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${actionStateJSON}\e[0m\n"; exit 1; fi;
+
+			#Filter for a given Action-ID
+			if [[ ${govActionUTXO} != "" && ${govActionIdx} != "" ]]; then
+				actionStateJSON=$(jq -r ". | select(.actionId.txId == \"${govActionUTXO}\" and .actionId.govActionIx == ${govActionIdx})" 2> /dev/null <<< "${actionStateJSON}")
+				if [[ "${actionStateJSON}" = "" ]]; then #action-id not on chain
+				        echo -e "\e[0mThe provided Action-ID is\e[33m NOT present on the chain\e[0m!\e[0m\n";
+				        exit 1;
+				fi
+			fi
+
+			#Filter for a voterHash in online-mode
+			if [[ "${voterHash}" != "" ]]; then
+				actionStateJSON=$(jq -r ". | select( (.committeeVotes, .dRepVotes, .stakePoolVotes) | keys[] | contains(\"${voterHash}\"))" 2> /dev/null <<< "${actionStateJSON}");
+			fi
+
+			#### Voting Power Stuff
+			#Get DRep Stake Distribution for quorum calculation later on
+			dRepStakeDistributionJSON=$(${cardanocli} ${cliEra} query drep-stake-distribution --all-dreps 2> /dev/stdout)
+                        if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${dRepStakeDistributionJSON}\e[0m\n"; exit 1; fi;
+
+			#Calculate the total dRep stake power (sum of all drep stake distribution entries without the alwaysAbstain and alwaysNoConfidence ones)
+			dRepPowerTotal=$(jq -r '[del(.[] | select(.[0] == "drep-alwaysAbstain" or .[0] == "drep-alwaysNoConfidence")) | .[][1]] | add' <<< "${dRepStakeDistributionJSON}" 2> /dev/null)
+			#Get the alwaysNoConfidence stake power (counts as a no-power in all actions, except the NoConfidence-Action, there it counts to the yes-power)
+			dRepPowerAlwaysNoConfidence=$(jq -r '(.[] | select(.[0] == "drep-alwaysNoConfidence") | .[1]) // 0' <<< "${dRepStakeDistributionJSON}" 2> /dev/null)
+
+			#Get Pool Stake Distribution for quorum calculation later on - available with this command since cli 9.3.0.0
+			poolStakeDistributionJSON=$(${cardanocli} ${cliEra} query spo-stake-distribution --all-spos 2> /dev/stdout)
+                        if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${poolStakeDistributionJSON}\e[0m\n"; exit 1; fi;
+
+			#Calculate the total pool stake power (sum of all stake that is delegated to pools)
+			poolPowerTotal=$(jq -r '[.[][1]] | add' <<< "${poolStakeDistributionJSON}" 2> /dev/null)
+
+			#Get the current committee member count and voting threshold
+			{ read committeePowerTotal; read committeePowerThreshold; } <<< $(jq -r '(.committee.members | length) // 0, (.committee.threshold) // 0' <<< ${govStateJSON} 2> /dev/null)
+			committeePowerThreshold=$(bc <<< "scale=2; 100.00 * ${committeePowerThreshold}") #scale it to 0.00-100.00%
+
+			#Get the current protocolParameters for the dRep and pool voting thresholds
+                        protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
                         ;;
 
-	"light")        #showProcessAnimation "Query Governance-Action Info-LightMode: " &
-#                       drepStateJSON=$(queryLight_drepInfo "${drepID}")
-#                       if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-			echo -e "\n\e[91mINFORMATION - This script does not support Light-Mode yet, waiting for Koios support!\n\e[0m"; exit;
+
+	"light")	#Check the voterID and voterType and generate filter is possible
+			case "${voterID}${voterType}" in
+				"-DRep") 		voterID=$(${bech32_bin} "drep" <<< "${voterHash}" 2> /dev/null);;
+				"-Committee-Hot")	voterID=$(${bech32_bin} "cc_hot" <<< "${voterHash}" 2> /dev/null);;
+				"-Pool") 		voterID=$(${bech32_bin} "pool" <<< "${voterHash}" 2> /dev/null);;
+				"-Hash")		echo -e "\e[35mSORRY - Filter by HASH is not supported yet in light-mode.\e[0m\n"; exit 1;;
+				"-")			voterID="";; #fall back to disable filtering, show all
+			esac
+
+		        showProcessAnimation "Query Governance-Action Info-LightMode: " &
+			actionStateJSON=$(queryLight_actionState "${govActionUTXO}" "${govActionIdx}" "${voterID}")
+                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${actionStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+			#Filter for a given Action-ID and/or Voter was already done in the queryLight_actionState
+			#strip the outter array for now
+			actionStateJSON=$(jq -r ".[]" 2> /dev/null <<< "${actionStateJSON}")
+
+			#Get the current protocolParameters for the dRep, pool and committee voting thresholds
+			protocolParametersJSON=${lightModeParametersJSON} #lightmode
+
+			#Get the current committee member count and voting threshold
+			{ read committeePowerTotal; read committeeThreshold; } <<< $(jq -r '(.committee.members | length) // 0, "\(.committee.threshold)" // 0' 2> /dev/null <<< "${protocolParametersJSON}")
+			committeeThresholdType=$(jq -r "type" <<< "${committeeThreshold}" 2> /dev/null)
+			case ${committeeThresholdType} in
+				"object")
+					{ read numerator; read denominator; } <<< $(jq -r '.numerator // "-", .denominator // "-"' <<< "${committeeThreshold}")
+					committeePowerThreshold=$(bc <<< "scale=2; 100 * ${numerator} / ${denominator}")
+					;;
+
+				"number")
+					committeePowerThreshold=$(bc <<< "scale=2; 100 * ${committeeThreshold}")
+					;;
+			esac
 			;;
-#
 
 esac
-
-#Filter for a given Action-ID
-if [[ ${govActionUTXO} != "" && ${govActionIdx} != "" ]]; then
-	actionStateJSON=$(jq -r ". | select(.actionId.txId == \"${govActionUTXO}\" and .actionId.govActionIx == ${govActionIdx})" 2> /dev/null <<< "${actionStateJSON}")
-	if [[ "${actionStateJSON}" = "" ]]; then #action-id not on chain
-	        echo -e "\e[0mThe provided Action-ID is\e[33m NOT present on the chain\e[0m!\e[0m\n";
-	        exit 1;
-	fi
-fi
 
 
 #Filter for a given Action-Type
@@ -284,29 +393,29 @@ if [[ ${returnHash} != "" ]]; then
 fi
 
 
+#OLD METHOD
 #Filter for a given voterHash -> voterType set
-case "${voterType}" in
-
-	"DRep") #Filter for a DRep keyHash entry
-		actionStateJSON=$(jq -r ". | select(.dRepVotes[\"keyHash-${voterHash}\"] != null)" 2> /dev/null <<< "${actionStateJSON}");;
-
-	"Committee-Hot") #Filter for a Committee-Hot keyHash entry
-		actionStateJSON=$(jq -r ". | select(.committeeVotes[\"keyHash-${voterHash}\"] != null)" 2> /dev/null <<< "${actionStateJSON}");;
-
-	"Pool") #Filter for a Pool Hash entry
-		actionStateJSON=$(jq -r ". | select(.stakePoolVotes[\"${voterHash}\"] != null)" 2> /dev/null <<< "${actionStateJSON}");;
-
-	"Hash") #Filter just for a hash, can be a DRep, Committee or Pool Hash
-		actionStateJSON=$(jq -r ". | select( (.dRepVotes[\"keyHash-${voterHash}\"] != null) or (.committeeVotes[\"keyHash-${voterHash}\"] != null) or (.stakePoolVotes[\"${voterHash}\"] != null) )" 2> /dev/null <<< "${actionStateJSON}");;
-
-esac
-
+#case "${voterType}" in
+#
+#	"DRep") #Filter for a DRep keyHash entry
+#		actionStateJSON=$(jq -r ". | select(.dRepVotes[\"keyHash-${voterHash}\"] != null)" 2> /dev/null <<< "${actionStateJSON}");;
+#
+#	"Committee-Hot") #Filter for a Committee-Hot keyHash entry
+#		actionStateJSON=$(jq -r ". | select(.committeeVotes[\"keyHash-${voterHash}\"] != null)" 2> /dev/null <<< "${actionStateJSON}");;
+#
+#	"Pool") #Filter for a Pool Hash entry
+#		actionStateJSON=$(jq -r ". | select(.stakePoolVotes[\"${voterHash}\"] != null)" 2> /dev/null <<< "${actionStateJSON}");;
+#
+#	"Hash") #Filter just for a hash, can be a DRep, Committee or Pool Hash
+#		actionStateJSON=$(jq -r ". | select( (.dRepVotes[\"keyHash-${voterHash}\"] != null) or (.committeeVotes[\"keyHash-${voterHash}\"] != null) or (.stakePoolVotes[\"${voterHash}\"] != null) )" 2> /dev/null <<< "${actionStateJSON}");;
+#esac
 
 
 #Convert the result(s) into an array and get the number of entries
 actionStateJSON=$(jq --slurp <<< ${actionStateJSON})
 actionStateEntryCnt=$(jq -r "length" <<< ${actionStateJSON})
 if [[ ${actionStateEntryCnt} -eq 0 ]]; then echo -e "\e[91mNo matching votes found.\e[0m\n"; else echo -e "\e[0mFound: \e[32m${actionStateEntryCnt} entry/entries\e[0m\n"; fi
+
 
 #jq -r . <<< ${actionStateJSON}
 
@@ -349,43 +458,108 @@ do
 		#Get the indexed Entry
 		actionEntry=$(jq -r ".[${tmpCnt}]" <<< ${actionStateJSON})
 
+		#In Light-Mode, request the content of the individual votes now
+		if [[ ${workMode} == "light" ]]; then
+			{ read actionUTXO; read actionIdx; } <<< $(jq -r '.actionId.txId // "-", .actionId.govActionIx // "-"' <<< ${actionEntry})
+			showProcessAnimation "Query Action-Votes LightMode: " &
+			actionVotesJSON=$(queryLight_actionVotes "${actionUTXO}" "${actionIdx}")
+                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${actionVotesJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+			#merge the requested content in the current actionEntry
+			actionEntry=$(jq -r ". += ${actionVotesJSON}" 2> /dev/null <<< "${actionEntry}")
+		fi
+
 		#We have found an action, lets get the Tag and number of votes so far
-		{ read actionTag;
-		  read actionUTXO;
-		  read actionIdx;
-		  read actionContents;
-		  read actionAnchorUrl;
-		  read actionAnchorHash;
-		  read actionProposedInEpoch;
-		  read actionExpiresAfterEpoch;
-		  read actionDepositReturnKeyType;
-		  read actionDepositReturnHash;
-		  read actionDepositReturnNetwork;
-		  read actionDRepVoteYesCount;
-		  read actionDRepVoteNoCount;
-		  read actionDRepAbstainCount;
-		  read actionPoolVoteYesCount;
-		  read actionPoolVoteNoCount;
-		  read actionPoolAbstainCount;
-		  read actionCommitteeVoteYesCount;
-		  read actionCommitteeVoteNoCount;
-		  read actionCommitteeAbstainCount;
+		{ read actionTag; read actionUTXO; read actionIdx;  read actionContents;
+		  read actionAnchorUrl; read actionAnchorHash;
+		  read actionProposedInEpoch; read actionExpiresAfterEpoch;
+		  read actionDepositReturnKeyType; read actionDepositReturnHash; read actionDepositReturnNetwork;
+		  read actionDRepVoteYesCount; read actionDRepVoteNoCount; read actionDRepAbstainCount;
+		  read actionPoolVoteYesCount; read actionPoolVoteNoCount; read actionPoolAbstainCount;
+		  read actionCommitteeVoteYesCount; read actionCommitteeVoteNoCount; read actionCommitteeAbstainCount;
 		} <<< $(jq -r '.proposalProcedure.govAction.tag // "-", .actionId.txId // "-", .actionId.govActionIx // "-", "\(.proposalProcedure.govAction.contents)" // "-", .proposalProcedure.anchor.url // "-",
-			.proposalProcedure.anchor.dataHash // "-", .proposedIn // "-", .expiresAfter // "-", (.proposalProcedure.returnAddr.credential|keys[0]) // "-", (.proposalProcedure.returnAddr.credential|flatten[0]) // "-", .proposalProcedure.returnAddr.network // "-",
-			(.dRepVotes | with_entries(select(.value == "VoteYes")) | length),
-			(.dRepVotes | with_entries(select(.value == "VoteNo")) | length),
-			(.dRepVotes | with_entries(select(.value == "Abstain")) | length),
-			(.stakePoolVotes | with_entries(select(.value == "VoteYes")) | length),
-			(.stakePoolVotes | with_entries(select(.value == "VoteNo")) | length),
-			(.stakePoolVotes | with_entries(select(.value == "Abstain")) | length),
-			(.committeeVotes | with_entries(select(.value == "VoteYes")) | length),
-			(.committeeVotes | with_entries(select(.value == "VoteNo")) | length),
-			(.committeeVotes | with_entries(select(.value == "Abstain")) | length)' <<< ${actionEntry})
+			.proposalProcedure.anchor.dataHash // "-", .proposedIn // "-", .expiresAfter // "-",
+			(.proposalProcedure.returnAddr.credential|keys[0]) // "-", (.proposalProcedure.returnAddr.credential|flatten[0]) // "-", .proposalProcedure.returnAddr.network // "-",
+			(.dRepVotes | with_entries(select(.value | contains("Yes"))) | length),
+			(.dRepVotes | with_entries(select(.value | contains("No"))) | length),
+			(.dRepVotes | with_entries(select(.value | contains("Abstain"))) | length),
+			(.stakePoolVotes | with_entries(select(.value | contains("Yes"))) | length),
+			(.stakePoolVotes | with_entries(select(.value | contains("No"))) | length),
+			(.stakePoolVotes | with_entries(select(.value | contains("Abstain"))) | length),
+			(.committeeVotes | with_entries(select(.value | contains("Yes"))) | length),
+			(.committeeVotes | with_entries(select(.value | contains("No"))) | length),
+			(.committeeVotes | with_entries(select(.value | contains("Abstain"))) | length)' <<< ${actionEntry})
+
+
+		case ${workMode} in
+
+		        "online") #Calculate the VotingPowers via cli
+				#Generate lists with the DRep hashes that are voted yes, no or abstain. Add a 'drep-' infront of each entry to mach up the syntax in the 'drep-stake-distribution' json
+				{ read dRepHashYes; read dRepHashNo; read dRepHashAbstain; } <<< $(jq -r '"\(.dRepVotes | with_entries(select(.value | contains("Yes"))) | keys | ["drep-\(.[])"] )",
+					"\(.dRepVotes | with_entries(select(.value | contains("No"))) | keys | ["drep-\(.[])"])",
+					"\(.dRepVotes | with_entries(select(.value | contains("Abstain"))) | keys | ["drep-\(.[])"])"' <<< ${actionEntry} 2> /dev/null)
+				#Calculate the total power of the yes, no and abstain keys
+				{ read dRepPowerYes; read dRepPowerNo; read dRepPowerAbstain;} <<< $(jq -r "([ .[] | select(.[0]==${dRepHashYes}[]) | .[1] ] | add) // 0,
+					([ .[] | select(.[0]==${dRepHashNo}[]) | .[1] ] | add) // 0,
+					([ .[] | select(.[0]==${dRepHashAbstain}[]) | .[1] ] | add) // 0" <<< "${dRepStakeDistributionJSON}" 2> /dev/null)
+				#Calculate the acceptance percentage for the DRep group
+				if [[ "${actionTag}" != "NoConfidence" ]]; then #normal percentage calculate if its not a NoConfidence
+					dRepPct=$(bc <<< "scale=2; 100.00 * ${dRepPowerYes} / ( ${dRepPowerTotal} + ${dRepPowerAlwaysNoConfidence} - ${dRepPowerAbstain} )")
+					else #in case of NoConfidence, the dRepPowerAlwaysNoConfidence counts towards the yes counts
+					dRepPct=$(bc <<< "scale=2; 100.00 * ( ${dRepPowerYes} + ${dRepPowerAlwaysNoConfidence} ) / ( ${dRepPowerTotal} - ${dRepPowerAbstain} )")
+				fi
+				#Generate lists with the pool hashes that are voted yes, no or abstain.
+				{ read poolHashYes; read poolHashNo; read poolHashAbstain; } <<< $(jq -r '"\(.stakePoolVotes | with_entries(select(.value | contains("Yes"))) | keys )",
+					"\(.stakePoolVotes | with_entries(select(.value | contains("No"))) | keys)",
+					"\(.stakePoolVotes | with_entries(select(.value | contains("Abstain"))) | keys)"' <<< ${actionEntry} 2> /dev/null)
+				#Calculate the total power of the yes, no and abstain keys
+				{ read poolPowerYes; read poolPowerNo; read poolPowerAbstain;} <<< $(jq -r "([ .[] | select(.[0]==${poolHashYes}[]) | .[1] ] | add) // 0,
+					([ .[] | select(.[0]==${poolHashNo}[]) | .[1] ] | add) // 0,
+					([ .[] | select(.[0]==${poolHashAbstain}[]) | .[1] ] | add) // 0" <<< "${poolStakeDistributionJSON}" 2> /dev/null)
+				#Calculate the acceptance percentage for the Pool group
+				poolPct=$(bc <<< "scale=2; ( 100.00 * ${poolPowerYes} ) / ( ${poolPowerTotal} - ${poolPowerAbstain} )")
+
+				#### DEBUG OUTPUT
+#				echo -e "*** DREPS ***"
+#				echo -e "YES-Hash:\n${dRepHashYes}\nNO-Hash:\n${dRepHashNo}\nABSTAIN-Hash:\n${dRepHashAbstain}\n"
+#				echo -e "YES-Power: ${dRepPowerYes}\nNO-Power: ${dRepPowerNo}\nABSTAIN-Power: ${dRepPowerAbstain}\n"
+#				echo -e "DREP-Total-Power: ${dRepPowerTotal}"
+#				echo -e "DREP-AlwaysAbstain-Power: ${dRepPowerAlwaysAbstain}\n"
+#				echo -e "DREP-AlwaysNoConfidence-Power: ${dRepPowerAlwaysNoConfidence}\n"
+#				echo -e "DREP-Vote-PCT = 100 * ${dRepPowerYes} / ( ${dRepPowerTotal} + ${dRepPowerAlwaysNoConfidence} - ${dRepPowerAbstain} )"
+#				echo -e "DREP-Vote-PCT = ${dRepPct}%\n"
+#				echo -e "*** POOLS ***"
+#				echo -e "YES-Hash:\n${poolHashYes}\nNO-Hash:\n${poolHashNo}\nABSTAIN-Hash:\n${poolHashAbstain}\n"
+#				echo -e "YES-Power: ${poolPowerYes}\nNO-Power: ${poolPowerNo}\nABSTAIN-Power: ${poolPowerAbstain}\n"
+#				echo -e "POOL-Total-Power: ${poolPowerTotal}\n"
+#				echo -e "POOL-Vote-PCT = 100 * ${poolPowerYes} / ( ${poolPowerTotal} - ${poolPowerAbstain} )"
+#				echo -e "POOL-Vote-PCT = ${poolPct}%\n"
+#				echo -e "*** COMMITTEE ***"
+#				echo -e "COMMITTEE-Total-Power: ${committeePowerTotal}"
+#				echo -e "COMMITTEE-Threshold: ${committeePowerThreshold}"
+#				echo -e "COMMITTEE-Vote-PCT = ${committeePct}%\n"
+				;;
+
+			"light") #Get the VotingPowers/Percentage via koios
+				echo -e "\e[33mLive voting percentage calculation not yet available in Light-Mode!\e[0m";
+				dRepPct=0
+				poolPct=0
+				;;
+		esac
+
+		#Calculate the acceptance percentage for the committee
+		if [[ $((${committeePowerTotal}-${actionCommitteeAbstainCount})) -eq 0 ]]; then committeePct=0; else committeePct=$(bc <<< "scale=2; ( 100.00 * ${actionCommitteeVoteYesCount} ) / ( ${committeePowerTotal} - ${actionCommitteeAbstainCount} )"); fi
+
+		#Setup variables
+		totalAccept=""; totalAcceptIcon="";
+		dRepAcceptIcon=""; poolAcceptIcon=""; committeeAcceptIcon="";
+		dRepPowerThreshold="N/A"; poolPowerThreshold="N/A"; #N/A -> not available
 
 		echo
 		echo -e "\e[36m--- Entry $((${tmpCnt}+1)) of ${actionStateEntryCnt} --- Action-ID ${actionUTXO}#${actionIdx}\e[0m"
 		echo
-		echo -e "\e[0mAction-Type: \e[32m${actionTag}\e[0m   \tProposed in Epoch: \e[32m${actionProposedInEpoch}\e[0m   \tExpires after Epoch: \e[32m${actionExpiresAfterEpoch}\e[0m"
+		echo -e "Action-Bech: \e[32m$(convert_actionUTXO2Bech "${actionUTXO}#${actionIdx}")\e[0m"
+		echo
+		echo -e "Action-Type: \e[32m${actionTag}\e[0m   \tProposed in Epoch: \e[32m${actionProposedInEpoch}\e[0m   \tExpires after Epoch: \e[32m${actionExpiresAfterEpoch}\e[0m"
 		echo
 
 		#Show the Anchor-URL(HASH) if available
@@ -413,15 +587,42 @@ do
                 esac
 
 
-		#DO A NICE OUTPUT OF THE DIFFERENT CONTENTS
+### threshold parameters
+#        "dRepVotingThresholds": {
+#            "committeeNoConfidence": 0.65,
+#            "committeeNormal": 0.67,
+#            "hardForkInitiation": 0.6,
+#            "motionNoConfidence": 0.67,
+#            "ppEconomicGroup": 0.67,
+#            "ppGovGroup": 0.75,
+#            "ppNetworkGroup": 0.67,
+#            "ppTechnicalGroup": 0.67,
+#            "treasuryWithdrawal": 0.67,
+#            "updateToConstitution": 0.75
+#        },
+#        "poolVotingThresholds": {
+#            "committeeNoConfidence": 0.65,
+#            "committeeNormal": 0.65,
+#            "hardForkInitiation": 0.51,
+#            "motionNoConfidence": 0.6,
+#            "ppSecurityGroup": 0.6
+#        },
+
+
+		#DO A NICE OUTPUT OF THE DIFFERENT CONTENTS & DO THE RIGHT CALCULATIONS FOR THE ACCEPTANCE
 		case "${actionTag}" in
 
-				"InfoAction") 		#show the proposed major/minor version to fork to
+				"InfoAction") 		#This is just an InfoAction
 							#Show referencing Action-Id if avaiable
 							{ read prevActionUTXO; read prevActionIDX; } <<< $(jq -r '.txId // "-", .govActionIx // "-"' 2> /dev/null <<< ${actionContents})
 							if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m\n"; fi
 							echo -e "\e[0mAction-Content:\e[36m Information\e[0m"
-							echo -e "\e[0m";;
+							echo -e "\e[0m"
+
+							dRepAcceptIcon="N/A"; poolAcceptIcon="N/A";
+							totalAccept="N/A";
+							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							;;
 
 
 				"HardForkInitiation") 	#show the proposed major/minor version to fork to
@@ -437,7 +638,17 @@ do
 							if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m\n"; fi
 							echo -e "\e[0mAction-Content:\e[36m Do a Hardfork\e[0m\n"
 							echo -e "\e[0mFork to\e[32m Protocol-Version \e[0m► \e[94m${forkMajorVer}.${forkMinorVer}\e[0m"
-							echo -e "\e[0m";;
+							echo -e "\e[0m"
+
+							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
+							{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.hardForkInitiation // 0, .poolVotingThresholds.hardForkInitiation // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
+							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
+							if [[ $(bc <<< "${poolPct} > ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							;;
+
 
 				"ParameterChange") 	#show the proposed parameterchanges
 							# [
@@ -461,7 +672,61 @@ do
 							echo -e "\e[0mAction-Content:\e[36m Change protocol parameters\n\e[0m"
 			                                changeParameterRender=$(jq -r 'to_entries[] | "\\e[0mChange parameter\\e[32m \(.key) \\e[0m► \\e[94m\(.value)\\e[0m"' <<< ${changeParameters} 2> /dev/null)
 			                                echo -e "${changeParameterRender}"
-							echo -e "\e[0m";;
+							echo -e "\e[0m"
+
+							dRepPowerThreshold="0"; #start with a zero threshold, we are searching the max value in the next steps
+
+							#Calculate acceptance depending on the security group a parameter belongs to: Get the right threshold, make it a nice percentage number, check if threshold is reached
+							case "${changeParameters}" in
+
+								#SECURITY GROUP - pools must vote on it
+								*"maxBlockBodySize"*|*"maxTxSize"*|*"maxBlockHeaderSize"*|*"maxValueSize"*|*"maxBlockExecutionUnits"*|*"txFeePerByte"*|*"txFeeFixed"*|*"utxoCostPerByte"*|*"govActionDeposit"*|*"minFeeRefScriptCostPerByte"*)
+									{ read poolPowerThreshold; } <<< $(jq -r '.poolVotingThresholds.ppSecurityGroup // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+									poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
+									if [[ $(bc <<< "${poolPct} > ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+									echo -e "A parameter from the \e[32mSECURITY\e[0m group is present ► \e[94mStakePools must vote\e[0m"
+									;;& #also check next condition
+
+								#NETWORK GROUP
+								*"maxBlockBodySize"*|*"maxTxSize"*|*"maxBlockHeaderSize"*|*"maxValueSize"*|*"maxTxExecutionUnits"*|*"maxBlockExecutionUnits"*|*"maxCollateralInputs"*)
+									dRepPowerThreshold=$(jq -r "[ ${dRepPowerThreshold}, .dRepVotingThresholds.ppNetworkGroup // 0 ] | max" <<< "${protocolParametersJSON}" 2> /dev/null)
+									echo -e "A parameter from the \e[32mNETWORK\e[0m group is present"
+									;;& #also check next condition
+
+								#ECONOMIC GROUP
+								*"txFeePerByte"*|*"txFeeFixed"*|*"stakeAddressDeposit"*|*"stakePoolDeposit"*|*"monetaryExpansion"*|*"treasuryCut"*|*"minPoolCost"*|*"utxoCostPerByte"*|*"executionUnitPrices"*)
+									dRepPowerThreshold=$(jq -r "[ ${dRepPowerThreshold}, .dRepVotingThresholds.ppEconomicGroup // 0 ] | max" <<< "${protocolParametersJSON}" 2> /dev/null)
+									echo -e "A parameter from the \e[32mECONOMIC\e[0m group is present"
+									;;& #also check next condition
+
+								#TECHNICAL GROUP
+								*"poolPledgeInfluence"*|*"poolRetireMaxEpoch"*|*"stakePoolTargetNum"*|*"costModels"*|*"collateralPercentage"*)
+									dRepPowerThreshold=$(jq -r "[ ${dRepPowerThreshold}, .dRepVotingThresholds.ppTechnicalGroup // 0 ] | max" <<< "${protocolParametersJSON}" 2> /dev/null)
+									echo -e "A parameter from the \e[32mTECHNICAL\e[0m group is present"
+									;;& #also check next condition
+
+								#GOVERNANCE GROUP
+								*"govActionLifetime"*|*"govActionDeposit"*|*"dRepDeposit"*|*"dRepActivity"*|*"committeeMinSize"*|*"committeeMaxTermLength"*|*"VotingThresholds"*)
+									dRepPowerThreshold=$(jq -r "[ ${dRepPowerThreshold}, .dRepVotingThresholds.ppGovGroup // 0 ] | max" <<< "${protocolParametersJSON}" 2> /dev/null)
+									echo -e "A parameter from the \e[32mGOVERNANCE\e[0m group is present"
+									;;
+
+							esac
+
+							#Throw an error if for some reason, the dRepPowerThreshold is still at zero or empty
+							if [[ "${dRepPowerThreshold}" == "0" || "${dRepPowerThreshold}" == "" ]]; then echo -e "\e[35mERROR - Something went wrong finding the dRepPowerThreshold.\n\e[0m"; exit 1; fi
+
+							echo
+
+							#Now lets use the choosen threshold (highest of all involved groups)
+							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
+							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+
+							#committee can vote on all parameters
+							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+
+							;;
+
 
 				"NewConstitution") 	#show the proposed infos/anchor for a new constition
 							# [
@@ -476,12 +741,22 @@ do
 							#    }
 							#  }
 							# ]
-							{ read prevActionUTXO; read prevActionIDX; read anchorHash; read anchorURL; } <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", .[1].anchor.dataHash // "-", .[1].anchor.url // "-"' 2> /dev/null <<< ${actionContents})
+							{ read prevActionUTXO; read prevActionIDX; read anchorHash; read anchorURL; read scriptHash; } <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", .[1].anchor.dataHash // "-", .[1].anchor.url // "-", .[1].script // "-"' 2> /dev/null <<< ${actionContents})
 							if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m\n"; fi
 							echo -e "\e[0mAction-Content:\e[36m Change to a new Constitution\e[0m\n"
 							echo -e "\e[0mSet new\e[32m Constitution-URL \e[0m► \e[94m${anchorURL}\e[0m"
 							echo -e "\e[0mSet new\e[32m Constitution-Hash \e[0m► \e[94m${anchorHash}\e[0m"
-							echo -e "\e[0m";;
+							echo -e "\e[0mSet new\e[32m Guardrails-Script-Hash \e[0m► \e[94m${scriptHash}\e[0m"
+							echo -e "\e[0m"
+
+							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
+							{ read dRepPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.updateToConstitution // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
+							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							poolAcceptIcon=""; #pools not allowed to vote on this
+							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							;;
+
 
 				"UpdateCommittee") 	#show the proposed infos for a committeeupdate
 							# [
@@ -522,7 +797,32 @@ do
 				                        remHashesRender=$(jq -r '.[1][] // [] | to_entries[] | "\\e[0mRemove\\e[32m \(.key) \\e[0m◄ \\e[91m\(.value)\\e[0m"' <<< ${actionContents} 2> /dev/null)
 			                                echo -e "${addHashesRender}"
 			                                echo -e "${remHashesRender}"
-							echo -e "\e[0m";;
+							echo -e "\e[0m"
+
+							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
+							{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNormal // 0, .poolVotingThresholds.committeeNormal // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
+							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
+							if [[ $(bc <<< "${poolPct} > ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							committeeAcceptIcon=""; #committee not allowed to vote on this
+							;;
+
+				"NoConfidence")		#This is just a NoConfidence action
+							#Show referencing Action-Id if avaiable
+							{ read prevActionUTXO; read prevActionIDX; } <<< $(jq -r '.txId // "-", .govActionIx // "-"' 2> /dev/null <<< ${actionContents})
+							if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "Reference-Action-ID: \e[32m${prevActionUTXO}#${prevActionIDX}\e[0m\n"; fi
+							echo -e "\e[0mAction-Content:\e[36m No Confidence in the Committee\e[0m"
+							echo -e "\e[0m"
+
+							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
+							{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNoConfidence // 0, .poolVotingThresholds.committeeNoConfidence // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
+							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
+							if [[ $(bc <<< "${poolPct} > ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							committeeAcceptIcon=""; #committee not allowed to vote on this
+							;;
 
 				"TreasuryWithdrawals")	#show the treasury withdrawals address and amount
 							#[
@@ -539,10 +839,11 @@ do
 							#  ],
 							#  null
 							#]
-							{ read withdrawalsAmount; read withdrawalsKeyType; read withdrawalsHash; read withdrawalsNetwork; } <<< $( jq -r '.[0][0][1], (.[0][0][0].credential|keys[0]) // "-", (.[0][0][0].credential|flatten[0]) // "-", .[0][0][0].network // "-"' 2> /dev/null <<< ${actionContents})
+							{ read withdrawalsAmount; read withdrawalsKeyType; read withdrawalsHash; read withdrawalsNetwork; } <<< $( jq -r '.[0][0][1] // "0", (.[0][0][0].credential|keys[0]) // "-", (.[0][0][0].credential|flatten[0]) // "-", .[0][0][0].network // "-"' 2> /dev/null <<< ${actionContents})
 							echo -e "\e[0mAction-Content:\e[36m Withdrawal funds from the treasury\n\e[0m"
 
 					                case "${withdrawalsNetwork,,}${withdrawalsKeyType,,}" in
+
 					                        *"scripthash")	echo -e "\e[0mWithdrawal to\e[32m ScriptHash \e[0m► \e[94m${withdrawalsHash}\e[0m"
 					                                        ;;
 
@@ -556,36 +857,65 @@ do
 										echo -e "\e[0mWithdrawal to\e[32m StakeAddr \e[0m► \e[94m${withdrawalsAddr}\e[0m"
 					                                        ;;
 
-					                        *)              echo -e "\n\e[35mERROR - Unknown network type ${actionDepositReturnNetwork} for the Withdrawal KeyHash !\n\e[0m"; exit 1;
+								"")		echo -e "\e[0mWithdrawal \e[32mdirectly\e[0m to the \e[94mDeposit-Return-Address\n\e[0m"
+										;;
+
+					                        *)              echo -e "\n\e[35mERROR - Unknown network type ${withdrawalsNetwork} for the Withdrawal KeyHash !\n\e[0m"; exit 1;
 					                                        ;;
 					                esac
 			                                echo -e "\e[0mWithdrawal the\e[32m Amount \e[0m► \e[94m$(convertToADA ${withdrawalsAmount}) ADA / ${withdrawalsAmount} lovelaces\e[0m"
-							echo -e "\e[0m";;
+							echo -e "\e[0m"
 
-			esac
+							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
+							{ read dRepPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.treasuryWithdrawal // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
+							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							poolAcceptIcon=""; #pools not allowed to vote on this
+							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							;;
 
-		echo -e "\e[0mCurrent Votes\tYes\tNo\tAbstain"
-		echo -e "\e[0m---------------------------------------"
-		echo -e "\e[94m        DReps\t\e[32m${actionDRepVoteYesCount}\t\e[91m${actionDRepVoteNoCount}\t\e[33m${actionDRepAbstainCount}\e[0m"
-		echo -e "\e[94m   StakePools\t\e[32m${actionPoolVoteYesCount}\t\e[91m${actionPoolVoteNoCount}\t\e[33m${actionPoolAbstainCount}\e[0m"
-		echo -e "\e[94m    Committee\t\e[32m${actionCommitteeVoteYesCount}\t\e[91m${actionCommitteeVoteNoCount}\t\e[33m${actionCommitteeAbstainCount}\e[0m"
-		echo
 
 
-		#### TODO : Stake calculation for the current voting state
+		esac
 
 		#If there is a voterHash, get the voting answer for it
 		if [[ "${voterHash}" != "" ]]; then
 			voteAnswer=$(jq -r ".dRepVotes[\"keyHash-${voterHash}\"] // .committeeVotes[\"keyHash-${voterHash}\"] // .dRepVotes[\"scriptHash-${voterHash}\"] // .committeeVotes[\"scriptHash-${voterHash}\"] // .stakePoolVotes[\"${voterHash}\"]" 2> /dev/null <<< "${actionEntry}")
 			echo -ne "\e[97mVoting-Answer of the selected ${voterType}-Voter is: "
 			case "${voteAnswer}" in
-				"VoteYes")	echo -e "\e[102m\e[30m YES \e[0m\n";;
-				"VoteNo")	echo -e "\e[101m\e[30m NO \e[0m\n";;
-				"Abstain")	echo -e "\e[43m\e[30m ABSTAIN \e[0m\n";;
+				*"Yes"*)	echo -e "\e[102m\e[30m YES \e[0m\n";;
+				*"No"*)		echo -e "\e[101m\e[30m NO \e[0m\n";;
+				*"Abstain"*)	echo -e "\e[43m\e[30m ABSTAIN \e[0m\n";;
 			esac
 		fi
-		echo
 
+		printf  "\e[97mCurrent Votes\e[90m │   \e[0mYes\e[90m   │   \e[0mNo\e[90m   │ \e[0mAbstain\e[90m │ \e[0mThreshold\e[90m │ \e[97mLive-Pct\e[90m │ \e[97mAccept\e[0m\n"
+		printf  "\e[90m──────────────┼─────────┼────────┼─────────┼───────────┼──────────┼────────\e[0m\n"
+		if [[ "${dRepAcceptIcon}" != "" ]]; then
+			printf	"\e[94m%13s\e[90m │ \e[32m%7s\e[90m │ \e[91m%6s\e[90m │ \e[33m%7s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "DReps" "${actionDRepVoteYesCount}" "${actionDRepVoteNoCount}" "${actionDRepAbstainCount}" "${dRepPowerThreshold}" "${dRepPct}" "${dRepAcceptIcon}"
+			else
+			printf	"\e[90m%13s\e[90m │ \e[90m%7s\e[90m │ \e[90m%6s\e[90m │ \e[90m%7s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "DReps" "-" "-" "-" "-" "-" ""
+		fi
+		if [[ "${poolAcceptIcon}" != "" ]]; then
+			printf	"\e[94m%13s\e[90m │ \e[32m%7s\e[90m │ \e[91m%6s\e[90m │ \e[33m%7s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "${actionPoolVoteYesCount}" "${actionPoolVoteNoCount}" "${actionPoolAbstainCount}" "${poolPowerThreshold}" "${poolPct}" "${poolAcceptIcon}"
+			else
+			printf	"\e[90m%13s\e[90m │ \e[90m%7s\e[90m │ \e[90m%6s\e[90m │ \e[90m%7s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "-" "-" "-" "-" "-" ""
+		fi
+		if [[ "${committeeAcceptIcon}" != "" ]]; then
+			printf	"\e[94m%13s\e[90m │ \e[32m%7s\e[90m │ \e[91m%6s\e[90m │ \e[33m%7s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "Committee" "${actionCommitteeVoteYesCount}" "${actionCommitteeVoteNoCount}" "${actionCommitteeAbstainCount}" "${committeePowerThreshold}" "${committeePct}" "${committeeAcceptIcon}"
+			else
+			printf	"\e[90m%13s\e[90m │ \e[90m%7s\e[90m │ \e[90m%6s\e[90m │ \e[90m%7s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "Committee" "-" "-" "-" "-" "-" ""
+		fi
+		printf  "\e[90m──────────────┴─────────┴────────┴─────────┴───────────┴──────────┼────────\e[0m\n"
+		case "${totalAccept}" in
+			*"N/A"*)	totalAcceptIcon="N/A";;
+			*"NO"*)		totalAcceptIcon="\e[91m❌";;
+			*)		totalAcceptIcon="\e[92m✅";;
+		esac
+		printf  "\e[97m%65s\e[90m │   %b \e[0m\n" "Full approval of the proposal" "${totalAcceptIcon}"
+#		printf  "\e[90m──────────────────────────────────────────────────────────────────┴────────\e[0m\n"
+
+		echo
 
 done
 

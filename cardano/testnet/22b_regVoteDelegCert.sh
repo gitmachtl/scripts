@@ -181,14 +181,27 @@ delegCBOR=$(jq -r ".cborHex" < "${delegName}.vote-deleg.cert" 2> /dev/null)
 case ${delegCBOR:68:4} in
 
 	"8200")	#delegating to a drep-id
-		delegDRepID=${delegCBOR: -56} #hex format
+		delegDRepHASH=${delegCBOR: -56} #hex format
 		#get the bech DRepID
-	        toDrepID=$(${bech32_bin} "drep" <<< ${delegDRepID} | tr -d '\n')
+	        toDrepID=$(${bech32_bin} "drep" <<< ${delegDRepHASH} | tr -d '\n')
 	        checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not convert the Hex-DRepID from the Delegation-Certificate into a Bech-DRepID.\e[0m\n"; exit 1; fi
 		echo
-		echo -e "\e[0mDelegating Voting-Power of \e[32m${delegName}\e[0m to DRep with Hex-ID:\e[32m ${delegDRepID}\e[0m"
+		echo -e "\e[0mDelegating Voting-Power of \e[32m${delegName}\e[0m to DRep with Hash:\e[32m ${delegDRepHASH}\e[0m"
 		echo
-		echo -e "\e[0mWhich resolves to the Bech-DRepID:\e[33m ${toDrepID}\e[0m"
+		echo -e "\e[0mWhich resolves to the Bech-DRepID:\e[32m ${toDrepID}\e[0m"
+		echo -e "\e[0m               CIP129 Bech-DRepID:\e[33m $(convert_actionBech2CIP129 ${toDrepID})\e[0m"
+		;;
+
+	"8201")	#delegating to a script drep-id
+		delegDRepHASH=${delegCBOR: -56} #hex format
+		#get the bech DRepID
+	        toDrepID=$(${bech32_bin} "drep_script" <<< ${delegDRepHASH} | tr -d '\n')
+	        checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not convert the Hex-DRepID from the Delegation-Certificate into a Bech-DRepID.\e[0m\n"; exit 1; fi
+		echo
+		echo -e "\e[0mDelegating Voting-Power of \e[32m${delegName}\e[0m to DRep with Hash:\e[32m ${delegDRepHASH}\e[0m"
+		echo
+		echo -e "\e[0mWhich resolves to the Script-Bech-DRepID:\e[32m ${toDrepID}\e[0m"
+		echo -e "\e[0m               CIP129 Script-Bech-DRepID:\e[33m $(convert_actionBech2CIP129 ${toDrepID})\e[0m"
 		;;
 
 	"8102")	#always-abstain
@@ -209,7 +222,7 @@ esac
 
 
 #If in online/light mode, do a check if the DRep to delegate to is registered
-if [[ ${onlineMode} == true && ${toDrepID} != "" ]]; then
+if [[ ${onlineMode} == true && ${toDrepID} != "" && ${delegDRepHASH} != "" ]]; then
 
 	echo
         echo -e "\e[0mChecking current ChainStatus about the DRep-ID:\e[32m ${toDrepID}\e[0m"
@@ -222,15 +235,17 @@ if [[ ${onlineMode} == true && ${toDrepID} != "" ]]; then
                                 #check that the node is fully synced, otherwise the query would mabye return a false state
                                 if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
                                 showProcessAnimation "Query DRep-ID Info: " &
-                                drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${toDrepID} 2> /dev/stdout )
+#                                drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${toDrepID} 2> /dev/stdout )
+                                drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${delegDRepHASH} --drep-script-hash ${delegDRepHASH} 2> /dev/stdout )
                                 if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 #drepStateJSON=$(jq -rc . <<< "${drepStateJSON}")
                                 ;;
 
-#                "light")        showProcessAnimation "Query-StakeAddress-Info-LightMode: " &
-#                                rewardsJSON=$(queryLight_drepNameessInfo "${checkAddr}")
-#                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-#                                ;;
+	        "light")        showProcessAnimation "Query DRep-ID-Info-LightMode: " &
+	                        drepStateJSON=$(queryLight_drepInfo "${toDrepID}")
+	                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+	                        #drepStateJSON=$(jq -r ".[0] // []" <<< "${drepStateJSON}") #get rid of the outer array
+	                        ;;
 
         esac
 
@@ -284,10 +299,10 @@ if ${onlineMode}; then
                 else #already registered
                         #echo -e "Staking Address is registered on the chain, we continue ...\e[0m\n"
 
-                        voteDelegationID=$(jq -r ".[0].voteDelegation // \"notSet\"" <<< ${rewardsJSON})
+                        drepDelegationHASH=$(jq -r ".[0].voteDelegation // \"notSet\"" <<< ${rewardsJSON})
 
                         #Show the current status of the voteDelegation
-			case ${voteDelegationID} in
+			case ${drepDelegationHASH} in
 				"alwaysNoConfidence")
 					#always-no-confidence
 					echo -e "Voting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m";
@@ -303,9 +318,18 @@ if ${onlineMode}; then
 					echo -e "\e[0mAccount's Voting-Power is \e[32mnot delegated to a DRep or set to a fixed status yet\e[0m - so lets change this :-)";
 					;;
 
-				*)
-					#normal drep-id
-	                                echo -e "Voting-Power of Staking Address is currently delegated to DRepID: \e[94m${voteDelegationID}\e[0m";
+				*)      #normal drep-id or drep-script-id
+                                        case "${drepDelegationHASH%%-*}" in
+                                                "keyHash")      drepDelegationID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+                                                                echo -e "\e[0mVoting-Power of Staking Address is delegated to DRepID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
+                                                                ;;
+                                                "scriptHash")   drepDelegationID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+                                                                echo -e "\e[0mVoting-Power of Staking Address is delegated to DRep-Script-ID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
+                                                                ;;
+                                                *)              drepDelegationID="" #unknown type
+                                                                echo -e "\e[0mVoting-Power of Staking Address is delegated to DRep-HASH: \e[32m${drepDelegationHASH}\e[0m\n";
+                                                                ;;
+                                        esac
 					;;
 			esac
 

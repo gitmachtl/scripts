@@ -61,6 +61,41 @@ elif [[ "${toDRepID:0:5}" == "drep1" && ${#toDRepID} -eq 56 ]]; then #parameter 
         checkError "$?"; if [ $? -ne 0 ]; then file_lock ${delegateStakeAddr}.vote-deleg.cert; exit $?; fi
         file_lock ${delegateStakeAddr}.vote-deleg.cert
 
+elif [[ "${toDRepID:0:12}" == "drep_script1" && ${#toDRepID} -eq 63 ]]; then #parameter is most likely a bech32-drepid-script
+
+	#lets do some further testing by converting the beche32 DRep-id into a hex-DRep-id
+	toDRepHash=$(${bech32_bin} 2> /dev/null <<< "${toDRepID}") #will have returncode 0 if the bech was valid
+        if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - \"${toDRepID}\" is not a valid bech32 DRep-ID for a ScriptHash.\e[0m"; exit 1; fi
+
+        echo -e "\e[0mCreate a Vote-Delegation Certificate for Delegator\e[32m ${delegateStakeAddr}.staking.vkey\e[0m \nto the DRep with Bech32-ID(Script)\e[32m ${toDRepID}\e[0m"
+        echo
+        file_unlock ${delegateStakeAddr}.vote-deleg.cert
+	${cardanocli} ${cliEra} stake-address vote-delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --drep-script-hash ${toDRepHash} --out-file ${delegateStakeAddr}.vote-deleg.cert
+        checkError "$?"; if [ $? -ne 0 ]; then file_lock ${delegateStakeAddr}.vote-deleg.cert; exit $?; fi
+        file_lock ${delegateStakeAddr}.vote-deleg.cert
+
+elif [[ "${toDRepID:0:5}" == "drep1" && ${#toDRepID} -eq 58 ]]; then #parameter is most likely a CIP129 bech32-drepid
+
+	toDRepHash=$(${bech32_bin} 2> /dev/null <<< "${toDRepID}") #will have returncode 0 if the bech was valid
+        if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - \"${toDRepID}\" is not a valid CIP129 Bech32 DRep-ID.\e[0m"; exit 1; fi
+        echo -e "\e[0mCreate a Vote-Delegation Certificate for Delegator\e[32m ${delegateStakeAddr}.staking.vkey\e[0m \nto the DRep with CIP129-Bech32-ID\e[32m ${toDRepID}\e[0m"
+        echo
+	#convert to standard format
+	toDRepID=$(convert_actionCIP1292Bech "${toDRepID}")
+        echo -e "\e[0mThe given CIP129 Bech-ID converted to regular is: \e[33m${toDRepID}\e[0m\n"
+        file_unlock ${delegateStakeAddr}.vote-deleg.cert
+	case "${toDRepID}" in
+		"drep1"*)	#its a normal drep
+				${cardanocli} ${cliEra} stake-address vote-delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --drep-key-hash ${toDRepID} --out-file ${delegateStakeAddr}.vote-deleg.cert
+				;;
+		"drep_script1"*) #its a script drep
+				toDRepHash=${toDRepHash:2} #cut the first 2chars (1byte)
+				${cardanocli} ${cliEra} stake-address vote-delegation-certificate --stake-verification-key-file ${delegateStakeAddr}.staking.vkey --drep-script-hash ${toDRepHash} --out-file ${delegateStakeAddr}.vote-deleg.cert
+				;;
+	esac
+        checkError "$?"; if [ $? -ne 0 ]; then file_lock ${delegateStakeAddr}.vote-deleg.cert; exit $?; fi
+        file_lock ${delegateStakeAddr}.vote-deleg.cert
+
 elif [ -f "${toDRepName}.drep.vkey" ]; then #parameter is a DRep verification key file
 
 	echo -e "\e[0mCreate a Vote-Delegation Certificate for Delegator\e[32m ${delegateStakeAddr}.staking.vkey\e[0m \nto the DRep with the Key-File\e[32m ${toDRepName}.drep.vkey\e[0m"

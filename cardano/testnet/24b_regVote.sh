@@ -214,7 +214,7 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
 		#Get action-id
 		voteActionUTXO=${voteActionID:0:64}
 		voteActionIdx=${voteActionID:65}
-		echo -e "\e[0m     Action-Tx-ID: \e[94m${voteActionUTXO}\n\e[0m     Action-Index: \e[94m${voteActionIdx}\e[0m"
+		echo -e "\e[0m     Action-Tx-ID: \e[94m${voteActionUTXO}\n\e[0m     Action-Index: \e[94m${voteActionIdx}\n\e[0m      Action-Bech: \e[94m$(convert_actionUTXO2Bech "${voteActionUTXO}#${voteActionIdx}")\e[0m"
 
 		#Get action-url and hash
 		if [[ "${voteActionAnchorURL}" != "-" && "${voteActionAnchorHASH}" != "-" ]]; then
@@ -336,7 +336,12 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 #Do a check if we are at least in conway-era (protocol major 9 and above)
 protocolVersionMajor=$(jq -r ".protocolVersion.major // -1" <<< ${protocolParametersJSON})
 if [[ ${protocolVersionMajor} -lt 9 ]]; then
-	echo -e "\n\e[35mERROR - The current era on the chain does not support submitting governance votes. Needs conway-era and above!\n\e[0m"; exit 1; fi
+	echo -e "\n\e[35mERROR - The current era on the chain does not support submitting governance votes. Needs conway-era and above!\n\e[0m"; exit 1;
+elif [[ ${protocolVersionMajor} -eq 9 ]] && [[ ${voterType} == "DRep" ]]; then
+	echo -e "\n\e[35mSORRY - We are currently in conway bootstrap-phase with protocol version 9. During this period, DReps are not allowed to do any votes!\n\e[0m"; exit 1;
+fi
+
+
 
 #get live values
 currentTip=$(get_currentTip); checkError "$?";

@@ -148,13 +148,13 @@ case ${action} in
 		        "online") #onlinemode
 				#get the normal parameters
 				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
-	                        #get the previous actions ids for the various action types and the constitution state
-	                        prevActionIDsJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".nextRatifyState.nextEnactState.prevGovActionIds" 2> /dev/null)
-				if [[ ${prevActionIDsJSON} == "" ]]; then prevActionIDsJSON='{}'; fi
-				constitutionParametersJSON=$(${cardanocli} ${cliEra} query constitution 2> /dev/null | jq -r "." 2> /dev/null)
-				if [[ ${constitutionParametersJSON} == "" ]]; then constitutionParametersJSON='{}'; fi
+
+				#Governance Stuff
+				governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r '{ committee : (.committee), constitution : (.constitution), prevActionIDs : (.nextRatifyState.nextEnactState.prevGovActionIds) }' 2> /dev/null)
+				if [[ "${governanceParametersJSON}" == "" ]]; then governanceParametersJSON="{}"; fi
+
 				#merge them together
-	                        protocolParametersJSON=$( jq --sort-keys ".constitution += ${constitutionParametersJSON} | .prevActionIDs += ${prevActionIDsJSON}" <<< ${protocolParametersJSON})
+	                        protocolParametersJSON=$( jq --sort-keys ". += ${governanceParametersJSON}" <<< ${protocolParametersJSON})
 				;;
 
 		        "light") #lightmode
@@ -188,13 +188,13 @@ case ${action} in
 		        "online") #onlinemode
 				#get the normal parameters
 				protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters )
-	                        #get the previous actions ids for the various action types and the constitution state
-	                        prevActionIDsJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r ".nextRatifyState.nextEnactState.prevGovActionIds" 2> /dev/null)
-				if [[ ${prevActionIDsJSON} == "" ]]; then prevActionIDsJSON='{}'; fi
-				constitutionParametersJSON=$(${cardanocli} ${cliEra} query constitution 2> /dev/null | jq -r "." 2> /dev/null)
-				if [[ ${constitutionParametersJSON} == "" ]]; then constitutionParametersJSON='{}'; fi
+
+				#Governance Stuff
+				governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r '{ committee : (.committee), constitution : (.constitution), prevActionIDs : (.nextRatifyState.nextEnactState.prevGovActionIds) }' 2> /dev/null)
+				if [[ "${governanceParametersJSON}" == "" ]]; then governanceParametersJSON="{}"; fi
+
 				#merge them together
-	                        protocolParametersJSON=$( jq --sort-keys ".constitution += ${constitutionParametersJSON} | .prevActionIDs += ${prevActionIDsJSON}" <<< ${protocolParametersJSON})
+	                        protocolParametersJSON=$( jq --sort-keys ". += ${governanceParametersJSON}" <<< ${protocolParametersJSON})
 				;;
 
 		        "light") #lightmode
@@ -545,8 +545,8 @@ if [[ "${action}" == "add-drep" ]]; then
 
 drepID=$(cat ${drepName}.id) #we already checked that the file is present, so load the id from it
 
-#do a short check if its a valid bech string
-tmp=$(${bech32_bin} <<< ${drepID} 2> /dev/null)
+#calculate the drep hash, and also do a bech validity check
+drepHASH=$(${bech32_bin} 2> /dev/null <<< "${drepID}")
 if [ $? -ne 0 ]; then echo -e "\e[35mERROR - The content of '${drepName}.id' is not a valid DRep-Bech-ID.\e[0m\n"; exit 1; fi;
 
         echo -e "\e[0mChecking current Status about the DRep-ID:\e[32m ${drepID}\e[0m\n"
@@ -554,20 +554,19 @@ if [ $? -ne 0 ]; then echo -e "\e[35mERROR - The content of '${drepName}.id' is 
         #Get state data for the drepID. When in online mode of course from the node and the chain, in light mode via koios
         case ${workMode} in
 
-                "online")       showProcessAnimation "Query DRep-ID Info: " &
-                                drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepID} --include-stake 2> /dev/stdout )
-                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-                                drepStateJSON=$(jq -r ".[0] // []" <<< "${drepStateJSON}") #get rid of the outer array. if null, make an empty array
-                                ;;
 
-#                "light")        showProcessAnimation "Query DRep-ID-Info-LightMode: " &
-#                                drepStateJSON=$(queryLight_drepInfo "${drepID}")
-#                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-#                                ;;
+	        "online")       showProcessAnimation "Query DRep-ID Info: " &
+	                        drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepHASH} --drep-script-hash ${drepHASH} --include-stake 2> /dev/stdout )
+	                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+	                        drepStateJSON=$(jq -r ".[0] // []" <<< "${drepStateJSON}") #get rid of the outer array
+	                        ;;
 
+	        "light")        showProcessAnimation "Query DRep-ID-Info-LightMode: " &
+	                        drepStateJSON=$(queryLight_drepInfo "${drepID}")
+	                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+	                        drepStateJSON=$(jq -r ".[0] // []" <<< "${drepStateJSON}") #get rid of the outer array
+	                        ;;
         esac
-
-#        { read drepEntryCnt; read drepDepositAmount; read drepAnchorURL; read drepAnchorHASH; } <<< $(jq -r 'length, .[1].deposit, .[1].anchor.url // "empty", .[1].anchor.dataHash // "no hash"' <<< ${drepStateJSON})
 
 	{ read drepEntryCnt;
 	  read drepDepositAmount;
