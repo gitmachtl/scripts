@@ -238,8 +238,6 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
         esac
 
-#	jq -r . <<< ${rewardsJSON}
-
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
         if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "\e[35mStaking Address is not on the chain, register it first !\e[0m\n"; exit 1;
@@ -335,6 +333,9 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 						;;
 				"scriptHash")   drepDelegationID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
 						echo -e "   \t\e[0mVoting-Power of Staking Address is delegated to DRep-Script-ID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
+						;;
+				"null")		#not delegated
+						echo -e "   \t\e[0mVoting-Power of Staking Address is not delegated to a DRep !\e[0m\n";
 						;;
 				*)		#unknown type
 						echo -e "   \t\e[0mVoting-Power of Staking Address is delegated to DRep-HASH: \e[32m${drepDelegationHASH}\e[0m\n";

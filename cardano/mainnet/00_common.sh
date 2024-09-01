@@ -14,6 +14,14 @@ unset magicparam network addrformat
 # by placing a file with name "common.inc" in the calling directory or in "$HOME/.common.inc".
 # It will be sourced into this file automatically if present and can overwrite the values below dynamically :-)
 #
+#
+# Enviromental-Vars for Script-Control:
+# -------------------------------------
+#    ENV_MINLEDGERCARDANOAPPVERSION=6.1.2 -> to force the cardano-hw-cli check to work with cardano-app version 6.1.2 for ledger
+#    ENV_USEERA=babbage -> to force the scripts to produce transactions for that specified era
+#    ENV_SKIP_PROMPT=YES -> to skip the transaction "do you wanna continue" prompt
+#    ENV_DECRYPT_PASSWORD=YourPassword -> to pass thru a password for *.skey decryption on the fly
+#
 ##############################################################################################################################
 
 
@@ -131,18 +139,18 @@ cropTxOutput="yes"		#yes/no to crop the unsigned/signed txfile outputs on transa
 #
 ##############################################################################################################################
 
-
 #-------------------------------------------------------
-#DisplayMajorErrorMessage
+#Display MajorError Message directly to the error output
 majorError() {
-echo -e "\e[97m\n" > $(tty)
-echo -e "         _ ._  _ , _ ._\n        (_ ' ( \`  )_  .__)\n      ( (  (    )   \`)  ) _)\n     (__ (_   (_ . _) _) ,__)\n         \`~~\`\\ ' . /\`~~\`\n              ;   ;\n              /   \\ \n_____________/_ __ \\___________________________________________\n" > $(tty)
-echo -e "\e[35m${1}\n\nIf you think all is right at your side, please check the GitHub repo if there\nis a newer version/bugfix available, thx: https://github.com/gitmachtl/scripts\e[0m\n" > $(tty); exit 1;
+echo -e "\e[97m\n" >&2
+echo -e "         _ ._  _ , _ ._\n        (_ ' ( \`  )_  .__)\n      ( (  (    )   \`)  ) _)\n     (__ (_   (_ . _) _) ,__)\n         \`~~\`\\ ' . /\`~~\`\n              ;   ;\n              /   \\ \n_____________/_ __ \\___________________________________________\n" >&2
+echo -e "\e[35m${1}\n\nIf you think all is right at your side, please check the GitHub repo if there\nis a newer version/bugfix available, thx: https://github.com/gitmachtl/scripts\e[0m\n" >&2; exit 1;
 }
 #-------------------------------------------------------
 
 
-#API Endpoints and Network-Settings for the various chains
+#get the terminal output device - may vary depending on the write access
+echo -n "" 2> /dev/null > $(tty); if [[ $? -eq 0 ]]; then termTTY=$(tty); else termTTY="/dev/tty"; fi
 
 network=${network:-mainnet} #sets the default network to mainnet, if not set otherwise
 unset _magicparam _addrformat _byronToShelleyEpochs _tokenMetaServer _transactionExplorer _koiosAPI _adahandlePolicyID _adahandleAPI _lightModeParametersURL
@@ -160,10 +168,12 @@ workMode=${workmode:-"${workMode}"}
 koiosApiToken=${koiosapitoken:-"${koiosApiToken}"}
 
 #Set the list of preconfigured networknames
-networknames="mainnet, preprod, preview, sancho"
+networknames="mainnet, preprod, preview, sancho, guildnet"
 
 #Check if there are testnet parameters set but network is still "mainnet"
 if [[ "${magicparam}${addrformat}" == *"testnet"* && "${network,,}" == "mainnet" ]]; then majorError "Mainnet selected, but magicparam(${magicparam})/addrformat(${addrformat}) have testnet settings!\n\nPlease select the right chain in the '00_common.sh', '${scriptDir}/common.inc', '$HOME/.common.inc' or './common.inc' file by setting the value for the parameter network to one of the preconfiged networknames:\n${networknames}\n\nThere is no need anymore, to set the parameters magicparam/addrformat/byronToShelleyEpochs for the preconfigured networks. Its enough to specify it for example with: network=\"preprod\"\nOf course you can still set them and also set a custom networkname like: network=\"vasil-dev\""; exit 1; fi
+
+#API Endpoints and Network-Settings for the various chains
 
 #Preload the variables, based on the "network" name
 case "${network,,}" in
@@ -210,6 +220,8 @@ case "${network,,}" in
 		_adahandleAPI="https://preview.api.handle.me"		#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
 		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/preview-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+		_guardrailScriptUTXO="f3f61635034140e6cec495a1c69ce85b22690e65ab9553ef408d524f58183649#0"
+		_guardrailScriptSize=2132
 		;;
 
 
@@ -271,6 +283,8 @@ adahandlePolicyID=${adahandlePolicyID:-"${_adahandlePolicyID}"}
 adahandleAPI=${adahandleAPI:-"${_adahandleAPI}"}
 catalystAPI=${catalystAPI:-"${_catalystAPI}"}
 lightModeParametersURL=${lightModeParametersURL:-"${_lightModeParametersURL}"}
+guardrailScriptUTXO=${guardrailScriptUTXO:-"${_guardrailScriptUTXO}"}
+guardrailScriptSize=${guardrailScriptSize:-"${_guardrailScriptSize}"}
 
 
 #Check about the / at the end of the URLs
@@ -280,16 +294,15 @@ if [[ "${transactionExplorer: -1}" == "/" ]]; then transactionExplorer=${transac
 if [[ "${catalystAPI: -1}" == "/" ]]; then catalystAPI=${catalystAPI%?}; fi #make sure the last char is not a /
 if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #make sure the last char is not a /
 
-
 #Check about the needed chain params
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="9.2.1"			#minimum allowed cli version for this script-collection version
+minCliVersion="9.3.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
 minNodeVersion="9.1.0"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
-minLedgerCardanoAppVersion="7.1.1"  	#minimum version for the cardano-app on the Ledger HW-Wallet
+minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.1"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minHardwareCliVersion="1.15.0" 		#minimum version for the cardano-hw-cli
 minCardanoSignerVersion="1.16.1"	#minimum version for the cardano-signer binary
@@ -600,7 +613,7 @@ if [[ ! "${tmpEra}" == "" ]]; then tmpEra=${tmpEra,,}; else tmpEra="auto"; fi
 echo "${tmpEra}"; return 0; #return era in lowercase
 }
 
-##Set nodeEra parameter ( --byron-era, --shelley-era, --allegra-era, --mary-era, --alonzo-era, --babbage-era or empty)
+##Set nodeEra parameter ( --byron-era, --shelley-era, --allegra-era, --mary-era, --alonzo-era, --babbage-era , --conway-era or empty)
 tmpEra=$(get_NodeEra);
 if [[ ! "${tmpEra}" == "auto" ]]; then
 	nodeEraParam="--${tmpEra}-era"; #for cli commands before 8.12.0
@@ -610,9 +623,10 @@ if [[ ! "${tmpEra}" == "auto" ]]; then
 	cliEra="${defEra}";
 fi
 
-#Temporary fix to lock the transaction build-raw to alonzo era for
+#Temporary fix to lock the transaction build-raw to a specific era for
 #Hardware-Wallet operations. Babbage-Era is not yet supported, so we will lock this for now
 #if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--conway-era" ]]; then nodeEraParam="--babbage-era"; cliEra="babbage"; fi
+if [[ "${ENV_USEERA}" != "" ]]; then nodeEraParam="--${ENV_USEERA,,}-era"; cliEra=${ENV_USEERA,,}; fi
 #-------------------------------------------------------
 
 
@@ -713,7 +727,8 @@ ask() {
         echo -ne "$1 [$prompt] "
 
         # Read the answer (use /dev/tty in case stdin is redirected from somewhere else)
-        read reply </dev/tty
+#        read reply </dev/tty
+        read reply <${termTTY}
 
         # Default?
         if [ -z "$reply" ]; then
@@ -735,10 +750,12 @@ ask() {
 #Subroutine for password interaction
 ask_pass() {
  	local pass #pass variable only lives within this function
-	echo -ne "${1}: " > $(tty) #redirect to the tty output
+#	echo -ne "${1}: " > $(tty) #redirect to the tty output
+	echo -ne "${1}: " > ${termTTY} #redirect to the tty output
 	IFS= read -s pass #read in the password but don't show it
 	local hidden=$(sed 's/./*/g' <<< ${pass})
-	echo -ne "${hidden}" > $(tty) #show stars for the chars
+#	echo -ne "${hidden}" > $(tty) #show stars for the chars
+	echo -ne "${hidden}" > ${termTTY} #show stars for the chars
 	echo -n "${pass}" #pass the password to the calling instance
 	unset pass #unset the variable
 }
@@ -1127,6 +1144,73 @@ fi
 }
 #-------------------------------------------------------
 
+#-------------------------------------------------------
+#Convert an action/proposal UTXO and IDX value into the CIP-129 bech representation like gov_action1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsq6dmejn
+convert_actionUTXO2Bech() {
+	local govActionID="${1}"
+#	local govActionUTXO=$(trimString "${1%%#*}"); govActionUTXO=${govActionUTXO,,} #takes the part before the # separator
+#	local govActionIdx=$(trimString "${1#*#}"); #takes the part after the # separator
+	if [[ "${govActionID}" =~ ^([[:xdigit:]]{64}+#[[:digit:]]{1,})$ ]]; then
+		local govActionUTXO=${govActionID:0:64}; govActionUTXO=${govActionUTXO,,} #make sure its lower case
+		local govActionIdx=$(( ${govActionID:65} + 0 )) #make sure to have single digits if provided like #00 #01 #02...
+		local govActionIdxHex="00$(bc <<< "obase=16;ibase=10;${govActionIdx}")"; govActionIdxHex=${govActionIdxHex: -$(( (${#govActionIdxHex}-1)/2*2 ))} #make sure its with a leading zero and always in pairs like 03, 04af
+		local govActionBech=$(${bech32_bin} "gov_action" <<< "${govActionUTXO}${govActionIdxHex}" 2> /dev/null)
+		echo -n "${govActionBech}"
+	else
+	        echo -e "\n\e[35mERROR - Please provide a valid Governance-Action-ID in the format like: \e[0m365042be18639f776520fca54e9cb2df04ab9ecd43bf50078045d8cc6ee491be#0\n"; exit 1;
+	fi
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Convert a CIP129 action bech into UTXO#IDX format
+convert_actionBech2UTXO() {
+	local govActionBech="${1}"
+	if [[ "${govActionBech}" != "gov_action1"* ]]; then exit 1; fi
+	local govActionBechHex=$(${bech32_bin} <<< "${govActionBech}" 2> /dev/null)
+	local govActionUTXO=${govActionBechHex:0:64}
+	local govActionIdx=$(bc <<< "obase=10;ibase=16;${govActionBechHex:64}")
+echo -n "${govActionUTXO}#${govActionIdx}"
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Convert a bech drep, committee or pool into the CIP129 bech format
+convert_actionBech2CIP129() {
+	local bechFormat="${1}"
+	local hexFormat=$(${bech32_bin} <<< "${bechFormat}")
+	case "${bechFormat}" in
+		"cc_hot1"*)		local cip129BechFormat=$(${bech32_bin} "cc_hot" <<< "02${hexFormat}");;
+		"cc_hot_script1"*)	local cip129BechFormat=$(${bech32_bin} "cc_hot" <<< "03${hexFormat}");;
+		"cc_cold1"*)		local cip129BechFormat=$(${bech32_bin} "cc_cold" <<< "12${hexFormat}");;
+		"cc_cold_script1"*)	local cip129BechFormat=$(${bech32_bin} "cc_cold" <<< "13${hexFormat}");;
+		"drep1"*)		local cip129BechFormat=$(${bech32_bin} "drep" <<< "22${hexFormat}");;
+		"drep_script1"*)	local cip129BechFormat=$(${bech32_bin} "drep" <<< "23${hexFormat}");;
+		*)			echo -n "ERROR - cannot convert the given bech input"; exit 1 ;;
+	esac
+echo -n "${cip129BechFormat}"
+}
+#-------------------------------------------------------
+
+#-------------------------------------------------------
+#Convert a CIP129 bech drep, committee or pool into the standard bech format
+convert_actionCIP1292Bech() {
+	local cip129BechFormat="${1}"
+	local hexFormat=$(${bech32_bin} <<< "${cip129BechFormat}")
+	case "${hexFormat:0:2}${cip129BechFormat}" in
+		"02cc_hot"*)		local bechFormat=$(${bech32_bin} "cc_hot" <<< "${hexFormat:2}");;
+		"03cc_hot"*)		local bechFormat=$(${bech32_bin} "cc_hot_script" <<< "${hexFormat:2}");;
+		"12cc_cold"*)		local bechFormat=$(${bech32_bin} "cc_cold" <<< "${hexFormat:2}");;
+		"13cc_cold"*)		local bechFormat=$(${bech32_bin} "cc_cold_script" <<< "${hexFormat:2}");;
+		"22drep"*)		local bechFormat=$(${bech32_bin} "drep" <<< "${hexFormat:2}");;
+		"23drep"*)		local bechFormat=$(${bech32_bin} "drep_script" <<< "${hexFormat:2}");;
+		*)			echo -n "ERROR - cannot convert the given cip129 bech input"; exit 1 ;;
+	esac
+echo -n "${bechFormat}"
+}
+#-------------------------------------------------------
+
+
 
 #-------------------------------------------------------
 #Calculate the minimum UTXO value that has to be sent depending on the assets and the minUTXO protocol-parameters
@@ -1411,7 +1495,7 @@ queryLight_UTXO() { #${1} = address to query
 #
 # makes an online query via koios API and returns and output like a cli stake-address-info query
 #
-queryLight_stakeAddressInfo() { #${1} = address to query
+queryLight_stakeAddressInfo() { #${1} = stakeaddress(bech) to query
 
 	local addr=${1}
         local errorcnt=0
@@ -1447,15 +1531,28 @@ queryLight_stakeAddressInfo() { #${1} = address to query
 		else
 
 		local delegation; local rewardAccountBalance; local delegationDeposit; local voteDelegation; #define local variables so we can read it in one go with the next jq command
-		{ read delegation; read rewardAccountBalance; read delegationDeposit; read voteDelegation; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\", .[0].vote_delegation // \"null\"" <<< "${responseJSON}" 2> /dev/null)
+		{ read delegation; read rewardAccountBalance; read delegationDeposit; read voteDelegation; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\", .[0].delegated_drep // \"null\"" <<< "${responseJSON}" 2> /dev/null)
 
 		#deposit value, always 2000000 lovelaces until conway
 		if [[ ${delegationDeposit} == null ]]; then delegationDeposit=2000000; fi
 
+		#convert from CIP129 to regular format if its a normal drep delegation
+		if [[ "${voteDelegation}" == "drep1"* ]]; then voteDelegation=$(convert_actionCIP1292Bech ${voteDelegation}); fi
 
-		#convert bech-voteDelegation into keyHash-voteDelegation
-		if [[ ${voteDelegation} != null ]]; then voteDelegation="keyHash-$(${bech32_bin} <<< ${voteDelegation})"; fi
-
+		#convert bech-voteDelegation into keyHash-/scriptHAsh-voteDelegation
+		case "${voteDelegation}" in
+			"drep1"*)		voteDelegation="keyHash-$(${bech32_bin} <<< ${voteDelegation})"
+						;;
+			"drep_script1"*)	voteDelegation="scriptHash-$(${bech32_bin} <<< ${voteDelegation})"
+						;;
+			"drep_always_abstain")	voteDelegation="alwaysAbstain"
+						;;
+			"drep_always_no_confidence")
+						voteDelegation="alwaysNoConfidence"
+						;;
+			*)			voteDelegation="null"
+						;;
+		esac
 
 		jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": \"${delegation}\", \"delegationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance},  \"voteDelegation\": \"${voteDelegation}\" } ]" #compose a json like the cli output
 		#return the composed json
@@ -1463,6 +1560,347 @@ queryLight_stakeAddressInfo() { #${1} = address to query
 	fi
 
 	unset jsonRet response responseCode responseJSON addr error errorcnt
+
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
+#queryLight_drepInfo function
+#
+# makes an online query via koios API and returns and output like a cli drep-state query
+#
+queryLight_drepInfo() { #${1} = drep-id(bech) to query
+
+	local drepID="${1}";
+	if [[ ${#drepID} -eq 56 || ${#drepID} -eq 63 ]]; then drepID=$(convert_actionBech2CIP129 ${drepID}); fi #if given drep id is in standard format, convert it to CIP129 format for koios query
+
+        local errorcnt=0
+        local error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/drep_info" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"_drep_ids\":[\"${drepID}\"]}" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	jsonRet=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#check if the drepID is registered, if not, return an empty array
+	if [[ $(jq -r ".[0].registered" <<< "${responseJSON}" 2> /dev/null) != "true" ]]; then
+		printf "[]"; #drepID not registered on chain, return an empty array
+		else
+
+		local hasScript; local delegatedStake; local drepDeposit; local drepHex; local drepExpiry; local drepAnchorUrl; local drepAnchorHash; #define local variables so we can read it in one go with the next jq command
+		{ read hasScript; read delegatedStake; read drepDeposit; read drepHex; read drepExpiry; read drepAnchorUrl; read drepAnchorHash; } <<< $(jq -r "\"\(.[0].has_script)\" // \"null\", .[0].amount // \"null\", .[0].deposit // \"null\", .[0].hex // \"null\", .[0].expires_epoch_no // \"null\", .[0].url // \"-\", .[0].hash // \"-\"" <<< "${responseJSON}" 2> /dev/null)
+
+		#set the hash-type
+		if [[ "${hasScript}" == "false" ]]; then hashType="keyHash"; else hashType="scriptHash"; fi
+
+		jsonRet="[ [ { \"${hashType}\": \"${drepHex}\" }, { \"anchor\": { \"url\": \"${drepAnchorUrl}\", \"dataHash\": \"${drepAnchorHash}\" } , \"deposit\": ${drepDeposit}, \"expiry\": ${drepExpiry}, \"stake\": ${delegatedStake} } ] ]" #compose a json like the cli output
+		#return the composed json
+		printf "${jsonRet}"
+	fi
+
+	unset jsonRet response responseCode responseJSON addr error errorcnt
+
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
+#queryLight_committeeState function
+#
+# makes an online query via koios API and returns and output like: cardano-cli conway query committee-state
+#
+queryLight_committeeState() { #for filtering, ${1} = committeeHASH
+
+	local committeeHASH="${1}"
+        local errorcnt=0
+        local error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/committee_info" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	jsonJSON=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#Filter for a given committeeHASH
+        if [[ "${committeeHASH}" != "" ]]; then
+		committeeHashArray=$(jq -r "[ .[0].members[] | select( .cc_cold_hex == \"${committeeHASH}\" or .cc_hot_hex == \"${committeeHASH}\") ]" 2> /dev/null <<< "${jsonJSON}");
+		else
+		committeeHashArray=$(jq -r "[ .[0].members[] ]" 2> /dev/null <<< "${jsonJSON}");
+	 fi
+
+	#Get the quorum values
+	local quorum_numerator; local quorum_denominator; local quorum;
+	{ read quorum_numerator; read quorum_denominator; } <<< $(jq -r ".[0].quorum_numerator // \"null\", .[0].quorum_denominator // \"null\"" <<< "${jsonJSON}" 2> /dev/null)
+	if [[ "${quorum_numerator}" == "null" || "${quorum_denominator}" == "null" ]]; then echo -e "Query via Koios-API (${koiosAPI}) failed, missin quorum parameters."; exit 1; fi;
+	quorum=$(bc <<< "scale=2; ${quorum_numerator}/${quorum_denominator}");
+
+	#Generate the same output like the cli does. First step, generate the core structure. This also converts the quorum .xx value to 0.xx
+	jsonRet=$(jq -r <<< "{ \"epoch\": $(get_currentEpoch), \"threshold\": ${quorum} }")
+
+	#convert all committee hash entries to the correct format depending on key/script hashes
+	committeeEntryCnt=$(jq -r "length" <<< ${committeeHashArray})
+	for (( tmpCnt=0; tmpCnt<${committeeEntryCnt}; tmpCnt++ ))
+	do
+
+		local cc_hot_hex; local cc_cold_hex; local expiration_epoch; local cc_hot_has_script; local cc_cold_has_script; local cc_status;
+		{ read cc_hot_hex; read cc_cold_hex; read expiration_epoch; read cc_hot_has_script; read cc_cold_has_script; read cc_status; } <<< $(jq -r ".[${tmpCnt}].cc_hot_hex // \"null\", .[${tmpCnt}].cc_cold_hex // \"null\", .[${tmpCnt}].expiration_epoch // \"null\", \"\(.[${tmpCnt}].cc_hot_has_script)\" // \"null\", \"\(.[${tmpCnt}].cc_cold_has_script)\" // \"null\", \"\(.[${tmpCnt}].status)\" // \"null\"" <<< "${committeeHashArray}" 2> /dev/null)
+
+		case ${cc_status} in
+
+			"authorized")		if [[ "${cc_hot_has_script}" == "true" ]]; then
+							hotCredAuthStatus="{ \"contents\": { \"scriptHash\": \"${cc_hot_hex}\" }, \"tag\": \"MemberAuthorized\" }";
+							else
+							hotCredAuthStatus="{ \"contents\": { \"keyHash\": \"${cc_hot_hex}\" }, \"tag\": \"MemberAuthorized\" }";
+						fi
+						;;
+
+			"not_authorized")	hotCredAuthStatus="{ \"tag\": \"MemberNotAuthorized\" }"
+						;;
+
+			"resigned")		hotCredAuthStatus="{ \"tag\": \"MemberResigned\" }"
+                                                ;;
+
+		esac
+
+		if [[ "${cc_cold_has_script}" == "true" ]]; then cc_cold_key="scriptHash-${cc_cold_hex}"; else cc_cold_key="keyHash-${cc_cold_hex}"; fi
+
+		#Add this to the list of committee entries
+		jsonRet=$(jq -r ".committee.\"${cc_cold_key}\" += { \"expiration\": ${expiration_epoch}, \"hotCredsAuthStatus\": ${hotCredAuthStatus}, \"nextEpochChange\": null, \"status\": \"Active\" }" <<< "${jsonRet}" 2> /dev/null)
+
+	done
+
+	#return the composed json
+	printf "${jsonRet}"
+
+	unset jsonRet response responseCode responseJSON addr error errorcnt tmpCnt quorum committeeEntryCnt cc_cold_key hotCredAuthStatus
+
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
+#queryLight_actionState function
+#
+# makes an online query via koios API and returns and output like: cardano-cli conway query gov-state | jq -r ".proposals | to_entries[] | .value"
+#
+queryLight_actionState() { #for filtering, ${1} = govActionUTXO, ${2} = govActionIDX,
+
+	local govActionUTXO="${1}"
+	local govActionIdx="${2}"
+	local voterID="${3}"
+        local errorcnt=0
+        local error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		case "${voterID}" in
+			"drep"*|"cc_hot"*|"pool"*) #a voterID was given, so do a filtering directly via koios on the given bech voterID
+				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/voter_proposal_list?_voter_id=${voterID}&dropped_epoch=is.null" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" 2> /dev/null)
+				;;
+			*) #no voterID was given, do a query for the complete proposal list
+				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/proposal_list?dropped_epoch=is.null" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" 2> /dev/null)
+				;;
+		esac
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	jsonRet=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#If there is a given govActionUTXO+govActionIDX value, filter down the result directly to mimimize the number of koios requests
+	#Filter for a given Action-ID
+	if [[ ${govActionUTXO} != "" && ${govActionIdx} != "" ]]; then
+	        jsonRet=$(jq -r "[ .[] | select(.proposal_tx_hash == \"${govActionUTXO}\" and .proposal_index == ${govActionIdx}) ]" 2> /dev/null <<< "${jsonRet}")
+	fi
+
+	#Generate the same output like the cli does. First step, generate the core structure. Votes will get filled later on
+	jsonRet=$(jq "[ .[] | { \"actionId\": { \"govActionIx\": (.proposal_index), \"txId\": (.proposal_tx_hash) }, \"dRepVotes\": {}, \"committeeVotes\": {}, \"stakePoolVotes\": {}, \"expiresAfter\": (.expiration - 1), \"proposedIn\": (.proposed_epoch), \"proposalProcedure\": { \"anchor\": { \"dataHash\": (.meta_hash), \"url\": (.meta_url) }, \"deposit\": (.deposit), \"govAction\": { \"contents\": (.proposal_description.contents), \"tag\": (.proposal_description.tag) }, \"returnAddr\": (.return_address) } } ]" 2> /dev/null <<< ${jsonRet})
+
+
+	#convert all return addresses into cli (credential-hash and network) format
+	actionStateEntryCnt=$(jq -r "length" <<< ${jsonRet})
+	readarray -t actionDepositAddrArray <<< $(jq -r ".[].proposalProcedure.returnAddr" 2> /dev/null <<< "${jsonRet}")
+	for (( tmpCnt=0; tmpCnt<${actionStateEntryCnt}; tmpCnt++ ))
+	do
+				#convert the returnaddress into hash and network
+				tmpReturnAddr=${actionDepositAddrArray[${tmpCnt}]}
+                                tmpReturnHash=$(${bech32_bin} <<< "${tmpReturnAddr}" 2> /dev/null)
+                                tmpCredential=""
+                                case "${tmpReturnAddr}" in
+                                        "stake1"*)	tmpCredential="{ \"credential\": { \"keyHash\": \"${tmpReturnHash:2}\" } , \"network\": \"Mainnet\" }";;
+                                        "stake_test1"*)	tmpCredential="{ \"credential\": { \"keyHash\": \"${tmpReturnHash:2}\" } , \"network\": \"Testnet\" }";;
+                                        ### scriptaddresses ???
+                                esac
+
+				#replace it in the JSON
+				jsonRet=$(jq ".[${tmpCnt}].proposalProcedure.returnAddr = ${tmpCredential}" <<< "${jsonRet}" )
+
+	done
+
+	#return the composed json
+#	printf "${jsonRet}"
+	echo -ne "${jsonRet}"
+
+	unset jsonRet response responseCode responseJSON addr error errorcnt tmpReturnAddr tmpReturnHash tmpCredential actionStateEntryCnt tmpCnt
+
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
+#queryLight_actionVotes function
+#
+# makes an online query via koios API and returns a JSON output that contains the { "dRepVotes": ..., "stakePoolVotes": ..., "committeeVotes": ... }
+# this can than be merged into the JSON requested via the function queryLight_actionState
+#
+queryLight_actionVotes() { #for filtering, ${1} = govActionUTXO, ${2} = govActionIDX,
+
+	local govActionUTXO="${1}"
+	local govActionIdx="${2}"
+        local errorcnt=0
+        local error=-1
+
+	#CIP129 action-ID format
+	local govActionBech=$(convert_actionUTXO2Bech "${govActionUTXO}#${govActionIdx}")
+
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/proposal_votes?_proposal_id=${govActionBech}" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	jsonRet=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+
+	#convert the koios output into cli compatible format
+	jsonRet=$(jq -r "[([ .[] | select(.voter_role == \"DRep\") ] | { dRepVotes: (map( if .voter_has_script then { \"scriptHash-\(.voter_hex)\": .vote } else { \"keyHash-\(.voter_hex)\": .vote } end ) | add // {}) }),
+		 ([ .[] | select(.voter_role == \"SPO\") ] | { stakePoolVotes: (map({ \"\(.voter_hex)\": .vote }) | add // {}) }),
+		 ([ .[] | select(.voter_role == \"ConstitutionalCommittee\") ] | { committeeVotes: (map( if .voter_has_script then { \"scriptHash-\(.voter_hex)\": .vote } else { \"keyHash-\(.voter_hex)\": .vote } end ) | add // {}) })] | add" 2> /dev/null <<< "${jsonRet}")
+
+	#return the composed json
+	printf "${jsonRet}"
+
+	unset jsonRet response responseCode responseJSON error errorcnt
+
+}
+#-------------------------------------------------------
+
+
+
+#-------------------------------------------------------
+#queryLight_actionVotesSummary function
+#
+# makes an online query via koios API and returns a JSON output that contains the DRep, Pool and Committee Voting Percentages
+#
+queryLight_actionVotesSummary() { #${1} = govActionBech in CIP129 format
+
+	local govActionBech="${1}" #CIP129 format !
+        local errorcnt=0
+        local error=-1
+
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/proposal_voting_summary?_proposal_id=${govActionBech}" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	jsonRet=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#return the composed json
+	printf "${jsonRet}"
+
+	unset jsonRet response responseCode responseJSON error errorcnt
 
 }
 #-------------------------------------------------------
@@ -1502,7 +1940,7 @@ submitLight() { #${1} = path to txFile
 	case ${responseCode} in
 		"202" ) ;; #all good, continue
 		"400" ) echo -e "HTTP Response code: ${responseCode} - Koios API reported back an error:\n${responseTxID}\nMaybe you have to wait for the next block - please retry later.\nIf you have issues further on, please report back, thx!"; exit 1;; #exit with a failure and the http response code
-		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+		* )     echo -e "HTTP Response code: ${responseCode} - ${responseTxID}"; exit 1; #exit with a failure and the http response code
         esac;
 
 	local txID=${responseTxID//\"/} #remove any quote symbol
@@ -2048,7 +2486,6 @@ do
                         echo -e "\t   \t\e[90mpayment via ${transactionFromAddr}\e[0m"
                         ;;
 
-
 	* )		#Unknown Transaction Type !?
 			echo -e "\e[90m\t[$((${tmpCnt}+1))]\t\e[35mUnknown transaction type\e[0m"
 			;;
@@ -2232,10 +2669,7 @@ function showProcessAnimation() {
 
 local stopAnimation="false";
 local idx=0;
-#local animChar=("-" "\\" "|" "/");
-#local animChar=("⎺" "\\" "⎽" "/");
 local animChar=(">    " ">>   " ">>>  " " >>> " "  >>>" "   >>" "    >" "     ");
-#local animChar=(">    " " >   " "  >  " "   > " "    >" "   < " "  <  " " <   ");
 
 trap terminate SIGINT
 terminate(){ stopAnimation="true"; }
@@ -2275,7 +2709,8 @@ encrypt_skeyJSON() {
 	local password="${2}"
 
 	#check that the encryption/decryption tool gpg exists
-	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > $(tty); exit 1; fi
+#	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > $(tty); exit 1; fi
+	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > ${termTTY}; exit 1; fi
 
 	#check if the skeyJSON is already encrypted
 	if [[ $(egrep "encrHex|Encrypted" <<< "${skeyJSON}" | wc -l) -ne 0 ]]; then echo "It is already encrypted!"; exit 1; fi
@@ -2312,7 +2747,8 @@ decrypt_skeyJSON() {
 	local password="${2}"
 
 	#check that the encryption/decryption tool gpg exists
-	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > $(tty); exit 1; fi
+#	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > $(tty); exit 1; fi
+	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > ${termTTY}; exit 1; fi
 
 	#check if the skeyJSON is already decrypted
 	if [[ $(egrep "encrHex|Encrypted" <<< "${skeyJSON}" | wc -l) -eq 0 ]]; then echo "It is already decrypted!"; exit 1; fi
@@ -2356,10 +2792,12 @@ read_skeyFILE() {
 	if [ ! -f "${skeyFILE}" ]; then echo -e "\e[35mGiven SKEY-File does not exist!\e[0m\n\n"; exit 1; fi
 
 	#check if the skeyJSON is already decrypted, if so, just return the content
-	if [[ $(egrep "encrHex|Encrypted" < "${skeyFILE}" | wc -l) -eq 0 ]]; then echo -ne "\e[0mReading unencrypted file \e[32m${skeyFILE}\e[0m ... " > $(tty); cat "${skeyFILE}"; exit 0; fi
+#	if [[ $(egrep "encrHex|Encrypted" < "${skeyFILE}" | wc -l) -eq 0 ]]; then echo -ne "\e[0mReading unencrypted file \e[32m${skeyFILE}\e[0m ... " > $(tty); cat "${skeyFILE}"; exit 0; fi
+	if [[ $(egrep "encrHex|Encrypted" < "${skeyFILE}" | wc -l) -eq 0 ]]; then echo -ne "\e[0mReading unencrypted file \e[32m${skeyFILE}\e[0m ... " > ${termTTY}; cat "${skeyFILE}"; exit 0; fi
 
 	#its encrypted, check that the encryption/decryption tool gpg exists
-	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > $(tty); exit 1; fi
+#	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > $(tty); exit 1; fi
+	if ! exists gpg; then echo -e "\n\n\e[33mYou need the little tool 'gnupg', its needed to encrypt/decrypt the data !\n\nInstall it on Ubuntu/Debian like:\n\e[97msudo apt update && sudo apt -y install gnupg\n\n\e[33mThx! :-)\e[0m\n" > ${termTTY}; exit 1; fi
 
 	#main loop to repeat the decryption until we have a cborHex
 	while [[ "${cborHex}" == "" ]]; do
@@ -2371,7 +2809,8 @@ read_skeyFILE() {
 		        local password=$(ask_pass "\e[33mEnter the Password to decrypt '${skeyFILE}' (empty to abort)")
 		        if [[ ${password} == "" ]]; then echo -e "\e[35mAborted\e[0m\n\n"; exit 1; fi
 		        while [[ $(is_strong_password "${password}") != "true" ]]; do
-		                        echo -e "\n\e[35mThis is not a strong password, so it couldn't be the right one. Lets try it again...\e[0m\n" > $(tty)
+#		                        echo -e "\n\e[35mThis is not a strong password, so it couldn't be the right one. Lets try it again...\e[0m\n" > $(tty)
+		                        echo -e "\n\e[35mThis is not a strong password, so it couldn't be the right one. Lets try it again...\e[0m\n" > ${termTTY}
 				        local password=$(ask_pass "\e[33mEnter the Password to decrypt '${skeyFILE}' (empty to abort)")
 		                        if [[ ${password} == "" ]]; then echo -e "\e[35mAborted\e[0m\n\n"; exit 1; fi
 		        done
@@ -2394,7 +2833,8 @@ read_skeyFILE() {
 		unset skeyJSON #not used after this line
 
 		#decrypt
-		echo -ne "\r\033[K\e[0mDecrypting the file '\e[32m${skeyFILE}\e[0m' ${viaENV}... " > $(tty)
+#		echo -ne "\r\033[K\e[0mDecrypting the file '\e[32m${skeyFILE}\e[0m' ${viaENV}... " > $(tty)
+		echo -ne "\r\033[K\e[0mDecrypting the file '\e[32m${skeyFILE}\e[0m' ${viaENV}... " > ${termTTY}
 		local cborHex=$(xxd -ps -r <<< ${skeyEncrHex} 2> /dev/null | gpg --decrypt --yes --batch --quiet --passphrase "${password}" --log-file /dev/null 2> /dev/null)
 		unset skeyEncrHex #not used after this line
 		unset password #not used after this line
@@ -2413,6 +2853,3 @@ read_skeyFILE() {
 
 }
 #-------------------------------------------------------
-
-
-
