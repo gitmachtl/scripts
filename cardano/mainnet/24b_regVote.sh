@@ -337,8 +337,8 @@ checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 protocolVersionMajor=$(jq -r ".protocolVersion.major // -1" <<< ${protocolParametersJSON})
 if [[ ${protocolVersionMajor} -lt 9 ]]; then
 	echo -e "\n\e[35mERROR - The current era on the chain does not support submitting governance votes. Needs conway-era and above!\n\e[0m"; exit 1;
-elif [[ ${protocolVersionMajor} -eq 9 ]] && [[ ${voterType} == "DRep" ]]; then
-	echo -e "\n\e[35mSORRY - We are currently in conway bootstrap-phase with protocol version 9. During this period, DReps are not allowed to do any votes!\n\e[0m"; exit 1;
+#elif [[ ${protocolVersionMajor} -eq 9 ]] && [[ ${voterType} == "DRep" ]]; then
+#	echo -e "\n\e[35mSORRY - We are currently in conway bootstrap-phase with protocol version 9. During this period, DReps are not allowed to do any votes!\n\e[0m"; exit 1;
 fi
 
 
