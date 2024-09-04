@@ -7,8 +7,8 @@ The governance scripts are divided into different topics, every topic has its ow
 ### [DRep Key Operations](#drep-key-operations-1)
 - [21a_genDRepKeys.sh](#1-generating-drep-key-options) -> Generate
 - [21b_regDRepCert.sh](#2-register-or-update-drep-key-options) -> Register & Update
-- 21c_checkDRepOnChain.sh -> Check
-- 21d_retDRepCert.sh -> Retire
+- [21c_checkDRepOnChain.sh](#3-check-drep-iddata-information) -> Check
+- [21d_retDRepCert.sh](#4-retireremove-a-drep-key) -> Retire
 
 ### VotingPower Delegation
 - 22a_genVoteDelegCert.sh -> Generate
@@ -63,7 +63,8 @@ Example with Hardware-Account/Index-Numbers:
 Lets use the name `myDrep` for the example below.
 ```console
 $ ./21a_genDRepKeys.sh myDrep cli
-
+```
+```js
 Version-Info: cli 9.3.0.0               Mode: online(light)     Era: conway     Testnet: SanchoNet (magic 4)
 
 koiosAPI-ProjID: --- (Public-Tier) valid until 'no expire date'
@@ -92,7 +93,8 @@ If you wanna register the DRep-ID now, please run the script 21b_regDRepCert.sh 
 Lets use the name `mySecureDRep` for the example below.
 ```console
 $ ./21a_genDRepKeys.sh mySecureDrep enc
-
+```
+```js
 Version-Info: cli 9.3.0.0               Mode: online(light)     Era: conway     Testnet: SanchoNet (magic 4)
 
 koiosAPI-ProjID: --- (Public-Tier) valid until 'no expire date'
@@ -167,20 +169,20 @@ As you can see, this generated a DRep key named `myLightDrep` with a secret key 
 
 ### Generating DRep-Key with a Hardware-Wallet
 As easy as with the examples above, its the same with a Hardware-Wallet. Currently Ledger and Trezor wallets are supported via cardano-hw-cli.
-To generate a DRep-Key with name `myHwDRep` we can simply call script 21a like
+To generate a DRep-Key with name `mymyLedgerDrep` we can simply call script 21a like
 ```console
 ##############################
 ##############################
 ##############################
 ```
 
+-----
 
 ### 2. Register or Update DRep-Key options
-To register DRep-Keys on the chain you are using script 21b:
+To register DRep-Keys on the chain we are using script 21b:
 ```console
 $ ./21b_regDRepCert.sh
-```
-```js
+
 Version-Info: cli 9.3.0.0               Mode: online(light)     Era: conway     Network: Mainnet
 
 koiosAPI-ProjID: sposcripts (Free-Tier) valid until 'Mi 01 Jän 2025 21:56:02 CET'
@@ -293,17 +295,269 @@ As you can see, above, the process was identified as a DRep-Registration. If you
 
 ### Register/Update a DRep-Key with a HW-Wallet
 We created a new DRep before on a Ledger-HW-Wallet with the name `myLedgerDrep` lets register it on chain as a public DRep -> with a linked DRep-Metadata file/url.
-The script 21b will try to download the given DRep-Metadata file to get the fileHash of it, which is also part of the registration.
-So make sure to upload your DRep-Metadata file to a public server before you run 21b!
-Using the HW-Wallet with name `ledger` to pay for the registration and the **500 Ada DRep-Deposit-Fee**.
-```console
-$ ./21b_regDRepCert.sh myLedgerDrep ledger "url: https://raw.githubusercontent.com/gitmachtl/scripts/master/cardano/testnet/dummy_drep_metadata.json"
-```
 
+The script 21b will try to download the given DRep-Metadata file to get the fileHash of it, which is also part of the registration.
+
+So make sure to upload your DRep-Metadata file to a public server before you run 21b! I converted the url to a short one.
+
+Using the HW-Wallet with name `ledger` to pay for the registration and the **500 Ada DRep-Deposit-Fee**.
+
+```console
+$ ./21b_regDRepCert.sh myLedgerDrep ledger "url: "url: https://shorturl.at/rykvG"
+```
+```js
+Version-Info: cli 9.3.0.0 / node 9.1.0          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Register DRep-ID using myLedgerDrep.drep.vkey with funds from Address ledger.payment.addr
+
+New Anchor-URL(HASH): https://shorturl.at/rykvG (483e2e5fc077dd3e61c521e4b417fcaf881656a9af8f12cc36b418f98565ed76)
+
+Checking Information about the DRep-ID: drep1l50flvf7lxjtm5x8u3aw7zluqe0v5mz2exmp8psueusvktql43a
+
+DRep-ID is NOT on the chain, we will continue to register it ...
+
+Generate Registration-Certificate with the currently set deposit fee: 500000000 lovelaces
+
+DRep-ID Registration-Certificate built: myLedgerDrep.drep-reg.cert
+{
+    "type": "CertificateConway",
+    "description": "DRep Key Registration Certificate",
+    "cborHex": "84108200581cfd1e9fb13ef9a4bdd0c7e47aef0bfc065eca6c4ac9b613861ccf20cb1a1dcd650082781968747470733a2f2f73686f727475726c2e61742f72796b76475820483e2e5fc077dd3e61c521e4b417fcaf881656a9af8f12cc36b418f98565ed76"
+}
+
+Current Slot-Height: 38669396 (setting TTL[invalid_hereafter] to 38769396)
+
+Pay fees from Address ledger.payment.addr: addr_test1qp6fwmz547h5gnmu6jvmmpge4tr9j2cnkg4e6kqh7rd9c5sr6gz4xgyf45hhs95f9ch0g2zfk76j0z8yrvlagwnwq88sq0cm9e
+
+1 UTXOs found on the Source Address!
+
+Hash#Index: 2a576b70283ee088eb61620089e203a7ee16cf8339d35dbf17af164cee19ba45#1  ADA: 231.466,728128 (231466728128 lovelaces)
+-----------------------------------------------------------------------------------------------------
+Total ADA on the Address:  231.466,728128 ADA / 231466728128 lovelaces
+
+Mimimum transfer Fee for 1x TxIn & 1x TxOut & 1x Certificate:  0,174785 ADA / 174785 lovelaces
+
+DRep-ID Deposit Fee:  500,000000 ADA / 500000000 lovelaces
+
+Mimimum funds required for registration (Sum of fees):  501153155 lovelaces
+
+Lovelaces that will be returned to payment Address (UTXO-Sum minus fees):  230.966,553343 ADA / 230966553343 lovelaces  (min. required 978370 lovelaces)
+
+Building the unsigned transaction body with the myLedgerDrep.drep-reg.cert certificate:  /tmp/ledger.payment.txbody
+
+{
+    "type": "Unwitnessed Tx ConwayEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "84a500d90102818258202a576b70283ee088eb61620089e203a7ee16cf8339d35dbf17af164cee19ba450101818258390074976c54afaf444f7cd499bd8519aac6592b13b22b9d5817f0da5c5203d205532089ad2f7816892e2ef42849b7b52788e41b3fd43a6e01cf1b00000035c6adeaff021a0002aac1031a024f92f404d901028184108200581cfd1e9fb13ef9a4bdd0c7e47aef0bfc065eca6c4ac9b613861ccf20cb1a1dcd650082781968747470733a2f2f73686f727475726c2e61742f72796b76475820483e2e5fc077dd3e61c521e4b417fcaf881656a9af8f12cc36b418f98565ed76a0f5f6"
+}
+
+Autocorrect the TxBody for canonical order: Writing to file '/tmp/ledger.payment.txbody-corrected'.
+
+{
+    "type": "Unwitnessed Tx ConwayEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "84a500d90102818258202a576b70283ee088eb61620089e203a7ee16cf8339d35dbf17af164cee19ba450101818258390074976c54afaf444f7cd499bd8519aac6592b13b22b9d5817f0da5c5203d205532089ad2f7816892e2ef42849b7b52788e41b3fd43a6e01cf1b00000035c6adeaff021a0002aac1031a024f92f404d901028184108200581cfd1e9fb13ef9a4bdd0c7e47aef0bfc065eca6c4ac9b613861ccf20cb1a1dcd650082781968747470733a2f2f73686f727475726c2e61742f72796b76475820483e2e5fc077dd3e61c521e4b417fcaf881656a9af8f12cc36b418f98565ed76a0f5f6"
+}
+
+Sign (Witness+Assemble) the unsigned transaction body with the ledger.payment.hwsfile & myLedgerDrep.drep.hwsfile:  /tmp/ledger.payment.tx
+
+Please connect & unlock your Hardware-Wallet, open the Cardano-App on Ledger-Devices (abort with CTRL+C)
+...
+```
+You can see at the top, that the script shows the new Anchor-URL and the calculated Hash. The rest is the same as with a normal registration/update.
+
+-----
 
 ## DRep-Metadata
 We used a DRep-Metadata file above, this is only needed for a public DRep.
+
 - Private DRep: There is typically no extra DRep-Metadata linked with the registration. Only information visable on chain is the DRep-ID itself.
 - Public DRep: If you wanna be a public DRep and you wanna post additional Infos about yourself, DRep-Metadata in the form of a `JSON` file comes into play.
   The DRep-Metadata JSON File follows [CIP-119](https://cips.cardano.org/cip/CIP-0119) which builds on [CIP-100](https://cips.cardano.org/cip/CIP-0100)
 
+I have uploaded a dummy one for you in the `testnet` folder of the repo, check it out -> https://github.com/gitmachtl/scripts/tree/master/cardano/testnet
+
+P.S.: There is still a discussion going on about what fields in the Metadata file are required/allowed/disallowed.
+
+-----
+
+### 3. Check DRep-ID/Data Information
+To get information on DRep-Keys/IDs we use script 21c:
+```console
+$ ./21c_checkDRepOnChain.sh
+
+Version-Info: cli 9.3.0.0 / node 9.1.0          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Usage:  21c_checkDRepOnChain.sh <DRep-Name | DRepID-Hex | DRepID-Bech "drep1.../drep_script1...">
+```
+Syntax is super easy, just give it a DRep-Name (of a local made file), a DRep-ID in hex or bech format.
+
+Example:
+```console
+$ ./21c_checkDRepOnChain.sh myDrep
+```
+```js
+Version-Info: cli 9.3.0.0 / node 9.1.0          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Using Cardano-Signer Version: 1.18.0
+
+Checking DRep-Information on Chain - Resolve given Info into DRep-ID:
+
+Convert from Verification-Key-File myDrep.drep.vkey ... OK
+
+Regular DRep-ID: drep19zhgxz7ay7hrs2zfgw59na4x52neldxn7098pynxjgq05k8s2n6
+ CIP129 DRep-ID: drep1yg52aqctm5n6uwpgf9p6sk0k563208a560eu5uyjv6fqp7scrkyjt
+      DRep-HASH: 28ae830bdd27ae38284943a859f6a6a2a79fb4d3f3ca7092669200fa
+
+    DRep-Status: ✅ registered on the chain!
+
+ Deposit-Amount: 500,000000 ADA
+   Expire-Epoch: 467
+  Current-Epoch: 447
+   DRep-KeyType: keyHash
+     Anchor-URL: https://raw.githubusercontent.com/gitmachtl/cardano-related-stuff/master/MartinLang_DRep.json
+    Anchor-HASH: 0d7b90948320a9d5bfebc158bc674996df8dd65daab27a0c373b6750d1aa7246
+Delegated-Stake: 0,000000 ADA
+
+      Query-URL: https://raw.githubusercontent.com/gitmachtl/cardano-related-stuff/master/MartinLang_DRep.json
+  Anchor-Status: ✅ File-Content-HASH is ok
+    Anchor-Data: ✅ JSONLD structure is ok
+
+      Signature: ✅ Martin Lang
+```
+
+```console
+$ ./21c_checkDRepOnChain.sh drep1mkmnzmtlflcadyyy7g6ju3sn9ppcrut5wn73x00mfwmw642g5qy
+```
+```js
+Version-Info: cli 9.3.0.0 / node 9.1.0          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Using Cardano-Signer Version: 1.18.0
+
+Checking DRep-Information on Chain - Resolve given Info into DRep-ID:
+
+Check if given Bech-ID is valid ... OK
+
+Regular DRep-ID: drep1mkmnzmtlflcadyyy7g6ju3sn9ppcrut5wn73x00mfwmw642g5qy
+ CIP129 DRep-ID: drep1ytwmwvtd0a8lr45ssner2tjxzv5y8q03w3606yeald9mdmgmwecja
+      DRep-HASH: ddb7316d7f4ff1d69084f2352e4613284381f17474fd133dfb4bb6ed
+
+    DRep-Status: ❌ NOT registered on the chain!
+```
+
+-----
+
+### 4. Retire/Remove a DRep-Key
+To retire a DRep-Key and claim back the DRep-Deposit-Fee we are using script 21d:
+```console
+$ ./21d_retDRepCert.sh
+
+Version-Info: cli 9.3.0.0 / node 9.1.0          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+
+Usage:  21d_retDRepCert.sh <DRep-Name> <Base/PaymentAddressName (paying for the retirement fees)>
+
+        [Opt: Message comment, starting with "msg: ...", | is the separator]
+        [Opt: encrypted message mode "enc:basic". Currently only 'basic' mode is available.]
+        [Opt: passphrase for encrypted message mode "pass:<passphrase>", the default passphrase if 'cardano' is not provided]
+
+Optional parameters:
+
+- If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
+   You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
+   "msg: This is a short comment for the transaction" ... that would be a one-liner comment
+   "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
+
+   If you also wanna encrypt it, set the encryption mode to basic by adding "enc: basic" to the parameters.
+   To change the default passphrase 'cardano' to you own, add the passphrase via "pass:<passphrase>"
+
+- If you wanna attach a Metadata JSON:
+   You can add a Metadata.json (Auxilierydata) filename as a parameter to send it alone with the transaction.
+   There will be a simple basic check that the transaction-metadata.json file is valid.
+
+- If you wanna attach a Metadata CBOR:
+   You can add a Metadata.cbor (Auxilierydata) filename as a parameter to send it along with the transaction.
+   Catalyst-Voting for example is done via the voting_metadata.cbor file.
+
+Examples:
+
+   21d_retDRepCert.sh myDRep myWallet.payment
+   -> Retires the DRep-ID of myDRep (myDRep.drep.*) on Chain, Payment via the myWallet.payment wallet
+
+   21d_retDRepCert.sh myDRep myWallet.payment "msg: DRep-ID Retirement, paid via myWallet"
+   -> Retire the DRep-ID of myDREP (myDRep.drep.*) on Chain, Payment via the myWallet.payment wallet, Adding a Transaction-Message
+```
+
+### Retire a CLI DRep-Key
+Lets retire the DRep-Key `myDrep` which we created and registered above.
+```console
+$ ./21d_retDRepCert.sh myDrep funds
+```
+```js
+Version-Info: cli 9.3.0.0 / node 9.1.0          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Retire DRep-ID using myDrep.drep.vkey with funds from Address funds.addr
+
+Checking Information about the DRep-ID: drep19zhgxz7ay7hrs2zfgw59na4x52neldxn7098pynxjgq05k8s2n6
+
+DRep-ID is registered on the chain with a deposit of 500000000 lovelaces
+Registered Anchor-URL(HASH): https://raw.githubusercontent.com/gitmachtl/cardano-related-stuff/master/MartinLang_DRep.json (0d7b90948320a9d5bfebc158bc674996df8dd65daab27a0c373b6750d1aa7246)
+
+Generate Retirement-Certificate with the currently set deposit amount: 500000000 lovelaces
+
+DRep-ID Retirement-Certificate built: myDrep.drep-ret.cert
+{
+    "type": "CertificateConway",
+    "description": "DRep Retirement Certificate",
+    "cborHex": "83118200581c28ae830bdd27ae38284943a859f6a6a2a79fb4d3f3ca7092669200fa1a1dcd6500"
+}
+
+Current Slot-Height: 38670782 (setting TTL[invalid_hereafter] to 38770782)
+
+Pay fees from Address funds.addr: addr_test1vpfwv0ezc5g8a4mkku8hhy3y3vp92t7s3ul8g778g5yegsgalc6gc
+
+1 UTXOs found on the Source Address!
+
+Hash#Index: 051009233fc35d9b9729784785210e991277d8b60932dc3b7c154aff4f4719d6#0  ADA: 99.508,959914 (99508959914 lovelaces)
+-----------------------------------------------------------------------------------------------------
+Total ADA on the Address:  99.508,959914 ADA / 99508959914 lovelaces
+
+Mimimum transfer Fee for 1x TxIn & 1x TxOut & 1x Certificate:  0,170825 ADA / 170825 lovelaces
+
+DRep-ID Deposit Amount:  500000000 lovelaces
+
+Mimimum funds required for de-registration:  0,857690 ADA / 857690 lovelaces
+
+Lovelaces that will be returned to payment Address (UTXO-Sum minus fees plus DRepDepositAmount):  100.008,789089 ADA / 100008789089 lovelaces  (min. required 857690 lovelaces)
+
+Building the unsigned transaction body with the myDrep.drep-ret.cert certificate:  /tmp/funds.txbody
+
+{
+    "type": "Unwitnessed Tx ConwayEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "84a500d9010281825820051009233fc35d9b9729784785210e991277d8b60932dc3b7c154aff4f4719d600018182581d6052e63f22c5107ed776b70f7b92248b02552fd08f3e747bc7450994411b0000001748fd0461021a00029b49031a024f985e04d901028183118200581c28ae830bdd27ae38284943a859f6a6a2a79fb4d3f3ca7092669200fa1a1dcd6500a0f5f6"
+}
+
+Reading unencrypted file funds.skey ... OK
+
+Reading unencrypted file myDrep.drep.skey ... OK
+
+Sign the unsigned transaction body with the funds.skey & myDrep.drep.skey:  /tmp/funds.tx
+
+{
+    "type": "Witnessed Tx ConwayEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "84a500d9010281825820051009233fc35d9b9729784785210e991277d8b60932dc3b7c154aff4f4719d600018182581d6052e63f22c5107ed776b70f7b92248b02552fd08f3e747bc7450994411b0000001748fd0461021a00029b49031a024f985e04d901028183118200581c28ae830bdd27ae38284943a859f6a6a2a79fb4d3f3ca7092669200fa1a1dcd6500a100d9010282825820fe4a2e5abb2d87227b5f84eeea50d8ab25250e8ba2af487c9a13595289363e0f58408b80e04652dfd743b3b881a869a7c49aea45a4d960f1f953d993f250736f4b232908bfcc4b71ead83ac74934c9a31f612cf7cec1a18d858adcb97259bff6350a825820742d8af3543349b5b18f3cba28f23b2d6e465b9c136c42e1fae6b2390f565427584014c2b3f00e0657cde9f2cd10866a16775b692c551fe28550941270fafed0468e9357c2d6787f5fd162d8b0a430c48b8c459579c00808cc11ffbca90f45ae7002f5f6"
+}
+
+Transaction-Size: 352 bytes (max. 16384)
+
+Does this look good for you, continue ? [y/N]
+DONE
+
+ TxID is: f2733d070a56a706ccc53362a582a6ff79d54135a772be8f95d6cb89059e096a
+```
+
+Thats it, the DRep-Key is retired again and the 500 Ada Deposit-Fee was paid back to the `funds` cli wallet.
+
+For Hardware-Wallets its all the same, will not include an extra example here.
