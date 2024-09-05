@@ -169,11 +169,36 @@ As you can see, this generated a DRep key named `myLightDrep` with a secret key 
 
 ### Generating DRep-Key with a Hardware-Wallet
 As easy as with the examples above, its the same with a Hardware-Wallet. Currently Ledger and Trezor wallets are supported via cardano-hw-cli.
-To generate a DRep-Key with name `mymyLedgerDrep` we can simply call script 21a like
+To generate a DRep-Key with name `myLedgerDrep` we can simply call script 21a like
 ```console
-##############################
-##############################
-##############################
+$ ./21a_genDRepKeys.sh myLedgerDrep hw
+```
+```js
+Version-Info: cli 9.3.0.0 / node 9.1.0          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Generating HW-DRep Keys via Derivation-Path: 1852H/1815H/0H/3/0
+
+Cardano App Version 7.1.3 (HW-Cli Version 1.16.0-rc.1) found on your Ledger device!
+Please approve the action on your Hardware-Wallet (abort with CTRL+C) ... DONE
+
+DRep-Verification-Key (Acc# 0, Idx# 0):  myLedgerDrep.drep.vkey
+{
+  "type": "DRepVerificationKey_ed25519",
+  "description": "Hardware Delegate Representative Verification Key",
+  "cborHex": "5820d119efdfb35a24eb8df3ecf0b82ae6859632d6bc2479da0ecd85d1d7bbd7d4d1"
+}
+
+DRep-HardwareSigning-File (Acc# 0, Idx# 0):  myLedgerDrep.drep.hwsfile
+{
+    "type": "DRepHWSigningFile_ed25519",
+    "description": "Hardware Delegate Representative Signing File",
+    "path": "1852H/1815H/0H/3/0",
+    "cborXPubKeyHex": "5840d119efdfb35a24eb8df3ecf0b82ae6859632d6bc2479da0ecd85d1d7bbd7d4d1c7d994f5f5affa0391b47055a529db20ec02288b0e26b324d2aec1d2088c376e"
+}
+DRep-ID built:  myLedgerDrep.drep.id
+drep1l50flvf7lxjtm5x8u3aw7zluqe0v5mz2exmp8psueusvktql43a
+
+If you wanna register the DRep-ID now, please run the script 21b_regDRepCert.sh !
 ```
 
 -----
