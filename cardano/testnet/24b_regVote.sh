@@ -640,14 +640,15 @@ elif [[ -f "${fromAddr}.skey" && "${voterSigningFile}" == *".hwsfile" ]]; then
 #Payment via CLI, Voting via CLI
 elif [[ -f "${fromAddr}.skey" ]]; then  #generate the payment witness via the cli
 
+        #read the needed voting signing keys into ram
+        skeyJSON=$(read_skeyFILE "${voterSigningFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
 	#Check that the CLI voting signing key is the correct one for the voterHash -> calculate the hash from
-	cliVoterHash=$(${cardanocli} ${cliEra} key verification-key --signing-key-file "${voterSigningFile}" --verification-key-file /dev/stdout | jq -r ".cborHex" 2> /dev/null | cut -c 5-69 | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1 2> /dev/null)
+	cliVoterHash=$(${cardanocli} ${cliEra} key verification-key --signing-key-file <(echo "${skeyJSON}") --verification-key-file /dev/stdout | jq -r ".cborHex" 2> /dev/null | cut -c 5-69 | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1 2> /dev/null)
 	if [[ "${cliVoterHash}" != "" && "${cliVoterHash}" != "${voterHashCollector}" ]]; then
 		echo -e "\n\e[91mERROR - This Voter-Signing-File (${voterSigningFile}) with Hash '${cliVoterHash}' is not the correct\none for the Voter-Hash '${voterHashCollector}' used in the Vote-File!\n\e[0m"; exit 1;
 	fi
 
-        #read the needed voting signing keys into ram
-        skeyJSON=$(read_skeyFILE "${voterSigningFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
         ${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --out-file ${txWitnessVoterFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         #forget the signing keys
