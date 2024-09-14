@@ -264,9 +264,6 @@ for (( tmpCnt=1; tmpCnt<${paramCnt}; tmpCnt++ ))
 
 			"treasurywithdrawals")
 
-				### Temporary disabled because of the ongoing changes to the constitution script hash usage / Plutus / Collateral
-				echo -e "\n\e[33mSORRY - This function is currently disabled, because of the ongoing changes with the constitution script hash / plutus script / collateral handling!\e[0m\n"; exit 1;
-
 				{ read fundsReceivingAmount; read fundsReceivingStakeAddrHash; } <<< $(jq -r '.[0][0][1], .[0][0][0].credential.keyHash' <<< "${voteActionContents}")
 		                echo -e "  Withdrawal-Amount: \e[32m$(convertToADA ${fundsReceivingAmount}) ADA / ${fundsReceivingAmount} lovelaces\e[0m"
 		                #Show withdrawal payout stakeaddress
@@ -315,10 +312,6 @@ for (( tmpCnt=1; tmpCnt<${paramCnt}; tmpCnt++ ))
 				;;
 
 			"parameterchange")
-
-				### Temporary disabled because of the ongoing changes to the constitution script hash usage / Plutus / Collateral
-				echo -e "\n\e[33mSORRY - This function is currently disabled, because of the ongoing changes with the constitution script hash / plutus script / collateral handling!\e[0m\n"; exit 1;
-
 				#Show referencing Actio-Id and the content of the parameterchange json section
 				{ read prevActionUTXO; read prevActionIDX; read changeParameters;} <<< $(jq -r '.[0].txId // "-", .[0].govActionIx // "-", "\(.[1])" // "{}"' 2> /dev/null <<< "${voteActionContents}")
 				if [[ ${#prevActionUTXO} -gt 1 ]]; then
@@ -326,6 +319,9 @@ for (( tmpCnt=1; tmpCnt<${paramCnt}; tmpCnt++ ))
 					else
 			        	echo -e "Reference-Action-ID: \e[32m(none)\e[0m"
 				fi
+
+		        	echo -e "\n\e[0mGuardrailScript-Ref: \e[32m${guardrailScriptUTXO}\e[0m (${guardrailScriptSize} bytes)"
+
 				changeParameterRender=$(jq -r 'to_entries[] | "\\e[0m   Change parameter:\\e[32m \(.key) \\e[0m► \\e[94m\(.value)\\e[0m"' <<< ${changeParameters} 2> /dev/null)
 				echo
 				echo -e "${changeParameterRender}"
@@ -654,19 +650,43 @@ fi
 #get values to register the staking address on the blockchain
 minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
 
-#Generate Dummy-TxBody file for fee calculation
+#Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"; rm ${txBodyFile} 2> /dev/null
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-#calculate the transaction fee. new parameters since cardano-cli 8.21.0
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 2> /dev/stdout)
-if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
-fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
 
-echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
-echo
+case "${voteActionTag,,}" in
+
+	"treasurywithdrawals"|"parameterchange")	#transaction needs a guardrailsscript
+
+		### Temporary disabled because of the ongoing changes to the constitution script hash usage / Plutus / Collateral
+		echo -e "\n\e[33mSORRY - This function is currently disabled, because of the ongoing changes with the constitution script hash / plutus script / collateral handling!\e[0m\n"; exit 1;
+
+#		#Generate Dummy-TxBody file for fee calculation
+#		${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-in-collateral ${utxoHashIndexArray[0]} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --proposal-tx-in-reference "${guardrailScriptUTXO}" --proposal-plutus-script-v3 --proposal-reference-tx-in-redeemer-value {} --proposal-reference-tx-in-execution-units "(0,0)" --protocol-params-file <(echo ${protocolParametersJSON}) --invalid-hereafter $((${currentTip}+100)) --fee 200000 ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
+#		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+#		cat ${txBodyFile} | jq
+#		#calculate the transaction fee. new parameters since cardano-cli 8.21.0
+#		fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size ${guardrailScriptSize} 2> /dev/stdout)
+#		if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
+#		fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
+#		echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & Guardrails(RefScript): \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
+#		echo
+		;;
+
+	*) #all other transactions
+		#Generate Dummy-TxBody file for fee calculation
+		${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
+		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		#calculate the transaction fee. new parameters since cardano-cli 8.21.0
+		fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 2> /dev/stdout)
+		if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
+		fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
+		echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
+		echo
+		;;
+
+esac
 
 minRegistrationFund=$(( ${fee}+${minOutUTXO}+${voteActionDepositTotal} ))
 

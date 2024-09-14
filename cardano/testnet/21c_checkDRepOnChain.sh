@@ -32,11 +32,29 @@ case ${cliEra} in
                 ;;
 esac
 
-
 #Check can only be done in online mode
 #if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to do this!\e[0m\n"; exit 1; fi
 
-echo -e "\e[0mChecking DRep-Information on Chain - Resolving given Info into DRep-ID:\n"
+
+if ${onlineMode}; then
+
+	        #Check the cardano-signer binary existance and version
+	        if ! exists "${cardanosigner}"; then
+		        #Try the one in the scripts folder
+		        if [[ -f "${scriptDir}/cardano-signer" ]]; then cardanosigner="${scriptDir}/cardano-signer";
+		        else majorError "Path ERROR - Path to the 'cardano-signer' binary is not correct or 'cardano-singer' binaryfile is missing!\nYou can find it here: https://github.com/gitmachtl/cardano-signer/releases\nThis is needed to generate the signed Metadata. Also please check your 00_common.sh or common.inc settings."; exit 1; fi
+	        fi
+	        cardanosignerCheck=$(${cardanosigner} --version 2> /dev/null)
+	        if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'cardano-signer' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
+	        cardanosignerVersion=$(echo ${cardanosignerCheck} | cut -d' ' -f 2)
+	        versionCheck "${minCardanoSignerVersion}" "${cardanosignerVersion}"
+	        if [[ $? -ne 0 ]]; then majorError "Version ${cardanosignerVersion} ERROR - Please use a cardano-signer version ${minCardanoSignerVersion} or higher !\nOld versions are not compatible, please upgrade - thx."; exit 1; fi
+
+	        echo -e "\e[0mUsing Cardano-Signer Version: \e[32m${cardanosignerVersion}\e[0m\n";
+
+fi
+
+echo -e "\e[0mChecking DRep-Information on Chain - Resolve given Info into DRep-ID:\n"
 
 #Check if the provided DRep-Identification is a Hex-DRepID(length56), a Bech32-DRepID(length56 and starting with drep1) or a DRep-VKEY-File
 if [[ "${checkDRepID//[![:xdigit:]]}" == "${checkDRepID}" && ${#checkDRepID} -eq 56 ]]; then #parameter is a hex-drepid
@@ -148,18 +166,18 @@ currentEpoch=$(get_currentEpoch)
 
 #Checking about the content
 if [[ ${drepEntryCnt} == 0 ]]; then #not registered yet
-        echo -e "\e[0mDRep-ID/HASH is\e[33m NOT registered on the chain\e[0m!\e[0m\n";
+        echo -e "\e[0m    DRep-Status: ${iconNo}\e[91m NOT registered on the chain!\e[0m\n";
 	exit 1;
 
 elif [[ ${drepExpireEpoch} -lt ${currentEpoch} ]]; then #activity expired
-	echo -e "\e[0mDRep-ID/HASH is \e[32mregistered\e[0m but activity \e[91mexpired\e[0m on the chain!\n"
-	echo -e "\e[0m Deposit-Amount:\e[32m ${drepDepositAmount}\e[0m lovelaces"
+	echo -e "\e[0m    DRep-Status: ${iconNo} \e[32mregistered\e[0m but activity \e[91mexpired\e[0m on the chain!\n"
+	echo -e "\e[0m Deposit-Amount:\e[32m $(convertToADA ${drepDepositAmount})\e[0m ADA"
 	echo -e "\e[0m Inactive-Epoch:\e[91m ${drepExpireEpoch}\e[0m"
 	echo -e "\e[0m  Current-Epoch:\e[32m ${currentEpoch}\e[0m"
 
 else #normal registration and not expired
-	echo -e "\e[0mDRep-ID/HASH is \e[32mregistered\e[0m on the chain!\n"
-	echo -e "\e[0m Deposit-Amount:\e[32m ${drepDepositAmount}\e[0m lovelaces"
+	echo -e "\e[0m    DRep-Status: ${iconYes} \e[32mregistered\e[0m on the chain!\n"
+	echo -e "\e[0m Deposit-Amount:\e[32m $(convertToADA ${drepDepositAmount})\e[0m ADA"
 	echo -e "\e[0m   Expire-Epoch:\e[32m ${drepExpireEpoch}\e[0m"
 	echo -e "\e[0m  Current-Epoch:\e[32m ${currentEpoch}\e[0m"
 fi
@@ -177,6 +195,7 @@ if ${onlineMode}; then
         #get Anchor-URL content and calculate the Anchor-Hash
         if [[ ${drepAnchorURL} != "-" ]]; then
 
+
                 #we write out the downloaded content to a file 1:1, so we can do a hash calculation on the file itself rather than on text content
                 tmpAnchorContent="${tempDir}/DRepAnchorURLContent.tmp"; touch "${tmpAnchorContent}"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
@@ -189,8 +208,9 @@ if ${onlineMode}; then
                 showProcessAnimation "Query Anchor-URL content: " &
                 while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
                         error=0
-                        response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${queryURL}" --output "${tmpAnchorContent}" 2> /dev/null)
-                        if [[ $? -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
+                        response=$(curl -sL -m 30 --max-filesize 10485760 -X GET -w "---spo-scripts---%{http_code}" "${queryURL}" --output "${tmpAnchorContent}" 2> /dev/null)
+			errorcode=$?;
+                        if [[ ${errorcode} -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
                         errorcnt=$(( ${errorcnt} + 1 ))
                 done
                 stopProcessAnimation;
@@ -206,7 +226,7 @@ if ${onlineMode}; then
                                         tmp=$(jq . < "${tmpAnchorContent}" 2> /dev/null) #just a short check that the received content is a valid JSON file
                                         if [ $? -ne 0 ]; then
 
-						echo -e "\e[0m  Anchor-STATUS:\e[35m not a valid JSON format!\e[0m";
+						echo -e "\e[0m  Anchor-STATUS: ${iconNo}\e[35m not a valid JSON format!\e[0m";
 						rm "${tmpAnchorContent}";
 
 					else #anchor-url is a json
@@ -214,9 +234,22 @@ if ${onlineMode}; then
 	                                        contentHASH=$(b2sum -l 256 "${tmpAnchorContent}" 2> /dev/null | cut -d' ' -f 1)
 	                                        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 	                                        if [ "${contentHASH}" != "${drepAnchorHASH}" ]; then
-							echo -e "\e[0m  Anchor-STATUS:\e[35m HASH does not match! Online-HASH is \e[33m${contentHASH}\e[0m";
+							echo -e "\e[0m  Anchor-Status: ${iconNo}\e[35m HASH does not match! Online-HASH is \e[33m${contentHASH}\e[0m";
 						else
-							echo -e "\e[0m  Anchor-STATUS:\e[32m Content-HASH is valid! (No integrity check)\e[0m";
+							echo -e "\e[0m  Anchor-Status: ${iconYes}\e[32m File-Content-HASH is ok\e[0m";
+
+							#Now we are checking the Integrity of the Anchor-File and the Author-Signatures
+					                signerJSON=$(${cardanosigner} verify --cip100 --data-file "${tmpAnchorContent}" --json-extended 2> /dev/stdout)
+					                if [ $? -ne 0 ]; then
+								echo -e "\e[0m    Anchor-Data: ${iconNo}\e[35m ${signerJSON}\e[0m";
+								else
+								errorMsg=$(jq -r .errorMsg <<< ${signerJSON} 2> /dev/null)
+								echo -e "\e[0m    Anchor-Data: ${iconYes}\e[32m JSONLD structure is ok\e[0m";
+								if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m           Info: ${iconNo} ${errorMsg}\e[0m"; fi
+								echo
+								authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m      Signature: \(if .valid then $iconYes else $iconNo end) \(.name)\\e[0m"' <<< ${signerJSON} 2> /dev/null)
+								echo -e "${authors}\e[0m";
+							fi
 						fi
 	                                        rm "${tmpAnchorContent}" #cleanup
 
@@ -224,17 +257,18 @@ if ${onlineMode}; then
                                         ;;
 
                                 "404" ) #file-not-found
-					echo -e "\e[0m  Anchor-STATUS:\e[35m No content was found on the Anchor-URL\e[0m";
+					echo -e "\e[0m  Anchor-Status: ${iconNo}\e[35m No content was found on the Anchor-URL\e[0m";
                                         ;;
 
                                 * )
-					echo -e "\e[0m  Anchor-STATUS:\e[35m Query of the Anchor-URL failed!\n\nHTTP Request File: ${drepAnchorURL}\nHTTP Response Code: ${responseCode}\n\e[0m";
+					echo -e "\e[0m  Anchor-Status: ${iconNo}\e[35m Query of the Anchor-URL failed!\n\nHTTP Request File: ${drepAnchorURL}\nHTTP Response Code: ${responseCode}\n\e[0m";
                                         ;;
                         esac;
 
                 else
 
 					echo -e "\e[0m  Anchor-STATUS:\e[35m Query of the Anchor-URL failed!\e[0m";
+					if [[ ${errorcode} -eq 63 ]]; then echo -e "\e[0m    Anchor-File:\e[35m File is bigger than 10MB!\e[0m"; fi
 
                 fi #error & response
                 unset errorcnt error

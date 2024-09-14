@@ -167,32 +167,80 @@ if ${onlineMode}; then
 
                         responseCode="${BASH_REMATCH[2]}"
 
-		        #Check the responseCode
-		        case ${responseCode} in
-		                "200" ) #all good, continue
+			#Check the responseCode
+			case ${responseCode} in
+				"200" ) #all good, continue
 					tmp=$(jq . < "${tmpAnchorContent}" 2> /dev/null) #just a short check that the received content is a valid JSON file
-					if [ $? -ne 0 ]; then echo -e "\n\e[91mERROR - The content of the Anchor-URL '${anchorURL}'\nis not in valid JSON format!\n\e[0m"; rm "${tmpAnchorContent}"; exit 1; fi
-					contentHASH=$(b2sum -l 256 "${tmpAnchorContent}" 2> /dev/null | cut -d' ' -f 1)
-					checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-					echo -e "\e[0mAnchor-URL(HASH):\e[32m ${anchorURL} \e[0m(\e[94m${contentHASH}\e[0m)"
-					echo
-					if [[ ${anchorHASH} != "" && ${anchorHASH} != ${contentHASH} ]]; then echo -e "Provided Anchor-HASH '${anchorHASH}' will be ignored, continue ...\n"; fi
-					anchorHASH="${contentHASH}" #set the anchorHASH not to the provided one, use the one calculated from the online file
-					rm "${tmpAnchorContent}" #cleanup
+					if [ $? -ne 0 ]; then
+
+						echo -e "\e[0m   Anchor-STATUS: ${iconNo}\e[35m not a valid JSON format!\e[0m";
+						rm "${tmpAnchorContent}";
+
+					else #anchor-url is a json
+
+						contentHASH=$(b2sum -l 256 "${tmpAnchorContent}" 2> /dev/null | cut -d' ' -f 1)
+						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+						echo -e "\e[0mAnchor-URL(HASH):\e[32m ${anchorURL} \e[0m(\e[94m${contentHASH}\e[0m)"
+						if [[ ${anchorHASH} != "" && ${anchorHASH} != ${contentHASH} ]]; then echo -e "\n\e[91mWARNING - Provided Anchor-HASH '${anchorHASH}' is wrong and will be ignored ...\e[0m\n"; fi
+						anchorHASH="${contentHASH}" #set the anchorHASH not to the provided one, use the one calculated from the online file
+
+						echo -e "\e[0m   Anchor-Status: ${iconYes}\e[32m File-Content-HASH set to '${anchorHASH}'\e[0m";
+
+						#Now we are checking the Integrity of the Anchor-File and the Author-Signatures
+						signerJSON=$(${cardanosigner} verify --cip100 --data-file "${tmpAnchorContent}" --json-extended 2> /dev/stdout)
+						if [ $? -ne 0 ]; then
+							echo -e "\e[0m     Anchor-Data: ${iconNo}\e[35m ${signerJSON}\e[0m";
+						else
+							errorMsg=$(jq -r .errorMsg <<< ${signerJSON} 2> /dev/null)
+							echo -e "\e[0m     Anchor-Data: ${iconYes}\e[32m JSONLD structure is ok\e[0m";
+							if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m           Error: ${iconNo} ${errorMsg}\e[0m"; fi
+							authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m       Signature: \(if .valid then $iconYes else $iconNo end) \(.name)\\e[0m"' <<< ${signerJSON} 2> /dev/null)
+							if [[ "${authors}" != "" ]]; then echo -e "${authors}\e[0m"; fi
+						fi
+						echo
+                                                rm "${tmpAnchorContent}" #cleanup
+					fi #anchor is a json
 					;;
 
-		                "404" ) #file-not-found
-					echo -e "\n\e[91mERROR 404 - No content was not found on the given Anchor-URL '${anchorURL}'\nPlease upload it first to this location, thx!\n\e[0m"; exit 1; #exit with a failure
+				"4"* ) #file-not-found
+					echo -e "\n\e[91mERROR 404 - No content was found on the given Anchor-URL '${anchorURL}'\nPlease upload it first to this location, thx!\n\nHTTP Response Code: ${responseCode}\n\e[0m"; exit 1; #exit with a failure
 					;;
 
 		                * )     echo -e "\n\e[91mERROR - Query of the Anchor-URL failed!\nHTTP Request File: ${anchorURL}\nHTTP Response Code: ${responseCode}\n\e[0m"; exit 1; #exit with a failure and the http response code
 					;;
-		        esac;
+			esac;
+
+#		        #Check the responseCode
+#		        case ${responseCode} in
+#		                "200" ) #all good, continue
+#					tmp=$(jq . < "${tmpAnchorContent}" 2> /dev/null) #just a short check that the received content is a valid JSON file
+#					if [ $? -ne 0 ]; then echo -e "\n\e[91mERROR - The content of the Anchor-URL '${anchorURL}'\nis not in valid JSON format!\n\e[0m"; rm "${tmpAnchorContent}"; exit 1; fi
+#					contentHASH=$(b2sum -l 256 "${tmpAnchorContent}" 2> /dev/null | cut -d' ' -f 1)
+#					checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+#					echo -e "\e[0mAnchor-URL(HASH):\e[32m ${anchorURL} \e[0m(\e[94m${contentHASH}\e[0m)"
+#					echo
+#					if [[ ${anchorHASH} != "" && ${anchorHASH} != ${contentHASH} ]]; then echo -e "\e[91mWARNING - Provided Anchor-HASH '${anchorHASH}' is wrong and will be ignored ...\e[0m\n"; fi
+#					anchorHASH="${contentHASH}" #set the anchorHASH not to the provided one, use the one calculated from the online file
+#					rm "${tmpAnchorContent}" #cleanup
+#					;;
+#
+#		                "404" ) #file-not-found
+#					echo -e "\n\e[91mERROR 404 - No content was not found on the given Anchor-URL '${anchorURL}'\nPlease upload it first to this location, thx!\n\e[0m"; exit 1; #exit with a failure
+#					;;
+#
+#		                * )     echo -e "\n\e[91mERROR - Query of the Anchor-URL failed!\nHTTP Request File: ${anchorURL}\nHTTP Response Code: ${responseCode}\n\e[0m"; exit 1; #exit with a failure and the http response code
+#					;;
+#		        esac;
 
 		else
 			echo -e "\n\e[91mERROR - Query of the Anchor-URL '${anchorURL}' failed!\n\e[0m"; exit 1;
 		fi #error & response
 		unset errorcnt error
+
+else #offline mode
+
+	echo -e "\e[0mAnchor-URL(HASH):\e[32m ${anchorURL} \e[0m(\e[94m${anchorHASH}\e[0m)"
+	echo -e "\n\e[91mWARNING - We cannot verify the correct Anchor-HASH in Offline-Mode, so be careful to use the correct one!\e[0m\n"
 
 fi ## ${onlineMode} == true
 
@@ -654,7 +702,7 @@ case "${govActionType,,}" in
 
 	#--------------------------------------------------------------------------------------------------
 	*) #we should not land here
-		echo -e "\n\e[91mERROR - Action-Type '${govActionType}' cannot be processed, sorry.\n\e[0m";
+		echo -e "\n\e[91mERROR - Unknown Action-Type '${govActionType}' cannot be processed, sorry.\n\e[0m";
 		exit 1
 		;;
 
@@ -679,6 +727,8 @@ echo -ne "\e[0mGenerate the Action-File ... "
 case "${govActionType,,}" in
 
         "infoaction") #only common parameters
+
+		constitutionScriptHash='-' #doesn't matter, so we blank it out
 
 		actionFileContent=$(${cardanocli} ${cliEra} governance action create-info ${commonParam} 2> /dev/stdout)
 		;;
@@ -771,7 +821,7 @@ echo -e "\e[32mOK\n\e[0m"
 
 if [[ ${#prevActionUTXO} -gt 1 ]]; then echo -e "\e[0mReferencing last Action-ID:\e[32m ${prevActionUTXO}#${prevActionIDX}\n\e[0m"; fi
 
-if [[ ${constitutionScriptHash} != "-" ]]; then	echo -e "\e[0mReferencing Constitution-Script-HASH:\e[32m ${constitutionScriptHash}\n\e[0m"; fi
+if [[ "${constitutionScriptHash}" != "-" ]]; then echo -e "\e[0mReferencing Constitution-Script-HASH:\e[32m ${constitutionScriptHash}\n\e[0m"; fi
 
 echo -e "\e[0mAction-File built:\e[32m ${actionFile}\e[90m"
 cat "${actionFile}"

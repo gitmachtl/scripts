@@ -14,6 +14,14 @@ unset magicparam network addrformat
 # by placing a file with name "common.inc" in the calling directory or in "$HOME/.common.inc".
 # It will be sourced into this file automatically if present and can overwrite the values below dynamically :-)
 #
+#
+# Enviromental-Vars for Script-Control:
+# -------------------------------------
+#    ENV_MINLEDGERCARDANOAPPVERSION=6.1.2 -> to force the cardano-hw-cli check to work with cardano-app version 6.1.2 for ledger
+#    ENV_USEERA=babbage -> to force the scripts to produce transactions for that specified era
+#    ENV_SKIP_PROMPT=YES -> to skip the transaction "do you wanna continue" prompt
+#    ENV_DECRYPT_PASSWORD=YourPassword -> to pass thru a password for *.skey decryption on the fly
+#
 ##############################################################################################################################
 
 
@@ -212,6 +220,8 @@ case "${network,,}" in
 		_adahandleAPI="https://preview.api.handle.me"		#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
 		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/preview-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+		_guardrailScriptUTXO="f3f61635034140e6cec495a1c69ce85b22690e65ab9553ef408d524f58183649#0"
+		_guardrailScriptSize=2132
 		;;
 
 
@@ -273,6 +283,8 @@ adahandlePolicyID=${adahandlePolicyID:-"${_adahandlePolicyID}"}
 adahandleAPI=${adahandleAPI:-"${_adahandleAPI}"}
 catalystAPI=${catalystAPI:-"${_catalystAPI}"}
 lightModeParametersURL=${lightModeParametersURL:-"${_lightModeParametersURL}"}
+guardrailScriptUTXO=${guardrailScriptUTXO:-"${_guardrailScriptUTXO}"}
+guardrailScriptSize=${guardrailScriptSize:-"${_guardrailScriptSize}"}
 
 
 #Check about the / at the end of the URLs
@@ -282,7 +294,6 @@ if [[ "${transactionExplorer: -1}" == "/" ]]; then transactionExplorer=${transac
 if [[ "${catalystAPI: -1}" == "/" ]]; then catalystAPI=${catalystAPI%?}; fi #make sure the last char is not a /
 if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #make sure the last char is not a /
 
-
 #Check about the needed chain params
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
@@ -291,10 +302,10 @@ minCliVersion="9.3.0"			#minimum allowed cli version for this script-collection 
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
 minNodeVersion="9.1.0"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
-minLedgerCardanoAppVersion="7.1.1"  	#minimum version for the cardano-app on the Ledger HW-Wallet
+minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.1"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minHardwareCliVersion="1.15.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.16.1"	#minimum version for the cardano-signer binary
+minCardanoSignerVersion="1.18.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
@@ -304,6 +315,7 @@ addrTypePayment="payment"
 addrTypeStake="stake"
 lightModeParametersJSON="" #will be updated with the latest parameters json if scripts are running in light mode
 koiosAuthorizationHeader="" #empty header for public tier koios curl requests
+iconNo="\e[91m❌"; iconYes="\e[92m✅";
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations which are interacting with a local node
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -602,7 +614,7 @@ if [[ ! "${tmpEra}" == "" ]]; then tmpEra=${tmpEra,,}; else tmpEra="auto"; fi
 echo "${tmpEra}"; return 0; #return era in lowercase
 }
 
-##Set nodeEra parameter ( --byron-era, --shelley-era, --allegra-era, --mary-era, --alonzo-era, --babbage-era or empty)
+##Set nodeEra parameter ( --byron-era, --shelley-era, --allegra-era, --mary-era, --alonzo-era, --babbage-era , --conway-era or empty)
 tmpEra=$(get_NodeEra);
 if [[ ! "${tmpEra}" == "auto" ]]; then
 	nodeEraParam="--${tmpEra}-era"; #for cli commands before 8.12.0
@@ -612,9 +624,10 @@ if [[ ! "${tmpEra}" == "auto" ]]; then
 	cliEra="${defEra}";
 fi
 
-#Temporary fix to lock the transaction build-raw to alonzo era for
+#Temporary fix to lock the transaction build-raw to a specific era for
 #Hardware-Wallet operations. Babbage-Era is not yet supported, so we will lock this for now
 #if [[ "${nodeEraParam}" == "" ]] || [[ "${nodeEraParam}" == "--conway-era" ]]; then nodeEraParam="--babbage-era"; cliEra="babbage"; fi
+if [[ "${ENV_USEERA}" != "" ]]; then nodeEraParam="--${ENV_USEERA,,}-era"; cliEra=${ENV_USEERA,,}; fi
 #-------------------------------------------------------
 
 
@@ -776,7 +789,7 @@ case ${workMode} in
                         #if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
                         if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
                                 if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
-                                        if [[ "${currentEpoch}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed"; exit 1; fi
+                                        if [[ "${currentEpoch}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
                                 fi
                         fi
                         ;;
@@ -851,7 +864,7 @@ case ${workMode} in
 			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
 			if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
 				if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
-					if [[ "${currentTip}" == "" ]]; then majorError "query tip return from cardano-cli failed"; exit 1; fi
+					if [[ "${currentTip}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
 				fi
 			fi
 			;;
@@ -922,7 +935,7 @@ case ${workMode} in
 			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
 			if [[ "${currentSync}" == "" ]]; then local currentSyncp=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
 				if [[ "${currentSync}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
-					if [[ "${currentSync}" == "" ]]; then majorError "query tip return from cardano-cli failed"; exit 1; fi
+					if [[ "${currentSync}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
 				fi
 			fi
 
@@ -1563,6 +1576,7 @@ queryLight_drepInfo() { #${1} = drep-id(bech) to query
 
 	local drepID="${1}";
 	if [[ ${#drepID} -eq 56 || ${#drepID} -eq 63 ]]; then drepID=$(convert_actionBech2CIP129 ${drepID}); fi #if given drep id is in standard format, convert it to CIP129 format for koios query
+
         local errorcnt=0
         local error=-1
         while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
@@ -1846,6 +1860,51 @@ queryLight_actionVotes() { #for filtering, ${1} = govActionUTXO, ${2} = govActio
 }
 #-------------------------------------------------------
 
+
+
+#-------------------------------------------------------
+#queryLight_actionVotesSummary function
+#
+# makes an online query via koios API and returns a JSON output that contains the DRep, Pool and Committee Voting Percentages
+#
+queryLight_actionVotesSummary() { #${1} = govActionBech in CIP129 format
+
+	local govActionBech="${1}" #CIP129 format !
+        local errorcnt=0
+        local error=-1
+
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/proposal_voting_summary?_proposal_id=${govActionBech}" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
+
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
+	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	jsonRet=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#return the composed json
+	printf "${jsonRet}"
+
+	unset jsonRet response responseCode responseJSON error errorcnt
+
+}
+#-------------------------------------------------------
 
 
 
