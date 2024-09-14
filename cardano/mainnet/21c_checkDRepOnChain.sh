@@ -32,8 +32,6 @@ case ${cliEra} in
                 ;;
 esac
 
-iconNo="\e[91m❌"; iconYes="\e[92m✅";
-
 #Check can only be done in online mode
 #if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE or LIGHT mode to do this!\e[0m\n"; exit 1; fi
 
@@ -247,7 +245,7 @@ if ${onlineMode}; then
 								else
 								errorMsg=$(jq -r .errorMsg <<< ${signerJSON} 2> /dev/null)
 								echo -e "\e[0m    Anchor-Data: ${iconYes}\e[32m JSONLD structure is ok\e[0m";
-								if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m          Error: ${iconNo} ${errorMsg}\e[0m"; fi
+								if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m           Info: ${iconNo} ${errorMsg}\e[0m"; fi
 								echo
 								authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m      Signature: \(if .valid then $iconYes else $iconNo end) \(.name)\\e[0m"' <<< ${signerJSON} 2> /dev/null)
 								echo -e "${authors}\e[0m";

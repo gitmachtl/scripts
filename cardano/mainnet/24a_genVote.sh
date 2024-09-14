@@ -57,7 +57,6 @@ voterFile="$(dirname ${1})/$(basename ${1} .vkey)"; voterFile=${voterFile/#.\//}
 govActionID="${2,,}";
 
 #Setting default variables
-iconNo="\e[91m❌"; iconYes="\e[92m✅";
 anchorURL=""; anchorHASH=""; anchorPARAM=""; #Setting defaults
 
 #Check all optional parameters about there types and set the corresponding variables

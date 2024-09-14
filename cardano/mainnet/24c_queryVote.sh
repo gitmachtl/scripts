@@ -297,7 +297,8 @@ if [[ "${voterHash}" != "" ]]; then echo -e "\e[0mVoter-Type is\e[32m ${voterTyp
 #Get state data for the Action-ID. In online mode of course from the node and the chain, in light mode via koios
 case ${workMode} in
 
-        "online")       showProcessAnimation "Query Governance-Action Info: " &
+        "online")       if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
+			showProcessAnimation "Query Governance-Action Info: " &
 			govStateJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/stdout)
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${actionStateJSON}\e[0m\n"; exit 1; else stopProcessAnimation; fi;
 			actionStateJSON=$(jq -r ".proposals | to_entries[] | .value" 2> /dev/null <<< "${govStateJSON}")

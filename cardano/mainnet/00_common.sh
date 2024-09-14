@@ -315,6 +315,7 @@ addrTypePayment="payment"
 addrTypeStake="stake"
 lightModeParametersJSON="" #will be updated with the latest parameters json if scripts are running in light mode
 koiosAuthorizationHeader="" #empty header for public tier koios curl requests
+iconNo="\e[91m❌"; iconYes="\e[92m✅";
 
 #Set the CARDANO_NODE_SOCKET_PATH for all cardano-cli operations which are interacting with a local node
 export CARDANO_NODE_SOCKET_PATH=${socket}
@@ -788,7 +789,7 @@ case ${workMode} in
                         #if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
                         if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
                                 if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
-                                        if [[ "${currentEpoch}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed"; exit 1; fi
+                                        if [[ "${currentEpoch}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
                                 fi
                         fi
                         ;;
@@ -863,7 +864,7 @@ case ${workMode} in
 			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
 			if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
 				if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
-					if [[ "${currentTip}" == "" ]]; then majorError "query tip return from cardano-cli failed"; exit 1; fi
+					if [[ "${currentTip}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
 				fi
 			fi
 			;;
@@ -934,7 +935,7 @@ case ${workMode} in
 			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
 			if [[ "${currentSync}" == "" ]]; then local currentSyncp=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
 				if [[ "${currentSync}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
-					if [[ "${currentSync}" == "" ]]; then majorError "query tip return from cardano-cli failed"; exit 1; fi
+					if [[ "${currentSync}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
 				fi
 			fi
 
