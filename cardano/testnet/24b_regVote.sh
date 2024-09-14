@@ -646,6 +646,7 @@ elif [[ -f "${fromAddr}.skey" ]]; then  #generate the payment witness via the cl
 	#Check that the CLI voting signing key is the correct one for the voterHash -> calculate the hash from
 	cliVoterHash=$(${cardanocli} ${cliEra} key verification-key --signing-key-file <(echo "${skeyJSON}") --verification-key-file /dev/stdout | jq -r ".cborHex" 2> /dev/null | cut -c 5-69 | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1 2> /dev/null)
 	if [[ "${cliVoterHash}" != "" && "${cliVoterHash}" != "${voterHashCollector}" ]]; then
+		unset skeyJSON
 		echo -e "\n\e[91mERROR - This Voter-Signing-File (${voterSigningFile}) with Hash '${cliVoterHash}' is not the correct\none for the Voter-Hash '${voterHashCollector}' used in the Vote-File!\n\e[0m"; exit 1;
 	fi
 
