@@ -211,6 +211,10 @@ fi
 #Check if there is a fromAddr present at this stage, its either a copy of the destination toAddr or it was provided via an optional parameter
 if [[ "${fromAddr}" == "" ]]; then echo -e "\n\e[35mERROR - Fee Payment Address not provided. If you use for example an adahandle as the destination address, please specify an additional Fee Payment Address.\n\e[0m"; exit 1; fi
 
+#Check that the cli or hw wallet payment key exists
+if ! [[ -f "${fromAddr}.skey" || -f "${fromAddr}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${fromAddr}.skey/hwsfile\" Payment Signing Key or HardwareFile does not exist! Typo? Please create it first with script 03a.\e[0m"; exit 2; fi
+
+
 #Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list. Encrypt it if enabled.
 if [[ ! "${transactionMessage}" == "{}" ]]; then
 
