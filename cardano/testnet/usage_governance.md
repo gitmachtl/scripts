@@ -10,9 +10,10 @@ The governance scripts are divided into different topics, every topic has its ow
 - [21c_checkDRepOnChain.sh](#3-check-drep-iddata-information) -> Check
 - [21d_retDRepCert.sh](#4-retireremove-a-drep-key) -> Retire
 
-### VotingPower Delegation
-- 22a_genVoteDelegCert.sh -> Generate
-- 22b_regVoteDelegCert.sh -> Register
+### [VotingPower Delegation](#votingpower-delegation-1)
+- [22a_genVoteDelegCert.sh](#1-generate-the-vote-delegation-certificate) -> Generate
+- [22b_regVoteDelegCert.sh](#2-register-the-vote-delegation-certificate) -> Register
+- [03c_checkStakingAddrOnChain.sh](#3-check-the-current-vote-power-delegation) -> Check
 
 ### Constitutional Committee Key Operations
 - 23a_genComColdKeys.sh -> Generate
@@ -586,3 +587,200 @@ DONE
 Thats it, the DRep-Key is retired again and the 500 Ada Deposit-Fee was paid back to the `funds` cli wallet.
 
 For Hardware-Wallets its all the same, will not include an extra example here.
+
+<br>&nbsp;<br>
+
+-----
+
+## VotingPower Delegation
+
+### 1. Generate the Vote-Delegation-Certificate
+
+To delegate VotingPower to a DRep of our own or a public one, we have to transmit a VotingPower Delegation-Certificate on the chain. This is especially important for Rewards-Staking-Addresses. Because if the Rewards-Staking-Address is not delegated to a DRep - or to AlwaysAbstain or AlwaysNoConfidence - than its not possible to claim rewards.
+
+So, lets generate a Vote-Delegation-Certificate with script 22a:
+```console
+$ ./22a_genVoteDelegCert.sh
+
+Version-Info: cli 9.4.1.0 / node 9.2.1          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Usage:  22a_genVoteDelegCert.sh <DRep-Name | DRepID-Hex | DRepID-Bech "drep1..." | always-abstain | always-no-confidence> <StakeAddressName>
+```
+As you can see, the usage is pretty simple. 
+* First parameter is the DRep-ID/Name we wanna delegate to. OR, you can choose one of the predefined `always-abstain` or `always-no-confidence` options.
+* Second parameter is the Name of the StakingAddress, like `rewards` for the  `rewards.staking.addr/vkey/skey` file.
+
+Lets delegate a `test` staking account to the `myLightDrep` drep we created above:
+```console
+$ ./22a_genVoteDelegCert.sh myLightDrep test
+```
+```js
+Version-Info: cli 9.4.1.0 / node 9.2.1          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Create a Vote-Delegation Certificate for Delegator test.staking.vkey
+to the DRep with the Key-File myLightDrep.drep.vkey
+
+Which resolves to the DRep-ID: drep15l5z8j6xwnf05f4j0hhfk9vxr2kvq9srxg476he7hlgwyf8ekgj
+
+Vote-Delegation Certificate: test.vote-deleg.cert
+{
+    "type": "CertificateConway",
+    "description": "Vote Delegation Certificate",
+    "cborHex": "83098200581cd75b3718e7e7afb82ea77e9be6ffb98ebbf4cfc0f84f450d7a07ab4a8200581ca7e823cb4674d2fa26b27dee9b15861aacc01603322bed5f3ebfd0e2"
+}
+
+Created a Vote-Delegation Certificate which delegates the voting power from all stake addresses
+associated with key test.staking.vkey to the DRep-File / DRep-ID / STATUS above.
+
+If you wanna submit the Certificate now, please run the script 22b_regVoteDelegCert.sh !
+```
+The certificate was generated, its stored as `test.vote-deleg.cert` file. Next step is to register it on the chain.
+
+-----
+
+### 2. Register the Vote-Delegation-Certificate
+
+To register the Vote-Delegation-Certificate on chain you simply have to run script 22b:
+```console
+$ ./22b_regVoteDelegCert.sh
+
+Version-Info: cli 9.4.1.0 / node 9.2.1          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+
+Usage:  22b_regVoteDelegCert.sh <StakeAddressName> <Base/PaymentAddressName (paying for the registration fees)>
+
+        [Opt: Message comment, starting with "msg: ...", | is the separator]
+        [Opt: encrypted message mode "enc:basic". Currently only 'basic' mode is available.]
+        [Opt: passphrase for encrypted message mode "pass:<passphrase>", the default passphrase if 'cardano' is not provided]
+
+Optional parameters:
+
+- If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
+   You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
+   "msg: This is a short comment for the transaction" ... that would be a one-liner comment
+   "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
+
+   If you also wanna encrypt it, set the encryption mode to basic by adding "enc: basic" to the parameters.
+   To change the default passphrase 'cardano' to you own, add the passphrase via "pass:<passphrase>"
+
+- If you wanna attach a Metadata JSON:
+   You can add a Metadata.json (Auxilierydata) filename as a parameter to send it alone with the transaction.
+   There will be a simple basic check that the transaction-metadata.json file is valid.
+
+- If you wanna attach a Metadata CBOR:
+   You can add a Metadata.cbor (Auxilierydata) filename as a parameter to send it along with the transaction.
+   Catalyst-Voting for example is done via the voting_metadata.cbor file.
+
+Examples:
+
+   22b_regVoteDelegCert.sh owner owner.payment
+   -> Register the Vote-Delegation Certificate for 'owner', the wallet 'owner.payment' is paying for the transaction
+
+   22b_regVoteDelegCert.sh owner owner.payment "msg: Vote-Delegation of owner to DRep xxx"
+   -> Same as above, but with an additional transaction message to keep track of your transactions
+```
+
+Here are the needed parameters, rest is optional:
+* First parameter is the Staking-File-Name like `test` for `test.staking.addr/vkey/skey`
+* Second parameter is a CLI-Payment wallet
+
+So lets register the Vote-Delegation-Certificate for the `test` staking account on chain by using the `funds` wallet:
+```console
+$ ./22b_regVoteDelegCert.sh test funds
+```
+```js
+Version-Info: cli 9.4.1.0 / node 9.2.1          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Register Vote-Delegation Certificate test.vote-deleg.cert with funds from Address funds.addr:
+
+Delegating Voting-Power of test to DRep with Hash: a7e823cb4674d2fa26b27dee9b15861aacc01603322bed5f3ebfd0e2
+
+Which resolves to the Bech-DRepID: drep15l5z8j6xwnf05f4j0hhfk9vxr2kvq9srxg476he7hlgwyf8ekgj
+               CIP129 Bech-DRepID: drep1y2n7sg7tge6d973xkf77axc4scd2esqkqvezhm2l86lapcsq5a6zx
+
+Checking current ChainStatus about the DRep-ID: drep15l5z8j6xwnf05f4j0hhfk9vxr2kvq9srxg476he7hlgwyf8ekgj
+
+DRep-ID is registered on the chain, we continue ...
+
+Checking OnChain-Status for the Stake-Address: stake_test1urt4kdcculn6lwpw5alfhehlhx8thax0cruy73gd0gr6kjs29vef7
+
+Account's Voting-Power is not delegated to a DRep or set to a fixed status yet - so lets change this :-)
+
+Current Slot-Height: 41509543 (setting TTL[invalid_hereafter] to 41609543)
+
+Pay fees from Address funds.addr: addr_test1vpfwv0ezc5g8a4mkku8hhy3y3vp92t7s3ul8g778g5yegsgalc6gc
+
+1 UTXOs found on the Source Address!
+
+Hash#Index: 326bb7136f7d92808841dd7764d9fe76c4c249e3768c685ede12699c72ecb6e0#0  ADA: 48.980,957811 (48980957811 lovelaces)
+-----------------------------------------------------------------------------------------------------
+Total ADA on the Address:  48.980,957811 ADA / 48980957811 lovelaces
+
+
+Minimum transfer Fee for 1x TxIn & 1x TxOut & 1x Certificate:  0,172013 ADA / 172013 lovelaces
+
+Minimum funds required for registration (Sum of fees):  0,172013 ADA / 172013 lovelaces
+
+Lovelaces that will be returned to payment Address (UTXO-Sum minus fees):  48.980,785798 ADA / 48980785798 lovelaces  (min. required 857690 lovelaces)
+
+
+Building the unsigned transaction body with Delegation Certificate test.vote-deleg.cert certificates:  /tmp/funds.txbody
+
+{
+    "type": "Unwitnessed Tx ConwayEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "84a500d9010281825820326bb7136f7d92808841dd7764d9fe76c4c249e3768c685ede12699c72ecb6e000018182581d6052e63f22c5107ed776b70f7b92248b02552fd08f3e747bc7450994411b0000000b677b7a86021a00029fed031a027ae94704d901028183098200581cd75b3718e7e7afb82ea77e9be6ffb98ebbf4cfc0f84f450d7a07ab4a8200581ca7e823cb4674d2fa26b27dee9b15861aacc01603322bed5f3ebfd0e2a0f5f6"
+}
+
+Reading unencrypted file funds.skey ... OK
+
+Reading unencrypted file test.staking.skey ... OK
+
+Sign the unsigned transaction body with the funds.skey & test.staking.skey:  /tmp/funds.tx
+
+{
+    "type": "Witnessed Tx ConwayEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "84a500d9010281825820326bb7136f7d92808841dd7764d9fe76c4c249e3768c685ede12699c72ecb6e000018182581d6052e63f22c5107ed776b70f7b92248b02552fd08f3e747bc7450994411b0000000b677b7a86021a00029fed031a027ae94704d901028183098200581cd75b3718e7e7afb82ea77e9be6ffb98ebbf4cfc0f84f450d7a07ab4a8200581ca7e823cb4674d2fa26b27dee9b15861aacc01603322bed5f3ebfd0e2a100d9010282825820742d8af3543349b5b18f3cba28f23b2d6e465b9c136c42e1fae6b2390f5654275840f967426b303d89a42f0db6a51fa85e63eb4914c9583c9897ab20061d505f4e7ab19612a9a9373ddd85002e45f0ff9b91453f6305fadadf36ffc22a8e4d730c0a825820293ca68cd5651f6d483c9c27fc83cbc5616177ecd9df55e30a46a97dc76213a1584017ae98c314a0b7576d0a92c9084ddf9330241c91bf2549c7ef1891aa6fec801019136d61f240af0e7f05241765c2e2580942ea4dd92f4917404c8278c6a1460af5f6"
+}
+
+Transaction-Size: 379 bytes (max. 16384)
+
+Does this look good for you ? [y/N] y
+
+Submitting the transaction via the node... Transaction successfully submitted.
+DONE
+
+ TxID is: 200b1265d8b8b6c5b87888ed78badde98a613ad38f674e026a139f239504585c
+```
+
+As you can see in the output, the script 22b is doing
+* Displaying the DRep-ID in the CIP105 and new CIP129 format
+* Checking the chain about the registration status of the DRep. In case the DRep is not registered, the script would abort
+* Checking the status of the Staking Account on chain. If the Account is not registered, the script would abort
+* Checking the current Vote-Delegation status of the Staking Account. In this case there is no previous delegation, but if there is one, the script will show the currently delegated DRep.
+* Getting the UTXO Information of the Payment Wallet
+* Submits the Transaction on chain
+
+The Vote-Delegation-Certificate was registed on chain.
+
+-----
+
+### 3. Check the current Vote-Power-Delegation
+
+To check the current status of the voting power delegation, we can simply use the well know StakeAddress check script 03c:
+```console
+$ ./03c_checkStakingAddrOnChain.sh test
+```
+```js
+Version-Info: cli 9.4.1.0 / node 9.2.1          Mode: online(full)      Era: conway     Testnet: SanchoNet (magic 4)
+
+Checking current ChainStatus of Stake-Address: stake_test1urt4kdcculn6lwpw5alfhehlhx8thax0cruy73gd0gr6kjs29vef7
+
+Staking Address is registered on the chain with a deposit of 2000000 lovelaces !
+
+Account is not delegated to a Pool !
+
+Voting-Power of Staking Address is delegated to DRepID(HASH): drep15l5z8j6xwnf05f4j0hhfk9vxr2kvq9srxg476he7hlgwyf8ekgj (a7e823cb4674d2fa26b27dee9b15861aacc01603322bed5f3ebfd0e2)
+```
+Here we can see, that the Staking Address is correctly Vote-Delegated to the DRep with the ID `drep15l5z8j6xwnf05f4j0hhfk9vxr2kvq9srxg476he7hlgwyf8ekgj`, which is our `myLightDrep` DRep.
