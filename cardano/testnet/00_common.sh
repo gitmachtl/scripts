@@ -252,6 +252,8 @@ case "${network,,}" in
 		_adahandleAPI=
 		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/sanchonet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+		_guardrailScriptUTXO="8b9163fa38914b45470a5426c27939cfb77628f0c54d08b0b61b9905c2cbfc2b#0"
+		_guardrailScriptSize=2132
 		;;
 
 
@@ -606,7 +608,7 @@ tempDir=$(dirname $(mktemp -ut tmp.XXXX))
 #Return the era the chain is currently in
 get_NodeEra() {
 	case ${workMode} in
-		"online")	local tmpEra=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r ".era | select (.!=null)" 2> /dev/null);;
+		"online")	local tmpEra=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r ".era | select (.!=null)" 2> /dev/null);;
 		"offline")	local tmpEra=$(jq -r ".protocol.era" 2> /dev/null < ${offlineFile});;
 		"light")	local tmpEra=$(jq -r ".sposcriptsLightMode.lastTip.era" 2> /dev/null <<< "${lightModeParametersJSON}");;
 	esac
@@ -784,12 +786,12 @@ get_currentEpoch()
 case ${workMode} in
 
         "online")       #Full-OnlineMode, query the local node
-                        local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
+                        local currentEpoch=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
 
                         #if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
-                        if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
-                                if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
-                                        if [[ "${currentEpoch}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
+                        if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
+                                if [[ "${currentEpoch}" == "" ]]; then local currentEpoch=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r .epoch 2> /dev/null);
+                                        if [[ "${currentEpoch}" == "" ]]; then majorError "latest query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
                                 fi
                         fi
                         ;;
@@ -859,12 +861,12 @@ get_currentTip()
 case ${workMode} in
 
 	"online")	#Full-OnlineMode, query the local node
-			local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);  #only "slot" instead of "slotNo" since 1.26.0
+			local currentTip=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);  #only "slot" instead of "slotNo" since 1.26.0
 
 			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
-			if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
-				if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
-					if [[ "${currentTip}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
+			if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
+				if [[ "${currentTip}" == "" ]]; then local currentTip=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r .slot 2> /dev/null);
+					if [[ "${currentTip}" == "" ]]; then majorError "latest query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
 				fi
 			fi
 			;;
@@ -930,12 +932,12 @@ get_currentSync()
 case ${workMode} in
 
 	"online")	#Full-OnlineMode, query the local node
-			local currentSync=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
+			local currentSync=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
 
 			#if the return is blank (bug in the cli), then retry 2 times. if failing again, exit with a majorError
-			if [[ "${currentSync}" == "" ]]; then local currentSyncp=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
-				if [[ "${currentSync}" == "" ]]; then local currentTip=$(${cardanocli} query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
-					if [[ "${currentSync}" == "" ]]; then majorError "query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
+			if [[ "${currentSync}" == "" ]]; then local currentSyncp=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
+				if [[ "${currentSync}" == "" ]]; then local currentTip=$(${cardanocli} latest query tip ${magicparam} 2> /dev/null | jq -r .syncProgress 2> /dev/null);
+					if [[ "${currentSync}" == "" ]]; then majorError "latest query tip/epoch return from cardano-cli failed - is the node running and node.socket path correct?"; exit 1; fi
 				fi
 			fi
 
@@ -2579,6 +2581,25 @@ esac
 convertToADA() {
 #echo $(bc <<< "scale=6; ${1} / 1000000" | sed -e 's/^\./0./') #divide by 1M and add a leading zero if below 1 ada
 printf "%'.6f" "${1}e-6" #return in ADA format (with 6 commas)
+}
+
+#-------------------------------------------------------
+#Convert the given lovelaces $1 into ₳, k₳, M₳, B₳ (divide by 1M)
+convertToShortADA() {
+	# 0.000 ₳ - 999.999 ₳
+	# 1.000k ₳ - 999.999k ₳
+	# 1.000M ₳ - 999.999M ₳
+	# 1.000B ₳ - 999.999B ₳
+	local lovelaces=${1}
+	local shortADA=""
+	if [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^15 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^15" 2>/dev/null) B₳";
+	elif [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^12 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^12" 2>/dev/null) M₳";
+	elif [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^9 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^9" 2>/dev/null) k₳";
+	elif [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^6 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^6" 2>/dev/null) ₳";
+	elif [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^3 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^3" 2>/dev/null) m₳";
+	else shortADA="   0.000 ₳";
+	fi
+	echo -n "${shortADA: -10}"
 }
 
 
