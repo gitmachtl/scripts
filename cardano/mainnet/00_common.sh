@@ -2581,6 +2581,25 @@ convertToADA() {
 printf "%'.6f" "${1}e-6" #return in ADA format (with 6 commas)
 }
 
+#-------------------------------------------------------
+#Convert the given lovelaces $1 into ₳, k₳, M₳, B₳ (divide by 1M)
+convertToShortADA() {
+	# 0.000 ₳ - 999.999 ₳
+	# 1.000k ₳ - 999.999k ₳
+	# 1.000M ₳ - 999.999M ₳
+	# 1.000B ₳ - 999.999B ₳
+	local lovelaces=${1}
+	local shortADA=""
+	if [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^15 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^15" 2>/dev/null) B₳";
+	elif [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^12 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^12" 2>/dev/null) M₳";
+	elif [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^9 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^9" 2>/dev/null) k₳";
+	elif [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^6 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^6" 2>/dev/null) ₳";
+	elif [[ $(bc <<< "scale=3; ( ${lovelaces} / 10^3 ) >= 1.000" 2>/dev/null) -eq 1 ]]; then shortADA="         $(bc <<< "scale=3; ${lovelaces} / 10^3" 2>/dev/null) m₳";
+	else shortADA="   0.000 ₳";
+	fi
+	echo -n "${shortADA: -10}"
+}
+
 
 #-------------------------------------------------------
 #Get the real bytelength of a given string (for UTF-8 byte check)

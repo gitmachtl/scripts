@@ -533,9 +533,14 @@ do
 				{ read poolPowerYes; read poolPowerNo; read poolPowerAbstain;} <<< $(jq -r "([ .[] | select(.[0]==${poolHashYes}[]) | .[1] ] | add) // 0,
 					([ .[] | select(.[0]==${poolHashNo}[]) | .[1] ] | add) // 0,
 					([ .[] | select(.[0]==${poolHashAbstain}[]) | .[1] ] | add) // 0" <<< "${poolStakeDistributionJSON}" 2> /dev/null)
-				#Calculate the acceptance percentage for the Pool group
-				poolPct=$(bc <<< "scale=2; ( 100.00 * ${poolPowerYes} ) / ( ${poolPowerTotal} - ${poolPowerAbstain} )")
-
+                                #Calculate the acceptance percentage for the Pool group
+				if [[ "${actionTag}" != "HardForkInitiation" ]]; then #percentage calculation for all actions except HardForkInitiation
+					poolPct=$(bc <<< "scale=2; ( 100.00 * ${poolPowerYes} ) / ( ${poolPowerYes} + ${poolPowerNo} )" 2> /dev/null)
+ 					if [[ "${poolPct}" == "" ]]; then poolPct=0; fi #little error hack
+  					else
+ 					poolPct=$(bc <<< "scale=2; ( 100.00 * ${poolPowerYes} ) / ( ${poolPowerTotal} - ${poolPowerAbstain} )" 2> /dev/null)
+  					if [[ "${poolPct}" == "" ]]; then poolPct=0; fi #little error hack
+				fi
 				#Generate lists with the committee hashes that are voted yes, no or abstain.
 				{ read committeeHashYes; read committeeHashNo; read committeeHashAbstain; } <<< $(jq -r '"\(.committeeVotes | with_entries(select(.value | contains("Yes"))) | keys )",
 					"\(.committeeVotes | with_entries(select(.value | contains("No"))) | keys)",
@@ -877,31 +882,34 @@ do
 			esac
 		fi
 
-		printf  "\e[97mCurrent Votes\e[90m │   \e[0mYes\e[90m   │   \e[0mNo\e[90m   │ \e[0mAbstain\e[90m │ \e[0mThreshold\e[90m │ \e[97mLive-Pct\e[90m │ \e[97mAccept\e[0m\n"
-		printf  "\e[90m──────────────┼─────────┼────────┼─────────┼───────────┼──────────┼────────\e[0m\n"
+		printf  "\e[97mCurrent Votes\e[90m │     \e[0mYes\e[90m    │     \e[0mNo\e[90m     │   \e[0mAbstain\e[90m  │ \e[0mThreshold\e[90m │ \e[97mLive-Pct\e[90m │ \e[97mAccept\e[0m\n"
+		printf  "\e[90m──────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────\e[0m\n"
 		if [[ "${dRepAcceptIcon}" != "" ]]; then
-			printf	"\e[94m%13s\e[90m │ \e[32m%7s\e[90m │ \e[91m%6s\e[90m │ \e[33m%7s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "DReps" "${actionDRepVoteYesCount}" "${actionDRepVoteNoCount}" "${actionDRepAbstainCount}" "${dRepPowerThreshold}" "${dRepPct}" "${dRepAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "DReps" "${actionDRepVoteYesCount}" "${actionDRepVoteNoCount}" "${actionDRepAbstainCount}" "${dRepPowerThreshold}" "${dRepPct}" "${dRepAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ %9s │ %8s │ \e[0m\n" "" "$(convertToShortADA ${dRepPowerYes})" "$(convertToShortADA ${dRepPowerNo})" "$(convertToShortADA ${dRepPowerAbstain})" "" ""
 			else
-			printf	"\e[90m%13s\e[90m │ \e[90m%7s\e[90m │ \e[90m%6s\e[90m │ \e[90m%7s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "DReps" "-" "-" "-" "-" "-" ""
+			printf	"\e[90m%13s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "DReps" "-" "-" "-" "-" "-" ""
 		fi
+		printf  "\e[90m──────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────\e[0m\n"
 		if [[ "${poolAcceptIcon}" != "" ]]; then
-			printf	"\e[94m%13s\e[90m │ \e[32m%7s\e[90m │ \e[91m%6s\e[90m │ \e[33m%7s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "${actionPoolVoteYesCount}" "${actionPoolVoteNoCount}" "${actionPoolAbstainCount}" "${poolPowerThreshold}" "${poolPct}" "${poolAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "${actionPoolVoteYesCount}" "${actionPoolVoteNoCount}" "${actionPoolAbstainCount}" "${poolPowerThreshold}" "${poolPct}" "${poolAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ %9s │ %8s │ \e[0m\n" "" "$(convertToShortADA ${poolPowerYes})" "$(convertToShortADA ${poolPowerNo})" "$(convertToShortADA ${poolPowerAbstain})" "" ""
 			else
-			printf	"\e[90m%13s\e[90m │ \e[90m%7s\e[90m │ \e[90m%6s\e[90m │ \e[90m%7s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "-" "-" "-" "-" "-" ""
+			printf	"\e[90m%13s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "-" "-" "-" "-" "-" ""
 		fi
+		printf  "\e[90m──────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────\e[0m\n"
 		if [[ "${committeeAcceptIcon}" != "" ]]; then
-			printf	"\e[94m%13s\e[90m │ \e[32m%7s\e[90m │ \e[91m%6s\e[90m │ \e[33m%7s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "Committee" "${actionCommitteeVoteYesCount}" "${actionCommitteeVoteNoCount}" "${actionCommitteeAbstainCount}" "${committeePowerThreshold}" "${committeePct}" "${committeeAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "Committee" "${actionCommitteeVoteYesCount}" "${actionCommitteeVoteNoCount}" "${actionCommitteeAbstainCount}" "${committeePowerThreshold}" "${committeePct}" "${committeeAcceptIcon}"
 			else
-			printf	"\e[90m%13s\e[90m │ \e[90m%7s\e[90m │ \e[90m%6s\e[90m │ \e[90m%7s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "Committee" "-" "-" "-" "-" "-" ""
+			printf	"\e[90m%13s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "Committee" "-" "-" "-" "-" "-" ""
 		fi
-		printf  "\e[90m──────────────┴─────────┴────────┴─────────┴───────────┴──────────┼────────\e[0m\n"
+		printf  "\e[90m──────────────┴────────────┴────────────┴────────────┴───────────┴──────────┼────────\e[0m\n"
 		case "${totalAccept}" in
 			*"N/A"*)	totalAcceptIcon="N/A";;
 			*"NO"*)		totalAcceptIcon="\e[91m❌";;
 			*)		totalAcceptIcon="\e[92m✅";;
 		esac
-		printf  "\e[97m%65s\e[90m │   %b \e[0m\n" "Full approval of the proposal" "${totalAcceptIcon}"
-#		printf  "\e[90m──────────────────────────────────────────────────────────────────┴────────\e[0m\n"
+		printf  "\e[97m%75s\e[90m │   %b \e[0m\n" "Full approval of the proposal" "${totalAcceptIcon}"
 
 		echo
 
