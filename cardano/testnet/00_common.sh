@@ -300,12 +300,13 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="9.3.0"			#minimum allowed cli version for this script-collection version
+minCliVersion="10.1.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="9.1.0"  		#minimum allowed node version for this script-collection version
+minNodeVersion="10.1.0"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.1"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
+minKeystoneCardanoAppVersion="1.7.7"  	#minimum version for the firmware on the Keystone HW-Wallet
 minHardwareCliVersion="1.15.0" 		#minimum version for the cardano-hw-cli
 minCardanoSignerVersion="1.18.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
@@ -2523,6 +2524,7 @@ start_HwWallet() {
 local onlyForManu=${1^^} #If set, Paramter 1 can limit the function to be only available for the provided Manufacturer (LEDGER or TREZOR)
 local minLedgerCardanoAppVersion=${2:-"${minLedgerCardanoAppVersion}"} #Parameter 2 can overwrite the minLedgerCardanoAppVersion
 local minTrezorCardanoAppVersion=${3:-"${minTrezorCardanoAppVersion}"} #Parameter 3 can overwrite the minTrezorCardanoAppVersion
+local minKeystoneCardanoAppVersion=${4:-"${minKeystoneCardanoAppVersion}"} #Parameter 4 can overwrite the minKeystoneCardanoAppVersion
 
 if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
 
@@ -2551,7 +2553,7 @@ local walletManu=$(echo "${tmp}" |& head -n 1 |& awk {'print $1'})
 local versionApp=$(echo "${tmp}" |& head -n 1 |& awk {'print $4'})
 
 #Check if the function was set to be only available on a specified manufacturer hw wallet
-if [ ! "${onlyForManu}" == "" ]  && [ ! "${onlyForManu}" == "${walletManu^^}" ]; then echo -e "\n\e[35mError - This function is NOT available on this type of Hardware-Wallet, only available on a ${onlyForManu} device at the moment!\e[0m\n"; exit 1; fi
+if [[ "${onlyForManu}" != "" && "${onlyForManu}" != *"${walletManu^^}"* ]]; then echo -e "\n\e[35mError - This function is NOT available on this type of Hardware-Wallet, only available on a ${onlyForManu} device at the moment!\e[0m\n"; exit 1; fi
 
 case ${walletManu^^} in
 
@@ -2564,6 +2566,12 @@ case ${walletManu^^} in
         TREZOR ) #For Trezor Hardware-Wallets
                 versionCheck "${minTrezorCardanoAppVersion}" "${versionApp}"
 		if [[ $? -ne 0 ]]; then echo -e "\n\n\e[35mVersion ERROR - Please use Firmware version ${minTrezorCardanoAppVersion} or higher on your TREZOR Hardware-Wallet for this action!\nOlder versions like your current ${versionApp} do not support this function, please upgrade - thx.\n\e[0m"; exit 1; fi
+		echo -ne "\r\033[1A\e[0mFirmware-Version \e[32m${versionApp}\e[0m (HW-Cli Version \e[32m${versionHWCLI}\e[0m) found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
+                ;;
+
+        KEYSTONE ) #For Keystone Hardware-Wallets
+                versionCheck "${minKeystoneCardanoAppVersion}" "${versionApp}"
+		if [[ $? -ne 0 ]]; then echo -e "\n\n\e[35mVersion ERROR - Please use Firmware version ${minKeystoneCardanoAppVersion} or higher on your KEYSTONE Hardware-Wallet for this action!\nOlder versions like your current ${versionApp} do not support this function, please upgrade - thx.\n\e[0m"; exit 1; fi
 		echo -ne "\r\033[1A\e[0mFirmware-Version \e[32m${versionApp}\e[0m (HW-Cli Version \e[32m${versionHWCLI}\e[0m) found on your \e[32m${walletManu}\e[0m device!\033[K\n\e[32mPlease approve the action on your Hardware-Wallet (abort with CTRL+C) \e[0m... \033[K"
                 ;;
 

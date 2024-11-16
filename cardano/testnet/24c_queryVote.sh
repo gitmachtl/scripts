@@ -336,11 +336,11 @@ case ${workMode} in
 			poolPowerTotal=$(jq -r '[.[][1]] | add' <<< "${poolStakeDistributionJSON}" 2> /dev/null)
 
 			#Get the committee power distribution -> Generate an Array of CommitteeHotHashes and there Votingpower (MembersAuthorized count as 1, all others like MemberNotAuthorized or MemberResigned count as 0)
-			committeePowerDistributionJSON=$(${cardanocli} ${cliEra} query committee-state | jq -r "[ .committee | ( to_entries[] | [ \"\(.value.hotCredsAuthStatus.contents |keys[0])-\(.value.hotCredsAuthStatus.contents.keyHash // .value.hotCredsAuthStatus.contents.scriptHash)\", (if .value.hotCredsAuthStatus.tag == \"MemberAuthorized\" then 1 else 0 end) ] ) ]" 2> /dev/null)
+			committeePowerDistributionJSON=$(${cardanocli} ${cliEra} query committee-state | jq -r "[ .committee | ( to_entries[] | select(.value.hotCredsAuthStatus.tag == \"MemberAuthorized\" and .value.status == \"Active\") | [ \"\(.value.hotCredsAuthStatus.contents |keys[0])-\(.value.hotCredsAuthStatus.contents.keyHash // .value.hotCredsAuthStatus.contents.scriptHash)\", 1 ] ) ]" 2> /dev/null)
 			if [[ ${committeePowerDistributionJSON} == "" ]]; then committeePowerDistributionJSON="[]"; fi #in case there is no committee yet
 
-			#Get the total committee power
-			committeePowerTotal=$(jq -r "([.[][1]] | add) // 0" <<< ${committeePowerDistributionJSON} 2> /dev/null)
+			#Get the total committee power -> only authorized and active keys in the list, so the totalPower is just the length of the array
+			committeePowerTotal=$(jq -r "length // 0" <<< ${committeePowerDistributionJSON} 2> /dev/null)
 
 			#Get the current committee member voting threshold
 			{ read committeePowerThreshold; } <<< $(jq -r '"\(.committee.threshold)" // 0' <<< ${govStateJSON} 2> /dev/null)
@@ -533,9 +533,14 @@ do
 				{ read poolPowerYes; read poolPowerNo; read poolPowerAbstain;} <<< $(jq -r "([ .[] | select(.[0]==${poolHashYes}[]) | .[1] ] | add) // 0,
 					([ .[] | select(.[0]==${poolHashNo}[]) | .[1] ] | add) // 0,
 					([ .[] | select(.[0]==${poolHashAbstain}[]) | .[1] ] | add) // 0" <<< "${poolStakeDistributionJSON}" 2> /dev/null)
-				#Calculate the acceptance percentage for the Pool group
-				poolPct=$(bc <<< "scale=2; ( 100.00 * ${poolPowerYes} ) / ( ${poolPowerTotal} - ${poolPowerAbstain} )")
-
+                                #Calculate the acceptance percentage for the Pool group
+				if [[ "${actionTag}" != "HardForkInitiation" ]]; then #percentage calculation for all actions except HardForkInitiation
+					poolPct=$(bc <<< "scale=2; ( 100.00 * ${poolPowerYes} ) / ( ${poolPowerYes} + ${poolPowerNo} )" 2> /dev/null)
+ 					if [[ "${poolPct}" == "" ]]; then poolPct=0; fi #little error hack
+  					else
+ 					poolPct=$(bc <<< "scale=2; ( 100.00 * ${poolPowerYes} ) / ( ${poolPowerTotal} - ${poolPowerAbstain} )" 2> /dev/null)
+  					if [[ "${poolPct}" == "" ]]; then poolPct=0; fi #little error hack
+				fi
 				#Generate lists with the committee hashes that are voted yes, no or abstain.
 				{ read committeeHashYes; read committeeHashNo; read committeeHashAbstain; } <<< $(jq -r '"\(.committeeVotes | with_entries(select(.value | contains("Yes"))) | keys )",
 					"\(.committeeVotes | with_entries(select(.value | contains("No"))) | keys)",
@@ -606,7 +611,7 @@ do
 
 							dRepAcceptIcon="N/A"; poolAcceptIcon="N/A";
 							totalAccept="N/A";
-							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							;;
 
 
@@ -629,11 +634,11 @@ do
 							{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.hardForkInitiation // 0, .poolVotingThresholds.hardForkInitiation // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
 							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
 							if [[ ${protocolVersionMajor} -ge 10 ]]; then #only do dRep check if we are at least in conway chang-2 phase
-								if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+								if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							fi
 							poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
-							if [[ $(bc <<< "${poolPct} > ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
-							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${poolPct} >= ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							;;
 
 
@@ -670,7 +675,7 @@ do
 								*"maxBlockBodySize"*|*"maxTxSize"*|*"maxBlockHeaderSize"*|*"maxValueSize"*|*"maxBlockExecutionUnits"*|*"txFeePerByte"*|*"txFeeFixed"*|*"utxoCostPerByte"*|*"govActionDeposit"*|*"minFeeRefScriptCostPerByte"*)
 									{ read poolPowerThreshold; } <<< $(jq -r '.poolVotingThresholds.ppSecurityGroup // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
 									poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
-									if [[ $(bc <<< "${poolPct} > ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+									if [[ $(bc <<< "${poolPct} >= ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 									echo -e "A parameter from the \e[32mSECURITY\e[0m group is present ► \e[94mStakePools must vote\e[0m"
 									;;& #also check next condition
 
@@ -708,10 +713,10 @@ do
 							#Now lets use the choosen threshold (highest of all involved groups)
 							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
 							if [[ ${protocolVersionMajor} -ge 10 ]]; then #only do dRep check if we are at least in conway chang-2 phase
-								if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+								if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							fi
 							#committee can vote on all parameters
-							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 
 							;;
 
@@ -740,9 +745,9 @@ do
 							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
 							{ read dRepPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.updateToConstitution // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
 							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
-							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							poolAcceptIcon=""; #pools not allowed to vote on this
-							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							;;
 
 
@@ -790,9 +795,9 @@ do
 							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
 							{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNormal // 0, .poolVotingThresholds.committeeNormal // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
 							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
-							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
-							if [[ $(bc <<< "${poolPct} > ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${poolPct} >= ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							committeeAcceptIcon=""; #committee not allowed to vote on this
 							;;
 
@@ -806,9 +811,9 @@ do
 							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
 							{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNoConfidence // 0, .poolVotingThresholds.committeeNoConfidence // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
 							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
-							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
-							if [[ $(bc <<< "${poolPct} > ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${poolPct} >= ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							committeeAcceptIcon=""; #committee not allowed to vote on this
 							;;
 
@@ -857,9 +862,9 @@ do
 							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
 							{ read dRepPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.treasuryWithdrawal // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
 							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
-							if [[ $(bc <<< "${dRepPct} > ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then drepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							poolAcceptIcon=""; #pools not allowed to vote on this
-							if [[ $(bc <<< "${committeePct} > ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							;;
 
 
@@ -877,31 +882,34 @@ do
 			esac
 		fi
 
-		printf  "\e[97mCurrent Votes\e[90m │   \e[0mYes\e[90m   │   \e[0mNo\e[90m   │ \e[0mAbstain\e[90m │ \e[0mThreshold\e[90m │ \e[97mLive-Pct\e[90m │ \e[97mAccept\e[0m\n"
-		printf  "\e[90m──────────────┼─────────┼────────┼─────────┼───────────┼──────────┼────────\e[0m\n"
+		printf  "\e[97mCurrent Votes\e[90m │     \e[0mYes\e[90m    │     \e[0mNo\e[90m     │   \e[0mAbstain\e[90m  │ \e[0mThreshold\e[90m │ \e[97mLive-Pct\e[90m │ \e[97mAccept\e[0m\n"
+		printf  "\e[90m──────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────\e[0m\n"
 		if [[ "${dRepAcceptIcon}" != "" ]]; then
-			printf	"\e[94m%13s\e[90m │ \e[32m%7s\e[90m │ \e[91m%6s\e[90m │ \e[33m%7s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "DReps" "${actionDRepVoteYesCount}" "${actionDRepVoteNoCount}" "${actionDRepAbstainCount}" "${dRepPowerThreshold}" "${dRepPct}" "${dRepAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "DReps" "${actionDRepVoteYesCount}" "${actionDRepVoteNoCount}" "${actionDRepAbstainCount}" "${dRepPowerThreshold}" "${dRepPct}" "${dRepAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ %9s │ %8s │ \e[0m\n" "" "$(convertToShortADA ${dRepPowerYes})" "$(convertToShortADA ${dRepPowerNo})" "$(convertToShortADA ${dRepPowerAbstain})" "" ""
 			else
-			printf	"\e[90m%13s\e[90m │ \e[90m%7s\e[90m │ \e[90m%6s\e[90m │ \e[90m%7s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "DReps" "-" "-" "-" "-" "-" ""
+			printf	"\e[90m%13s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "DReps" "-" "-" "-" "-" "-" ""
 		fi
+		printf  "\e[90m──────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────\e[0m\n"
 		if [[ "${poolAcceptIcon}" != "" ]]; then
-			printf	"\e[94m%13s\e[90m │ \e[32m%7s\e[90m │ \e[91m%6s\e[90m │ \e[33m%7s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "${actionPoolVoteYesCount}" "${actionPoolVoteNoCount}" "${actionPoolAbstainCount}" "${poolPowerThreshold}" "${poolPct}" "${poolAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "${actionPoolVoteYesCount}" "${actionPoolVoteNoCount}" "${actionPoolAbstainCount}" "${poolPowerThreshold}" "${poolPct}" "${poolAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ %9s │ %8s │ \e[0m\n" "" "$(convertToShortADA ${poolPowerYes})" "$(convertToShortADA ${poolPowerNo})" "$(convertToShortADA ${poolPowerAbstain})" "" ""
 			else
-			printf	"\e[90m%13s\e[90m │ \e[90m%7s\e[90m │ \e[90m%6s\e[90m │ \e[90m%7s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "-" "-" "-" "-" "-" ""
+			printf	"\e[90m%13s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "StakePools" "-" "-" "-" "-" "-" ""
 		fi
+		printf  "\e[90m──────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────\e[0m\n"
 		if [[ "${committeeAcceptIcon}" != "" ]]; then
-			printf	"\e[94m%13s\e[90m │ \e[32m%7s\e[90m │ \e[91m%6s\e[90m │ \e[33m%7s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "Committee" "${actionCommitteeVoteYesCount}" "${actionCommitteeVoteNoCount}" "${actionCommitteeAbstainCount}" "${committeePowerThreshold}" "${committeePct}" "${committeeAcceptIcon}"
+			printf	"\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ \e[0m%7s %%\e[90m │ \e[97m%6s %%\e[90m │   %b \e[0m\n" "Committee" "${actionCommitteeVoteYesCount}" "${actionCommitteeVoteNoCount}" "${actionCommitteeAbstainCount}" "${committeePowerThreshold}" "${committeePct}" "${committeeAcceptIcon}"
 			else
-			printf	"\e[90m%13s\e[90m │ \e[90m%7s\e[90m │ \e[90m%6s\e[90m │ \e[90m%7s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "Committee" "-" "-" "-" "-" "-" ""
+			printf	"\e[90m%13s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "Committee" "-" "-" "-" "-" "-" ""
 		fi
-		printf  "\e[90m──────────────┴─────────┴────────┴─────────┴───────────┴──────────┼────────\e[0m\n"
+		printf  "\e[90m──────────────┴────────────┴────────────┴────────────┴───────────┴──────────┼────────\e[0m\n"
 		case "${totalAccept}" in
 			*"N/A"*)	totalAcceptIcon="N/A";;
 			*"NO"*)		totalAcceptIcon="\e[91m❌";;
 			*)		totalAcceptIcon="\e[92m✅";;
 		esac
-		printf  "\e[97m%65s\e[90m │   %b \e[0m\n" "Full approval of the proposal" "${totalAcceptIcon}"
-#		printf  "\e[90m──────────────────────────────────────────────────────────────────┴────────\e[0m\n"
+		printf  "\e[97m%75s\e[90m │   %b \e[0m\n" "Full approval of the proposal" "${totalAcceptIcon}"
 
 		echo
 
