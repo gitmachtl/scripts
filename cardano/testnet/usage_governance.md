@@ -893,7 +893,7 @@ Next step is to submit/register this Vote-File on the chain ...
 
 Now that we have the Vote-File, we have to submit it on chain.
 
-[To learn how to submit the Vote-File in Offline-Mode click here](#registersubmit-the-vote-file-in-offline-mode)
+[To learn how to submit the Vote-File in Offline-Mode click here](#2b-registersubmit-the-vote-file-in-offline-mode)
 
 If you wanna sign and submit in Online/Light-Mode, you need a small wallet (f.e. myWallet) holding a few ADA to pay for the transaction fees. Also you need of course your signing key. 
 
