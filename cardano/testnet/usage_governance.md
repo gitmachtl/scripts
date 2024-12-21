@@ -22,10 +22,11 @@ The governance scripts are divided into different topics, every topic has its ow
 - 23d_checkComOnChain.sh -> Check
 - 23e_retComColdKeys.sh -> Retire
 
-### Generate, Submit and Query of votes on Governance actions
-- 24a_genVote.sh -> Generate
-- 24b_regVote.sh -> Register
-- 24c_queryVote.sh -> Check
+### [Generate, Submit and Query of votes on Governance actions](#generate-submit-and-query-of-votes-on-governance-actions-1)
+- [24a_genVote.sh](#1-generate-a-voting-file-on-a-governance-action) -> Generate
+- [24b_regVote.sh](#2a-registersubmit-the-vote-file-in-online-mode) -> Register/Submit in Online-Mode
+- [24b_regVote.sh](#2b-registersubmit-the-vote-file-in-offline-mode) -> Register/Submit in Offline-Mode
+- [24c_queryVote.sh](#3-checkquery-the-voting-status-of-governance-actions) -> Check
 
 ### Generate and Submit of Governance actions
 - 25a_genAction.sh -> Generate
@@ -784,3 +785,373 @@ Account is not delegated to a Pool !
 Voting-Power of Staking Address is delegated to DRepID(HASH): drep15l5z8j6xwnf05f4j0hhfk9vxr2kvq9srxg476he7hlgwyf8ekgj (a7e823cb4674d2fa26b27dee9b15861aacc01603322bed5f3ebfd0e2)
 ```
 Here we can see, that the Staking Address is correctly Vote-Delegated to the DRep with the ID `drep15l5z8j6xwnf05f4j0hhfk9vxr2kvq9srxg476he7hlgwyf8ekgj`, which is our `myLightDrep` DRep.
+
+<br>&nbsp;<br>
+
+-----
+
+## Generate, Submit and Query of votes on Governance actions
+
+### 1. Generate a Voting-File on a Governance action
+
+To take part in governance and to submit a vote as a DRep, CC-Member or SPO we first have to generate an according Vote-File. That Vote-File is your ballot and it contains your data and your decision. It can also cointain a link to metadata where you describe your decision. 
+
+So lets start, we need script 24a for this, here is the syntax:
+```console
+$ ./24a_genVote.sh
+
+Version-Info: cli 10.1.0.0 / node 10.1.3                Mode: online(full)      Era: conway     Network: Mainnet
+
+Usage:  24a_genVote.sh <DRep-Name | Committee-Hot-Name | Pool-Name> <GovActionID>
+
+        [Opt: Anchor-URL, starting with "url: ..."], in Online-/Light-Mode the Hash will be calculated
+        [Opt: Anchor-HASH, starting with "hash: ..."], to overwrite the Anchor-Hash in Offline-Mode
+
+Examples:
+
+   24a_genVote.sh myDRep 4d45bc8c9080542172b2c76caeb93c88d7dca415c3a2c71b508cbfc3785e98a8#0
+   -> Generate a Vote-File for the DRep-ID of myDRep (myDRep.drep.*) and the proposal in Action-ID 4d45b...a8#0.
+
+   24a_genVote.sh myDRep 4d45bc8c9080542172b2c76caeb93c88d7dca415c3a2c71b508cbfc3785e98a8#0 "url: https://mydomain.com/myvotingthoughts.json"
+   -> Generate a Vote-File for the DRep-ID of myDRep (myDRep.drep.*) and the proposal in Action-ID 4d45b...a8#0
+   -> Also attaching an Anchor-URL to f.e. describe the voting decision, etc.
+```
+
+As you can see the only needed parameters are the name of the DRep/CC/SPO file and the Governance-Action-ID. The Governance-Action-ID can be in CIP105 format like `0b19476e40bbbb5e1e8ce153523762e2b6859e7ecacbaf06eae0ee6a447e79b9#0` or in the new CIP129 formal like `gov_action1pvv5wmjqhwa4u85vu9f4ydmzu2mgt8n7et967ph2urhx53r70xusqnmm525`.
+
+In this example i wanna describe how to vote as an SPO. If you're already using the SPO-Scripts you're familiar with the file-naming-scheme. To generate the Vote-File as an SPO you need the `<name>.node.vkey` file.
+
+Lets do an example:
+```console
+$ ./24a_genVote.sh mypool gov_action1pvv5wmjqhwa4u85vu9f4ydmzu2mgt8n7et967ph2urhx53r70xusqnmm525
+```
+```js
+Version-Info: cli 10.1.0.0 / node 10.1.3                Mode: online(full)      Era: conway     Network: Mainnet
+
+Generating a Vote-File for Pool PublicKey-File mypool.node.vkey
+
+Using Cardano-Signer Version: 1.20.1
+
+Action-Tx-ID: 0b19476e40bbbb5e1e8ce153523762e2b6859e7ecacbaf06eae0ee6a447e79b9
+Action-Index: 0
+
+Found: 1 entry/entries
+
+
+--- Entry 1 of 1 --- Action-ID 0b19476e40bbbb5e1e8ce153523762e2b6859e7ecacbaf06eae0ee6a447e79b9#0
+
+Action-Bech: gov_action1pvv5wmjqhwa4u85vu9f4ydmzu2mgt8n7et967ph2urhx53r70xusqnmm525
+
+Action-Type: HardForkInitiation         Proposed in Epoch: 529          Expires after Epoch: 535
+
+Anchor-Url(Hash): https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/mainnet/2024-10-30-hf10/metadata.jsonld (8a1bd37caa6b914a8b569adb63a0f41d8f159c110dc5c8409118a3f087fffb43)
+
+       Query-URL: https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/mainnet/2024-10-30-hf10/metadata.jsonld
+   Anchor-Status: ✅ File-Content-HASH is ok
+     Anchor-Data: ✅ JSONLD structure is ok
+     Information: ❌ no authors in the authors-array
+
+Deposit Return-StakeAddr: stake1uyguuqwdpexmhgjd07vax5t2ay3f7qvea49ex907g6fmvjclq6l03
+
+Action-Content: Do a Hardfork
+
+Fork to Protocol-Version ► 10.0
+
+Current Votes │   Yes   │   No   │ Abstain │ Threshold │ Live-Pct │ Accept
+──────────────┼─────────┼────────┼─────────┼───────────┼──────────┼────────
+        DReps │       - │      - │       - │       - % │      - % │
+   StakePools │      11 │      0 │       0 │   51.00 % │    .52 % │   ❌
+    Committee │       0 │      0 │       0 │   66.66 % │      0 % │   ❌
+──────────────┴─────────┴────────┴─────────┴───────────┴──────────┼────────
+                                    Full approval of the proposal │   ❌
+
+Please vote on that Action-ID [Yes/No/Abstain/CANCEL] ? Y
+
+Your voting decision is set to: YES
+
+Created the Vote-Certificate file: mypool_241221164912.pool.vote
+{
+    "type": "Governance voting procedures",
+    "description": "",
+    "cborHex": "a18204581c55f3456fa0e18206a37db60a4f708d5866d0fc603ed1190834d58e7fa18258200b19476e40bbbb5e1e8ce153523762e2b6859e7ecacbaf06eae0ee6a447e79b9008201f6"
+}
+
+
+If you wanna submit the Vote-Certificate now, please run the script 24b like:
+"./24b_regVote.sh mypool myWallet mypool_241221164912.pool.vote"
+```
+As you can see, the script checked the Governance-Action about its Metadata and gave a short summary. 
+It showed that there are no authors in the Metadata, but thats ok, its only optional.
+
+We confirmed that we wanna vote `YES` on this action, the script generated a Vote-File. In this case it generated `mypool_241221164912.pool.vote`.
+
+Next step is to submit/register this Vote-File on the chain ...
+
+-----
+
+### 2a. Register/Submit the Vote-File in Online-Mode
+
+Now that we have the Vote-File, we have to submit it on chain.
+
+[To learn how to submit the Vote-File in Offline-Mode click here](#registersubmit-the-vote-file-in-offline-mode)
+
+If you wanna sign and submit in Online/Light-Mode, you need a small wallet (f.e. myWallet) holding a few ADA to pay for the transaction fees. Also you need of course your signing key. 
+
+Online/Light-Mode is only recommended if your Secret key is on a Hardware-Wallet.
+
+We are using script `24b` to sign and submit the Vote-File:
+```console
+$ ./24b_regVote.sh
+
+Version-Info: cli 10.1.0.0 / node 10.1.3                Mode: online(full)      Era: conway     Network: Mainnet
+
+Usage:  24b_regVote.sh <DRep-Name | Committee-Hot-Name | Pool-Name>  <Base/PaymentAddressName (paying for the registration fees)>  <1 or more *.vote files>
+
+        [Opt: Message comment, starting with "msg: ...", | is the separator]
+        [Opt: encrypted message mode "enc:basic". Currently only 'basic' mode is available.]
+        [Opt: passphrase for encrypted message mode "pass:<passphrase>", the default passphrase if 'cardano' is not provided]
+
+Optional parameters:
+
+- If you wanna attach a Transaction-Message like a short comment, invoice-number, etc with the transaction:
+   You can just add one or more Messages in quotes starting with "msg: ..." as a parameter. Max. 64chars / Message
+   "msg: This is a short comment for the transaction" ... that would be a one-liner comment
+   "msg: This is a the first comment line|and that is the second one" ... that would be a two-liner comment, | is the separator !
+
+   If you also wanna encrypt it, set the encryption mode to basic by adding "enc: basic" to the parameters.
+   To change the default passphrase 'cardano' to you own, add the passphrase via "pass:<passphrase>"
+
+- If you wanna attach a Metadata JSON:
+   You can add a Metadata.json (Auxilierydata) filename as a parameter to send it alone with the transaction.
+   There will be a simple basic check that the transaction-metadata.json file is valid.
+
+- If you wanna attach a Metadata CBOR:
+   You can add a Metadata.cbor (Auxilierydata) filename as a parameter to send it along with the transaction.
+   Catalyst-Voting for example is done via the voting_metadata.cbor file.
+
+Examples:
+
+   24b_regVote.sh myDRep myWallet.payment myDrep_240317134558.drep.vote
+   -> Register the given Vote (*.vote) on chain, Signing it with the myDRep secret key, Payment via the myWallet.payment wallet
+
+   24b_regVote.sh myDRep myfunds mydrep_240317134558.drep.vote mydrep_240317135300.drep.vote "msg: My votings as a DRep, woohoo!"
+   -> Register two Votes (*.vote) on chain, Signing it with the myDRep secret key, Payment via the myfunds wallet, Adding a Transaction-Message
+```
+
+As you can see, the needed parameters are the name of the DRep/CC/Pool-File, the name of the wallet to pay the transaction fees and of corse the Vote-File.
+
+Lets submit the Vote-File from above:
+```console
+$ ./24b_regVote.sh mypool mywallet mypool_241221164912.pool.vote
+```
+```js
+Version-Info: cli 10.1.0.0 / node 10.1.3                Mode: online(full)      Era: conway     Network: Mainnet
+
+Register Vote(s) using Pool SigningKey mypool.node.skey with funds from Address mywallet.addr
+
+Reading Vote-File: mypool_241221164912.pool.vote
+             Type: Pool
+       Voter-HASH: 55f3456fa0e18206a37db60a4f708d5866d0fc603ed1190834d58e7f
+     Action-Tx-ID: 0b19476e40bbbb5e1e8ce153523762e2b6859e7ecacbaf06eae0ee6a447e79b9
+     Action-Index: 0
+      Action-Bech: gov_action1pvv5wmjqhwa4u85vu9f4ydmzu2mgt8n7et967ph2urhx53r70xusqnmm525
+      Vote-Answer: YES
+
+Current Slot-Height: 143231343 (setting TTL[invalid_hereafter] to 143234943)
+
+Pay fees from Address mywallet.addr: addr1vy9gr3m0yxnde8702ydq2thkjagann8rhg2gda6cn7s3v5q4hz4qf
+
+1 UTXOs found on the Source Address!
+
+Hash#Index: 69266dd453b54f78c7fccd2fe021fdcef61979667968e52a3733fdcb14b7c0df#5  ADA: 1,918785 (1918785 lovelaces)
+-----------------------------------------------------------------------------------------------------
+Total ADA on the Address:  1,918785 ADA / 1918785 lovelaces
+
+Mimimum transfer Fee for 1x TxIn & 1x TxOut:  0,171969 ADA / 171969 lovelaces
+
+Mimimum funds required for registration (Sum of fees):  1029659 lovelaces
+
+Lovelaces that will be returned to payment Address (UTXO-Sum minus fees):  1,746816 ADA / 1746816 lovelaces  (min. required 857690 lovelaces)
+
+Building the unsigned transaction body:  /tmp/mywallet.txbody
+
+{
+    "type": "Unwitnessed Tx ConwayEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "84a500d...9b9008201f6a0f5f6"
+}
+
+Sign (Witness+Assemble) the Tx-Body with the mypool.node.skey and mywallet.skey|hwsfile: /tmp/mywallet.tx
+
+Reading unencrypted file mypool.node.skey ... OK
+Reading unencrypted file mywallet.skey ... OK
+
+{
+    "type": "Witnessed Tx ConwayEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "84a500d90102818...01d50f065989889adf00771d301a91c6d5b28ebb626e0ef5f6"
+}
+
+Transaction-Size: 378 bytes (max. 16384)
+
+Does this look good for you, continue ? [y/N]
+```
+You can see that the script reads in the Vote-File and shows you the most important data stored in it.
+
+The script reports the voter-type, the hash, the action-id in CIP105 and CIP129 format and your vote answer.
+
+If all is ok, you can submit the vote by confirmig by typing `y` and enter.
+
+Thats it, you have submitted your vote. 😄
+
+-----
+
+### 2b. Register/Submit the Vote-File in Offline-Mode
+
+#### Submitting the Vote-File in Offline-Mode
+
+Signing the Vote-File transaction in Offline-Mode is the more secure way, you can do this on an airgapped machine.
+
+To do the signing, you have to follow the Standard-Procedure for the SPO-Scripts and Offline-Mode. To complete theses examples here, i will shortly list the commands that you need:
+
+**Online-Machine**
+
+* First you have to make a new `offlineTransfer.json` file on your *Online*-Machine by running `./01_workOffline.sh new`
+* Than you have to add/query the data of your wallet your wanna use to pay the transaction fees, if your wallet has for example the name `myWallet` than you have to run `./01_workOffline add myWallet`
+* 💾 Copy over the `offlineTransfer.json` and the `mypool_241221164912.pool.vote` file to your *Offline*-Machine. (please adjust your filenames)
+   
+**Offline-Machine**
+
+* Sign and confirm the transaction by running `./24b_regVote.sh mypool mywallet mypool_241221164912.pool.vote` like in Online-Mode (please adjust your filenames). The script will also ask you if you wanna include the signed transaction back into the `offlineTransfer.json` file. Please confirm this with `yes`.
+* 💾 Copy over the `offlineTransfer.json` back to your *Online*-Machine
+
+**Online-Machine**
+
+* Submit the transaction on chain by running `./01_workOffline.sh execute`
+
+Done, you have now signed your Vote-File-Transaction offline and submitted it on the chain online. 😃
+
+-----
+
+### 3. Check/Query the voting-status of governance actions
+
+To get the current information about votes on a governance action you can use script `24c_queryVote.sh` lets check the syntax:
+```console
+$ ./24c_queryVote.sh
+
+Version-Info: cli 10.1.0.0 / node 10.1.3                Mode: online(full)      Era: conway     Network: Mainnet
+
+Usage:  24c_queryVote.sh <DRep-Name/ID/Hash | Committee-Hot-Name/Hash | Pool-Name/ID | StakeName/Addr> and/or <Action-ID> and/or <Action-Type> or <all>
+
+ActionTypes: HardForkInitiation, InfoAction, NewConstitution, NoConfidence, ParameterChange, TreasuryWithdrawals, UpdateCommittee
+
+Examples:
+
+   24c_queryVote.sh myDRep
+   -> Get the current vote(s) on which the DRep 'myDRep' voted.
+
+   24c_queryVote.sh drep13mna226yvxz682sf5d57m55lf9yh05clhyxahkl9psgc7ycthtu
+   -> Get the current vote(s) on which the DRep with id 'drep13mna226yvxz682sf5d57m55lf9yh05clhyxahkl9psgc7ycthtu' voted.
+
+   24c_queryVote.sh 5aa349227e4068c85c03400396bcea13c7fd57d0ec78c604bc768fc5
+   -> Get the current vote(s) on which the Hash '5aa349227e4068c85c03400396bcea13c7fd57d0ec78c604bc768fc5' voted.
+
+   24c_queryVote.sh 4d45bc8c9080542172b2c76caeb93c88d7dca415c3a2c71b508cbfc3785e98a8#0
+   -> Get the current status of Action-ID '4d45bc8c9080542172b2c76caeb93c88d7dca415c3a2c71b508cbfc3785e98a8#0'
+
+   24c_queryVote.sh myDrep 4d45bc8c9080542172b2c76caeb93c88d7dca415c3a2c71b508cbfc3785e98a8#0
+   -> Get the vote of 'myDrep' on Action-ID '4d45bc8c9080542172b2c76caeb93c88d7dca415c3a2c71b508cbfc3785e98a8#0'
+
+   24c_queryVote.sh myStake
+   -> Get the current vote(s) on which the StakeAccount 'myStake.staking.addr' is registered as Deposit-Return-Address.
+
+   24c_queryVote.sh stake1u9qdkcdltaf8falntwqkcz5mj3m5ndzengdhavewn9jzm3senatjc
+   -> Get the current vote(s) on which the given StakeAddress is registered as Deposit-Return-Address.
+
+   24c_queryVote.sh infoaction
+   -> Get all current vote(s) of type 'InfoAction'
+
+   24c_queryVote.sh all
+   -> Get all current vote(s)
+```
+
+You can see that you can use the script in various ways and filter the results to your needs. 
+
+To get **ALL** currently active actions, you can simply run
+```console
+$ ./24c_queryVote.sh all
+```
+```js
+
+Version-Info: cli 10.1.0.0 / node 10.1.3                Mode: online(full)      Era: conway     Network: Mainnet
+
+Query the voting state for a DRep, Committee-Hot, Pool, StakeAddress and/or an Action-ID:
+
+Found: 2 entry/entries
+
+
+--- Entry 1 of 2 --- Action-ID fff0df644d328a5367212f45bab59060bde3c4091dc96c723062896fd6197314#0
+
+Action-Bech: gov_action1llcd7ezdx299xeep9azm4dvsvz7783qfrhykcu3sv2ykl4sewv2qq4myfpk
+
+Action-Type: InfoAction         Proposed in Epoch: 522          Expires after Epoch: 528
+
+Anchor-Url(Hash): https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/mainnet/2024-11-19-infohf/metadata.jsonld (93106d082a93e94df5aff74f678438bae3a647dac63465fbfcde6a3058f41a1e)
+
+Deposit Return-StakeAddr: stake1uyguuqwdpexmhgjd07vax5t2ay3f7qvea49ex907g6fmvjclq6l03
+
+Action-Content: Information
+
+Current Votes │     Yes    │     No     │   Abstain  │ AlwNoConfi │ Threshold │ Live-Pct │ Accept
+──────────────┼────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────
+        DReps │        209 │          9 │          8 │            │     N/A % │  74.52 % │   N/A
+              │   1.706 B₳ │   3.188 M₳ │ 120.810 M₳ │ 105.609 M₳ │           │          │
+──────────────┼────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────
+   StakePools │         95 │          0 │          0 │            │     N/A % │   7.15 % │   N/A
+              │   1.508 B₳ │    0.000 ₳ │    0.000 ₳ │ 558.751 k₳ │           │          │
+──────────────┼────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────
+    Committee │          6 │          0 │          1 │            │   66.66 % │ 100.00 % │   ✅
+──────────────┴────────────┴────────────┴────────────┴────────────┴───────────┴──────────┼────────
+                                                           Full approval of the proposal │   N/A
+
+
+--- Entry 2 of 2 --- Action-ID 0b19476e40bbbb5e1e8ce153523762e2b6859e7ecacbaf06eae0ee6a447e79b9#0
+
+Action-Bech: gov_action1pvv5wmjqhwa4u85vu9f4ydmzu2mgt8n7et967ph2urhx53r70xusqnmm525
+
+Action-Type: HardForkInitiation         Proposed in Epoch: 529          Expires after Epoch: 535
+
+Anchor-Url(Hash): https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/mainnet/2024-10-30-hf10/metadata.jsonld (8a1bd37caa6b914a8b569adb63a0f41d8f159c110dc5c8409118a3f087fffb43)
+
+Deposit Return-StakeAddr: stake1uyguuqwdpexmhgjd07vax5t2ay3f7qvea49ex907g6fmvjclq6l03
+
+Action-Content: Do a Hardfork
+
+Fork to Protocol-Version ► 10.0
+
+Current Votes │     Yes    │     No     │   Abstain  │ AlwNoConfi │ Threshold │ Live-Pct │ Accept
+──────────────┼────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────
+        DReps │          - │          - │          - │          - │       - % │      - % │
+──────────────┼────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────
+   StakePools │         11 │          0 │          0 │            │   51.00 % │    .54 % │   ❌
+              │ 114.978 M₳ │    0.000 ₳ │    0.000 ₳ │ 558.751 k₳ │           │          │
+──────────────┼────────────┼────────────┼────────────┼────────────┼───────────┼──────────┼────────
+    Committee │          0 │          0 │          0 │            │   66.66 % │      0 % │   ❌
+──────────────┴────────────┴────────────┴────────────┴────────────┴───────────┴──────────┼────────
+                                                           Full approval of the proposal │   ❌
+```
+This lists all current actions, the votes and the approval status.
+
+If you wanna see the votes for example for a specific pool you can run it like
+```console
+$ ./24c_queryVote.sh pool1df9rj4n0t3zlpak7xnh4ue6t3yh9zlw7a02w4l8askp77up25rt
+```
+or
+```console
+$ ./24c_queryVote.sh myDrep
+```
+etc... 😄
+
+<br>&nbsp;<br>
+
+-----
