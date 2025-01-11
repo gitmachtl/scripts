@@ -190,6 +190,8 @@ case "${network,,}" in
 		_adahandleAPI="https://api.handle.me"				#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
 		_catalystAPI="https://api.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/mainnet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+		_guardrailScriptUTXO="dc06746a898fd230f164f47a3d749348b65655b8fb388ff275f54d62891653e2#0"
+		_guardrailScriptSize=2132
 		;;
 
 
@@ -252,7 +254,7 @@ case "${network,,}" in
 		_adahandleAPI=
 		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/sanchonet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
-		_guardrailScriptUTXO="8b9163fa38914b45470a5426c27939cfb77628f0c54d08b0b61b9905c2cbfc2b#0"
+#		_guardrailScriptUTXO="8b9163fa38914b45470a5426c27939cfb77628f0c54d08b0b61b9905c2cbfc2b#0"
 		_guardrailScriptSize=2132
 		;;
 
@@ -300,15 +302,15 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="10.1.0"			#minimum allowed cli version for this script-collection version
+minCliVersion="10.2.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="10.1.0"  		#minimum allowed node version for this script-collection version
+minNodeVersion="10.1.4"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.1"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minKeystoneCardanoAppVersion="1.7.7"  	#minimum version for the firmware on the Keystone HW-Wallet
 minHardwareCliVersion="1.15.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.18.0"	#minimum version for the cardano-signer binary
+minCardanoSignerVersion="1.20.1"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
@@ -542,8 +544,11 @@ case ${workMode} in
 			if [[ "${koiosApiToken}" != "" ]]; then
 				result=$(jq -R 'split(".") | .[1] | @base64d | fromjson' <<< "${koiosApiToken}" 2> /dev/null)
 				if [[ $? -ne 0 ]]; then majorError "The provided koiosApiToken '${koiosApiToken}'\nis not a valid one! Please recheck for typos, register a new one or leave the koiosApiToken="" entry empty."; exit 1; fi
-				{ read koiosApiExpireDate; read koiosApiTier; read koiosApiProjID; } <<< $( jq -r ".exp // -1, .tier, .projID // \"---\"" <<< ${result} 2> /dev/null)
-				if [[ ${koiosApiExpireDate} -gt 0 ]]; then koiosApiExpireDate=$(date --date="@${koiosApiExpireDate}"); fi #get the local expire date from the utc seconds since unix-time-start
+				{ read koiosApiExpireTime; read koiosApiTier; read koiosApiProjID; } <<< $( jq -r ".exp // -1, .tier, .projID // \"---\"" <<< ${result} 2> /dev/null)
+				if [[ ${koiosApiExpireTime} -gt 0 ]]; then
+					koiosApiExpireDate=$(date --date="@${koiosApiExpireTime}");
+					if [[ $(bc <<< "${koiosApiExpireTime} < $(date -u +%s)") -eq 1 ]]; then koiosApiExpireDate+=" \e[35m!!! expired !!!\e[0m"; fi
+				fi #get the local expire date from the utc seconds since unix-time-start
 				case ${koiosApiTier} in
 					"1")	koiosApiTier="Free-Tier";;
 					"2")	koiosApiTier="Pro-Tier";;
