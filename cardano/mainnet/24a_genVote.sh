@@ -302,11 +302,12 @@ case ${workMode} in
 			poolPowerTotal=$(jq -r '[ .[][1] ] | add  // 0' <<< "${poolStakeDistributionJSON}" 2> /dev/null)
 
 			#Get the committee power distribution -> Generate an Array of CommitteeHotHashes and there Votingpower (MembersAuthorized count as 1, all others like MemberNotAuthorized or MemberResigned count as 0)
-			committeePowerDistributionJSON=$(${cardanocli} ${cliEra} query committee-state | jq -r "[ .committee | ( to_entries[] | select(.value.hotCredsAuthStatus.tag == \"MemberAuthorized\" and .value.status == \"Active\") | [ \"\(.value.hotCredsAuthStatus.contents |keys[0])-\(.value.hotCredsAuthStatus.contents.keyHash // .value.hotCredsAuthStatus.contents.scriptHash)\", 1 ] ) ]" 2> /dev/null)
+			committeeStateJSON=$(${cardanocli} ${cliEra} query committee-state | jq -r "[ .committee | to_entries[] | select(.value.hotCredsAuthStatus.tag == \"MemberAuthorized\" and .value.status == \"Active\") ]" 2> /dev/null)
+			committeePowerDistributionJSON=$(jq -r "[ ( .[] | [ \"\(.value.hotCredsAuthStatus.contents |keys[0])-\(.value.hotCredsAuthStatus.contents.keyHash // .value.hotCredsAuthStatus.contents.scriptHash)\", 1 ] ) ]" <<< "${committeeStateJSON}" 2> /dev/null)
 			if [[ ${committeePowerDistributionJSON} == "" ]]; then committeePowerDistributionJSON="[]"; fi #in case there is no committee yet
 
 			#Get the total committee power -> only authorized and active keys in the list, so the totalPower is just the length of the array
-			committeePowerTotal=$(jq -r "length // 0" <<< ${committeePowerDistributionJSON} 2> /dev/null)
+			committeePowerTotal=$(jq -r "length // 0" <<< ${committeeStateJSON} 2> /dev/null)
 
 			#Get the current committee member voting threshold
 			{ read committeePowerThreshold; } <<< $(jq -r '"\(.committee.threshold)" // 0' <<< ${govStateJSON} 2> /dev/null)
@@ -320,14 +321,21 @@ case ${workMode} in
 				"number")
 					committeePowerThreshold=$(bc <<< "scale=2; 100.00 * ${committeePowerThreshold}") #scale it to 0.00-100.00%
 					;;
+
+				*)      #if any other type, throw an error
+					echo -e "\e[35mERROR - Could not handle committeeThresholdType = ${committeeThresholdType}\e[0m\n"; exit 1
+					;;
 			esac
+
+			#Generate the JSON of all committeeHotHashes and there names, depending on the committeeColdHashes
+			ccMemberHotHashNamesJSON=$(jq -r "[ .[] | { \"\(.value.hotCredsAuthStatus.contents | keys[0])-\(.value.hotCredsAuthStatus.contents | flatten[0])\": (${ccMemberColdHashNames}[.key]) } ] | reduce .[] as \$o ({}; . * \$o)" <<< ${committeeStateJSON} 2> /dev/null)
 
 			#Get the current protocolParameters for the dRep and pool voting thresholds
                         protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
                         ;;
 
 
-	"light")	
+	"light")
 			voterID="" #disable filtering
 		        showProcessAnimation "Query Governance-Action Info-LightMode: " &
 			actionStateJSON=$(queryLight_actionState "${govActionUTXO}" "${govActionIdx}" "${voterID}")
@@ -336,21 +344,37 @@ case ${workMode} in
 			#strip the outter array for now
 			actionStateJSON=$(jq -r ".[]" 2> /dev/null <<< "${actionStateJSON}")
 
+			#Get the committeeState -> only use active and authorized members -> use it to generate the CC names for hotHashes
+			showProcessAnimation "Query Committee-State LightMode: " &
+			committeeStateLightJSON=$(queryLight_committeeState "")
+			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${committeeStateLightJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+			committeeStateJSON=$(jq -r "[ .committee | to_entries[] | select(.value.hotCredsAuthStatus.tag == \"MemberAuthorized\" and .value.status == \"Active\") ]" <<< "${committeeStateLightJSON}" 2> /dev/null)
+			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - Could not generate committeeStateJSON\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+			#Generate the JSON of all committeeHotHashes and there names, depending on the committeeColdHashes
+			ccMemberHotHashNamesJSON=$(jq -r "[ .[] | { \"\(.value.hotCredsAuthStatus.contents | keys[0])-\(.value.hotCredsAuthStatus.contents | flatten[0])\": (${ccMemberColdHashNames}[.key]) } ] | reduce .[] as \$o ({}; . * \$o)" <<< ${committeeStateJSON} 2> /dev/null)
+
 			#Get the current protocolParameters for the dRep, pool and committee voting thresholds
 			protocolParametersJSON=${lightModeParametersJSON} #lightmode
 
+			#Get the total committee power -> only authorized and active keys in the list, so the totalPower is just the length of the array
+			committeePowerTotal=$(jq -r "length // 0" <<< ${committeeStateJSON} 2> /dev/null)
+
 			#Get the current committee member count and voting threshold
-			{ read committeePowerTotal; read committeeThreshold; } <<< $(jq -r '(.committee.members | length) // 0, "\(.committee.threshold)" // 0' 2> /dev/null <<< "${protocolParametersJSON}")
+			committeeThreshold=$(jq -r '"\(.threshold)" // 0' 2> /dev/null <<< "${committeeStateLightJSON}")
 			committeeThresholdType=$(jq -r "type" <<< "${committeeThreshold}" 2> /dev/null)
 			case ${committeeThresholdType} in
 				"object")
 					{ read numerator; read denominator; } <<< $(jq -r '.numerator // "-", .denominator // "-"' <<< "${committeeThreshold}")
 					committeePowerThreshold=$(bc <<< "scale=2; 100 * ${numerator} / ${denominator}")
-					;;
+				;;
 
 				"number")
 					committeePowerThreshold=$(bc <<< "scale=2; 100 * ${committeeThreshold}")
-					;;
+				;;
+
+				*)      #if any other type, throw an error
+					echo -e "\e[35mERROR - Could not handle committeeThresholdType = ${committeeThresholdType}\e[0m\n"; exit 1
+				;;
 			esac
 			;;
 
@@ -497,6 +521,11 @@ do
 								.[0].pool_yes_vote_power // 0,
 								.[0].pool_active_no_vote_power // 0,
 								.[0].pool_active_abstain_vote_power // 0 ' <<< ${actionVotesSummaryJSON})
+
+			#Generate lists with the committee hashes that have voted yes, no or abstain.
+			{ read committeeHashYes; read committeeHashNo; read committeeHashAbstain; } <<< $(jq -r '"\(.committeeVotes | with_entries(select(.value | contains("Yes"))) | keys )",
+				"\(.committeeVotes | with_entries(select(.value | contains("No"))) | keys)",
+				"\(.committeeVotes | with_entries(select(.value | contains("Abstain"))) | keys)"' <<< ${actionEntry} 2> /dev/null)
 			;;
 	esac
 
@@ -926,6 +955,18 @@ do
 		else
 		printf "\e[90m%13s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%10s\e[90m │ \e[90m%7s %%\e[90m │ \e[90m%6s %%\e[90m │   %b \e[0m\n" "Committee" "-" "-" "-" "" "-" "-"
 	fi
+
+	#show CC names that have voted -> replace the hotHash with the name from the ccMemberHotHashNames-JSON, convert linebreaks into spaces (make it a line), wordwrap the line, trimstrim each line, make it an array
+	readarray -t committeeNamesYes <<< $(jq -r ".[] | ${ccMemberHotHashNamesJSON}[.] // \"Unknown?\"" <<< "${committeeHashYes}" 2> /dev/null | tr '\n' ' ' | fold -w 11 -s | awk '{$1=$1};1')
+	readarray -t committeeNamesNo <<< $(jq -r ".[] | ${ccMemberHotHashNamesJSON}[.] // \"Unknown?\"" <<< "${committeeHashNo}" 2> /dev/null | tr '\n' ' ' | fold -w 11 -s | awk '{$1=$1};1')
+	readarray -t committeeNamesAbstain <<< $(jq -r ".[] | ${ccMemberHotHashNamesJSON}[.] // \"Unknown?\"" <<< "${committeeHashAbstain}" 2> /dev/null | tr '\n' ' ' | fold -w 11 -s | awk '{$1=$1};1')
+	tmpCnt2=0
+	while [[ "${committeeNamesYes[${tmpCnt2}]}${committeeNamesNo[${tmpCnt2}]}${committeeNamesAbstain[${tmpCnt2}]}" != "" ]]; do
+		printf "\e[94m%13s\e[90m │ \e[32m%10s\e[90m │ \e[91m%10s\e[90m │ \e[33m%10s\e[90m │ \e[90m%10s\e[90m │ \e[0m%7s  \e[90m │ \e[97m%6s  \e[90m │ \e[0m\n" "" "${committeeNamesYes[${tmpCnt2}]}" "${committeeNamesNo[${tmpCnt2}]}" "${committeeNamesAbstain[${tmpCnt2}]}" "" "" ""
+		tmpCnt2=$(( ${tmpCnt2} + 1 ))
+	done
+	unset committeeNamesYes committeeNamesNo committeeNamesAbstain tmpCnt2
+
 	printf "\e[90m──────────────┴────────────┴────────────┴────────────┴────────────┴───────────┴──────────┼────────\e[0m\n"
 	case "${totalAccept}" in
 		*"N/A"*)	totalAcceptIcon="N/A";;

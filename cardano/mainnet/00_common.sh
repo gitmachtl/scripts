@@ -192,7 +192,16 @@ case "${network,,}" in
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/mainnet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		_guardrailScriptUTXO="dc06746a898fd230f164f47a3d749348b65655b8fb388ff275f54d62891653e2#0"
 		_guardrailScriptSize=2132
-		;;
+ 		_ccMemberColdHashNames='{
+			"scriptHash-349e55f83e9af24813e6cb368df6a80d38951b2a334dfcdf26815558": "CAC",
+			"scriptHash-84aebcfd3e00d0f87af918fc4b5e00135f407e379893df7e7d392c6a": "ECC",
+			"scriptHash-b6012034ba0a7e4afbbf2c7a1432f8824aee5299a48e38e41a952686": "CF",
+			"scriptHash-ce8b37a72b178a37bbd3236daa7b2c158c9d3604e7aa667e6c6004b7": "Emurgo",
+			"scriptHash-df0e83bde65416dade5b1f97e7f115cc1ff999550ad968850783fe50": "IOG",
+			"scriptHash-e8165b3328027ee0d74b1f07298cb092fd99aa7697a1436f5997f625": "CJC",
+			"scriptHash-f0dc2c00d92a45521267be2d5de1c485f6f9d14466d7e16062897cf7": "ICC"
+		}'
+ 		;;
 
 
 	"preprod"|"pre-prod" )
@@ -207,6 +216,15 @@ case "${network,,}" in
 		_adahandleAPI="https://preprod.api.handle.me"		#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
 		_catalystAPI="https://api.testnet.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/preprod-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+ 		_ccMemberColdHashNames='{
+			"scriptHash-5098dfd0deba725fadd692198fc33ee959fbe7e6edf1b5a695e06e61": "CAC",
+			"scriptHash-5a71f17f4ce4c1c0be053575d717ade6ad8a1d5453d02a65ce40d4b1": "ECC",
+			"scriptHash-6095e643ea6f1cccb6e463ec34349026b3a48621aac5d512655ab1bf": "CF",
+			"scriptHash-94c0de47e7ae32e3f7234ada5cf976506b68e3bb88c54dc53b4ba984": "ICC"
+			"scriptHash-94f51c795a6c11adb9c1e30f0b6def4230cbd0b8bc800098e2d2307b": "Emurgo",
+			"scriptHash-a6a5e006fd4e8f51062dc431362369b2a43140abced8aa2ff2256d7b": "IOG",
+			"scriptHash-2f4a6c6f098e20ee4bfd5b39942c164575f8ceb348e754df5d0ec04f": "CJC"
+		}'
 		;;
 
 
@@ -224,6 +242,7 @@ case "${network,,}" in
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/preview-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 		_guardrailScriptUTXO="f3f61635034140e6cec495a1c69ce85b22690e65ab9553ef408d524f58183649#0"
 		_guardrailScriptSize=2132
+ 		_ccMemberColdHashNames='{}'
 		;;
 
 
@@ -239,6 +258,7 @@ case "${network,,}" in
 		_adahandleAPI=
 		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+ 		_ccMemberColdHashNames='{}'
 		;;
 
 
@@ -256,6 +276,7 @@ case "${network,,}" in
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/sanchonet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
 #		_guardrailScriptUTXO="8b9163fa38914b45470a5426c27939cfb77628f0c54d08b0b61b9905c2cbfc2b#0"
 		_guardrailScriptSize=2132
+ 		_ccMemberColdHashNames='{}'
 		;;
 
 
@@ -271,6 +292,7 @@ case "${network,,}" in
 		_adahandleAPI=
 		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL=		#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
+ 		_ccMemberColdHashNames='{}'
 		;;
 
 esac
@@ -289,6 +311,7 @@ catalystAPI=${catalystAPI:-"${_catalystAPI}"}
 lightModeParametersURL=${lightModeParametersURL:-"${_lightModeParametersURL}"}
 guardrailScriptUTXO=${guardrailScriptUTXO:-"${_guardrailScriptUTXO}"}
 guardrailScriptSize=${guardrailScriptSize:-"${_guardrailScriptSize}"}
+ccMemberColdHashNames=${ccMemberColdHashNames:-"${_ccMemberColdHashNames}"}
 
 
 #Check about the / at the end of the URLs
@@ -303,7 +326,7 @@ if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} =
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
 minCliVersion="10.2.0"			#minimum allowed cli version for this script-collection version
-maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
+maxCliVersion="10.3.99"  		#maximum allowed cli version, 99.99.9 = no limit so far
 minNodeVersion="10.1.4"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.1"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
