@@ -325,15 +325,15 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="10.2.0"			#minimum allowed cli version for this script-collection version
-maxCliVersion="10.3.99"  		#maximum allowed cli version, 99.99.9 = no limit so far
+minCliVersion="10.4.0"			#minimum allowed cli version for this script-collection version
+maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
 minNodeVersion="10.1.4"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
-minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.1"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
+minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.4"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minKeystoneCardanoAppVersion="1.7.7"  	#minimum version for the firmware on the Keystone HW-Wallet
-minHardwareCliVersion="1.15.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.20.1"	#minimum version for the cardano-signer binary
+minHardwareCliVersion="1.17.0" 		#minimum version for the cardano-hw-cli
+minCardanoSignerVersion="1.22.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
@@ -1558,38 +1558,65 @@ queryLight_stakeAddressInfo() { #${1} = stakeaddress(bech) to query
 	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
 
 	#check if the stakeAddress is registered, if not, return an empty array
-	if [[ $(jq -r ".[0].status" <<< "${responseJSON}" 2> /dev/null) != "registered" ]]; then
-		printf "[]"; #stakeAddress not registered on chain, return an empty array
-		else
+	if [[ $(jq -r ".[0].status" <<< "${responseJSON}" 2> /dev/null) != "registered" ]]; then printf "[]"; exit 0; fi #stakeAddress not registered on chain, return an empty array
 
-		local delegation; local rewardAccountBalance; local delegationDeposit; local voteDelegation; #define local variables so we can read it in one go with the next jq command
-		{ read delegation; read rewardAccountBalance; read delegationDeposit; read voteDelegation; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\", .[0].delegated_drep // \"null\"" <<< "${responseJSON}" 2> /dev/null)
+	#get the first values
+	local delegation; local rewardAccountBalance; local delegationDeposit; local voteDelegation; #define local variables so we can read it in one go with the next jq command
+	{ read delegation; read rewardAccountBalance; read delegationDeposit; read voteDelegation; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\", .[0].delegated_drep // \"null\"" <<< "${responseJSON}" 2> /dev/null)
 
-		#deposit value, always 2000000 lovelaces until conway
-		if [[ ${delegationDeposit} == null ]]; then delegationDeposit=2000000; fi
+	#Do another query to get all the proposals this stakeaddress is set as the deposit return address
+        errorcnt=0
+        error=-1
+        while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/proposal_list?return_address=eq.${addr}&dropped_epoch=is.null&enacted_epoch=is.null&expired_epoch=is.null&select=proposal_tx_hash,proposal_index,deposit,return_address,dropped_epoch,enacted_epoch,expired_epoch" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" 2> /dev/null)
+		if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+	done
+	if [[ ${error} -ne 0 ]]; then echo -e "Query of the Koios-API via curl failed, tried 5 times."; exit 1; fi; #curl query failed
 
-		#convert from CIP129 to regular format if its a normal drep delegation
-		if [[ "${voteDelegation}" == "drep1"* ]]; then voteDelegation=$(convert_actionCIP1292Bech ${voteDelegation}); fi
-
-		#convert bech-voteDelegation into keyHash-/scriptHAsh-voteDelegation
-		case "${voteDelegation}" in
-			"drep1"*)		voteDelegation="keyHash-$(${bech32_bin} <<< ${voteDelegation})"
-						;;
-			"drep_script1"*)	voteDelegation="scriptHash-$(${bech32_bin} <<< ${voteDelegation})"
-						;;
-			"drep_always_abstain")	voteDelegation="alwaysAbstain"
-						;;
-			"drep_always_no_confidence")
-						voteDelegation="alwaysNoConfidence"
-						;;
-			*)			voteDelegation="null"
-						;;
-		esac
-
-		jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": \"${delegation}\", \"delegationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance},  \"voteDelegation\": \"${voteDelegation}\" } ]" #compose a json like the cli output
-		#return the composed json
-		printf "${jsonRet}"
+	#Split the response string into JSON content and the HTTP-ResponseCode
+	if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+		local responseJSON="${BASH_REMATCH[1]}"
+		local responseCode="${BASH_REMATCH[2]}"
+	else
+		echo -e "Query of the Koios-API via curl failed. Could not separate Content and ResponseCode."; exit 1; #curl query failed
 	fi
+
+	#Check the responseCode
+	case ${responseCode} in
+		"200" ) ;; #all good, continue
+		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	#generate the govActionsDeposits
+        govActionDeposits=$(jq -r '(map ({ "\(.proposal_tx_hash)#\(.proposal_index)": .deposit }) | add) // {}' <<< ${responseJSON} 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
+
+	#deposit value, always 2000000 lovelaces until conway
+	if [[ ${delegationDeposit} == null ]]; then delegationDeposit=2000000; fi
+
+	#convert from CIP129 to regular format if its a normal drep delegation
+	if [[ "${voteDelegation}" == "drep1"* ]]; then voteDelegation=$(convert_actionCIP1292Bech ${voteDelegation}); fi
+
+	#convert bech-voteDelegation into keyHash-/scriptHAsh-voteDelegation
+	case "${voteDelegation}" in
+		"drep1"*)		voteDelegation="keyHash-$(${bech32_bin} <<< ${voteDelegation})"
+					;;
+		"drep_script1"*)	voteDelegation="scriptHash-$(${bech32_bin} <<< ${voteDelegation})"
+					;;
+		"drep_always_abstain")	voteDelegation="alwaysAbstain"
+					;;
+		"drep_always_no_confidence")
+					voteDelegation="alwaysNoConfidence"
+					;;
+		*)			voteDelegation="null"
+					;;
+	esac
+
+	jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": \"${delegation}\", \"stakeRegistrationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance},  \"voteDelegation\": \"${voteDelegation}\", \"govActionDeposits\": ${govActionDeposits} } ]" #compose a json like the cli output
+	#return the composed json
+	printf "${jsonRet}"
 
 	unset jsonRet response responseCode responseJSON addr error errorcnt
 
@@ -1767,10 +1794,10 @@ queryLight_actionState() { #for filtering, ${1} = govActionUTXO, ${2} = govActio
 		error=0
 		case "${voterID}" in
 			"drep"*|"cc_hot"*|"pool"*) #a voterID was given, so do a filtering directly via koios on the given bech voterID
-				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/voter_proposal_list?_voter_id=${voterID}&dropped_epoch=is.null" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" 2> /dev/null)
+				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/voter_proposal_list?_voter_id=${voterID}&dropped_epoch=is.null&enacted_epoch=is.null&expired_epoch=is.null" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" 2> /dev/null)
 				;;
 			*) #no voterID was given, do a query for the complete proposal list
-				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/proposal_list?dropped_epoch=is.null" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" 2> /dev/null)
+				response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/proposal_list?dropped_epoch=is.null&enacted_epoch=is.null&expired_epoch=is.null" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" 2> /dev/null)
 				;;
 		esac
 		if [ $? -ne 0 ]; then error=1; fi;
