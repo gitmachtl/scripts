@@ -333,7 +333,7 @@ minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.4"}  	#minimum
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minKeystoneCardanoAppVersion="1.7.7"  	#minimum version for the firmware on the Keystone HW-Wallet
 minHardwareCliVersion="1.17.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.22.0"	#minimum version for the cardano-signer binary
+minCardanoSignerVersion="1.24.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
@@ -1273,12 +1273,12 @@ local protocolParam=${1}
 IFS='+' read -ra asset_entry <<< "${2}" #split the tx-out string into address, lovelaces, assets (read it into asset_entry array)
 
 #protocol version major
-#7=babbage, 5+6=alonzo, 4=mary, 3=allegra, 2=shelley, 0+1=byron
+#9+10=conway, 7+8=babbage, 5+6=alonzo, 4=mary, 3=allegra, 2=shelley, 0+1=byron
 local protocolVersionMajor=$(jq -r ".protocolVersion.major | select (.!=null)" <<< ${protocolParam})
 
 
 ### switch the method of the minOutUTXO calculation depending on the current era, starting with protocolVersionMajor>=7 (babbage)
-if [[ ${protocolVersionMajor} -ge 7 ]]; then #7=Babbage, 9+10=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
+if [[ ${protocolVersionMajor} -ge 7 ]]; then #7+8=Babbage, 9+10=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
 
 	#chain constants for babbage
 	local constantOverhead=160 #constantOverhead=160 bytes set for babbage-era, 158 for mary/alonzo transactions in babbage era
