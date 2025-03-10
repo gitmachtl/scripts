@@ -28,7 +28,7 @@ Usage: $(basename $0) new cli <CalidusKeyName>                          ... Gene
        $(basename $0) genmeta <CalidusKeyName> <PoolNodeName> [nonce]
           ... Generates the Calidus Pool-Key Registration-Metadata in JSON format. [Option: nonce]
 
-       $(basename $0) query <CalidusKeyName|Calidus-ID|Pool-ID>                 ... Queries the Koios-API for the Calidus-Pool Key or for a CalidusID/Pool-ID in bech format
+       $(basename $0) query <CalidusKeyName|Calidus-ID|Pool-ID>         ... Queries the Koios-API for the Calidus-Pool Key or for a CalidusID/Pool-ID in bech format
 
 
 Examples:
@@ -37,8 +37,7 @@ Examples:
           ... Generates a new Calidus-Pool KeyPair example.calidus.skey/vkey, writes Mnemonics to example.calidus.mnemonics
 
        $(basename $0) genmeta example mypool
-          ... Generates the Catalyst-Registration-Metadata(cbor) to delegate the full calidusPower of owner.staking to the myvote.calidus votePublicKey,
-              calidusRewards payout to the Address myrewards.addr.
+          ... Generates the Calidus Registration-Metadata for the Calidus-Key example.calidus.vkey and signs it with the mypool.node.skey/hwsfile
 
 EOF
 }
