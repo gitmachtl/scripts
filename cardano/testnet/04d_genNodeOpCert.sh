@@ -158,7 +158,7 @@ elif [ -f "${nodeName}.node.hwsfile" ]; then #key is a hardware wallet
 
                 if ! ask "\e[0mGenerating the new opcert from a local Hardware-Wallet keyfile '\e[33m${nodeName}.node.hwsfile\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Opcert Generation aborted...\e[0m"; echo; exit 2; fi
 
-                start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                start_HwWallet "Ledger|Keystone"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		file_unlock ${opcertFile}
 		file_unlock ${nodeName}.node.counter
                 tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${kesVkeyFile} --kes-period ${currentKESperiod} --operational-certificate-issue-counter-file ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${opcertFile} 2> /dev/stdout)

@@ -268,7 +268,7 @@ else  #Committee Cold Keys via HW-Wallet
 
 	#We need a Committee Cold keypair with vkey and hwsfile from a Hardware-Key, sol lets create them
 	#ONLY LEDGER HW WALLET SUPPORTS THIS ACTION
-        start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        start_HwWallet "Ledger|Keystone"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
   	tmp=$(${cardanohwcli} address key-gen --path 1852H/1815H/${accNo}H/4/${idxNo} --verification-key-file ${comColdName}.cc-cold.vkey --hw-signing-file ${comColdName}.cc-cold.hwsfile 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

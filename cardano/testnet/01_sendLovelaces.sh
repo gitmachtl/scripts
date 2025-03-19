@@ -16,7 +16,6 @@
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
 
-
 if [ $# -ge 3 ]; then
 			fromAddr="$(dirname $1)/$(basename $1 .addr)"; fromAddr=${fromAddr/#.\//};
 			toAddr="$(dirname $2)/$(basename $2 .addr)"; toAddr=${toAddr/#.\//};
@@ -311,7 +310,6 @@ echo
         utxoHashIndex=${utxoHashIndexArray[${tmpCnt}]}
         utxoAmount=${utxoLovelaceArray[${tmpCnt}]} #Lovelaces
         totalLovelaces=$(bc <<< "${totalLovelaces} + ${utxoAmount}" )
-#       echo -e "Hash#Index: ${utxoHashIndex}\tAmount: ${utxoAmount}";
         echo -e "Hash#Index: ${utxoHashIndex}\tADA: $(convertToADA ${utxoAmount}) \e[90m(${utxoAmount} lovelaces)\e[0m";
 	if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
         assetsEntryCnt=${assetsEntryCntArray[${tmpCnt}]}
@@ -585,12 +583,14 @@ rm ${txFile} 2> /dev/null
 #If payment address is a hardware wallet, use the cardano-hw-cli for the signing
 if [[ -f "${fromAddr}.hwsfile" ]]; then
 
-#        #remove the tag(258) from the txBodyFile
+
+        #remove the tag(258) from the txBodyFile
 #        sed -si 's/00d901028182/008182/g' "${txBodyFile}"
+#        sed -si 's/00d90102/00/g' "${txBodyFile}"
 
 	echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
 	tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
-        echo -e "\e[32m${tmp}\e[90m\n"
+	echo -e "\e[32m${tmp}\e[90m\n"
 
 	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 	echo

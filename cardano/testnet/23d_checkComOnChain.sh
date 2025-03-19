@@ -53,6 +53,16 @@ elif [[ ("${checkCommitteeID:0:8}" == "cc_cold1" || "${checkCommitteeID:0:7}" ==
         if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - \"${checkCommitteeID}\" is not a valid Bech32 Committee-HASH.\e[0m"; exit 1; fi
 	echo -e "\e[32m OK\e[0m\n"
 
+elif [[ ("${checkCommitteeID:0:8}" == "cc_cold1" || "${checkCommitteeID:0:7}" == "cc_hot1") && (${#checkCommitteeID} -eq 62 || ${#checkCommitteeID} -eq 61) ]]; then #parameter is most likely a CIP129 bech32-id
+
+	#Its a bech ID cc_cold1... or cc_hot1...
+	echo -ne "\e[0mCheck if given CIP129 Bech-ID\e[32m ${checkCommitteeID}\e[0m is valid ..."
+	#lets do some further testing by converting the bech32 Committee-id into a Hex-Committee-HASH
+	committeeHASH=$(${bech32_bin} 2> /dev/null <<< "${checkCommitteeID}") #will have returncode 0 if the bech was valid
+        if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - \"${checkCommitteeID}\" is not a valid CIP129 Bech32 Committee-HASH.\e[0m"; exit 1; fi
+	echo -e "\e[32m OK\e[0m\n"
+	committeeHASH=${committeeHASH:2} #cut of the first CIP129 byte
+
 
 elif [ -f "${checkCommitteeName}.hash" ]; then #parameter is a Committee hash file, containing the hash id
 

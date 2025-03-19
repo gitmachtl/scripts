@@ -753,7 +753,7 @@ elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
 
 	tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
 	#this is currently only supported by ledger devices
-        start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        start_HwWallet "Ledger|Keystone"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

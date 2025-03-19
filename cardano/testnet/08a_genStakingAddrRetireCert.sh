@@ -31,48 +31,64 @@ if [[ ${typeOfAddr} != ${addrTypeStake} ]]; then #not a stake address
 	exit 1
 fi
 
-echo
-echo -e "\e[0mChecking status of Stake Address:\e[32m ${stakingAddr}\e[0m"
-echo
+	echo -e "\e[0mChecking Status of Stake-Address\e[32m ${addrName}.staking.addr\e[0m: ${stakingAddr}"
+	echo
 
-#Get stake address info. When in online mode of course from the node and the chain, in light mode via koios, in offlinemode from the transferFile
-case ${workMode} in
+        echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${stakingAddr}")\e[0m / \e[32m$(get_addressEra "${stakingAddr}")\e[0m"
+        echo
 
-	"online")       showProcessAnimation "Query-StakeAddress-Info: " &
-			rewardsJSON=$(${cardanocli} ${cliEra} query stake-address-info --address ${stakingAddr} 2> /dev/null )
-			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-			rewardsJSON=$(jq -rc . <<< "${rewardsJSON}")
-			;;
+        #Get rewards state data for the address. When in online mode of course from the node and the chain, in light mode via koios, in offlinemode from the transferFile
+	case ${workMode} in
 
-	"light")        showProcessAnimation "Query-StakeAddress-Info-LightMode: " &
-			rewardsJSON=$(queryLight_stakeAddressInfo "${stakingAddr}")
-			if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
-			;;
+		"online")	showProcessAnimation "Query-StakeAddress-Info: " &
+				rewardsJSON=$(${cardanocli} ${cliEra} query stake-address-info --address ${stakingAddr} 2> /dev/null )
+				if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+				rewardsJSON=$(jq -rc . <<< "${rewardsJSON}")
+				;;
 
-	"offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
-			rewardsJSON=$(jq -r ".address.\"${stakingAddr}\".rewardsJSON" <<< ${offlineJSON} 2> /dev/null)
-			if [[ "${rewardsJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
-			;;
+		"light")	showProcessAnimation "Query-StakeAddress-Info-LightMode: " &
+				rewardsJSON=$(queryLight_stakeAddressInfo "${stakingAddr}")
+				if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+				;;
 
-esac
+		"offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+				rewardsJSON=$(jq -r ".address.\"${stakingAddr}\".rewardsJSON" <<< ${offlineJSON} 2> /dev/null)
+                                if [[ "${rewardsJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
+				;;
 
-#Check if the stake address is registered on the chain, if not, we don't need to unregister it
-{ read rewardsEntryCnt; read delegationPoolID; read keyDepositFee; read rewardsAmount; } <<< $(jq -r "length, .[0].delegation // .[0].stakeDelegation, .[0].delegationDeposit, .[0].rewardAccountBalance" <<< ${rewardsJSON})
+        esac
 
-#Checking about the content
-if [[ ${rewardsEntryCnt} == 0 ]]; then #not registered yet
-	echo -e "\e[33mStaking Address is NOT on the chain, register it first with script 03b ...\e[0m\n";
-	exit;
+        { 	read rewardsEntryCnt;
+		read delegationPoolID;
+		read keyDepositFee;
+		read rewardsAmount;
+		read drepDelegationHASH;
+		read govActionDepositsCnt;
+		read govActionDeposits; } <<< $(jq -r 'length,
+						 .[0].stakeDelegation,
+						 .[0].stakeRegistrationDeposit,
+						 .[0].rewardAccountBalance,
+						 .[0].voteDelegation // "notSet",
+						 (.[0].govActionDeposits | length),
+						 "\(.[0].govActionDeposits)"' <<< ${rewardsJSON} 2> /dev/null)
 
-	else # registered
+        rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
-	echo -e "\e[0mStaking Address is \e[32mregistered\e[0m on the chain with a deposit fee:\e[32m ${keyDepositFee} lovelaces\e[0m\n"
+        if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "${iconNo} \e[91mStaking Address is not registered on the chain, no need to retire it !\e[0m\n"; exit 1;
+        else echo -e "${iconYes} \e[0mStaking Address is \e[32mregistered\e[0m on the chain with a deposit of \e[32m${keyDepositFee}\e[0m lovelaces :-)\n";
+        fi
 
-	#If delegated to a pool, show the current pool ID
-	if [[ ! ${delegationPoolID} == null ]]; then
-		echo -e "Account is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m";
+        #Checking about rewards on the stake address
+        if [[ ${rewardsAmount} == 0 ]]; then echo -e "${iconNo} \e[0mRewards: \e[91mNo rewards found :-(\e[0m\n";
+        else
+		echo -e "${iconYes} \e[0mRewards available: \e[32m$(convertToADA ${rewardsAmount}) ADA / ${rewardsAmount} lovelaces\e[0m\n"
+        fi
 
-                if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
+        #If delegated to a pool, show the current pool ID
+        if [[ ! ${delegationPoolID} == null ]]; then
+		echo -e "${iconYes} \e[0mAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m";
+
+	                if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
 
                         #query poolinfo via poolid on koios
                         errorcnt=0; error=-1;
@@ -94,9 +110,8 @@ if [[ ${rewardsEntryCnt} == 0 ]]; then #not registered yet
                                 #if the responseCode is 200 (OK) and the received json only contains one entry in the array (will also not be 1 if not a valid json)
                                 if [[ ${responseCode} -eq 200 && $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -eq 1 ]]; then
 		                        { read poolNameInfo; read poolTickerInfo; read poolStatusInfo; } <<< $(jq -r ".[0].meta_json.name // \"-\", .[0].meta_json.ticker // \"-\", .[0].pool_status // \"-\"" 2> /dev/null <<< ${responseJSON})
-                                        echo -e "   \t\e[0mInformation about the Pool: \e[32m${poolNameInfo} (${poolTickerInfo})\e[0m"
-                                        echo -e "   \t\e[0m                    Status: \e[32m${poolStatusInfo}\e[0m"
-                                        echo
+                                        echo -e "\e[0m   Info about the Pool: \e[32m${poolNameInfo} (${poolTickerInfo})\e[0m"
+                                        echo -e "\e[0m                Status: \e[32m${poolStatusInfo}\e[0m"
 					unset poolNameInfo poolTickerInfo poolStatusInfo
                                 fi #responseCode & jsoncheck
 
@@ -105,13 +120,104 @@ if [[ ${rewardsEntryCnt} == 0 ]]; then #not registered yet
 
                 fi #onlineMode & koiosAPI
 
-	else
-		echo -e "\e[0mAccount is not delegated to a Pool !\n";
-	fi ## ${delegationPoolID} == null
+		else
 
-        if [[ ${rewardsAmount} == null || ${rewardsAmount} -ne 0 ]]; then echo -e "\e[33mStake account still holds \e[0m$(convertToADA ${rewardsAmount}) ADA\e[33m of rewards.\nYou need to claim them first via script 01_claimRewards.sh !\e[0m\n"; exit; fi
+		echo -e "${iconNo} \e[0mAccount is not delegated to a Pool";
 
-fi ## ${rewardsEntryCnt} == 0
+	fi
+
+	echo
+
+	#Show the current status of the voteDelegation
+	case ${drepDelegationHASH} in
+
+		"alwaysNoConfidence")
+			#always-no-confidence
+			echo -e "${iconYes} \e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m";
+			;;
+
+		"alwaysAbstain")
+			#always-abstain
+			echo -e "${iconYes} \e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS ABSTAIN\e[0m";
+			;;
+
+		"notSet")
+			#no votingpower delegated
+			echo -e "${iconNo} \e[0mVoting-Power of Staking Address is not delegated to a DRep\e[0m";
+			;;
+
+		*)
+			#normal drep-id or drep-script-id
+			case "${drepDelegationHASH%%-*}" in
+				"keyHash")	drepID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep:\e[0m";
+					        echo -e "\e[0m   Regular DRep-ID: \e[32m${drepID}\e[0m"
+					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
+						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
+						;;
+				"scriptHash")   drepID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep-Script:\e[0m";
+					        echo -e "\e[0m   Regular DRep-ID: \e[32m${drepID}\e[0m"
+					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
+						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
+						;;
+				"null")		#not delegated
+						echo -e "${iconNo} \e[0mVoting-Power of Staking Address is not delegated to a DRep\e[0m";
+						;;
+				*)		#unknown type
+						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to DRep-HASH: \e[32m${drepDelegationHASH}\e[0m";
+						;;
+			esac
+			;;
+
+	esac
+
+        echo
+
+        if [[ ${govActionDepositsCnt} -gt 0 ]]; then
+        	echo -e "\e[0m👀 Staking Address is used in the following \e[32m${govActionDepositsCnt}\e[0m governance action(s):";
+		readarray -t govActionUtxosArray <<< $(jq -r 'to_entries[] | "\(.key)"' <<< ${govActionDeposits} 2> /dev/null)
+		readarray -t govActionDepositArray <<< $(jq -r 'to_entries[] | "\(.value)"' <<< ${govActionDeposits} 2> /dev/null)
+
+		for (( tmpCnt=0; tmpCnt<${govActionDepositsCnt}; tmpCnt++ ))
+		do
+			govActionID=${govActionUtxosArray[${tmpCnt}]}
+			govActionDeposit=$(convertToADA ${govActionDepositArray[${tmpCnt}]})
+			echo -e "\e[0m   \e[94m$(convert_actionUTXO2Bech ${govActionID})\e[0m ► \e[32m${govActionDeposit} ADA\e[0m deposit"
+
+		done
+		echo
+
+	elif [[ ${workMode} == "online" && ${koiosAPI} != "" ]]; then #do a double check that there is really no governance actions deposit open
+		showProcessAnimation "Do a Double-Check about Governance actions via koios: " &
+		rewardsJSON=$(queryLight_stakeAddressInfo "${stakingAddr}")
+		if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+		unset govActionDepositsCnt govActionDeposits;
+		{ read govActionDepositsCnt; read govActionDeposits; } <<< $(jq -r '(.[0].govActionDeposits | length), "\(.[0].govActionDeposits)"' <<< ${rewardsJSON} 2> /dev/null)
+
+	        if [[ ${govActionDepositsCnt} -gt 0 ]]; then
+	        	echo -e "\e[0m👀 Staking Address is used in the following \e[32m${govActionDepositsCnt}\e[0m governance action(s):";
+			unset govActionUtxosArray govActionDepositArray
+			readarray -t govActionUtxosArray <<< $(jq -r 'to_entries[] | "\(.key)"' <<< ${govActionDeposits} 2> /dev/null)
+			readarray -t govActionDepositArray <<< $(jq -r 'to_entries[] | "\(.value)"' <<< ${govActionDeposits} 2> /dev/null)
+
+			for (( tmpCnt=0; tmpCnt<${govActionDepositsCnt}; tmpCnt++ ))
+			do
+				govActionID=${govActionUtxosArray[${tmpCnt}]}
+				govActionDeposit=$(convertToADA ${govActionDepositArray[${tmpCnt}]})
+				echo -e "\e[0m   \e[94m$(convert_actionUTXO2Bech ${govActionID})\e[0m ► \e[32m${govActionDeposit} ADA\e[0m deposit"
+
+			done
+			echo
+		fi
+
+        fi
+
+	abort=0
+        if [[ ${rewardsAmount} -gt 0 ]]; then echo -e "\e[33mStake account still holds \e[0m$(convertToADA ${rewardsAmount}) ADA\e[33m of rewards.\nYou need to claim them first via script 01_claimRewards.sh !\e[0m\n"; abort=1; fi
+        if [[ ${govActionDepositsCnt} -gt 0 ]]; then echo -e "\e[33mStake account still gets refunds from governance actions, you have to wait until those are finished!\e[0m\n"; abort=1; fi
+	if [[ ${abort} -eq 1 ]]; then exit 1; fi
+
 
 #generate the certificate depending on the era with/without the --key-reg-deposit-amt parameter
 case ${cliEra} in

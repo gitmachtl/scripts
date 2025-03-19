@@ -211,7 +211,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
 elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
-	echo -e "\e[0mChecking Rewards on Stake-Address\e[32m ${showToAddr}\e[0m: ${checkAddr}"
+	echo -e "\e[0mChecking Status of Stake-Address\e[32m ${showToAddr}\e[0m: ${checkAddr}"
 	echo
 
         echo -e "\e[0mAddress-Type / Era:\e[32m $(get_addressType "${checkAddr}")\e[0m / \e[32m$(get_addressEra "${checkAddr}")\e[0m"
@@ -238,36 +238,35 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
         esac
 
+        { 	read rewardsEntryCnt;
+		read delegationPoolID;
+		read keyDepositFee;
+		read rewardsAmount;
+		read drepDelegationHASH;
+		read govActionDepositsCnt;
+		read govActionDeposits; } <<< $(jq -r 'length,
+						 .[0].stakeDelegation,
+						 .[0].stakeRegistrationDeposit,
+						 .[0].rewardAccountBalance,
+						 .[0].voteDelegation // "notSet",
+						 (.[0].govActionDeposits | length),
+						 "\(.[0].govActionDeposits)"' <<< ${rewardsJSON})
+
         rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
 
-        if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "\e[35mStaking Address is not on the chain, register it first !\e[0m\n"; exit 1;
-        else echo -e "\e[0mFound:\e[32m ${rewardsEntryCnt}\e[0m entries\n";
+        if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "${iconNo} \e[91mStaking Address is not on the chain, register it first !\e[0m\n"; exit 1;
+        else echo -e "${iconYes} \e[0mStaking Address is \e[32mregistered\e[0m on the chain with a deposit of \e[32m${keyDepositFee}\e[0m lovelaces :-)\n";
         fi
 
-        rewardsSum=0
-
-        for (( tmpCnt=0; tmpCnt<${rewardsEntryCnt}; tmpCnt++ ))
-        do
-        rewardsAmount=$(jq -r ".[${tmpCnt}].rewardAccountBalance" <<< ${rewardsJSON})
-	rewardsAmountInADA=$(bc <<< "scale=6; ${rewardsAmount} / 1000000")
-
-        delegationPoolID=$(jq -r ".[${tmpCnt}].delegation // .[${tmpCnt}].stakeDelegation" <<< ${rewardsJSON})
-
-        drepDelegationHASH=$(jq -r ".[${tmpCnt}].voteDelegation // \"notSet\"" <<< ${rewardsJSON})
-
-        rewardsSum=$((${rewardsSum}+${rewardsAmount}))
-	rewardsSumInADA=$(bc <<< "scale=6; ${rewardsSum} / 1000000")
-
-        echo -ne "[$((${tmpCnt}+1))]\t"
-
         #Checking about rewards on the stake address
-        if [[ ${rewardsAmount} == 0 ]]; then echo -e "\e[35mNo rewards found on the stake Addr !\e[0m";
-        else echo -e "Entry Rewards: \e[33m${rewardsAmountInADA} ADA / ${rewardsAmount} lovelaces\e[0m"
+        if [[ ${rewardsAmount} == 0 ]]; then echo -e "${iconNo} \e[0mRewards: \e[91mNo rewards found :-(\e[0m\n";
+        else
+		echo -e "${iconYes} \e[0mRewards available: \e[32m$(convertToADA ${rewardsAmount}) ADA / ${rewardsAmount} lovelaces\e[0m\n"
         fi
 
         #If delegated to a pool, show the current pool ID
         if [[ ! ${delegationPoolID} == null ]]; then
-		echo -e "   \tAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m";
+		echo -e "${iconYes} \e[0mAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m";
 
                 if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
 
@@ -291,9 +290,8 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
                                 #if the responseCode is 200 (OK) and the received json only contains one entry in the array (will also not be 1 if not a valid json)
                                 if [[ ${responseCode} -eq 200 && $(jq ". | length" 2> /dev/null <<< ${responseJSON}) -eq 1 ]]; then
 		                        { read poolNameInfo; read poolTickerInfo; read poolStatusInfo; } <<< $(jq -r ".[0].meta_json.name // \"-\", .[0].meta_json.ticker // \"-\", .[0].pool_status // \"-\"" 2> /dev/null <<< ${responseJSON})
-                                        echo -e "   \t\e[0mInformation about the Pool: \e[32m${poolNameInfo} (${poolTickerInfo})\e[0m"
-                                        echo -e "   \t\e[0m                    Status: \e[32m${poolStatusInfo}\e[0m"
-                                        echo
+                                        echo -e "\e[0m   Info about the Pool: \e[32m${poolNameInfo} (${poolTickerInfo})\e[0m"
+                                        echo -e "\e[0m                Status: \e[32m${poolStatusInfo}\e[0m"
 					unset poolNameInfo poolTickerInfo poolStatusInfo
                                 fi #responseCode & jsoncheck
 
@@ -304,41 +302,50 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
 		else
 
-		echo -e "   \tAccount is not delegated to a Pool !";
+		echo -e "${iconNo} \e[0mAccount is not delegated to a Pool";
 
 	fi
 
+	echo
+
 	#Show the current status of the voteDelegation
 	case ${drepDelegationHASH} in
+
 		"alwaysNoConfidence")
 			#always-no-confidence
-			echo -e "   \t\e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m\n";
+			echo -e "${iconYes} \e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m";
 			;;
 
 		"alwaysAbstain")
 			#always-abstain
-			echo -e "   \t\e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS ABSTAIN\e[0m\n";
+			echo -e "${iconYes} \e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS ABSTAIN\e[0m";
 			;;
 
 		"notSet")
 			#no votingpower delegated
-			echo -e "   \t\e[0mVoting-Power of Staking Address is not delegated to a DRep !\e[0m\n";
+			echo -e "${iconNo} \e[0mVoting-Power of Staking Address is not delegated to a DRep\e[0m";
 			;;
 
 		*)
 			#normal drep-id or drep-script-id
 			case "${drepDelegationHASH%%-*}" in
-				"keyHash")	drepDelegationID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
-						echo -e "   \t\e[0mVoting-Power of Staking Address is delegated to DRepID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
+				"keyHash")	drepID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep:\e[0m";
+					        echo -e "\e[0m   Regular DRep-ID: \e[32m${drepID}\e[0m"
+					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
+						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
 						;;
-				"scriptHash")   drepDelegationID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
-						echo -e "   \t\e[0mVoting-Power of Staking Address is delegated to DRep-Script-ID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
+				"scriptHash")   drepID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
+						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep-Script:\e[0m";
+					        echo -e "\e[0m   Regular DRep-ID: \e[32m${drepID}\e[0m"
+					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
+						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
 						;;
 				"null")		#not delegated
-						echo -e "   \t\e[0mVoting-Power of Staking Address is not delegated to a DRep !\e[0m\n";
+						echo -e "${iconNo} \e[0mVoting-Power of Staking Address is not delegated to a DRep\e[0m";
 						;;
 				*)		#unknown type
-						echo -e "   \t\e[0mVoting-Power of Staking Address is delegated to DRep-HASH: \e[32m${drepDelegationHASH}\e[0m\n";
+						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to DRep-HASH: \e[32m${drepDelegationHASH}\e[0m";
 						;;
 			esac
 			;;
@@ -347,9 +354,21 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 
         echo
 
-        done
+        if [[ ${govActionDepositsCnt} -gt 0 ]]; then
+        	echo -e "\e[0m👀 Staking Address is used in the following \e[32m${govActionDepositsCnt}\e[0m governance action(s):";
+		readarray -t govActionUtxosArray <<< $(jq -r 'to_entries[] | "\(.key)"' <<< ${govActionDeposits} 2> /dev/null)
+		readarray -t govActionDepositArray <<< $(jq -r 'to_entries[] | "\(.value)"' <<< ${govActionDeposits} 2> /dev/null)
 
-        if [[ ${rewardsEntryCnt} -gt 1 ]]; then echo -e "   \t-----------------------------------------\n"; echo -e "   \tTotal Rewards: \e[33m${rewardsSumInADA} ADA / ${rewardsSum} lovelaces\e[0m\n"; fi
+		for (( tmpCnt=0; tmpCnt<${govActionDepositsCnt}; tmpCnt++ ))
+		do
+			govActionID=${govActionUtxosArray[${tmpCnt}]}
+			govActionDeposit=$(convertToADA ${govActionDepositArray[${tmpCnt}]})
+			echo -e "\e[0m   \e[94m$(convert_actionUTXO2Bech ${govActionID})\e[0m ► \e[32m${govActionDeposit} ADA\e[0m deposit"
+
+		done
+		echo
+        fi
+
 
 else #unsupported address type
 
