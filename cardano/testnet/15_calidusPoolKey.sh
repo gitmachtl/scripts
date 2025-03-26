@@ -32,6 +32,9 @@ Usage: $(basename $0) new cli <CalidusKeyName>                          ... Gene
           ... Queries the Koios-API for the Calidus-Pool Key or for a CalidusID/Pool-ID in bech format
               Or use the keyword 'all' to get all registered entries
 
+       $(basename $0) sign <CalidusKeyName> "text-message-to-sign"      ... Sign a "text-message" with the Calidus-Pool-Key (ed25519-mode)
+
+
 Examples:
 
        $(basename $0) new cli example
@@ -45,6 +48,10 @@ Examples:
 
        $(basename $0) query pool1rdaxrw3722f0x3nx4uam9u9c6dh9qqd2g83r2uyllf53qmmj5uu
           ... Searches the API for entries about the given Pool-ID
+
+       $(basename $0) sign example "hello world"
+          ... Signs the given text-string "hello world" with the example.calidus.skey Key
+
 
 EOF
 }
@@ -403,7 +410,7 @@ case ${1,,} in
 			#Check about a given nonce
 			if [[ ${nonce} != "" ]]; then nonceParam="--nonce ${nonce}"; else nonceParam=""; fi
 
-			#Read in the Secret key and encrypt it if needed
+			#Read in the Secret key and decrypt it if needed
 			skeyJSON=$(read_skeyFILE "${poolKeyName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
 			#Generate the registration metadata file
@@ -626,6 +633,67 @@ case ${1,,} in
 	#Get the number of unique Calidus-Keys
 	uniqCalidusKeyCount=$(jq -r "[.[].calidus_id_bech32] | unique | length" <<< ${jsonRet} 2> /dev/null)
 	if [[ ${uniqCalidusKeyCount} -ge 1 && ${calidusEntryCount} -gt 1 ]]; then echo -e "${iconYes} \e[0mStats: \e[32m${uniqCalidusKeyCount} unique\e[0m Calidus Keys for \e[32m${calidusEntryCount} registered\e[0m Pools\n"; fi
+	;;
+
+
+  ### Sign text-data with the Calidus-SKEY
+  sign )
+
+	#Check about input parameters
+	if [[ ${paramCnt} -ne 3 ]]; then echo -e "\e[35mIncorrect parameter count!\e[0m\n"; showUsage; exit 1; fi
+
+	#Calidus Key check
+	calidusKeyName="$(dirname ${allParameters[1]})/$(basename $(basename ${allParameters[1]} .skey) .calidus)"; calidusKeyName=${calidusKeyName/#.\//};
+	if ! [[ -f "${calidusKeyName}.calidus.skey" ]]; then echo -e "\e[35mError - ${calidusKeyName}.calidus.skey does not exist, please create the key first using option 'new cli ${calidusKeyName}' !\e[0m\n"; exit 1; fi
+
+	#Get the Text Message to sign
+        messageText="${allParameters[2]}"
+
+	echo -e "\e[0mSign a Message-Text with the Calidus-Secret-Key '\e[32m${calidusKeyName}\e[0m'\n"
+	echo -e "\e[0mMessage-Text to sign: '\e[94m${messageText}\e[0m'\n"
+
+	#Check the cardano-signer binary existance and version
+	if ! exists "${cardanosigner}"; then
+		#Try the one in the scripts folder
+		if [[ -f "${scriptDir}/cardano-signer" ]]; then cardanosigner="${scriptDir}/cardano-signer";
+		else majorError "Path ERROR - Path to the 'cardano-signer' binary is not correct or 'cardano-singer' binaryfile is missing!\nYou can find it here: https://github.com/gitmachtl/cardano-signer/releases\nThis is needed to generate the signed Metadata. Also please check your 00_common.sh or common.inc settings."; exit 1; fi
+	fi
+	cardanosignerCheck=$(${cardanosigner} --version 2> /dev/null)
+	if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'cardano-signer' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
+	cardanosignerVersion=$(echo ${cardanosignerCheck} | cut -d' ' -f 2)
+	versionCheck "${minCardanoSignerVersion}" "${cardanosignerVersion}"
+	if [[ $? -ne 0 ]]; then majorError "Version ${cardanosignerVersion} ERROR - Please use a cardano-signer version ${minCardanoSignerVersion} or higher !\nOld versions are not compatible, please upgrade - thx."; exit 1; fi
+
+	#Read in the Secret key and decrypt it if needed
+	skeyJSON=$(read_skeyFILE "${calidusKeyName}.calidus.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
+	#Sign the messageText
+	echo -e "\e[0mSigning with Cardano-Signer Version: \e[32m${cardanosignerVersion}\e[0m\n";
+	signerJSON=$(${cardanosigner} sign --data-text "${messageText}" --secret-key <(echo "${skeyJSON}") --json-extended 2> /dev/stdout)
+	if [ $? -ne 0 ]; then echo -e "\e[35m${signerJSON}\e[0m\n"; exit $?; fi
+	unset skeyJSON
+
+	#Getting the parameters
+	{ read signature; read calidusPublicKey; } <<< $(jq -rM '.signature // "-", .publicKey // "-"' <<< ${signerJSON} 2> /dev/null)
+
+	#Check the returned Signature
+	if [[ "${signature//[![:xdigit:]]}" != "${signature}" || "${signature}" == "" ]]; then echo -e "\n\e[35mERROR - Could not generate the Signature.\e[0m\n"; exit 1; fi
+
+	#Generate the Calidus-ID
+	calidusIdHex="a1$(echo -n ${calidusPublicKey} | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1)"
+	#check if the content is a valid hex
+	if [[ "${calidusIdHex//[![:xdigit:]]}" == "${calidusIdHex}" && ${#calidusIdHex} -eq 58 ]]; then
+                #converting into the Calidus-ID-Bech
+                calidusIdBech=$(${bech32_bin} "calidus" <<< ${calidusIdHex} | tr -d '\n')
+                checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not generate the Calidus-ID.\e[0m\n"; exit 1; fi
+	fi
+
+	#Show the result
+	echo -e "\e[0m        Calidus-ID: \e[94m${calidusIdBech}\e[0m"
+	echo -e "\e[0m Calidus PublicKey: \e[32m${calidusPublicKey}\e[0m\n"
+	echo -e "\e[0m         \e[4mSignature\e[0m: \e[97m${signature}\e[0m\n"
+
+	echo -e "\e[90mIf you need more signing/verification options, please directly use '${cardanosigner}' - thx!\e[0m\n";
 	;;
 
 

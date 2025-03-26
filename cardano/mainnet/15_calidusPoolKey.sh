@@ -28,7 +28,11 @@ Usage: $(basename $0) new cli <CalidusKeyName>                          ... Gene
        $(basename $0) genmeta <CalidusKeyName> <PoolNodeName> [nonce]
           ... Generates the Calidus Pool-Key Registration-Metadata in JSON format. [Option: nonce]
 
-       $(basename $0) query <CalidusKeyName|Calidus-ID|Pool-ID>         ... Queries the Koios-API for the Calidus-Pool Key or for a CalidusID/Pool-ID in bech format
+       $(basename $0) query <CalidusKeyName|Calidus-ID|Calidus-PublicKeyHex|Pool-ID|PoolNodeName> or 'all'
+          ... Queries the Koios-API for the Calidus-Pool Key or for a CalidusID/Pool-ID in bech format
+              Or use the keyword 'all' to get all registered entries
+
+       $(basename $0) sign <CalidusKeyName> "text-message-to-sign"      ... Sign a "text-message" with the Calidus-Pool-Key (ed25519-mode)
 
 
 Examples:
@@ -38,6 +42,16 @@ Examples:
 
        $(basename $0) genmeta example mypool
           ... Generates the Calidus Registration-Metadata for the Calidus-Key example.calidus.vkey and signs it with the mypool.node.skey/hwsfile
+
+       $(basename $0) query example
+          ... Searches the API for entries about the example Calidus-Key
+
+       $(basename $0) query pool1rdaxrw3722f0x3nx4uam9u9c6dh9qqd2g83r2uyllf53qmmj5uu
+          ... Searches the API for entries about the given Pool-ID
+
+       $(basename $0) sign example "hello world"
+          ... Signs the given text-string "hello world" with the example.calidus.skey Key
+
 
 EOF
 }
@@ -208,7 +222,7 @@ case ${1,,} in
 
 		#Output filename for the Calidus-Registration-JSON-Metadata
 		datestr=$(date +"%y%m%d%H%M%S")
-		calidusRegistrationFile="$(dirname ${allParameters[2]})/${poolKeyName}_${datestr}.calidus-registration.json"; calidusRegistrationFile=${calidusRegistrationFile/#.\//};
+		calidusRegistrationFile="$(dirname ${allParameters[2]})/$(basename ${poolKeyName})_${datestr}.calidus-registration.json"; calidusRegistrationFile=${calidusRegistrationFile/#.\//};
 		if [ -f "${calidusRegistrationFile}" ]; then echo -e "\e[35mError - ${calidusRegistrationFile} already exists, please delete it first if you wanna overwrite it !\e[0m\n"; exit 1; fi
 
                 echo -e "\e[0mGenerating the Calidus-Registration-MetadataFile(JSON): \e[32m${calidusRegistrationFile}\e[0m"
@@ -310,8 +324,8 @@ case ${1,,} in
 
 			echo -e "\e[0m           Pool-ID: \e[94m${poolIdBech}\e[0m"
 			echo -e "\e[0m       Pool-ID-Hex: \e[32m${poolIdHex}\e[0m"
-			echo -e "\e[0mCalidus Public Key: \e[32m${calidusPublicKey}\e[0m"
 			echo -e "\e[0m        Calidus-ID: \e[94m${calidusIdBech}\e[0m"
+			echo -e "\e[0m Calidus PublicKey: \e[32m${calidusPublicKey}\e[0m"
 			echo -e "\e[0m             Nonce: \e[32m${nonce}\e[0m"
 			echo
 
@@ -396,7 +410,7 @@ case ${1,,} in
 			#Check about a given nonce
 			if [[ ${nonce} != "" ]]; then nonceParam="--nonce ${nonce}"; else nonceParam=""; fi
 
-			#Read in the Secret key and encrypt it if needed
+			#Read in the Secret key and decrypt it if needed
 			skeyJSON=$(read_skeyFILE "${poolKeyName}.node.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
 
 			#Generate the registration metadata file
@@ -411,8 +425,8 @@ case ${1,,} in
 
 			echo -e "\e[0m           Pool-ID: \e[94m${poolIdBech}\e[0m"
 			echo -e "\e[0m       Pool-ID-Hex: \e[32m${poolIdHex}\e[0m"
-			echo -e "\e[0mCalidus Public Key: \e[32m${calidusPublicKey}\e[0m"
 			echo -e "\e[0m        Calidus-ID: \e[94m${calidusIdBech}\e[0m"
+			echo -e "\e[0m Calidus PublicKey: \e[32m${calidusPublicKey}\e[0m"
 			echo -e "\e[0m             Nonce: \e[32m${nonce}\e[0m"
 			echo
 
@@ -439,17 +453,251 @@ case ${1,,} in
   ### Query the Calidus-VKEY / Calidus-ID / Pool-ID
   query )
 
-		#Query only possible if not offline mode
-		if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; fi
+	#Query only possible if not offline mode
+	if ${offlineMode}; then echo -e "\e[35mYou have to be in ONLINE MODE to do this!\e[0m\n"; exit 1; fi
 
-		#NO QUERY UNTIL WE HAVE A STABLE KOIOS API
-		echo -e "\e[35mSorry, the query is currently not available yet!\e[0m\n"; exit 1;
+	#Check about input parameters
+	if [[ ${paramCnt} -ne 2 ]]; then echo -e "\e[35mIncorrect parameter count!\e[0m\n"; showUsage; exit 1; fi
 
-                exit 0;
-                ;;
+        paramValue=${allParameters[1]} #get the parameter behind "query". that can be a calidus public key hex, calidus-pool-key in bech format, a calidus-key.vkey file, a pool-id in bech format or a pool.node.vkey file
+
+	#Check if its a Calidus-ID in Bech-Format
+	if [[ "${paramValue:0:8}" == "calidus1" && ${#paramValue} -eq 61 ]]; then #parameter is most likely a calidus id in bech format
+	        echo -ne "\e[0mCheck if given Calidus Bech-ID\e[32m ${paramValue}\e[0m is valid ..."
+	        calidusIdHex=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
+	        if [[ $? -ne 0 || ${calidusIdHex:0:2} != "a1" ]]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid Calidus-ID.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		calidusIdBech=${paramValue,,}
+		searchType="Calidus ID";
+
+	#Check if its a Calidus-ID file with a Bech-ID
+	elif [[ -f "${paramValue}.calidus.id" ]]; then #parameter is a Calidus ID file, containing a bech32 id
+		echo -ne "\e[0mReading from Calidus-ID-File\e[32m ${paramValue}.calidus.id\e[0m ..."
+		calidusIdBech=$(cat "${paramValue}.calidus.id" 2> /dev/null)
+		if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - Could not read from file \"${paramValue}.calidus.id\"\e[0m"; exit 1; fi
+		echo -e "\e[32m OK\e[0m"
+	        echo -ne "\e[0mCheck if Calidus Bech-ID\e[32m ${calidusIdBech}\e[0m is valid ..."
+	        calidusIdHex=$(${bech32_bin} 2> /dev/null <<< "${calidusIdBech}") #will have returncode 0 if the bech was valid
+	        if [[ $? -ne 0 || ${calidusIdHex:0:2} != "a1" ]]; then echo -e "\n\n\e[91mERROR - \"${calidusIdBech}\" is not a valid Calidus-ID.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		calidusIdBech=${calidusIdBech,,}
+		searchType="Calidus ID";
+
+	#Check if its a Calidus-Public-Key-Hex
+	elif [[ "${paramValue,,}" =~ ^([[:xdigit:]]{64})$ ]]; then
+		echo -e "\e[0mUsing given Calidus Public-Key hex: \e[32m${paramValue,,}\e[0m\n"
+		calidusPublicKeyHex="${paramValue,,}"
+		searchType="Calidus Public-Key";
+
+	#Check if its a Calidus-Public-Key-File
+	elif [[ -f "${paramValue}.calidus.vkey" ]]; then #parameter was the first part of a vkey file
+		echo -ne "\e[0mConverting the Calidus Vkey-File \e[32m${paramValue}.calidus.vkey\e[0m into the Calidus Public-Key ... "
+		calidusVkeyCbor=$(jq -r .cborHex < "${paramValue}.calidus.vkey" 2> /dev/stdout)
+		if [ $? -ne 0 ]; then echo -e "\n\n\e[91mError - ${calidusVkeyCbor}\e[0m\n"; exit 1; fi
+		calidusPublicKeyHex=$(tail -c +5 <<< ${calidusVkeyCbor} 2> /dev/stdout)
+		if [ $? -ne 0 ]; then echo -e "\n\n\e[91mError - ${calidusPublicKeyHex}\e[0m\n"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		searchType="Calidus Public-Key";
+
+	#Check if its a Pool-ID in Bech-Format
+	elif [[ "${paramValue:0:5}" == "pool1" && ${#paramValue} -eq 56 ]]; then #parameter is most likely a bech32-pool-id
+	        echo -ne "\e[0mCheck if given Pool Bech-ID\e[32m ${paramValue}\e[0m is valid ..."
+	        #lets do some further testing by converting the bech32 Pool-ID into a Hex-Pool-ID
+	        poolIdHex=$(${bech32_bin} 2> /dev/null <<< "${paramValue,,}") #will have returncode 0 if the bech was valid
+	        if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${paramValue}\" is not a valid Bech32 Pool-ID.\e[0m"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		poolIdBech=${paramValue,,}
+		searchType="Pool ID";
+
+	#Check if its a Pool-ID File with the hex Pool-ID
+	elif [[ -f "${paramValue}.pool.id" ]]; then #parameter is a Pool-ID file, containing the id in hex format
+		echo -ne "\e[0mReading from Pool_ID-File\e[32m ${paramValue}.pool.id\e[0m ..."
+		poolIdHex=$(cat "${paramValue}.pool.id" 2> /dev/null)
+	        if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Could not read from file \"${paramValue}.pool.id\"\e[0m"; exit 1; fi
+		#check if the content is a valid pool hex
+		if [[ ! "${poolIdHex,,}" =~ ^([[:xdigit:]]{56})$ ]]; then echo -e "\n\e[91mERROR - Content of Pool-ID File '${paramValue}.pool.id' is not a valid Pool-ID hex!\n\e[0m"; exit 1; fi
+                #converting the Hex-PoolID into a Bech-PoolID
+                poolIdBech=$(${bech32_bin} "pool" <<< ${poolIdHex} | tr -d '\n')
+                checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - Could not convert the the Pool-ID File \"${paramValue}.pool.id\" into a Bech Pool-ID.\e[0m\n"; exit 1; fi
+	        echo -e "\e[32m OK\e[0m\n"
+		searchType="Pool ID";
+
+	#Check if its a node Vkey File
+	elif [ -f "${paramValue}.node.vkey" ]; then #there is a node.vkey file present, try to use this
+		echo -ne "\e[0mConverting the Pool Vkey-File \e[32m${paramValue}.node.vkey\e[0m into a Pool-ID ... "
+		nodeVkeyCbor=$(jq -r .cborHex < "${paramValue}.node.vkey" 2> /dev/stdout)
+		if [ $? -ne 0 ]; then echo -e "\n\n\e[91mError - ${nodeVkeyCbor}\e[0m\n"; exit 1; fi
+		#Generate the Pool-ID hex
+		poolIdHex=$(tail -c +5 <<< ${nodeVkeyCbor} | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1)
+		#check if the content is a valid pool hex
+		if [[ ! "${poolIdHex,,}" =~ ^([[:xdigit:]]{56})$ ]]; then echo -e "\n\n\e[91mERROR - Could not convert the given Pool Vkey-File \"${paramValue}.node.vkey\" into a Bech Pool-ID.\e[0m\n"; exit 1; fi
+                #converting the Hex-PoolID into a Bech-PoolID
+                poolIdBech=$(${bech32_bin} "pool" <<< ${poolIdHex} | tr -d '\n')
+                checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - Could not convert the given Pool Vkey-File \"${paramValue}.node.vkey\" into a Bech Pool-ID.\e[0m\n"; exit 1; fi
+                echo -e "\e[32mOK\e[0m\n"
+		searchType="Pool ID";
+
+	#Query all entries
+	elif [[ "${paramValue,,}" == "all" ]]; then #query all entries
+	        echo -e "\e[0mQuery Calidus Pool-Keys: Filter none (\e[94mALL\e[0m)\n"
+		searchType="ALL"
+
+	#Unknown parameter
+	else
+
+		echo -e "\n\e[91mERROR - I don't know what to do with the parameter '${paramValue}'.\n\n\e[0m"; exit 1;
+
+        fi #end of different parameters check
+
+	#set an additional filter for the koios request depending on the input data
+	case "${searchType}" in
+		"Calidus Public-Key")	koiosFilter="&calidus_pub_key=eq.${calidusPublicKeyHex}";;
+		"Calidus ID")		koiosFilter="&calidus_id_bech32=eq.${calidusIdBech}";;
+		"Pool ID")		koiosFilter="&pool_id_bech32=eq.${poolIdBech}";;
+		*)			koiosFilter="";;
+	esac
+
+	#set variables for koios request
+	errorcnt=0
+	error=-1
+
+	showProcessAnimation "Query Calidus Pool-Key Info via Koios: " &
+	while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information via koios API
+		error=0
+		response=$(curl -sL -m 30 -X GET -w "---spo-scripts---%{http_code}" "${koiosAPI}/pool_calidus_keys?pool_status=eq.registered&order=calidus_nonce.asc${koiosFilter}" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" 2> /dev/null)
+                if [ $? -ne 0 ]; then error=1; fi;
+                errorcnt=$(( ${errorcnt} + 1 ))
+        done
+	stopProcessAnimation;
+        if [[ ${error} -ne 0 ]]; then echo -e "\e[91mSORRY - Query of the Koios-API via curl failed, tried 5 times.\e[0m\n"; exit 1; fi; #curl query failed
+
+        #Split the response string into JSON content and the HTTP-ResponseCode
+        if [[ "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
+                responseJSON="${BASH_REMATCH[1]}"
+                responseCode="${BASH_REMATCH[2]}"
+        else
+                echo -e "\e[91mSORRY - Query of the Koios-API via curl failed. Could not separate Content and ResponseCode.\e[0m\n"; exit 1; #curl query failed
+        fi
+
+        #Check the responseCode
+        case ${responseCode} in
+                "200" ) ;; #all good, continue
+                * )     echo -e "\e[91mSORRY - HTTP Response code: ${responseCode}\e[0m\n"; exit 1; #exit with a failure and the http response code
+        esac;
+
+	jsonRet=$(jq -r . <<< "${responseJSON}" 2> /dev/null)
+	if [ $? -ne 0 ]; then echo -e "\e[91mSORRY - Query via Koios-API (${koiosAPI}) failed, not a JSON response.\e[0m\n"; exit 1; fi; #reponse is not a json file
+
+	#Get the number of entries and show them all
+	calidusEntryCount=$(jq -r "length" <<< "${jsonRet}" 2> /dev/null)
+	if [[ ${calidusEntryCount} -eq 0 ]]; then echo -e "${iconNo} \e[91mNo entries found :-(\e[0m\n"; exit 1; fi;
+
+	echo -e "${iconYes} \e[0mFound \e[32m${calidusEntryCount} entry/entries\e[0m for your request :-)\n"
+
+	#color the results depending on the requested input
+	colorCalidusPublicKey="\e[32m"
+	colorCalidusID="\e[32m"
+	colorPoolID="\e[32m"
+	colorHighlight="\e[94m"
+	case "${searchType}" in
+		"Calidus Public-Key")	colorCalidusPublicKey=${colorHighlight};;
+		"Calidus ID")		colorCalidusID=${colorHighlight};;
+		"Pool ID"|"ALL")	colorPoolID=${colorHighlight};;
+	esac
+
+	#Show all the results
+	for (( tmpCnt=0; tmpCnt<${calidusEntryCount}; tmpCnt++ ))
+	do
+
+		#get all the values
+	        { read poolIdBech;
+	          read calidusNonce;
+	          read calidusPublicKeyHex;
+	          read calidusIdBech;
+	          read txHash;
+	          read epochNo;
+		  read blockTime; } <<< $(jq -r ".[${tmpCnt}] | .pool_id_bech32 // \"-\", .calidus_nonce // \"-\", .calidus_pub_key // \"-\", .calidus_id_bech32 // \"-\", .tx_hash // \"-\", .epoch_no // \"-\", .block_time // \"-\"" <<< ${jsonRet} 2> /dev/null)
+
+		#show them to the user
+		echo -e "\e[0m              Date: $(date --date=@${blockTime})\e[0m"
+		echo -e "\e[0m           Pool-ID: ${colorPoolID}${poolIdBech}\e[0m"
+		echo -e "\e[0m        Calidus-ID: ${colorCalidusID}${calidusIdBech}\e[0m"
+		echo -e "\e[0m Calidus PublicKey: ${colorCalidusPublicKey}${calidusPublicKeyHex}\e[0m"
+		echo -e "\e[0m     Calidus Nonce: \e[90m${calidusNonce}\e[0m"
+		echo -e "\e[0m             Epoch: \e[90m${epochNo}\e[0m"
+		echo -e "\e[0m           Tx-Hash: \e[90m${txHash}\e[0m"
+		echo
+
+	done
+
+	#Get the number of unique Calidus-Keys
+	uniqCalidusKeyCount=$(jq -r "[.[].calidus_id_bech32] | unique | length" <<< ${jsonRet} 2> /dev/null)
+	if [[ ${uniqCalidusKeyCount} -ge 1 && ${calidusEntryCount} -gt 1 ]]; then echo -e "${iconYes} \e[0mStats: \e[32m${uniqCalidusKeyCount} unique\e[0m Calidus Keys for \e[32m${calidusEntryCount} registered\e[0m Pools\n"; fi
+	;;
 
 
-  * ) 		showUsage; exit 1;
-		;;
+  ### Sign text-data with the Calidus-SKEY
+  sign )
+
+	#Check about input parameters
+	if [[ ${paramCnt} -ne 3 ]]; then echo -e "\e[35mIncorrect parameter count!\e[0m\n"; showUsage; exit 1; fi
+
+	#Calidus Key check
+	calidusKeyName="$(dirname ${allParameters[1]})/$(basename $(basename ${allParameters[1]} .skey) .calidus)"; calidusKeyName=${calidusKeyName/#.\//};
+	if ! [[ -f "${calidusKeyName}.calidus.skey" ]]; then echo -e "\e[35mError - ${calidusKeyName}.calidus.skey does not exist, please create the key first using option 'new cli ${calidusKeyName}' !\e[0m\n"; exit 1; fi
+
+	#Get the Text Message to sign
+        messageText="${allParameters[2]}"
+
+	echo -e "\e[0mSign a Message-Text with the Calidus-Secret-Key '\e[32m${calidusKeyName}\e[0m'\n"
+	echo -e "\e[0mMessage-Text to sign: '\e[94m${messageText}\e[0m'\n"
+
+	#Check the cardano-signer binary existance and version
+	if ! exists "${cardanosigner}"; then
+		#Try the one in the scripts folder
+		if [[ -f "${scriptDir}/cardano-signer" ]]; then cardanosigner="${scriptDir}/cardano-signer";
+		else majorError "Path ERROR - Path to the 'cardano-signer' binary is not correct or 'cardano-singer' binaryfile is missing!\nYou can find it here: https://github.com/gitmachtl/cardano-signer/releases\nThis is needed to generate the signed Metadata. Also please check your 00_common.sh or common.inc settings."; exit 1; fi
+	fi
+	cardanosignerCheck=$(${cardanosigner} --version 2> /dev/null)
+	if [[ $? -ne 0 ]]; then echo -e "\e[35mERROR - This script needs a working 'cardano-signer' binary. Please make sure you have it present with with the right path in '00_common.sh' !\e[0m\n\n"; exit 1; fi
+	cardanosignerVersion=$(echo ${cardanosignerCheck} | cut -d' ' -f 2)
+	versionCheck "${minCardanoSignerVersion}" "${cardanosignerVersion}"
+	if [[ $? -ne 0 ]]; then majorError "Version ${cardanosignerVersion} ERROR - Please use a cardano-signer version ${minCardanoSignerVersion} or higher !\nOld versions are not compatible, please upgrade - thx."; exit 1; fi
+
+	#Read in the Secret key and decrypt it if needed
+	skeyJSON=$(read_skeyFILE "${calidusKeyName}.calidus.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+
+	#Sign the messageText
+	echo -e "\e[0mSigning with Cardano-Signer Version: \e[32m${cardanosignerVersion}\e[0m\n";
+	signerJSON=$(${cardanosigner} sign --data-text "${messageText}" --secret-key <(echo "${skeyJSON}") --json-extended 2> /dev/stdout)
+	if [ $? -ne 0 ]; then echo -e "\e[35m${signerJSON}\e[0m\n"; exit $?; fi
+	unset skeyJSON
+
+	#Getting the parameters
+	{ read signature; read calidusPublicKey; } <<< $(jq -rM '.signature // "-", .publicKey // "-"' <<< ${signerJSON} 2> /dev/null)
+
+	#Check the returned Signature
+	if [[ "${signature//[![:xdigit:]]}" != "${signature}" || "${signature}" == "" ]]; then echo -e "\n\e[35mERROR - Could not generate the Signature.\e[0m\n"; exit 1; fi
+
+	#Generate the Calidus-ID
+	calidusIdHex="a1$(echo -n ${calidusPublicKey} | xxd -r -ps | b2sum -l 224 -b | cut -d' ' -f 1)"
+	#check if the content is a valid hex
+	if [[ "${calidusIdHex//[![:xdigit:]]}" == "${calidusIdHex}" && ${#calidusIdHex} -eq 58 ]]; then
+                #converting into the Calidus-ID-Bech
+                calidusIdBech=$(${bech32_bin} "calidus" <<< ${calidusIdHex} | tr -d '\n')
+                checkError "$?"; if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - Could not generate the Calidus-ID.\e[0m\n"; exit 1; fi
+	fi
+
+	#Show the result
+	echo -e "\e[0m        Calidus-ID: \e[94m${calidusIdBech}\e[0m"
+	echo -e "\e[0m Calidus PublicKey: \e[32m${calidusPublicKey}\e[0m\n"
+	echo -e "\e[0m         \e[4mSignature\e[0m: \e[97m${signature}\e[0m\n"
+
+	echo -e "\e[90mIf you need more signing/verification options, please directly use '${cardanosigner}' - thx!\e[0m\n";
+	;;
+
+
+  * )	showUsage; exit 1;
+	;;
 esac
 
