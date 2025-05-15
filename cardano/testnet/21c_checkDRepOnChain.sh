@@ -56,6 +56,21 @@ fi
 
 echo -e "\e[0mChecking DRep-Information on Chain - Resolve given Info into DRep-ID:\n"
 
+
+#Check if the provided id is a file, if so read out the bech drep id and use that for the check
+if [ -f "${checkDRepName}.drep.id" ]; then #parameter is a DRep id file, containing a bech32 id
+
+	echo -ne "\e[0mReading from DRep-ID-File\e[32m ${checkDRepName}.drep.id\e[0m ..."
+	checkDRepID=$(cat "${checkDRepName}.drep.id" 2> /dev/null)
+        if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Could not read from file \"${checkDRepName}.drep.id\"\e[0m"; exit 1; fi
+	echo -e "\e[32m OK\e[0m\n"
+	#lets do some further testing by converting the bech32 DRep-ID into a Hex-DRep-ID
+	tmp=$(${bech32_bin} 2> /dev/null <<< "${checkDRepID}") #will have returncode 0 if the bech was valid
+        if [ $? -ne 0 ]; then echo -e "\e[35mERROR - \"${checkDRepID}\" is not a valid Bech32 DRep-ID.\e[0m"; exit 1; fi
+	# checkDRepID holds now the bech content of the file, that way we can reuse the checks below for CIP105 and CIP129 ones including script dreps
+fi
+
+
 #Check if the provided DRep-Identification is a Hex-DRepID(length56), a Bech32-DRepID(length56 and starting with drep1) or a DRep-VKEY-File
 if [[ "${checkDRepID//[![:xdigit:]]}" == "${checkDRepID}" && ${#checkDRepID} -eq 56 ]]; then #parameter is a hex-drepid
 
@@ -63,7 +78,7 @@ if [[ "${checkDRepID//[![:xdigit:]]}" == "${checkDRepID}" && ${#checkDRepID} -eq
 	drepID=$(${bech32_bin} "drep" <<< "${checkDRepID}" 2> /dev/null)
         if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Couldn't convert HEX-ID into Bech-ID.\e[0m"; exit 1; fi
 	echo -e "\e[32m OK\e[0m\n"
-	echo -e "\e[0mRegular DRep-ID: \e[32m${drepID}\e[0m"
+	echo -e "\e[0m Legacy DRep-ID: \e[32m${drepID}\e[0m"
 	echo -e "\e[0m CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
 
 elif [[ "${checkDRepID:0:5}" == "drep1" && ${#checkDRepID} -eq 56 ]]; then #parameter is most likely a bech32-drepid
@@ -74,7 +89,7 @@ elif [[ "${checkDRepID:0:5}" == "drep1" && ${#checkDRepID} -eq 56 ]]; then #para
         if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - \"${checkDRepID}\" is not a valid Bech32 DRep-ID.\e[0m"; exit 1; fi
 	echo -e "\e[32m OK\e[0m\n"
 	drepID=${checkDRepID}
-	echo -e "\e[0mRegular DRep-ID: \e[32m${drepID}\e[0m"
+	echo -e "\e[0m Legacy DRep-ID: \e[32m${drepID}\e[0m"
 	echo -e "\e[0m CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
 
 elif [[ "${checkDRepID:0:5}" == "drep1" && ${#checkDRepID} -eq 58 ]]; then #parameter is most likely a CIP129 bech32-drepid
@@ -86,7 +101,7 @@ elif [[ "${checkDRepID:0:5}" == "drep1" && ${#checkDRepID} -eq 58 ]]; then #para
 	echo -e "\e[32m OK\e[0m\n"
 	drepID=${checkDRepID}
 	echo -e "\e[0m CIP129 DRep-ID: \e[33m${drepID}\e[0m"
-	echo -e "\e[0mRegular DRep-ID: \e[32m$(convert_actionCIP1292Bech "${drepID}")\e[0m"
+	echo -e "\e[0m Legacy DRep-ID: \e[32m$(convert_actionCIP1292Bech "${drepID}")\e[0m"
 
 elif [[ "${checkDRepID:0:12}" == "drep_script1" && ${#checkDRepID} -eq 63 ]]; then #parameter is most likely a bech32-drep-script-id
 
@@ -96,30 +111,17 @@ elif [[ "${checkDRepID:0:12}" == "drep_script1" && ${#checkDRepID} -eq 63 ]]; th
         if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - \"${checkDRepID}\" is not a valid Bech32 DRep-ID.\e[0m"; exit 1; fi
 	echo -e "\e[32m OK\e[0m\n"
 	drepID=${checkDRepID}
-	echo -e "\e[0mRegular DRep-ID: \e[32m${drepID}\e[0m"
+	echo -e "\e[0m Legacy DRep-ID: \e[32m${drepID}\e[0m"
 	echo -e "\e[0m CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
 
 elif [ -f "${checkDRepName}.drep.vkey" ]; then #parameter is a DRep verification key file
 
 	echo -ne "\e[0mConvert from Verification-Key-File\e[32m ${checkDRepName}.drep.vkey\e[0m ..."
 	#Get the drepID from the vkey file to just show it
-	drepID=$(${cardanocli} ${cliEra} governance drep id --drep-verification-key-file "${checkDRepName}.drep.vkey" --out-file /dev/stdout 2> /dev/null)
+	drepID=$(${cardanocli} latest governance drep id --drep-verification-key-file "${checkDRepName}.drep.vkey" --out-file /dev/stdout 2> /dev/null)
         if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Could not generate the DRep-ID from \"${checkDRepName}.drep.vkey\"\e[0m"; exit 1; fi
 	echo -e "\e[32m OK\e[0m\n"
-	echo -e "\e[0mRegular DRep-ID: \e[32m${drepID}\e[0m"
-	echo -e "\e[0m CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
-
-elif [ -f "${checkDRepName}.drep.id" ]; then #parameter is a DRep verification id file, containing a bech32 id
-
-	echo -ne "\e[0mReading from DRep-ID-File\e[32m ${checkDRepName}.drep.id\e[0m ..."
-	checkDRepID=$(cat "${checkDRepName}.drep.id" 2> /dev/null)
-        if [ $? -ne 0 ]; then echo -e "\n\n\e[35mERROR - Could not read from file \"${checkDRepName}.drep.id\"\e[0m"; exit 1; fi
-	echo -e "\e[32m OK\e[0m\n"
-	#lets do some further testing by converting the bech32 DRep-ID into a Hex-DRep-ID
-	tmp=$(${bech32_bin} 2> /dev/null <<< "${checkDRepID}") #will have returncode 0 if the bech was valid
-        if [ $? -ne 0 ]; then echo -e "\e[35mERROR - \"${checkDRepID}\" is not a valid Bech32 DRep-ID.\e[0m"; exit 1; fi
-	drepID=${checkDRepID}
-	echo -e "\e[0mRegular DRep-ID: \e[32m${drepID}\e[0m"
+	echo -e "\e[0m Legacy DRep-ID: \e[32m${drepID}\e[0m"
 	echo -e "\e[0m CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
 
 else
@@ -135,7 +137,9 @@ drepHASH=$(${bech32_bin} 2> /dev/null <<< "${drepID}"); drepHASH=${drepHASH: -56
 #Get state data for the drepID. When in online mode of course from the node and the chain, in light mode via koios
 case ${workMode} in
 
-        "online")       showProcessAnimation "Query DRep-ID Info: " &
+        "online")       #check that the node is fully synced, otherwise the query would mabye return a false state
+			if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[91mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
+			showProcessAnimation "Query DRep-ID Info: " &
                         drepStateJSON=$(${cardanocli} ${cliEra} query drep-state --drep-key-hash ${drepHASH} --drep-script-hash ${drepHASH} --include-stake 2> /dev/stdout )
                         if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${drepStateJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                         drepStateJSON=$(jq -r ".[0] // []" <<< "${drepStateJSON}") #get rid of the outer array

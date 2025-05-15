@@ -320,8 +320,6 @@ for (( tmpCnt=1; tmpCnt<${paramCnt}; tmpCnt++ ))
 			        	echo -e "Reference-Action-ID: \e[32m(none)\e[0m"
 				fi
 
-		        	echo -e "\n\e[0mGuardrailScript-Ref: \e[32m${guardrailScriptUTXO}\e[0m (${guardrailScriptSize} bytes)"
-
 				changeParameterRender=$(jq -r 'to_entries[] | "\\e[0m   Change parameter:\\e[32m \(.key) \\e[0m► \\e[94m\(.value)\\e[0m"' <<< ${changeParameters} 2> /dev/null)
 				echo
 				echo -e "${changeParameterRender}"
@@ -463,6 +461,7 @@ if [[ ${protocolVersionMajor} -lt 9 ]]; then
 
 #get live values
 currentTip=$(get_currentTip); checkError "$?";
+defTTL=25000 #normally 100000 for mainnet, but with the faster testnets the max. TTL is 25920 instead (the formula is 3*k/f where k is the security parameter and f is the active slot coefficient). otherwise we have plutus script issues.
 ttl=$(( ${currentTip} + ${defTTL} ))
 
 echo -e "Current Slot-Height:\e[32m ${currentTip}\e[0m (setting TTL[invalid_hereafter] to ${ttl})"
@@ -488,7 +487,7 @@ echo
                 "online")	#check that the node is fully synced, otherwise the query would mabye return a false state
 				if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[91mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
 				showProcessAnimation "Query-UTXO: " &
-				utxo=$(${cardanocli} ${cliEra} query utxo --address ${sendFromAddr} 2> /dev/stdout);
+				utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${sendFromAddr} 2> /dev/stdout);
 				if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[91mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${sendFromAddr}"); stopProcessAnimation;
@@ -518,6 +517,9 @@ echo
         totalPolicyIDsJSON="{}"; #Holds the different PolicyIDs as values "policyIDHash", length is the amount of different policyIDs
 	assetsOutString="";	#This will hold the String to append on the --tx-out if assets present or it will be empty
 
+	collateralUTXO="";	#Holds the first possible collateral utxo
+	collateralAmount=0;	#Holds the amount from the possible collateral utxo (lovelaces)
+
         #For each utxo entry, check the utxo#index and check if there are also any assets in that utxo#index
         #LEVEL 1 - different UTXOs
 
@@ -535,6 +537,9 @@ echo
         echo -e "Hash#Index: ${utxoHashIndex}\tADA: $(convertToADA ${utxoAmount}) \e[90m(${utxoAmount} lovelaces)\e[0m";
 	if [[ ! "${utxoDatumHashArray[${tmpCnt}]}" == null ]]; then echo -e " DatumHash: ${utxoDatumHashArray[${tmpCnt}]}"; fi
         assetsEntryCnt=${assetsEntryCntArray[${tmpCnt}]}
+
+	#get the index of a possible collateral utxo
+	if [[ "${collateralUTXO}" == "" && ${assetsEntryCnt} -eq 0 && $(bc <<< "${utxoAmount}>=5000000") -eq 1 && $(bc <<< "${utxoAmount}<=10000000") -eq 1 ]]; then collateralUTXO=${utxoHashIndex}; collateralAmount=${utxoAmount}; fi
 
         if [[ ${assetsEntryCnt} -gt 0 ]]; then
 
@@ -589,7 +594,8 @@ echo
                                 done
                         done
         fi
-        txInString="${txInString} --tx-in ${utxoHashIndex}"
+	txInString+="--tx-in ${utxoHashIndex} "
+
         done
         echo -e "\e[0m-----------------------------------------------------------------------------------------------------"
         echo -e "Total ADA on the Address:\e[32m  $(convertToADA ${totalLovelaces}) ADA / ${totalLovelaces} lovelaces \e[0m\n"
@@ -657,21 +663,100 @@ rm ${txBodyFile} 2> /dev/null
 
 case "${voteActionTag,,}" in
 
-	"treasurywithdrawals"|"parameterchange")	#transaction needs a guardrailsscript
+	"treasurywithdrawals"|"parameterchange")	#transaction needs a guardrailsscript and execution units costs calculation
 
-		### Temporary disabled because of the ongoing changes to the constitution script hash usage / Plutus / Collateral
-		echo -e "\n\e[33mSORRY - This function is currently disabled, because of the ongoing changes with the constitution script hash / plutus script / collateral handling!\e[0m\n"; exit 1;
+		#Check that the guardrails-script.plutus file is present
+		if [ ! -f "${guardrailsScriptFile}" ]; then echo -e "\n\e[91mERROR - \"${guardrailsScriptFile}\" does not exist! Download it first and/or set the correct path in the 00_common.sh/common.inc config-file.\e[0m\n"; exit 1; fi
 
-#		#Generate Dummy-TxBody file for fee calculation
-#		${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-in-collateral ${utxoHashIndexArray[0]} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --proposal-tx-in-reference "${guardrailScriptUTXO}" --proposal-plutus-script-v3 --proposal-reference-tx-in-redeemer-value {} --proposal-reference-tx-in-execution-units "(0,0)" --protocol-params-file <(echo ${protocolParametersJSON}) --invalid-hereafter $((${currentTip}+100)) --fee 200000 ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
-#		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-#		cat ${txBodyFile} | jq
-#		#calculate the transaction fee. new parameters since cardano-cli 8.21.0
-#		fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size ${guardrailScriptSize} 2> /dev/stdout)
-#		if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
-#		fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
-#		echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & Guardrails(RefScript): \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
-#		echo
+		#Show the choosen collateral UTXO
+		if [[ "${collateralUTXO}" != "" ]]; then
+			echo -e "\e[0mChoosen UTXO for the Collateral:\e[32m ${collateralUTXO} ($(convertToADA ${collateralAmount}) ADA)\e[0m\n";
+		else
+			echo -e "\e[33mSORRY - Could not find a valid Collateral UTXO. Please send yourself 5-10 ADA to this address\nso a collateral UTXO can be picked, thx!\e[0m\n"; exit 1;
+		fi
+
+		#Remove the collateralUTXO from the list of input utxos
+		txInString=$(sed "s/--tx-in ${collateralUTXO}//g" <<< ${txInString})
+
+		#Subtract the lovelaces on the collateralUTXO from the totalLovelaces on the output
+		totalLovelaces=$(bc <<< "${totalLovelaces} - ${collateralAmount}" )
+
+		#Decrease the amount of tx-in-counts by 1 (collateral utxo does not count)
+		txcnt=$(( ${txcnt} - 1 ))
+
+                #Generate Dummy-TxBody file for plutus script cost calculation, use a dummy cost of (0,0) for now
+                ${cardanocli} ${cliEra} transaction build-raw \
+                        ${txInString} \
+                        --tx-in-collateral "${collateralUTXO}" \
+                        --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" \
+                        --proposal-script-file "${guardrailsScriptFile}" \
+                        --proposal-redeemer-value {} \
+                        --proposal-execution-units "(0,0)" \
+                        --protocol-params-file <(echo ${protocolParametersJSON}) \
+                        --invalid-hereafter ${ttl} \
+                        --fee 200000 ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile} 2> /dev/stdout
+		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+		#Calculate the real plutus script execution costs from the Dummy-TxBody
+		case ${workMode} in
+		        "online")       #onlinemode
+					execUnitsJSON=$(${cardanocli} ${cliEra} transaction calculate-plutus-script-cost online --tx-file ${txBodyFile} --out-file /dev/stdout 2> /dev/stdout)
+					if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - ${execUnitsJSON}\e[0m\n"; exit 1; fi
+					constitutionScriptHash=$(${cardanocli} ${cliEra} query constitution 2> /dev/stdout | jq -r ".script" 2> /dev/null)
+					checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+					;;
+
+		        "light"|"offline") #lightmode and offlinemode
+					eraHistoryJSON=$(jq ".eraHistory // {}" <<< ${protocolParametersJSON})
+					if [[ "${eraHistoryJSON}" == "{}" ]]; then echo -e "\e[91mSORRY, something went wrong. There is no 'eraHistory' present in the protocol-parameters file used in Light-Mode.\e[0m\n"; exit; fi
+					constitutionScriptHash=$(jq -r ".constitution.script // {}" <<< ${protocolParametersJSON})
+					if [[ "${constitutionJSON}" == "{}" ]]; then echo -e "\e[91mSORRY, something went wrong. There is no 'constitution' present in the protocol-parameters file used in Light-Mode.\e[0m\n"; exit; fi
+					execUnitsJSON=$(${cardanocli} ${cliEra} transaction calculate-plutus-script-cost offline \
+						--unsafe-extend-safe-zone \
+						--genesis-file ${genesisfile_byron} \
+						--era-history-file <(echo ${eraHistoryJSON}) \
+						--protocol-params-file <(echo ${protocolParametersJSON}) \
+						--utxo-file <(sed -e 's/": "\([0-9]\+\)"/": \1/g' <<< ${utxoJSON}) \
+						--tx-file ${txBodyFile} \
+						--out-file /dev/stdout 2> /dev/stdout)
+					if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - ${execUnitsJSON}\e[0m\n"; exit 1; fi
+					;;
+		esac
+
+		echo -e "\e[0mExecution Units/Costs for the Guardrails-Script: \e[32m${guardrailsScriptFile}\e[90m";
+		jq -rM <<< "${execUnitsJSON}" 2> /dev/null
+		echo -e "\e[0m";
+		execUnitCosts=$(jq -r '"(\(.[0].executionUnits.steps), \(.[0].executionUnits.memory))"' <<< "${execUnitsJSON}" 2> /dev/null)
+
+		#Check that the script hash in the constitution is the same as in the local guardrailsscript
+		localGuardrailsScriptHash=$(jq -r ".[0].scriptHash" <<< ${execUnitsJSON} 2> /dev/null)
+		if [[ "${localGuardrailsScriptHash}" != "${constitutionScriptHash}" ]]; then echo -e "\e[91mERROR, your local Guardrails-Script with Hash '${localGuardrailsScriptHash}' is different than the currently ScriptHash in the Constitution '${constitutionScriptHash}'.\nAre you sure you are using the right guardrails-script.plutus file?\e[0m\n"; exit; fi
+
+                #Generate Dummy-TxBody file for fee calculation now with the real plutus script costs
+                ${cardanocli} ${cliEra} transaction build-raw \
+                        ${txInString} \
+                        --tx-in-collateral "${collateralUTXO}" \
+                        --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" \
+                        --proposal-script-file "${guardrailsScriptFile}" \
+                        --proposal-redeemer-value {} \
+                        --proposal-execution-units "${execUnitCosts}" \
+                        --protocol-params-file <(echo ${protocolParametersJSON}) \
+                        --invalid-hereafter ${ttl} \
+                        --fee 200000 ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile} 2> /dev/stdout
+		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+		#calculate the transaction fee. new parameters since cardano-cli 8.21.0
+		fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --output-text \
+			--tx-body-file ${txBodyFile} \
+			--protocol-params-file <(echo ${protocolParametersJSON}) \
+			--witness-count 2 \
+			--reference-script-size 0 2> /dev/stdout)
+		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+		if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
+		fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
+		echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut & Guardrails-Script: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
+		echo
 		;;
 
 	*) #all other transactions
@@ -679,7 +764,7 @@ case "${voteActionTag,,}" in
 		${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
 		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		#calculate the transaction fee. new parameters since cardano-cli 8.21.0
-		fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 2> /dev/stdout)
+		fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --output-text --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 2> /dev/stdout)
 		if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
 		fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
 		echo -e "\e[0mMimimum transfer Fee for ${txcnt}x TxIn & ${rxcnt}x TxOut: \e[32m $(convertToADA ${fee}) ADA / ${fee} lovelaces \e[90m"
@@ -714,8 +799,36 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+case "${voteActionTag,,}" in
+
+	"treasurywithdrawals"|"parameterchange")	#transaction needs a guardrailsscript
+
+		#Build the transaction with a local plutus reference script
+                ${cardanocli} ${cliEra} transaction build-raw \
+                        ${txInString} \
+                        --tx-in-collateral "${collateralUTXO}" \
+                        --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" \
+                        --proposal-script-file "${guardrailsScriptFile}" \
+                        --proposal-redeemer-value {} \
+                        --proposal-execution-units "${execUnitCosts}" \
+                        --protocol-params-file <(echo ${protocolParametersJSON}) \
+                        --invalid-hereafter ${ttl} \
+                        --fee ${fee} ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
+		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		;;
+
+
+	*) #all other kinds of actions
+		${cardanocli} ${cliEra} transaction build-raw \
+			${txInString} \
+			--tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" \
+			--invalid-hereafter ${ttl} \
+			--fee ${fee} ${metafileParameter} ${actionfileParameter} --out-file ${txBodyFile}
+		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		;;
+
+esac
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
@@ -790,7 +903,7 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
                                 echo -e "\e[32mDONE\n"
 
                                 #Get the TxID
-                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile});
+                                txID=$(${cardanocli} ${cliEra} transaction txid --output-text --tx-file ${txFile});
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 
 				echo -e "\e[0mYour Action-ID(s):\n"
@@ -824,7 +937,7 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
         "offline")
                                 #offlinestore
                                 #Get the TxID
-                                txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile});
+                                txID=$(${cardanocli} ${cliEra} transaction txid --output-text --tx-file ${txFile});
                                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 
 				echo -e "\e[0mYour Action-ID(s) will be:\n"
@@ -844,7 +957,7 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
                                                                         sendToAddr: \"${sendToAddr}\",
                                                                         txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
                                 #Write the new offileFile content
-                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed utxo-transaction from '${fromAddr}' to '${toAddr}'\" } ]" <<< ${offlineJSON})
+                                offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed utxo-transaction from '${fromAddr}' to '${fromAddr}'\" } ]" <<< ${offlineJSON})
                                 offlineJSON=$( jq ".general += {offlineCLI: \"${versionCLI}\" }" <<< ${offlineJSON})
                                 echo "${offlineJSON}" > ${offlineFile}
                                 #Readback the tx content and compare it to the current one

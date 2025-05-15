@@ -210,28 +210,6 @@ if ${onlineMode}; then
 					;;
 			esac;
 
-#		        #Check the responseCode
-#		        case ${responseCode} in
-#		                "200" ) #all good, continue
-#					tmp=$(jq . < "${tmpAnchorContent}" 2> /dev/null) #just a short check that the received content is a valid JSON file
-#					if [ $? -ne 0 ]; then echo -e "\n\e[91mERROR - The content of the Anchor-URL '${anchorURL}'\nis not in valid JSON format!\n\e[0m"; rm "${tmpAnchorContent}"; exit 1; fi
-#					contentHASH=$(b2sum -l 256 "${tmpAnchorContent}" 2> /dev/null | cut -d' ' -f 1)
-#					checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-#					echo -e "\e[0mAnchor-URL(HASH):\e[32m ${anchorURL} \e[0m(\e[94m${contentHASH}\e[0m)"
-#					echo
-#					if [[ ${anchorHASH} != "" && ${anchorHASH} != ${contentHASH} ]]; then echo -e "\e[91mWARNING - Provided Anchor-HASH '${anchorHASH}' is wrong and will be ignored ...\e[0m\n"; fi
-#					anchorHASH="${contentHASH}" #set the anchorHASH not to the provided one, use the one calculated from the online file
-#					rm "${tmpAnchorContent}" #cleanup
-#					;;
-#
-#		                "404" ) #file-not-found
-#					echo -e "\n\e[91mERROR 404 - No content was not found on the given Anchor-URL '${anchorURL}'\nPlease upload it first to this location, thx!\n\e[0m"; exit 1; #exit with a failure
-#					;;
-#
-#		                * )     echo -e "\n\e[91mERROR - Query of the Anchor-URL failed!\nHTTP Request File: ${anchorURL}\nHTTP Response Code: ${responseCode}\n\e[0m"; exit 1; #exit with a failure and the http response code
-#					;;
-#		        esac;
-
 		else
 			echo -e "\n\e[91mERROR - Query of the Anchor-URL '${anchorURL}' failed!\n\e[0m"; exit 1;
 		fi #error & response

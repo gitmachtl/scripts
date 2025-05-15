@@ -71,6 +71,10 @@ cardanometa="./token-metadata-creator" #Path to your token-metadata-creator bina
 koiosApiToken=""
 
 
+#--------- Only needed if you wanna change the default path to the guardrail-script.plutus file
+#guardrailsScriptFile="./guardrails-script.plutus" (Default)
+
+
 #--------- Only needed if you wanna change the BlockChain from the Mainnet to a Testnet Chain Setup, uncomment the network you wanna use by removing the leading #
 #          Using a preconfigured network name automatically loads and sets the magicparam, addrformat and byronToShelleyEpochs parameters, also API-URLs, etc.
 
@@ -190,8 +194,6 @@ case "${network,,}" in
 		_adahandleAPI="https://api.handle.me"				#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
 		_catalystAPI="https://api.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/mainnet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
-		_guardrailScriptUTXO="dc06746a898fd230f164f47a3d749348b65655b8fb388ff275f54d62891653e2#0"
-		_guardrailScriptSize=2132
  		_ccMemberColdHashNames='{
 			"scriptHash-349e55f83e9af24813e6cb368df6a80d38951b2a334dfcdf26815558": "CAC",
 			"scriptHash-84aebcfd3e00d0f87af918fc4b5e00135f407e379893df7e7d392c6a": "ECC",
@@ -240,8 +242,6 @@ case "${network,,}" in
 		_adahandleAPI="https://preview.api.handle.me"		#Adahandle-API URLs -> autoresolve into ${adahandleAPI}
 		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/preview-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
-		_guardrailScriptUTXO="f3f61635034140e6cec495a1c69ce85b22690e65ab9553ef408d524f58183649#0"
-		_guardrailScriptSize=2132
  		_ccMemberColdHashNames='{}'
 		;;
 
@@ -274,8 +274,6 @@ case "${network,,}" in
 		_adahandleAPI=
 		_catalystAPI=				#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/sanchonet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
-#		_guardrailScriptUTXO="8b9163fa38914b45470a5426c27939cfb77628f0c54d08b0b61b9905c2cbfc2b#0"
-		_guardrailScriptSize=2132
  		_ccMemberColdHashNames='{}'
 		;;
 
@@ -309,8 +307,7 @@ adahandlePolicyID=${adahandlePolicyID:-"${_adahandlePolicyID}"}
 adahandleAPI=${adahandleAPI:-"${_adahandleAPI}"}
 catalystAPI=${catalystAPI:-"${_catalystAPI}"}
 lightModeParametersURL=${lightModeParametersURL:-"${_lightModeParametersURL}"}
-guardrailScriptUTXO=${guardrailScriptUTXO:-"${_guardrailScriptUTXO}"}
-guardrailScriptSize=${guardrailScriptSize:-"${_guardrailScriptSize}"}
+guardrailsScriptFile=${guardrailsScriptFile:-"./guardrails-script.plutus"}
 ccMemberColdHashNames=${ccMemberColdHashNames:-"${_ccMemberColdHashNames}"}
 
 
@@ -325,15 +322,15 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="10.4.0"			#minimum allowed cli version for this script-collection version
+minCliVersion="10.9.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="10.1.4"  		#minimum allowed node version for this script-collection version
+minNodeVersion="10.3.1"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.4"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minKeystoneCardanoAppVersion="1.7.7"  	#minimum version for the firmware on the Keystone HW-Wallet
-minHardwareCliVersion="1.17.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.24.0"	#minimum version for the cardano-signer binary
+minHardwareCliVersion="1.18.2" 		#minimum version for the cardano-hw-cli
+minCardanoSignerVersion="1.24.3"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
@@ -2126,7 +2123,7 @@ resolveAdahandle() {
 		#now lets verify that the adahandle native asset is actually on an utxo of that resolved address
 		showProcessAnimation "Verify Adahandle is on resolved address: " &
 		case ${workMode} in
-			"online") 	utxo=$(${cardanocli} ${cliEra} query utxo --address ${resolvedAddr} 2> /dev/stdout);
+			"online") 	utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${resolvedAddr} 2> /dev/stdout);
 					if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit 1; else stopProcessAnimation; fi;;
 			"light")  	utxo=$(queryLight_UTXO "${resolvedAddr}");
 					if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit 1; else stopProcessAnimation; fi;;
@@ -2197,7 +2194,7 @@ resolveAdahandle() {
 							#now lets verify that the adahandle native asset is actually on an utxo of that resolved address
 		                                        showProcessAnimation "Verify Adahandle is on resolved address: " &
 							case ${workMode} in
-								"online") 	utxo=$(${cardanocli} ${cliEra} query utxo --address ${resolvedAddr} 2> /dev/stdout);
+								"online") 	utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${resolvedAddr} 2> /dev/stdout);
 										if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit 1; else stopProcessAnimation; fi;;
 								"light")  	utxo=$(queryLight_UTXO "${resolvedAddr}");
 										if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit 1; else stopProcessAnimation; fi;;

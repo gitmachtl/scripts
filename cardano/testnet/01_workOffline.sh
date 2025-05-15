@@ -153,8 +153,12 @@ case ${action} in
 				governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r '{ committee : (.committee), constitution : (.constitution), prevActionIDs : (.nextRatifyState.nextEnactState.prevGovActionIds) }' 2> /dev/null)
 				if [[ "${governanceParametersJSON}" == "" ]]; then governanceParametersJSON="{}"; fi
 
+				#Era-History
+				eraHistoryJSON=$(${cardanocli} ${cliEra} query era-history --out-file /dev/stdout 2> /dev/null | jq -r "{ \"eraHistory\": . }")
+				if [[ "${eraHistoryJSON}" == "" ]]; then eraHistoryJSON="{ \"eraHistory\": {} }"; fi
+
 				#merge them together
-	                        protocolParametersJSON=$( jq --sort-keys ". += ${governanceParametersJSON}" <<< ${protocolParametersJSON})
+	                        protocolParametersJSON=$( jq --sort-keys ". += ${governanceParametersJSON} | . += ${eraHistoryJSON} " <<< ${protocolParametersJSON})
 				;;
 
 		        "light") #lightmode
@@ -193,8 +197,12 @@ case ${action} in
 				governanceParametersJSON=$(${cardanocli} ${cliEra} query gov-state 2> /dev/null | jq -r '{ committee : (.committee), constitution : (.constitution), prevActionIDs : (.nextRatifyState.nextEnactState.prevGovActionIds) }' 2> /dev/null)
 				if [[ "${governanceParametersJSON}" == "" ]]; then governanceParametersJSON="{}"; fi
 
+				#Era-History
+				eraHistoryJSON=$(${cardanocli} ${cliEra} query era-history --out-file /dev/stdout 2> /dev/null | jq -r "{ \"eraHistory\": . }")
+				if [[ "${eraHistoryJSON}" == "" ]]; then eraHistoryJSON="{ \"eraHistory\": {} }"; fi
+
 				#merge them together
-	                        protocolParametersJSON=$( jq --sort-keys ". += ${governanceParametersJSON}" <<< ${protocolParametersJSON})
+	                        protocolParametersJSON=$( jq --sort-keys ". += ${governanceParametersJSON} | . += ${eraHistoryJSON} " <<< ${protocolParametersJSON})
 				;;
 
 		        "light") #lightmode
@@ -276,7 +284,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
         case ${workMode} in
                 "online")       #check that the node is fully synced, otherwise the query would mabye return a false state
                                 showProcessAnimation "Query-UTXO: " &
-                                utxo=$(${cardanocli} ${cliEra} query utxo --address ${checkAddr} 2> /dev/stdout);
+                                utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${checkAddr} 2> /dev/stdout);
                                 if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
                                 showProcessAnimation "Convert-UTXO: " &
                                 utxoJSON=$(generate_UTXO "${utxo}" "${checkAddr}"); stopProcessAnimation;
@@ -672,7 +680,7 @@ case ${transactionType} in
 			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
 		        case ${workMode} in
 		                "online")	showProcessAnimation "Query-UTXO: " &
-						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+						utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${transactionFromAddr} 2> /dev/stdout);
 	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 						;;
 
@@ -704,7 +712,7 @@ case ${transactionType} in
 		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
 
 						#Show the TxID
-						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						txID=$(${cardanocli} ${cliEra} transaction txid --output-text --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
 						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 						;;
@@ -740,7 +748,7 @@ case ${transactionType} in
 			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
 		        case ${workMode} in
 		                "online")	showProcessAnimation "Query-UTXO: " &
-						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+						utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${transactionFromAddr} 2> /dev/stdout);
 	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 						;;
 
@@ -792,7 +800,7 @@ case ${transactionType} in
 		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
 
 						#Show the TxID
-						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						txID=$(${cardanocli} ${cliEra} transaction txid --output-text --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
 						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 						;;
@@ -828,7 +836,7 @@ case ${transactionType} in
 			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
 		        case ${workMode} in
 		                "online")	showProcessAnimation "Query-UTXO: " &
-						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+						utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${transactionFromAddr} 2> /dev/stdout);
 	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 						;;
 
@@ -861,7 +869,7 @@ case ${transactionType} in
 		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
 
 						#Show the TxID
-						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						txID=$(${cardanocli} ${cliEra} transaction txid --output-text --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
 						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 						;;
@@ -895,7 +903,7 @@ case ${transactionType} in
 			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
 		        case ${workMode} in
 		                "online")	showProcessAnimation "Query-UTXO: " &
-						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+						utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${transactionFromAddr} 2> /dev/stdout);
 	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 						;;
 
@@ -928,7 +936,7 @@ case ${transactionType} in
 		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
 
 						#Show the TxID
-						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						txID=$(${cardanocli} ${cliEra} transaction txid --output-text --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
 						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 						;;
@@ -962,7 +970,7 @@ case ${transactionType} in
 			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
 		        case ${workMode} in
 		                "online")	showProcessAnimation "Query-UTXO: " &
-						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+						utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${transactionFromAddr} 2> /dev/stdout);
 	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 						;;
 
@@ -995,7 +1003,7 @@ case ${transactionType} in
 		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
 
 						#Show the TxID
-						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						txID=$(${cardanocli} ${cliEra} transaction txid --output-text --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
 						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 						;;
@@ -1032,7 +1040,7 @@ case ${transactionType} in
 			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
 		        case ${workMode} in
 		                "online")	showProcessAnimation "Query-UTXO: " &
-						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+						utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${transactionFromAddr} 2> /dev/stdout);
 	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 						;;
 
@@ -1105,7 +1113,7 @@ case ${transactionType} in
 		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
 
 						#Show the TxID
-						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						txID=$(${cardanocli} ${cliEra} transaction txid --output-text --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
 						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 						;;
@@ -1139,7 +1147,7 @@ case ${transactionType} in
 			#Check that the UTXO on the paymentAddress (transactionFromAddr) has not changed
 		        case ${workMode} in
 		                "online")	showProcessAnimation "Query-UTXO: " &
-						utxo=$(${cardanocli} ${cliEra} query utxo --address ${transactionFromAddr} 2> /dev/stdout);
+						utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${transactionFromAddr} 2> /dev/stdout);
 	                                        if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 						;;
 
@@ -1172,7 +1180,7 @@ case ${transactionType} in
 		                                echo -e "\n\e[0mStatus: \e[36mDONE - Transaction submitted\n"
 
 						#Show the TxID
-						txID=$(${cardanocli} ${cliEra} transaction txid --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
+						txID=$(${cardanocli} ${cliEra} transaction txid --output-text --tx-file ${txFile}); echo -e "\e[0m TxID is: \e[32m${txID}\e[0m"
 						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 						if [[ "${transactionExplorer}" != "" ]]; then echo -e "\e[0mTracking: \e[32m${transactionExplorer}/${txID}\n\e[0m"; fi
 						;;

@@ -111,7 +111,7 @@ kesVkeyBech=$(jq -r .cborHex ${kesVkeyFile} 2> /dev/null | tail -c +5 | ${bech32
 echo -e "\e[0mKES-vKey-File Bech:\e[32m ${kesVkeyBech}\e[0m"
 
 #PoolID from node.vkey file
-poolID=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file "${nodeName}.node.vkey" --output-format bech32 2> /dev/null);
+poolID=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file "${nodeName}.node.vkey" --output-bech32 2> /dev/null);
 echo -e "\e[0mOpcert for Pool-ID:\e[32m ${poolID}\e[0m"
 echo
 
@@ -158,7 +158,7 @@ elif [ -f "${nodeName}.node.hwsfile" ]; then #key is a hardware wallet
 
                 if ! ask "\e[0mGenerating the new opcert from a local Hardware-Wallet keyfile '\e[33m${nodeName}.node.hwsfile\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Opcert Generation aborted...\e[0m"; echo; exit 2; fi
 
-                start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                start_HwWallet "Ledger|Keystone"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		file_unlock ${opcertFile}
 		file_unlock ${nodeName}.node.counter
                 tmp=$(${cardanohwcli} node issue-op-cert --kes-verification-key-file ${kesVkeyFile} --kes-period ${currentKESperiod} --operational-certificate-issue-counter-file ${nodeName}.node.counter --hw-signing-file ${nodeName}.node.hwsfile --out-file ${opcertFile} 2> /dev/stdout)

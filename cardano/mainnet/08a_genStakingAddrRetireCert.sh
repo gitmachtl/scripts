@@ -151,14 +151,14 @@ fi
 			case "${drepDelegationHASH%%-*}" in
 				"keyHash")	drepID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
 						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep:\e[0m";
-					        echo -e "\e[0m   Regular DRep-ID: \e[32m${drepID}\e[0m"
 					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
+					        echo -e "\e[0m    Legacy DRep-ID: \e[32m${drepID}\e[0m"
 						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
 						;;
 				"scriptHash")   drepID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
 						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep-Script:\e[0m";
-					        echo -e "\e[0m   Regular DRep-ID: \e[32m${drepID}\e[0m"
 					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
+					        echo -e "\e[0m    Legacy DRep-ID: \e[32m${drepID}\e[0m"
 						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
 						;;
 				"null")		#not delegated

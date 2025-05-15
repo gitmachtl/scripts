@@ -192,7 +192,7 @@ if [[ ${#poolMetaDescription} -gt 255 ]]; then echo -e "\e[35mERROR - The poolMe
 
 
 #Read out the POOL-ID and store it in the ${poolName}.pool.json
-poolID=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-format hex)     #New method since 1.23.0
+poolID=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-hex)     #New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 file_unlock ${poolFile}.pool.json
 newJSON=$(cat ${poolFile}.pool.json | jq ". += {poolID: \"${poolID}\"}")
@@ -204,7 +204,7 @@ file_unlock ${poolFile}.pool.id
 echo "${poolID}" > ${poolFile}.pool.id
 file_lock ${poolFile}.pool.id
 
-poolIDbech=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file ${poolName}.node.vkey)     #New method since 1.23.0
+poolIDbech=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file ${poolName}.node.vkey --output-bech32)     #New method since 1.23.0
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 #Save out the POOL-ID also in the xxx.id-bech file
 file_unlock ${poolFile}.pool.id-bech

@@ -111,7 +111,7 @@ kesVkeyBech=$(jq -r .cborHex ${kesVkeyFile} 2> /dev/null | tail -c +5 | ${bech32
 echo -e "\e[0mKES-vKey-File Bech:\e[32m ${kesVkeyBech}\e[0m"
 
 #PoolID from node.vkey file
-poolID=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file "${nodeName}.node.vkey" --output-format bech32 2> /dev/null);
+poolID=$(${cardanocli} ${cliEra} stake-pool id --cold-verification-key-file "${nodeName}.node.vkey" --output-bech32 2> /dev/null);
 echo -e "\e[0mOpcert for Pool-ID:\e[32m ${poolID}\e[0m"
 echo
 

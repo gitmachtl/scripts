@@ -65,7 +65,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 					#check that the node is fully synced, otherwise the query would mabye return a false state
 					if [[ $(get_currentSync) != "synced" ]]; then echo -e "\e[35mError - Node not fully synced or not running, please let your node sync to 100% first !\e[0m\n"; exit 1; fi
 					showProcessAnimation "Query-UTXO: " &
-					utxo=$(${cardanocli} ${cliEra} query utxo --address ${checkAddr} 2> /dev/stdout);
+					utxo=$(${cardanocli} ${cliEra} query utxo --output-text --address ${checkAddr} 2> /dev/stdout);
 					if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${utxo}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 				fi
 				showProcessAnimation "Convert-UTXO: " &
@@ -331,14 +331,14 @@ elif [[ ${typeOfAddr} == ${addrTypeStake} ]]; then  #Staking Address
 			case "${drepDelegationHASH%%-*}" in
 				"keyHash")	drepID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
 						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep:\e[0m";
-					        echo -e "\e[0m   Regular DRep-ID: \e[32m${drepID}\e[0m"
 					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
+					        echo -e "\e[0m    Legacy DRep-ID: \e[32m${drepID}\e[0m"
 						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
 						;;
 				"scriptHash")   drepID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
 						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep-Script:\e[0m";
-					        echo -e "\e[0m   Regular DRep-ID: \e[32m${drepID}\e[0m"
 					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
+					        echo -e "\e[0m    Legacy DRep-ID: \e[32m${drepID}\e[0m"
 						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
 						;;
 				"null")		#not delegated
