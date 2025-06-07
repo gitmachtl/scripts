@@ -252,7 +252,6 @@ showToAddr=${adahandleName:-"${toAddr}.addr"} #shows the adahandle instead of th
 
 stakingAddr=$(cat ${stakeAddr}.addr); check_address "${stakingAddr}"
 
-
 echo -e "\e[0mClaim Staking Rewards from Address\e[32m ${stakeAddr}.addr\e[0m to Address\e[32m ${showToAddr}\e[0m with funds from Address\e[32m ${fromAddr}.addr\e[0m"
 echo
 
@@ -262,9 +261,9 @@ ttl=$(( ${currentTip} + ${defTTL} ))
 
 #Read ProtocolParameters
 case ${workMode} in
-        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters );; #onlinemode
+        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
         "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
-        "offline")      protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+        "offline")      readOfflineFile; protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
 esac
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
@@ -292,7 +291,7 @@ if [[ "${sendFromAddr}" == "${sendToAddr}" ]]; then rxcnt="1"; else rxcnt="2"; e
 				if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
 				;;
 
-		"offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+		"offline")      #Reads the offlinefile into the offlineJSON variable
 				rewardsJSON=$(jq -r ".address.\"${stakingAddr}\".rewardsJSON" <<< ${offlineJSON} 2> /dev/null)
                                 if [[ "${rewardsJSON}" == null ]]; then echo -e "\e[35mAddress not included in the offline transferFile, please include it first online!\e[0m\n"; exit; fi
 				;;
