@@ -20,7 +20,7 @@
 if [ $# -lt 2 ]; then
 cat >&2 <<EOF
 
-Usage:  $(basename $0) <DRep-Name | Committee-Hot-Name | Pool-Name> <GovActionID>
+Usage:  $(basename $0) <DRep-Name | Committee-Hot-Name | Pool-Name> <GovActionID | all>
 
         [Opt: Anchor-URL, starting with "url: ..."], in Online-/Light-Mode the Hash will be calculated
         [Opt: Anchor-HASH, starting with "hash: ..."], to overwrite the Anchor-Hash in Offline-Mode
@@ -34,6 +34,9 @@ Examples:
    $(basename $0) myDRep 4d45bc8c9080542172b2c76caeb93c88d7dca415c3a2c71b508cbfc3785e98a8#0 "url: https://mydomain.com/myvotingthoughts.json"
    -> Generate a Vote-File for the DRep-ID of myDRep (myDRep.drep.*) and the proposal in Action-ID 4d45b...a8#0
    -> Also attaching an Anchor-URL to f.e. describe the voting decision, etc.
+
+   $(basename $0) myDRep all
+   -> Generate a Vote-Files for the DRep-ID of myDRep (myDRep.drep.*) on all unexpired governance actions in one go
 
 EOF
 exit 1;
@@ -100,6 +103,8 @@ if [[ "${govActionID:0:11}" == "gov_action1" ]]; then #parameter is most likely 
 elif [[ "${govActionID}" =~ ^([[:xdigit:]]{64}+#[[:digit:]]{1,})$ ]]; then
 	govActionUTXO=${govActionID:0:64}
 	govActionIdx=$(( ${govActionID:65} + 0 )) #make sure to have single digits if provided like #00 #01 #02...
+elif [[ "${govActionID}" == "all" ]]; then #do the voting on all current gov-actions
+	govActionUTXO=""; govActionIdx="";
 else
 	echo -e "\n\e[35mERROR - Please provide a valid Governance-Action-ID in the format like: \e[0m365042be18639f776520fca54e9cb2df04ab9ecd43bf50078045d8cc6ee491be#0\n"; exit 1;
 fi
@@ -195,7 +200,7 @@ if ${onlineMode}; then
                 showProcessAnimation "Query Anchor-URL content: " &
                 while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
                         error=0
-                        response=$(curl -sL -m 30  --max-filesize 10485760 -X GET -w "---spo-scripts---%{http_code}" "${queryURL}" --output "${tmpAnchorContent}" 2> /dev/null)
+                        response=$(curl -sL -m 10  --max-filesize 10485760 -X GET -w "---spo-scripts---%{http_code}" "${queryURL}" --output "${tmpAnchorContent}" 2> /dev/null)
 			errorcode=$?
                         if [[ ${errorcode} -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
                         errorcnt=$(( ${errorcnt} + 1 ))
@@ -209,22 +214,35 @@ if ${onlineMode}; then
 
                         #Check the responseCode
                         case ${responseCode} in
-                                "200" ) 
+                                "200" )
 					#all good, continue
                                         tmp=$(jq . < "${tmpAnchorContent}" 2> /dev/null) #just a short check that the received content is a valid JSON file
                                         if [ $? -ne 0 ]; then echo -e "\n\e[35mERROR - The content of the Anchor-URL '${anchorURL}'\nis not in valid JSON format!\n\e[0m"; rm "${tmpAnchorContent}"; exit 1; fi
                                         contentHASH=$(b2sum -l 256 "${tmpAnchorContent}" 2> /dev/null | cut -d' ' -f 1)
                                         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-                                        echo -e "\e[0mAnchor-URL(HASH):\e[32m ${anchorURL} (${contentHASH})\e[0m"
-                                        echo
-                                        if [[ ${anchorHASH} != "" ]]; then echo -e "\e[33mProvided Anchor-HASH '${anchorHASH}' will be ignored, continue ...\e[0m\n"; fi
+                                        echo -e "\e[0m Vote-Anchor-URL:\e[32m ${anchorURL}\e[0m"
+                                        if [[ ${anchorHASH} != "" ]]; then echo -e "\n\e[33mProvided Anchor-HASH '${anchorHASH}' will be ignored, continue ...\e[0m\n"; fi
                                         anchorHASH="${contentHASH}" #set the anchorHASH not to the provided one, use the one calculated from the online file
+                                        echo -e "\e[0m   Anchor-Status: ${iconYes}\e[32m HASH set to ${anchorHASH}\e[0m";
+
+					#Now we are checking the Integrity of the Anchor-File and the Author-Signatures
+					signerJSON=$(${cardanosigner} verify --cip100 --data-file "${tmpAnchorContent}" --json-extended 2> /dev/stdout)
+					if [ $? -ne 0 ]; then
+						echo -e "\e[0m     Anchor-Data: ${iconNo}\e[35m ${signerJSON}\e[0m";
+					else
+						errorMsg=$(jq -r .errorMsg <<< ${signerJSON} 2> /dev/null)
+						echo -e "\e[0m     Anchor-Data: ${iconYes}\e[32m JSONLD structure is ok\e[0m";
+						if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m          Notice: ${iconNo} ${errorMsg}\e[0m"; fi
+						authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m       Signature: \(if .valid then $iconYes else $iconNo end) \(.name)\\e[0m"' <<< ${signerJSON} 2> /dev/null)
+						if [[ "${authors}" != "" ]]; then echo -e "${authors}\e[0m"; fi
+					fi
+					echo
                                         rm "${tmpAnchorContent}" #cleanup
                                         ;;
 
-                                "404" ) 
+                                "404" )
 					#file-not-found
-                                        echo -e "\n\e[35mERROR - No content was not found on the given Anchor-URL '${anchorURL}'\nPlease upload it first to this location, thx!\n\e[0m"; exit 1; #exit with a failure
+                                        echo -e "\n\e[35mERROR - No content was found on the given Anchor-URL '${anchorURL}'\nPlease upload it first to this location, thx!\n\e[0m"; exit 1; #exit with a failure
                                         ;;
 
                                 * )     echo -e "\n\e[35mERROR - Query of the Anchor-URL failed!\nHTTP Request File: ${anchorURL}\nHTTP Response Code: ${responseCode}\n\e[0m"; exit 1; #exit with a failure and the http response code
@@ -249,12 +267,8 @@ elif [[ ${anchorURL} != "" && ${anchorHASH} == "" ]]; then echo -e "\n\e[35mERRO
 elif [[ ${anchorURL} == "" && ${anchorHASH} != "" ]]; then echo -e "\n\e[35mERROR - Please also provide an Anchor-URL via the parameter \"url: xxxxx\".\n\e[0m"; exit 1;
 fi
 
-
 #Now lets check about the Action-ID
-echo -e "\e[0mAction-Tx-ID: \e[32m${govActionUTXO}\e[0m"
-echo -e "\e[0mAction-Index: \e[32m${govActionIdx}\e[0m"
-echo
-
+if [[ "${govActionUTXO}" != "" ]]; then echo -e "\e[0mAction-Tx-ID: \e[32m${govActionUTXO}\n\e[0mAction-Index: \e[32m${govActionIdx}\e[0m\n"; fi
 
 #Get state data for the Action-ID. In online mode of course from the node and the chain, in light mode via koios
 case ${workMode} in
@@ -266,6 +280,12 @@ case ${workMode} in
 			actionStateJSON=$(jq -r ".proposals | to_entries[] | .value" 2> /dev/null <<< "${govStateJSON}")
                         if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${actionStateJSON}\e[0m\n"; exit 1; fi;
 
+			#Get currentEpoch for Active-dRep-Power-Filtering
+			currentEpoch=$(get_currentEpoch)
+
+			#Filter out expired Action-IDs only
+			actionStateJSON=$(jq -r ". | select( .expiresAfter >= ${currentEpoch} )" 2> /dev/null <<< "${actionStateJSON}")
+
 			#Filter for a given Action-ID
 			if [[ ${govActionUTXO} != "" && ${govActionIdx} != "" ]]; then
 				actionStateJSON=$(jq -r ". | select(.actionId.txId == \"${govActionUTXO}\" and .actionId.govActionIx == ${govActionIdx})" 2> /dev/null <<< "${actionStateJSON}")
@@ -275,18 +295,14 @@ case ${workMode} in
 				fi
 			fi
 
-			#Get currentEpoch for Active-dRep-Power-Filtering
-			currentEpoch=$(get_currentEpoch)
 
                         #### Voting Power Stuff
                         #Get DRep Stake Distribution for quorum calculation later on
                         #Only calculate the
-#                       dRepStakeDistributionJSON=$(${cardanocli} ${cliEra} query drep-stake-distribution --all-dreps 2> /dev/stdout) #original, this query is wrong because it also gives inactive dreps votingpower
 			dRepPowerDistributionJSON=$(${cardanocli} ${cliEra} query drep-state --all-dreps --include-stake | jq -r "[ .[] | select( .[1].expiry >= ${currentEpoch} ) | [ \"drep-\(.[0] | keys[0])-\(.[0] | to_entries[].value)\", (.[1].stake // 0) ] ]" 2> /dev/stdout) #replicates the 'drep-stake-distribution' output but only with active dreps and without drep-alwaysAbstain and drep-alwaysNoConfidence
                         if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${dRepPowerDistributionJSON}\e[0m\n"; exit 1; fi;
 
                         #Calculate the total dRep stake power (sum of all drep stake distribution entries without the alwaysAbstain and alwaysNoConfidence ones)
-#                       dRepPowerActive=$(jq -r '[del(.[] | select(.[0] == "drep-alwaysAbstain" or .[0] == "drep-alwaysNoConfidence")) | .[][1]] | add' <<< "${dRepStakeDistributionJSON}" 2> /dev/null)
                         dRepPowerActive=$(jq -r "[.[][1]] | add" <<< "${dRepPowerDistributionJSON}" 2> /dev/null) #Sum of all active dRep voting powers, drep-alwaysAbstain and drep-alwaysNoConfidence are excluded
 
                         #Get the alwaysNoConfidence stake power (counts as a no-power in all actions, except the NoConfidence-Action, there it counts to the yes-power)
@@ -321,6 +337,10 @@ case ${workMode} in
 				"number")
 					committeePowerThreshold=$(bc <<< "scale=2; 100.00 * ${committeePowerThreshold}") #scale it to 0.00-100.00%
 					;;
+
+                                "null") #a null threshold symbolizes the state committeeNoConfidence
+                                        committeePowerThreshold=-1
+                                        ;;
 
 				*)      #if any other type, throw an error
 					echo -e "\e[35mERROR - Could not handle committeeThresholdType = ${committeeThresholdType}\e[0m\n"; exit 1
@@ -366,15 +386,19 @@ case ${workMode} in
 				"object")
 					{ read numerator; read denominator; } <<< $(jq -r '.numerator // "-", .denominator // "-"' <<< "${committeeThreshold}")
 					committeePowerThreshold=$(bc <<< "scale=2; 100 * ${numerator} / ${denominator}")
-				;;
+					;;
 
 				"number")
 					committeePowerThreshold=$(bc <<< "scale=2; 100 * ${committeeThreshold}")
-				;;
+					;;
+
+                                "null") #a null threshold symbolizes the state committeeNoConfidence
+                                        committeePowerThreshold=-1
+                                        ;;
 
 				*)      #if any other type, throw an error
 					echo -e "\e[35mERROR - Could not handle committeeThresholdType = ${committeeThresholdType}\e[0m\n"; exit 1
-				;;
+					;;
 			esac
 			;;
 
@@ -565,7 +589,7 @@ do
 	                showProcessAnimation "Query Anchor-URL content: " &
 	                while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do #try a maximum of 5 times to request the information
 	                        error=0
-	                        response=$(curl -sL -m 30 --max-filesize 10485760 -X GET -w "---spo-scripts---%{http_code}" "${queryURL}" --output "${tmpAnchorContent}" 2> /dev/null)
+	                        response=$(curl -sL -m 10 --max-filesize 10485760 -X GET -w "---spo-scripts---%{http_code}" "${queryURL}" --output "${tmpAnchorContent}" 2> /dev/null)
 	                        errorcode=$?;
 	                        if [[ ${errorcode} -ne 0 ]]; then error=1; sleep 1; fi; #if there is an error, wait for a second and repeat
 	                        errorcnt=$(( ${errorcnt} + 1 ))
@@ -576,7 +600,6 @@ do
 	                if [[ ${error} -eq 0 && "${response}" =~ (.*)---spo-scripts---([0-9]*)* ]]; then
 
 	                        responseCode="${BASH_REMATCH[2]}"
-
 
 	                        #Check the responseCode
 	                        case ${responseCode} in
@@ -658,7 +681,7 @@ do
 	#DO A NICE OUTPUT OF THE DIFFERENT CONTENTS & DO THE RIGHT CALCULATIONS FOR THE ACCEPTANCE
 	case "${actionTag}" in
 
-			"InfoAction") 		
+			"InfoAction")
 						#This is just an InfoAction
 						#Show referencing Action-Id if avaiable
 						{ read prevActionUTXO; read prevActionIDX; } <<< $(jq -r '.txId // "-", .govActionIx // "-"' 2> /dev/null <<< ${actionContents})
@@ -668,11 +691,15 @@ do
 
 						dRepAcceptIcon="N/A"; poolAcceptIcon="N/A";
 						totalAccept="N/A";
-						if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+						#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+						if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon="";
+						elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+						else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+						fi
 						;;
 
 
-			"HardForkInitiation") 	
+			"HardForkInitiation")
 						#show the proposed major/minor version to fork to
 						# [
 						#  null,  //or prev action-id
@@ -696,11 +723,16 @@ do
 						fi
 						poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
 						if [[ $(bc <<< "${poolPct} >= ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
-						if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+
+						#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+						if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon=""; totalAccept+="NO";
+						elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+						else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+						fi
 						;;
 
 
-			"ParameterChange") 	
+			"ParameterChange")
 						#show the proposed parameterchanges
 						# [
 						#  {
@@ -774,13 +806,16 @@ do
 						if [[ ${protocolVersionMajor} -ge 10 ]]; then #only do dRep check if we are at least in conway chang-2 phase
 							if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 						fi
-						#committee can vote on all parameters
-						if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 
+						#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+						if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon=""; totalAccept+="NO";
+						elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+						else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+						fi
 						;;
 
 
-			"NewConstitution") 	
+			"NewConstitution")
 						#show the proposed infos/anchor for a new constition
 						# [
 						#  {
@@ -807,11 +842,15 @@ do
 						dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
 						if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 						poolAcceptIcon=""; #pools not allowed to vote on this
-						if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+						#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+						if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon=""; totalAccept+="NO";
+						elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+						else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+						fi
 						;;
 
 
-			"UpdateCommittee") 	
+			"UpdateCommittee")
 						#show the proposed infos for a committeeupdate
 						# [
 						#  null,
@@ -854,7 +893,13 @@ do
 						echo -e "\e[0m"
 
 						#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
-						{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNormal // 0, .poolVotingThresholds.committeeNormal // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+
+						#If we are in committeeNoConfidence mode(thresholdpower=-1), use the committeeNoConfidence parameter set
+						if [[ ${committeePowerThreshold} != "-1" ]]; then
+							{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNormal // 0, .poolVotingThresholds.committeeNormal // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+						else
+							{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNoConfidence // 0, .poolVotingThresholds.committeeNoConfidence // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+						fi
 						dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
 						if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 						poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
@@ -862,7 +907,7 @@ do
 						committeeAcceptIcon=""; #committee not allowed to vote on this
 						;;
 
-			"NoConfidence")		
+			"NoConfidence")
 						#This is just a NoConfidence action
 						#Show referencing Action-Id if avaiable
 						{ read prevActionUTXO; read prevActionIDX; } <<< $(jq -r '.txId // "-", .govActionIx // "-"' 2> /dev/null <<< ${actionContents})
@@ -879,7 +924,7 @@ do
 						committeeAcceptIcon=""; #committee not allowed to vote on this
 						;;
 
-			"TreasuryWithdrawals")	
+			"TreasuryWithdrawals")
 						#show the treasury withdrawals address and amount
 						#[
 						#  [
@@ -927,7 +972,11 @@ do
 						dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
 						if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 						poolAcceptIcon=""; #pools not allowed to vote on this
-						if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+						#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+						if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon=""; totalAccept+="NO";
+						elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+						else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+						fi
 						;;
 
 
@@ -974,6 +1023,10 @@ do
 		*)		totalAcceptIcon="\e[92m✅";;
 	esac
 	printf  "\e[97m%88s\e[90m │   %b \e[0m\n" "Full approval of the proposal" "${totalAcceptIcon}"
+
+	#show an alert if we are in the no confidence mode
+	if [[ ${committeePowerThreshold} == "-1" ]]; then echo -e "\e[35mWe are currently in the 'No Confidence' state !\e[0m\n"; fi
+
 	echo
 
 	#If there is a voterHash, get the voting answer for it
@@ -987,7 +1040,6 @@ do
 		esac
 	fi
 
-done
 
 #Check if the used voterType is allowed to do a vote on the actionTag
 case "${voterType}_${actionTag}" in
@@ -1011,7 +1063,7 @@ esac
 #Get the voting answer from the user
 while true; do
 	# Ask the question (not using "read -p" as it uses stderr not stdout)
-        echo -ne "\e[0mPlease vote on that Action-ID [\e[32mYes\e[0m/\e[91mNo\e[0m/\e[33mAbstain\e[0m/CANCEL] ? "
+        echo -ne "\e[0mPlease vote on that Action-ID [\e[32mYes\e[0m/\e[91mNo\e[0m/\e[33mAbstain\e[0m/\e[90mSkip\e[0m/CANCEL] ? "
 
         # Read the answer (use /dev/tty in case stdin is redirected from somewhere else)
         read reply </dev/tty
@@ -1035,42 +1087,53 @@ while true; do
 			echo -e "\nYour voting decision is set to: \e[33mABSTAIN\e[0m";
 			break ;;
 
-		C*|c*) 	echo -e "\e[0m\n"; exit;;
+		S*|s*)	voteParam=""; break ;; #just skip that vote
+
+		C*|c*) 	echo -e "\e[0m\n"; exit;; #exit the script
         esac
+
 done
 
 echo -e "\e[0m"
 
-#Output filename for the Voting-Certificate
-datestr=$(date +"%y%m%d%H%M%S")
-case ${voterType} in
 
-	"DRep")
-		votingFile="${voterName}_${datestr}.drep.vote"
-		vkeyParam="--drep-verification-key-file";;
+#Generate vote file if a decision was choosen, skip it if not
+if [[ "${voteParam}" != "" ]]; then
 
-	"Committee-Hot")
-		votingFile="${voterName}_${datestr}.cc-hot.vote"
-		vkeyParam="--cc-hot-verification-key-file";;
+	#Output filename for the Voting-Certificate
+	datestr=$(date +"%y%m%d%H%M%S")
+	case ${voterType} in
 
-	"Pool")
-		votingFile="${voterName}_${datestr}.pool.vote"
-		vkeyParam="--cold-verification-key-file";;
+		"DRep")
+			votingFile="${voterName}_${datestr}.drep.vote"
+			vkeyParam="--drep-verification-key-file";;
 
-esac
+		"Committee-Hot")
+			votingFile="${voterName}_${datestr}.cc-hot.vote"
+			vkeyParam="--cc-hot-verification-key-file";;
 
-#Generate the vote file depending on the choice made above
-voteJSON=$(${cardanocli} ${cliEra} governance vote create ${voteParam} --governance-action-tx-id "${govActionUTXO}" --governance-action-index "${govActionIdx}" ${vkeyParam} "${voterVkeyFile}" ${anchorPARAM} --out-file /dev/stdout 2> /dev/stdout)
-checkError "$?"; if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${voteJSON}\e[0m\n"; exit 1; fi
-echo "${voteJSON}" > "${votingFile}"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		"Pool")
+			votingFile="${voterName}_${datestr}.pool.vote"
+			vkeyParam="--cold-verification-key-file";;
 
-echo -e "\e[0mCreated the Vote-Certificate file: \e[32m${votingFile}\e[90m"
-cat "${votingFile}"
-echo -e "\e[0m"
+	esac
 
-echo
-echo -e "\e[33mIf you wanna submit the Vote-Certificate now, please run the script 24b like:"
-echo -e "\"./24b_regVote.sh ${voterName} myWallet ${votingFile}\"\e[0m"
-echo
+	#Generate the vote file depending on the choice made above
+	voteJSON=$(${cardanocli} ${cliEra} governance vote create ${voteParam} --governance-action-tx-id "${actionUTXO}" --governance-action-index "${actionIdx}" ${vkeyParam} "${voterVkeyFile}" ${anchorPARAM} --out-file /dev/stdout 2> /dev/stdout)
+	checkError "$?"; if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${voteJSON}\e[0m\n"; exit 1; fi
+	echo "${voteJSON}" > "${votingFile}"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+	echo -e "\e[0mCreated the Vote-Certificate file: \e[32m${votingFile}\e[90m"
+	cat "${votingFile}"
+	echo -e "\e[0m"
+
+	echo
+	echo -e "\e[33mIf you wanna submit the Vote-Certificate now, please run the script 24b like:"
+	echo -e "\"./24b_regVote.sh ${voterName} myWallet ${votingFile}\"\e[0m"
+	echo
+
+fi
+
+done #every govaction entry
 
 echo -e "\e[0m\n"
