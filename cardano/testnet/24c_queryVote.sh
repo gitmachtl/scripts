@@ -338,6 +338,9 @@ case ${workMode} in
 			#Get currentEpoch for Active-dRep-Power-Filtering
 			currentEpoch=$(get_currentEpoch)
 
+			#Get the current protocolParameters for the dRep and pool voting thresholds
+                        protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
+
                         #### Voting Power Stuff
                         #Get DRep Stake Distribution for quorum calculation later on
                         #Only calculate the
@@ -382,6 +385,11 @@ case ${workMode} in
 					committeePowerThreshold=$(bc <<< "scale=2; 100.00 * ${committeePowerThreshold}") #scale it to 0.00-100.00%
 					;;
 
+
+				"null") #a null threshold symbolizes the state committeeNoConfidence
+					committeePowerThreshold=-1
+					;;
+
 				*) 	#if any other type, throw an error
 					echo -e "\e[35mERROR - Could not handle committeeThresholdType = ${committeeThresholdType}\e[0m\n"; exit 1
 					;;
@@ -390,8 +398,6 @@ case ${workMode} in
 			#Generate the JSON of all committeeHotHashes and there names, depending on the committeeColdHashes
 			ccMemberHotHashNamesJSON=$(jq -r "[ .[] | { \"\(.value.hotCredsAuthStatus.contents | keys[0])-\(.value.hotCredsAuthStatus.contents | flatten[0])\": (${ccMemberColdHashNames}[.key]) } ] | reduce .[] as \$o ({}; . * \$o)" <<< ${committeeStateJSON} 2> /dev/null)
 
-			#Get the current protocolParameters for the dRep and pool voting thresholds
-                        protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
                         ;;
 
 
@@ -437,6 +443,10 @@ case ${workMode} in
 
 				"number")
 					committeePowerThreshold=$(bc <<< "scale=2; 100 * ${committeeThreshold}")
+					;;
+
+				"null") #a null threshold symbolizes the state committeeNoConfidence
+					committeePowerThreshold=-1
 					;;
 
 				*) 	#if any other type, throw an error
@@ -645,6 +655,7 @@ do
 		totalAccept=""; totalAcceptIcon="";
 		dRepAcceptIcon=""; poolAcceptIcon=""; committeeAcceptIcon="";
 		dRepPowerThreshold="N/A"; poolPowerThreshold="N/A"; #N/A -> not available
+		govActionTitle="";
 
 		echo
 		echo -e "\e[36m--- Entry $((${tmpCnt}+1)) of ${actionStateEntryCnt} --- Action-ID ${actionUTXO}#${actionIdx}\e[0m"
@@ -715,6 +726,7 @@ do
 										else
 										errorMsg=$(jq -r .errorMsg <<< ${signerJSON} 2> /dev/null)
 										echo -e "\e[0m     Anchor-Data: ${iconYes}\e[32m JSONLD structure is ok\e[0m";
+										govActionTitle=$(jq -r ".body.title // \"\"" ${tmpAnchorContent} 2> /dev/null)
 										if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m          Notice: ${iconNo} ${errorMsg}\e[0m"; fi
 										authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m       Signature: \(if .valid then $iconYes else $iconNo end) \(.name)\\e[0m"' <<< ${signerJSON} 2> /dev/null)
 										if [[ "${authors}" != "" ]]; then echo -e "${authors}\e[0m"; fi
@@ -766,6 +778,11 @@ do
                                         ;;
                 esac
 
+		#Show governance action title if available
+		if [[ "${govActionTitle}" != "" ]]; then
+			echo -e "\e[0mAction-Title: \e[36m${govActionTitle}\e[0m\n"
+		fi
+
 		#DO A NICE OUTPUT OF THE DIFFERENT CONTENTS & DO THE RIGHT CALCULATIONS FOR THE ACCEPTANCE
 		case "${actionTag}" in
 
@@ -778,7 +795,12 @@ do
 
 							dRepAcceptIcon="N/A"; poolAcceptIcon="N/A";
 							totalAccept="N/A";
-							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+
+							#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+							if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon="";
+							elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+							else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+							fi
 							;;
 
 
@@ -805,7 +827,12 @@ do
 							fi
 							poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
 							if [[ $(bc <<< "${poolPct} >= ${poolPowerThreshold}") -eq 1 ]]; then poolAcceptIcon="\e[92m✅"; else poolAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
-							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+
+							#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+							if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon=""; totalAccept+="NO";
+							elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+							else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+							fi
 							;;
 
 
@@ -882,9 +909,12 @@ do
 							if [[ ${protocolVersionMajor} -ge 10 ]]; then #only do dRep check if we are at least in conway chang-2 phase
 								if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							fi
-							#committee can vote on all parameters
-							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 
+							#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+							if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon=""; totalAccept+="NO";
+							elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+							else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+							fi
 							;;
 
 
@@ -908,13 +938,16 @@ do
 							echo -e "\e[0mSet new\e[32m Constitution-Hash \e[0m► \e[94m${anchorHash}\e[0m"
 							echo -e "\e[0mSet new\e[32m Guardrails-Script-Hash \e[0m► \e[94m${scriptHash}\e[0m"
 							echo -e "\e[0m"
-
 							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
 							{ read dRepPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.updateToConstitution // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
 							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
 							if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							poolAcceptIcon=""; #pools not allowed to vote on this
-							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+							if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon=""; totalAccept+="NO";
+							elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+							else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+							fi
 							;;
 
 
@@ -960,7 +993,13 @@ do
 							echo -e "\e[0m"
 
 							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
-							{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNormal // 0, .poolVotingThresholds.committeeNormal // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+
+							#If we are in committeeNoConfidence mode(thresholdpower=-1), use the committeeNoConfidence parameter set
+							if [[ ${committeePowerThreshold} != "-1" ]]; then
+								{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNormal // 0, .poolVotingThresholds.committeeNormal // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+							else
+								{ read dRepPowerThreshold; read poolPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.committeeNoConfidence // 0, .poolVotingThresholds.committeeNoConfidence // 0' <<< "${protocolParametersJSON}" 2> /dev/null)
+							fi
 							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
 							if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							poolPowerThreshold=$(bc <<< "scale=2; 100.00 * ${poolPowerThreshold}")
@@ -1031,9 +1070,12 @@ do
 							dRepPowerThreshold=$(bc <<< "scale=2; 100.00 * ${dRepPowerThreshold}")
 							if [[ $(bc <<< "${dRepPct} >= ${dRepPowerThreshold}") -eq 1 ]]; then dRepAcceptIcon="\e[92m✅"; else dRepAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
 							poolAcceptIcon=""; #pools not allowed to vote on this
-							if [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅"; else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO"; fi
+							#If we are in committeeNoConfidence mode(thresholdpower=-1), remove the committeeAcceptIcon
+							if [[ ${committeePowerThreshold} == "-1" ]]; then committeeAcceptIcon=""; totalAccept+="NO";
+							elif [[ $(bc <<< "${committeePct} >= ${committeePowerThreshold}") -eq 1 ]]; then committeeAcceptIcon="\e[92m✅";
+							else committeeAcceptIcon="\e[91m❌"; totalAccept+="NO";
+							fi
 							;;
-
 
 
 		esac
@@ -1089,8 +1131,11 @@ do
 			*)		totalAcceptIcon="\e[92m✅";;
 		esac
 		printf  "\e[97m%88s\e[90m │   %b \e[0m\n" "Full approval of the proposal" "${totalAcceptIcon}"
-		echo
 
+		#show an alert if we are in the no confidence mode
+		if [[ ${committeePowerThreshold} == "-1" ]]; then echo -e "\e[35mWe are currently in the 'No Confidence' state !\e[0m\n"; fi
+
+		echo
 
 
 done

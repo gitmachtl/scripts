@@ -557,6 +557,7 @@ do
 	totalAccept=""; totalAcceptIcon="";
 	dRepAcceptIcon=""; poolAcceptIcon=""; committeeAcceptIcon="";
 	dRepPowerThreshold="N/A"; poolPowerThreshold="N/A"; #N/A -> not available
+	govActionTitle="";
 
 	echo
 	echo -e "\e[36m--- Entry $((${tmpCnt}+1)) of ${actionStateEntryCnt} --- Action-ID ${actionUTXO}#${actionIdx}\e[0m"
@@ -626,6 +627,7 @@ do
 	                                                                else
 	                                                                errorMsg=$(jq -r .errorMsg <<< ${signerJSON} 2> /dev/null)
 	                                                                echo -e "\e[0m     Anchor-Data: ${iconYes}\e[32m JSONLD structure is ok\e[0m";
+									govActionTitle=$(jq -r ".body.title // \"\"" ${tmpAnchorContent} 2> /dev/null)
 	                                                                if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m          Notice: ${iconNo} ${errorMsg}\e[0m"; fi
 					                                authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m       Signature: \(if .valid then $iconYes else $iconNo end) \(.name)\\e[0m"' <<< ${signerJSON} 2> /dev/null)
 	                                                                if [[ "${authors}" != "" ]]; then echo -e "${authors}\e[0m"; fi
@@ -677,6 +679,10 @@ do
 				;;
 	esac
 
+	#Show governance action title if available
+	if [[ "${govActionTitle}" != "" ]]; then
+		echo -e "\e[0mAction-Title: \e[36m${govActionTitle}\e[0m\n"
+	fi
 
 	#DO A NICE OUTPUT OF THE DIFFERENT CONTENTS & DO THE RIGHT CALCULATIONS FOR THE ACCEPTANCE
 	case "${actionTag}" in
@@ -1120,6 +1126,10 @@ if [[ "${voteParam}" != "" ]]; then
 
 	#Generate the vote file depending on the choice made above
 	voteJSON=$(${cardanocli} ${cliEra} governance vote create ${voteParam} --governance-action-tx-id "${actionUTXO}" --governance-action-index "${actionIdx}" ${vkeyParam} "${voterVkeyFile}" ${anchorPARAM} --out-file /dev/stdout 2> /dev/stdout)
+	checkError "$?"; if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${voteJSON}\e[0m\n"; exit 1; fi
+
+	#Inject the GovActionTitle into the voting file
+	voteJSON=$(jq -r ". += { \"description\": \"${govActionTitle//[^[:alnum:][:space:]-_\/\!§$%&()?<>@|.,:;=*\']}\" }" <<< ${voteJSON} 2> /dev/null)
 	checkError "$?"; if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${voteJSON}\e[0m\n"; exit 1; fi
 	echo "${voteJSON}" > "${votingFile}"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
