@@ -551,18 +551,7 @@ if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" 
         #Witness and Assemble the TxFile
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-
-#only one witness (cardano-hw-cli < 1.14.0) and for pre conway era
-#        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txWitnessFile} 2> /dev/stdout)
-
-#txBodyFile="./tmptest.json"
-
-
-
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txWitnessFile} --out-file ${txWitnessFile2} 2> /dev/stdout)
-
-#echo ${tmp}; exit
-
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
 

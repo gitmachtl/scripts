@@ -344,12 +344,10 @@ case ${workMode} in
                         #### Voting Power Stuff
                         #Get DRep Stake Distribution for quorum calculation later on
                         #Only calculate the
-#                       dRepStakeDistributionJSON=$(${cardanocli} ${cliEra} query drep-stake-distribution --all-dreps 2> /dev/stdout) #original, this query is wrong because it also gives inactive dreps votingpower
 			dRepPowerDistributionJSON=$(${cardanocli} ${cliEra} query drep-state --all-dreps --include-stake | jq -r "[ .[] | select( .[1].expiry >= ${currentEpoch} ) | [ \"drep-\(.[0] | keys[0])-\(.[0] | to_entries[].value)\", (.[1].stake // 0) ] ]" 2> /dev/stdout) #replicates the 'drep-stake-distribution' output but only with active dreps and without drep-alwaysAbstain and drep-alwaysNoConfidence
                         if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${dRepPowerDistributionJSON}\e[0m\n"; exit 1; fi;
 
                         #Calculate the total dRep stake power (sum of all drep stake distribution entries without the alwaysAbstain and alwaysNoConfidence ones)
-#                       dRepPowerActive=$(jq -r '[del(.[] | select(.[0] == "drep-alwaysAbstain" or .[0] == "drep-alwaysNoConfidence")) | .[][1]] | add' <<< "${dRepStakeDistributionJSON}" 2> /dev/null)
                         dRepPowerActive=$(jq -r "[.[][1]] | add" <<< "${dRepPowerDistributionJSON}" 2> /dev/null) #Sum of all active dRep voting powers, drep-alwaysAbstain and drep-alwaysNoConfidence are excluded
 
                         #Get the alwaysNoConfidence stake power (counts as a no-power in all actions, except the NoConfidence-Action, there it counts to the yes-power)
@@ -726,9 +724,9 @@ do
 										else
 										errorMsg=$(jq -r .errorMsg <<< ${signerJSON} 2> /dev/null)
 										echo -e "\e[0m     Anchor-Data: ${iconYes}\e[32m JSONLD structure is ok\e[0m";
-										govActionTitle=$(jq -r ".body.title // \"\"" ${tmpAnchorContent} 2> /dev/null)
+										{ read govActionTitle; read proofDepositReturnAddr; read proofWithdrawalAddr; } <<< $(jq -r '.body.title // "-", .body."on-chain".depositReturnAddress // "-", .body."on-chain".withdrawals[0].withdrawalAddress // "-"' ${tmpAnchorContent} 2> /dev/null)
 										if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m          Notice: ${iconNo} ${errorMsg}\e[0m"; fi
-										authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m       Signature: \(if .valid then $iconYes else $iconNo end) \(.name)\\e[0m"' <<< ${signerJSON} 2> /dev/null)
+										authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m       Signature: \(if .valid then $iconYes else $iconNo end) \(.name) (PubKey \(.publicKey))\\e[0m"' <<< ${signerJSON} 2> /dev/null)
 										if [[ "${authors}" != "" ]]; then echo -e "${authors}\e[0m"; fi
 									fi
 								fi
@@ -778,8 +776,17 @@ do
                                         ;;
                 esac
 
+		#Show an alert if there is a special proof for the deposit return address and it does not match up with the one in the action
+		if [[ "${proofDepositReturnAddr}" != "-" ]]; then
+			if [[ "${proofDepositReturnAddr}" == "${actionDepositAddr}" ]]; then
+				echo -e "\e[0m${iconYes} The Deposit Return-StakeAddr in the govAction is the same as in the metadata proof!\e[0m\n";
+			else
+				echo -e "\e[0m${iconNo} The Deposit Return-StakeAddr in the govAction is not the same as in the metadata proof!\e[0m\n";
+			fi
+		fi
+
 		#Show governance action title if available
-		if [[ "${govActionTitle}" != "" ]]; then
+		if [[ "${govActionTitle}" != "-" ]]; then
 			echo -e "\e[0mAction-Title: \e[36m${govActionTitle}\e[0m\n"
 		fi
 
@@ -1038,32 +1045,47 @@ do
 							#  ],
 							#  null
 							#]
-							{ read withdrawalsAmount; read withdrawalsKeyType; read withdrawalsHash; read withdrawalsNetwork; } <<< $( jq -r '.[0][0][1] // "0", (.[0][0][0].credential|keys[0]) // "-", (.[0][0][0].credential|flatten[0]) // "-", .[0][0][0].network // "-"' 2> /dev/null <<< ${actionContents})
+							{ read withdrawalEntries; read withdrawalCounts; } <<< $(jq -r '"\(.[0])" // "[]", (.[0]|length) // 0' <<< ${actionContents} 2> /dev/null)
 							echo -e "\e[0mAction-Content:\e[36m Withdrawal funds from the treasury\n\e[0m"
 
-					                case "${withdrawalsNetwork,,}${withdrawalsKeyType,,}" in
+							#Show all found entries
+							for (( tmpCnt3=0; tmpCnt3<${withdrawalCounts}; tmpCnt3++ ))
+							do
+								{ read withdrawalsAmount; read withdrawalsKeyType; read withdrawalsHash; read withdrawalsNetwork; } <<< $( jq -r ".[${tmpCnt3}][1] // 0, (.[${tmpCnt3}][0].credential|keys[0]) // null, (.[${tmpCnt3}][0].credential|flatten[0]) // null, .[${tmpCnt3}][0].network // null" 2> /dev/null <<< ${withdrawalEntries})
+								case "${withdrawalsNetwork,,}${withdrawalsKeyType,,}" in
 
-					                        *"scripthash")	echo -e "\e[0mWithdrawal to\e[32m ScriptHash \e[0m► \e[94m${withdrawalsHash}\e[0m"
-					                                        ;;
-
-					                        "mainnet"*)	withdrawalsAddr=$(${bech32_bin} "stake" <<< "e1${withdrawalsHash}" 2> /dev/null);
-					                                        if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - Could not get Withdrawals Stake-Address from KeyHash '${withdrawalsHash}' !\n\e[0m"; exit 1; fi
-										echo -e "\e[0mWithdrawal to\e[32m StakeAddr \e[0m► \e[94m${withdrawalsAddr}\e[0m"
-					                                        ;;
-
-					                        "testnet"*)	withdrawalsAddr=$(${bech32_bin} "stake_test" <<< "e0${withdrawalsHash}" 2> /dev/null);
-					                                        if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - Could not get Withdrawals Stake-Address from KeyHash '${withdrawalsHash}' !\n\e[0m"; exit 1; fi
-										echo -e "\e[0mWithdrawal to\e[32m StakeAddr \e[0m► \e[94m${withdrawalsAddr}\e[0m"
-					                                        ;;
-
-								"")		echo -e "\e[0mWithdrawal \e[32mdirectly\e[0m to the \e[94mDeposit-Return-Address\n\e[0m"
+								*"scripthash")  echo -e "\e[0mWithdrawal to\e[32m ScriptHash \e[0m► \e[94m${withdrawalsHash}\e[0m"
 										;;
 
-					                        *)              echo -e "\n\e[35mERROR - Unknown network type ${withdrawalsNetwork} for the Withdrawal KeyHash !\n\e[0m"; exit 1;
-					                                        ;;
-					                esac
-			                                echo -e "\e[0mWithdrawal the\e[32m Amount \e[0m► \e[94m$(convertToADA ${withdrawalsAmount}) ADA / ${withdrawalsAmount} lovelaces\e[0m"
-							echo -e "\e[0m"
+								"mainnet"*)     withdrawalsAddr=$(${bech32_bin} "stake" <<< "e1${withdrawalsHash}" 2> /dev/null);
+										if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - Could not get Withdrawals Stake-Address from KeyHash '${withdrawalsHash}' !\n\e[0m"; exit 1; fi
+										echo -e "\e[0mWithdrawal to\e[32m StakeAddr \e[0m► \e[94m${withdrawalsAddr}\e[0m"
+										;;
+
+								"testnet"*)     withdrawalsAddr=$(${bech32_bin} "stake_test" <<< "e0${withdrawalsHash}" 2> /dev/null);
+										if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - Could not get Withdrawals Stake-Address from KeyHash '${withdrawalsHash}' !\n\e[0m"; exit 1; fi
+										echo -e "\e[0mWithdrawal to\e[32m StakeAddr \e[0m► \e[94m${withdrawalsAddr}\e[0m"
+										;;
+
+								"")             echo -e "\e[0mWithdrawal \e[32mdirectly\e[0m to the \e[94mDeposit-Return-Address\n\e[0m"
+										withdrawalsAddr="${actionDepositAddr}"
+										;;
+
+								*)              echo -e "\n\e[35mERROR - Unknown network type ${withdrawalsNetwork} for the Withdrawal KeyHash !\n\e[0m"; exit 1;
+										;;
+								esac
+								echo -e "\e[0mWithdrawal the\e[32m Amount \e[0m► \e[94m$(convertToADA ${withdrawalsAmount}) ADA / ${withdrawalsAmount} lovelaces\e[0m"
+								echo -e "\e[0m"
+							done
+
+							#Show an alert if there is a special proof for the withdrawal address and it does not match up with the one in the action
+							if [[ "${proofWithdrawalAddr}" != "-" ]]; then
+								if [[ "${proofWithdrawalAddr}" == "${withdrawalsAddr}" ]]; then
+									echo -e "\e[0m${iconYes} The Withdrawal StakeAddr in the govAction is the same as in the metadata proof!\e[0m\n";
+								else
+									echo -e "\e[0m${iconNo} The Withdrawal StakeAddr in the govAction is not the same as in the metadata proof!\e[0m\n";
+								fi
+							fi
 
 							#Calculate acceptance: Get the right threshold, make it a nice percentage number, check if threshold is reached
 							{ read dRepPowerThreshold; } <<< $(jq -r '.dRepVotingThresholds.treasuryWithdrawal // 0' <<< "${protocolParametersJSON}" 2> /dev/null)

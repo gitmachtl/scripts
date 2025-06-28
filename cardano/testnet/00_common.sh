@@ -334,7 +334,7 @@ minCardanoSignerVersion="1.24.3"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
-defEra="" #Era for non era related cardano-cli commands
+defEra="latest" #Era for non era related cardano-cli commands
 defTTL=100000 #Default seconds for transactions to be valid
 addrTypePayment="payment"
 addrTypeStake="stake"
@@ -1273,7 +1273,6 @@ IFS='+' read -ra asset_entry <<< "${2}" #split the tx-out string into address, l
 #9+10=conway, 7+8=babbage, 5+6=alonzo, 4=mary, 3=allegra, 2=shelley, 0+1=byron
 local protocolVersionMajor=$(jq -r ".protocolVersion.major | select (.!=null)" <<< ${protocolParam})
 
-
 ### switch the method of the minOutUTXO calculation depending on the current era, starting with protocolVersionMajor>=7 (babbage)
 if [[ ${protocolVersionMajor} -ge 7 ]]; then #7+8=Babbage, 9+10=Conway ..., new since babbage: CIP-0055 -> minOutUTXO depends on the cbor bytes length
 
@@ -1422,6 +1421,10 @@ fi
 
 #preload it with the minUTXOValue from the parameters, will be overwritten at the end if costs are higher
 local minOutUTXO=${minUTXOValue}
+
+
+
+
 
 if [[ ${#asset_entry[@]} -gt 2 ]]; then #contains assets, do calculations. otherwise leave it at the default value
         local idx=2
@@ -1722,19 +1725,24 @@ queryLight_committeeState() { #for filtering, ${1} = committeeHASH
 		committeeHashArray=$(jq -r "[ .[0].members[] | select( .cc_cold_hex == \"${committeeHASH}\" or .cc_hot_hex == \"${committeeHASH}\") ]" 2> /dev/null <<< "${jsonJSON}");
 		else
 		committeeHashArray=$(jq -r "[ .[0].members[] ]" 2> /dev/null <<< "${jsonJSON}");
-	 fi
+	fi
 
 	#Get the quorum values
 	local quorum_numerator; local quorum_denominator; local quorum;
 	{ read quorum_numerator; read quorum_denominator; } <<< $(jq -r ".[0].quorum_numerator // \"null\", .[0].quorum_denominator // \"null\"" <<< "${jsonJSON}" 2> /dev/null)
-	if [[ "${quorum_numerator}" == "null" || "${quorum_denominator}" == "null" ]]; then echo -e "Query via Koios-API (${koiosAPI}) failed, missin quorum parameters."; exit 1; fi;
-	quorum=$(bc <<< "scale=2; ${quorum_numerator}/${quorum_denominator}");
+
+	#Check if we are in normal state or in NoConfidence state
+	if [[ "${quorum_numerator}" == "null" || "${quorum_denominator}" == "null" ]]; then
+		quorum=null; #We are in the NoConfidence state
+	else
+		quorum=$(bc <<< "scale=2; ${quorum_numerator}/${quorum_denominator}"); #We are in a normal state, convert the numerator/denominator into a decimal number
+	fi
 
 	#Generate the same output like the cli does. First step, generate the core structure. This also converts the quorum .xx value to 0.xx
-	jsonRet=$(jq -r <<< "{ \"epoch\": $(get_currentEpoch), \"threshold\": ${quorum} }")
+	jsonRet=$(jq -r <<< "{ \"epoch\": $(get_currentEpoch), \"threshold\": ${quorum}, \"committee\": {} }")
 
 	#convert all committee hash entries to the correct format depending on key/script hashes
-	committeeEntryCnt=$(jq -r "length" <<< ${committeeHashArray})
+	committeeEntryCnt=$(( $(jq -r "length" 2> /dev/null <<< ${committeeHashArray}) + 0 ))
 	for (( tmpCnt=0; tmpCnt<${committeeEntryCnt}; tmpCnt++ ))
 	do
 
