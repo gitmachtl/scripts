@@ -909,7 +909,8 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
 				echo -e "\e[0mYour Action-ID(s):\n"
 				for (( tmpCnt=0; tmpCnt<${actionfileCounter}; tmpCnt++ ))
 				do
-					echo -e "\e\t\e[32m${txID}#${tmpCnt}\e[0m"
+					echo -e "\t\e[0mCIP129: \e[32m$(convert_actionUTXO2Bech ${txID}#${tmpCnt})\e[0m"
+					echo -e "\t\e[0mLegacy: \e[32m${txID}#${tmpCnt}\e[0m"
 				done
 				echo
 
@@ -926,7 +927,8 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
 				echo -e "\e[0mYour Action-ID(s):\n"
 				for (( tmpCnt=0; tmpCnt<${actionfileCounter}; tmpCnt++ ))
 				do
-					echo -e "\e\t\e[32m${txID}#${tmpCnt}\e[0m"
+					echo -e "\t\e[0mCIP129: \e[32m$(convert_actionUTXO2Bech ${txID}#${tmpCnt})\e[0m"
+					echo -e "\t\e[0mLegacy: \e[32m${txID}#${tmpCnt}\e[0m"
 				done
 				echo
 
@@ -943,7 +945,8 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
 				echo -e "\e[0mYour Action-ID(s) will be:\n"
 				for (( tmpCnt=0; tmpCnt<${actionfileCounter}; tmpCnt++ ))
 				do
-					echo -e "\e\t\e[32m${txID}#${tmpCnt}\e[0m"
+					echo -e "\t\e[0mCIP129: \e[32m$(convert_actionUTXO2Bech ${txID}#${tmpCnt})\e[0m"
+					echo -e "\t\e[0mLegacy: \e[32m${txID}#${tmpCnt}\e[0m"
 				done
 				echo
 

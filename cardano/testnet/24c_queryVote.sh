@@ -724,7 +724,7 @@ do
 										else
 										errorMsg=$(jq -r .errorMsg <<< ${signerJSON} 2> /dev/null)
 										echo -e "\e[0m     Anchor-Data: ${iconYes}\e[32m JSONLD structure is ok\e[0m";
-										{ read govActionTitle; read proofDepositReturnAddr; read proofWithdrawalAddr; } <<< $(jq -r '.body.title // "-", .body."on-chain".depositReturnAddress // "-", .body."on-chain".withdrawals[0].withdrawalAddress // "-"' ${tmpAnchorContent} 2> /dev/null)
+										{ read govActionTitle; read proofDepositReturnAddr; read proofWithdrawalAddr; } <<< $(jq -r '.body.title // "-", .body.onChain.depositReturnAddress // "-", .body.onChain.withdrawals[0].withdrawalAddress // "-"' ${tmpAnchorContent} 2> /dev/null)
 										if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m          Notice: ${iconNo} ${errorMsg}\e[0m"; fi
 										authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m       Signature: \(if .valid then $iconYes else $iconNo end) \(.name) (PubKey \(.publicKey))\\e[0m"' <<< ${signerJSON} 2> /dev/null)
 										if [[ "${authors}" != "" ]]; then echo -e "${authors}\e[0m"; fi
