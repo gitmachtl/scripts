@@ -201,7 +201,8 @@ case "${network,,}" in
 			"scriptHash-ce8b37a72b178a37bbd3236daa7b2c158c9d3604e7aa667e6c6004b7": "Emurgo",
 			"scriptHash-df0e83bde65416dade5b1f97e7f115cc1ff999550ad968850783fe50": "IOG",
 			"scriptHash-e8165b3328027ee0d74b1f07298cb092fd99aa7697a1436f5997f625": "CJC",
-			"scriptHash-f0dc2c00d92a45521267be2d5de1c485f6f9d14466d7e16062897cf7": "ICC"
+			"scriptHash-f0dc2c00d92a45521267be2d5de1c485f6f9d14466d7e16062897cf7": "ICC",
+			"scriptHash-1980dbf1ad624b0cb5410359b5ab14d008561994a6c2b6c53fabec00": "TV"
 		}'
  		;;
 

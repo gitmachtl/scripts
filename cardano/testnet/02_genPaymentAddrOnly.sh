@@ -29,8 +29,8 @@ $(basename $0) owner hw               ... generates a PaymentOnly Address by usi
 $(basename $0) owner hwmulti          ... generates a PaymentOnly Address by using a Ledger/Trezor HW-Wallet with multisig path 1854H/1815H/<Acc>/0/<Idx>
 
 Optional with Hardware-Account-Numbers:
-$(basename $0) owner hw 1    ... generates a PaymentOnly Address  by using a Leder/Trezor HW-Wallet and SubAccount #1 (Default=0)
-$(basename $0) owner hw 5 1  ... generates a PaymentOnly Address  by using a Leder/Trezor HW-Wallet, SubAccount #5, Index #1
+$(basename $0) owner hw 1    ... generates a PaymentOnly Address  by using a Ledger/Trezor HW-Wallet and SubAccount #1 (Default=0)
+$(basename $0) owner hw 5 1  ... generates a PaymentOnly Address  by using a Ledger/Trezor HW-Wallet, SubAccount #5, Index #1
 
 EOF
 exit 1;
