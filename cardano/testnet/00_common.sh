@@ -331,7 +331,7 @@ minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.4"}  	#minimum
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minKeystoneCardanoAppVersion="1.7.7"  	#minimum version for the firmware on the Keystone HW-Wallet
 minHardwareCliVersion="1.18.2" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.24.3"	#minimum version for the cardano-signer binary
+minCardanoSignerVersion="1.27.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
