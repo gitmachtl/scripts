@@ -307,7 +307,8 @@ case ${workMode} in
 
                         #Get the alwaysNoConfidence stake power (counts as a no-power in all actions, except the NoConfidence-Action, there it counts to the yes-power)
                         dRepStakeDistributionJSON=$(${cardanocli} ${cliEra} query drep-stake-distribution --all-dreps 2> /dev/stdout) #only used for the dRepPowerAlwaysNoConfidence calculation
-                        dRepPowerAlwaysNoConfidence=$(jq -r '(.[] | select(.[0] == "drep-alwaysNoConfidence") | .[1]) // 0' <<< "${dRepStakeDistributionJSON}" 2> /dev/null)
+                        #dRepPowerAlwaysNoConfidence=$(jq -r '(.[] | select(.[0] == "drep-alwaysNoConfidence") | .[1]) // 0' <<< "${dRepStakeDistributionJSON}" 2> /dev/null)
+			dRepPowerAlwaysNoConfidence=$(jq -r '."drep-alwaysNoConfidence" // 0' <<< "${dRepStakeDistributionJSON}" 2> /dev/null) #changed with cli 10.11.x.x or so, was an array before
 
 			#Get new Pool Stake Distribution including default delgation, for quorum calculation later on - available with this command since cli 10.2.0.0
 			showProcessAnimation "Query Stakepool-Distribution Info: " &

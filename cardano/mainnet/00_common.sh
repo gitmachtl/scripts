@@ -197,15 +197,19 @@ case "${network,,}" in
  		_ccMemberColdHashNames='{
 			"scriptHash-349e55f83e9af24813e6cb368df6a80d38951b2a334dfcdf26815558": "CAC",
 			"scriptHash-84aebcfd3e00d0f87af918fc4b5e00135f407e379893df7e7d392c6a": "ECC",
-			"scriptHash-b6012034ba0a7e4afbbf2c7a1432f8824aee5299a48e38e41a952686": "CF",
-			"scriptHash-ce8b37a72b178a37bbd3236daa7b2c158c9d3604e7aa667e6c6004b7": "Emurgo",
-			"scriptHash-df0e83bde65416dade5b1f97e7f115cc1ff999550ad968850783fe50": "IOG",
-			"scriptHash-e8165b3328027ee0d74b1f07298cb092fd99aa7697a1436f5997f625": "CJC",
-			"scriptHash-f0dc2c00d92a45521267be2d5de1c485f6f9d14466d7e16062897cf7": "ICC",
-			"scriptHash-1980dbf1ad624b0cb5410359b5ab14d008561994a6c2b6c53fabec00": "TV"
+			"scriptHash-9cc3f387623f45dae6a68b7096b0c2e403d8601a82dc40221ead41e2": "CJC",
+			"scriptHash-9752e4306e5ae864441d21064f791174c8b626199b8e7a45f9e03b45": "Ace",
+			"scriptHash-1980dbf1ad624b0cb5410359b5ab14d008561994a6c2b6c53fabec00": "Ting",
+			"keyHash-13493790d9b03483a1e1e684ea4faf1ee48a58f402574e7f2246f4d4": "Phil",
+			"keyHash-dc0d6ef49590eb6880a50a00adde17596e6d76f7159572fa1ff85f2a": "KtorZ",
+			"---": "old ones",
+                        "scriptHash-b6012034ba0a7e4afbbf2c7a1432f8824aee5299a48e38e41a952686": "CF",
+                        "scriptHash-ce8b37a72b178a37bbd3236daa7b2c158c9d3604e7aa667e6c6004b7": "Emurgo",
+                        "scriptHash-df0e83bde65416dade5b1f97e7f115cc1ff999550ad968850783fe50": "IOG",
+                        "scriptHash-e8165b3328027ee0d74b1f07298cb092fd99aa7697a1436f5997f625": "CJC",
+                        "scriptHash-f0dc2c00d92a45521267be2d5de1c485f6f9d14466d7e16062897cf7": "ICC"
 		}'
  		;;
-
 
 	"preprod"|"pre-prod" )
 		network="PreProd"
@@ -323,7 +327,7 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="10.9.0"			#minimum allowed cli version for this script-collection version
+minCliVersion="10.12.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
 minNodeVersion="10.3.1"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
@@ -1199,7 +1203,8 @@ convert_actionBech2UTXO() {
 	if [[ "${govActionBech}" != "gov_action1"* ]]; then exit 1; fi
 	local govActionBechHex=$(${bech32_bin} <<< "${govActionBech}" 2> /dev/null)
 	local govActionUTXO=${govActionBechHex:0:64}
-	local govActionIdx=$(bc <<< "obase=10;ibase=16;${govActionBechHex:64}")
+	local govActionIdxHex=${govActionBechHex:64}
+	local govActionIdx=$(bc <<< "obase=10;ibase=16;${govActionIdxHex^^}")
 echo -n "${govActionUTXO}#${govActionIdx}"
 }
 #-------------------------------------------------------

@@ -552,15 +552,14 @@ if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" 
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txWitnessFile} --out-file ${txWitnessFile2} 2> /dev/stdout)
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; fi
         if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
 
         ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txWitnessFile2} --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo -e "Assembled ... \e[32mDONE\e[0m\n";
 
-elif [[ -f "${fromAddr}.skey" ]]; then #with the normal cli skey
-
+elif [[ -f "${fromAddr}.skey" && -f "${stakeAddr}.skey" ]]; then #with the normal cli skey
 
         #read the needed signing keys into ram and sign the transaction
         skeyJSON1=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON1}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
