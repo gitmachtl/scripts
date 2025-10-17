@@ -486,14 +486,14 @@ while [[ ! "${ownerName}" == "" ]]; do
 
 			#Building a Staking Address
 		        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.staking.addr\e[0m' ... ";
-			${cardanocli} stake-address build --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.staking.addr"
+			${cardanocli} ${cliEra} stake-address build --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.staking.addr"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			file_lock "${poolName}/${ownerName}.staking.addr"
 		        echo -e "\e[32mOK\e[0m";
 
 			#Create an address registration certificate
 		        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.staking.cert\e[0m' ... ";
-			${cardanocli} stake-address registration-certificate --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" --out-file "${poolName}/${ownerName}.staking.cert"
+			${cardanocli} ${cliEra} stake-address registration-certificate --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" --out-file "${poolName}/${ownerName}.staking.cert"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			file_lock "${poolName}/${ownerName}.staking.cert"
 		        echo -e "\e[32mOK\e[0m";
@@ -501,7 +501,7 @@ while [[ ! "${ownerName}" == "" ]]; do
                         #Create the delegation certificate to this pool
 			if [ -f "${poolName}/${poolName}.node.vkey" ] && [ -f "${poolName}/${ownerName}.staking.vkey" ]; then
 	                        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.deleg.cert\e[0m' ... ";
-	 			${cardanocli} stake-address delegation-certificate --stake-verification-key-file "${poolName}/${ownerName}.staking.vkey" --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --out-file "${poolName}/${ownerName}.deleg.cert"
+	 			${cardanocli} ${cliEra} stake-address delegation-certificate --stake-verification-key-file "${poolName}/${ownerName}.staking.vkey" --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --out-file "${poolName}/${ownerName}.deleg.cert"
 				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 				file_lock "${poolName}/${ownerName}.deleg.cert"
 			        echo -e "\e[32mOK\e[0m";
