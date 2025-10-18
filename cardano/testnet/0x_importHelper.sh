@@ -1,6 +1,18 @@
 #!/bin/bash
 
-# Script is brought to you by ATADA Stakepool, Telegram @atada_stakepool
+############################################################
+#    _____ ____  ____     _____           _       __
+#   / ___// __ \/ __ \   / ___/__________(_)___  / /______
+#   \__ \/ /_/ / / / /   \__ \/ ___/ ___/ / __ \/ __/ ___/
+#  ___/ / ____/ /_/ /   ___/ / /__/ /  / / /_/ / /_(__  )
+# /____/_/    \____/   /____/\___/_/  /_/ .___/\__/____/
+#                                    /_/
+#
+# Scripts are brought to you by Martin L. (ATADA Stakepool)
+# Telegram: @atada_stakepool   Github: github.com/gitmachtl
+#
+############################################################
+
 
 #load variables and functions from common.sh
 . "$(dirname "$0")"/00_common.sh
@@ -276,7 +288,7 @@ importNodeSkey() {
 
         #Generate the pairing Vkey file from the Skey file
         echo -ne "\e[0mGenerating file '\e[32m${poolName}/${poolName}.node.vkey\e[0m' ... " >&2;
-        ${cardanocli} key verification-key --signing-key-file "${poolName}/${poolName}.node.skey" --verification-key-file "${poolName}/${poolName}.node.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        ${cardanocli} ${cliEra} key verification-key --signing-key-file "${poolName}/${poolName}.node.skey" --verification-key-file "${poolName}/${poolName}.node.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock "${poolName}/${poolName}.node.vkey"
         echo -e "\e[32mOK\e[0m" >&2;
 
@@ -286,7 +298,7 @@ importNodeSkey() {
 	poolNodeCounter=$((${poolNodeCounter}+1))
 	echo -e "\e[0mNew OpCertCounter for this import: \e[32m${poolNodeCounter}\e[0m" >&2;
         echo -ne "\e[0mGenerating file '\e[32m${poolName}/${poolName}.node.counter\e[0m' ... " >&2;
-	${cardanocli} node new-counter --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --counter-value ${poolNodeCounter} --operational-certificate-issue-counter-file "${poolName}/${poolName}.node.counter"
+	${cardanocli} ${cliEra} node new-counter --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --counter-value ${poolNodeCounter} --operational-certificate-issue-counter-file "${poolName}/${poolName}.node.counter"
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         #NodeCounter file was written, now add the description in the file to reflect the next node counter number
         newCounterJSON=$(jq ".description = \"Next certificate issue number: ${poolNodeCounter}\"" < "${poolName}/${poolName}.node.counter")
@@ -327,8 +339,8 @@ importVrfSkey() {
         if [[ ! "$(jq -r .type $1)" == *"SigningKey"* ]]; then echo -e "\n\e[35mERROR - \"$1\" is not a valid vrf.skey file.\e[0m\n" >&2; exit 1; fi;
 
 	#Probe the given VRF key hash with the one that is online
-	newVRFstring=$(${cardanocli} key verification-key --signing-key-file "${1}" --verification-key-file /dev/stdout | jq -r .cborHex) #the maybe new vrf string
-	newVRFhash=$(${cardanocli} node key-hash-VRF --verification-key "${newVRFstring:4}") #crop the first 4 chars before handing over the string
+	newVRFstring=$(${cardanocli} ${cliEra} key verification-key --signing-key-file "${1}" --verification-key-file /dev/stdout | jq -r .cborHex) #the maybe new vrf string
+	newVRFhash=$(${cardanocli} ${cliEra} node key-hash-VRF --verification-key "${newVRFstring:4}") #crop the first 4 chars before handing over the string
 	oldVRFhash=$(jq -r ".vrf_key_hash" 2> /dev/null <<< ${importJSON} )
 	if [[ ! "${newVRFhash}" == "${oldVRFhash}" ]]; then echo -e "\n\e[35mWARNING - VRF KeyHash does not match up with the one that is online right now!\e[0m\n" >&2; exit 1; fi;
 
@@ -341,7 +353,7 @@ importVrfSkey() {
 
         #Generate the pairing Vkey file from the Skey file
         echo -ne "\e[0mGenerating file '\e[32m${poolName}/${poolName}.vrf.vkey\e[0m' ... " >&2;
-        ${cardanocli} key verification-key --signing-key-file "${poolName}/${poolName}.vrf.skey" --verification-key-file "${poolName}/${poolName}.vrf.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        ${cardanocli} ${cliEra} key verification-key --signing-key-file "${poolName}/${poolName}.vrf.skey" --verification-key-file "${poolName}/${poolName}.vrf.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         file_lock ${poolName}/${poolName}.vrf.vkey
         echo -e "\e[32mOK\e[0m\n" >&2;
 
@@ -382,12 +394,12 @@ importPaymentSkey() {
 
         #Generate the pairing Vkey file from the Skey file
         echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.payment.vkey\e[0m' ... " >&2;
-        ${cardanocli} key verification-key --signing-key-file "${poolName}/${ownerName}.payment.skey" --verification-key-file "${poolName}/${ownerName}.payment.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        ${cardanocli} ${cliEra} key verification-key --signing-key-file "${poolName}/${ownerName}.payment.skey" --verification-key-file "${poolName}/${ownerName}.payment.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 	#If the verification key is an extended one, convert it into a non-extended one
 	tmp=$(jq -r .type "${poolName}/${ownerName}.payment.vkey" 2> /dev/null)
         if [[ "${tmp^^}" == *"EXTENDED"* ]]; then
-		${cardanocli} key non-extended-key --extended-verification-key-file "${poolName}/${ownerName}.payment.vkey" --verification-key-file "${poolName}/${ownerName}.payment.vkey";
+		${cardanocli} ${cliEra} key non-extended-key --extended-verification-key-file "${poolName}/${ownerName}.payment.vkey" --verification-key-file "${poolName}/${ownerName}.payment.vkey";
   		checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
 	fi
 
@@ -418,12 +430,12 @@ importStakingSkey() {
 
         #Generate the pairing Vkey file from the Skey file
         echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.staking.vkey\e[0m' ... " >&2;
-        ${cardanocli} key verification-key --signing-key-file "${poolName}/${ownerName}.staking.skey" --verification-key-file "${poolName}/${ownerName}.staking.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        ${cardanocli} ${cliEra} key verification-key --signing-key-file "${poolName}/${ownerName}.staking.skey" --verification-key-file "${poolName}/${ownerName}.staking.vkey"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
         #If the verification key is an extended one, convert it into a non-extended one
         tmp=$(jq -r .type "${poolName}/${ownerName}.staking.vkey" 2> /dev/null)
         if [[ "${tmp^^}" == *"EXTENDED"* ]]; then
-                ${cardanocli} key non-extended-key --extended-verification-key-file "${poolName}/${ownerName}.staking.vkey" --verification-key-file "${poolName}/${ownerName}.staking.vkey";
+                ${cardanocli} ${cliEra} key non-extended-key --extended-verification-key-file "${poolName}/${ownerName}.staking.vkey" --verification-key-file "${poolName}/${ownerName}.staking.vkey";
                 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi;
         fi
 
@@ -479,21 +491,31 @@ while [[ ! "${ownerName}" == "" ]]; do
 
 			#Building a Payment Address
 		        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.payment.addr\e[0m' ... ";
-			${cardanocli} address build --payment-verification-key-file "${poolName}/${ownerName}.payment.vkey" --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.payment.addr"
+			${cardanocli} ${cliEra} address build --payment-verification-key-file "${poolName}/${ownerName}.payment.vkey" --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.payment.addr"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			file_lock "${poolName}/${ownerName}.payment.addr"
 		        echo -e "\e[32mOK\e[0m";
 
 			#Building a Staking Address
 		        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.staking.addr\e[0m' ... ";
-			${cardanocli} stake-address build --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.staking.addr"
+			${cardanocli} ${cliEra} stake-address build --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" ${addrformat} > "${poolName}/${ownerName}.staking.addr"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			file_lock "${poolName}/${ownerName}.staking.addr"
 		        echo -e "\e[32mOK\e[0m";
 
 			#Create an address registration certificate
-		        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.staking.cert\e[0m' ... ";
-			${cardanocli} stake-address registration-certificate --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" --out-file "${poolName}/${ownerName}.staking.cert"
+			#Read ProtocolParameters
+			case ${workMode} in
+			        "online")       protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters);; #onlinemode
+			        "light")        protocolParametersJSON=${lightModeParametersJSON};; #lightmode
+			        "offline")      readOfflineFile;        #Reads the offlinefile into the offlineJSON variable
+			                        protocolParametersJSON=$(jq ".protocol.parameters" <<< ${offlineJSON});; #offlinemode
+			esac
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			#Lets use the currently set keyDeposit amount
+			stakeAddressDepositFee=$(jq -r .stakeAddressDeposit <<< ${protocolParametersJSON})
+		        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.staking.cert\e[0m' with ${stakeAddressDepositFee} lovelace deposit fee ... ";
+			${cardanocli} ${cliEra} stake-address registration-certificate --staking-verification-key-file "${poolName}/${ownerName}.staking.vkey" --key-reg-deposit-amt "${stakeAddressDepositFee}" --out-file "${poolName}/${ownerName}.staking.cert"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			file_lock "${poolName}/${ownerName}.staking.cert"
 		        echo -e "\e[32mOK\e[0m";
@@ -501,7 +523,7 @@ while [[ ! "${ownerName}" == "" ]]; do
                         #Create the delegation certificate to this pool
 			if [ -f "${poolName}/${poolName}.node.vkey" ] && [ -f "${poolName}/${ownerName}.staking.vkey" ]; then
 	                        echo -ne "\t\e[0mGenerating file '\e[32m${poolName}/${ownerName}.deleg.cert\e[0m' ... ";
-	 			${cardanocli} stake-address delegation-certificate --stake-verification-key-file "${poolName}/${ownerName}.staking.vkey" --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --out-file "${poolName}/${ownerName}.deleg.cert"
+				${cardanocli} ${cliEra} stake-address stake-delegation-certificate --stake-verification-key-file "${poolName}/${ownerName}.staking.vkey" --cold-verification-key-file "${poolName}/${poolName}.node.vkey" --out-file "${poolName}/${ownerName}.deleg.cert"
 				checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 				file_lock "${poolName}/${ownerName}.deleg.cert"
 			        echo -e "\e[32mOK\e[0m";
