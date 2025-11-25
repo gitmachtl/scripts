@@ -329,7 +329,7 @@ if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} =
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
 minCliVersion="10.12.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="10.3.1"  		#minimum allowed node version for this script-collection version
+minNodeVersion="10.5.3"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.4"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
