@@ -62,19 +62,17 @@ fi
 		read delegationPoolID;
 		read keyDepositFee;
 		read rewardsAmount;
-		read drepDelegationHASH;
+		read drepDelegation;
 		read govActionDepositsCnt;
 		read govActionDeposits; } <<< $(jq -r 'length,
-						 .[0].stakeDelegation,
+						 "\(.[0].stakeDelegation.stakePoolBech32)",
 						 .[0].stakeRegistrationDeposit,
 						 .[0].rewardAccountBalance,
-						 .[0].voteDelegation // "notSet",
+						 "\(.[0].voteDelegation)" // "notSet",
 						 (.[0].govActionDeposits | length),
-						 "\(.[0].govActionDeposits)"' <<< ${rewardsJSON} 2> /dev/null)
+						 "\(.[0].govActionDeposits)"' <<< ${rewardsJSON})
 
-        rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
-
-        if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "${iconNo} \e[91mStaking Address is not registered on the chain, no need to retire it !\e[0m\n"; exit 1;
+        if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "${iconNo} \e[91mStaking Address is not on the chain, register it first !\e[0m\n"; exit 1;
         else echo -e "${iconYes} \e[0mStaking Address is \e[32mregistered\e[0m on the chain with a deposit of \e[32m${keyDepositFee}\e[0m lovelaces :-)\n";
         fi
 
@@ -88,7 +86,7 @@ fi
         if [[ ! ${delegationPoolID} == null ]]; then
 		echo -e "${iconYes} \e[0mAccount is delegated to a Pool with ID: \e[32m${delegationPoolID}\e[0m";
 
-	                if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
+                if [[ ${onlineMode} == true && ${koiosAPI} != "" ]]; then
 
                         #query poolinfo via poolid on koios
                         errorcnt=0; error=-1;
@@ -128,8 +126,8 @@ fi
 
 	echo
 
-	#Show the current status of the voteDelegation
-	case ${drepDelegationHASH} in
+	#Show the current status of the voteDelegation. drepDelegation is in CIP129 format
+	case ${drepDelegation} in
 
 		"alwaysNoConfidence")
 			#always-no-confidence
@@ -141,33 +139,19 @@ fi
 			echo -e "${iconYes} \e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS ABSTAIN\e[0m";
 			;;
 
-		"notSet")
+		"notSet"|"null")
 			#no votingpower delegated
 			echo -e "${iconNo} \e[0mVoting-Power of Staking Address is not delegated to a DRep\e[0m";
 			;;
 
 		*)
-			#normal drep-id or drep-script-id
-			case "${drepDelegationHASH%%-*}" in
-				"keyHash")	drepID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
-						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep:\e[0m";
-					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
-					        echo -e "\e[0m    Legacy DRep-ID: \e[32m${drepID}\e[0m"
-						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
-						;;
-				"scriptHash")   drepID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
-						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep-Script:\e[0m";
-					        echo -e "\e[0m    CIP129 DRep-ID: \e[33m$(convert_actionBech2CIP129 "${drepID}")\e[0m"
-					        echo -e "\e[0m    Legacy DRep-ID: \e[32m${drepID}\e[0m"
-						echo -e "\e[0m         DRep-HASH:\e[94m ${drepDelegationHASH##*-}\e[0m"
-						;;
-				"null")		#not delegated
-						echo -e "${iconNo} \e[0mVoting-Power of Staking Address is not delegated to a DRep\e[0m";
-						;;
-				*)		#unknown type
-						echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to DRep-HASH: \e[32m${drepDelegationHASH}\e[0m";
-						;;
-			esac
+			#delegated to a drep/drepscript
+			{ read drepId; read drepIdHash;} <<< $(jq -r "(.cip129Bech32 // null), (.keyHash // .scriptHash // null)" <<< ${drepDelegation} 2> /dev/null );
+			echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep/Script:\e[0m";
+			echo -e "\e[0m    CIP129 DRep-ID: \e[33m${drepId}\e[0m";
+			drepIdLegacy=$(convert_actionCIP1292Bech "${drepId}");
+			echo -e "\e[0m    Legacy DRep-ID: \e[32m${drepIdLegacy}\e[0m";
+			echo -e "\e[0m         DRep-HASH:\e[94m ${drepIdHash}\e[0m";
 			;;
 
 	esac

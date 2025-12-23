@@ -1048,7 +1048,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
 					rm ${regCertFile}
 			        else
 					stopProcessAnimation;
-				        echo -e "\n\n\e[35mERROR (Code $?) !\e[0m"; exit 1;
+				        echo -e "\n\n\e[35mERROR (Code $?) - ${txID}!\e[0m"; exit 1;
 			        fi
 
                                 echo

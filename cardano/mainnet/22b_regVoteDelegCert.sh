@@ -291,54 +291,57 @@ if ${onlineMode}; then
 
         esac
 
-        rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
+        { 	read rewardsEntryCnt;
+		read delegationPoolID;
+		read keyDepositFee;
+		read rewardsAmount;
+		read drepDelegation;
+		read govActionDepositsCnt;
+		read govActionDeposits; } <<< $(jq -r 'length,
+						 "\(.[0].stakeDelegation.stakePoolBech32)",
+						 .[0].stakeRegistrationDeposit,
+						 .[0].rewardAccountBalance,
+						 "\(.[0].voteDelegation)" // "notSet",
+						 (.[0].govActionDeposits | length),
+						 "\(.[0].govActionDeposits)"' <<< ${rewardsJSON})
 
-        #Checking about the content
-        if [[ ${rewardsEntryCnt} == 0 ]]; then #not registered yet
-		echo -e "\e[33mStaking Address is NOT on the chain, please register it first to do a delegation !\e[0m\n"; exit 1;
-                else #already registered
-                        #echo -e "Staking Address is registered on the chain, we continue ...\e[0m\n"
+        if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "${iconNo} \e[91mStaking Address is not on the chain, register it first !\e[0m\n"; exit 1;
+        else echo -e "${iconYes} \e[0mStaking Address is \e[32mregistered\e[0m on the chain with a deposit of \e[32m${keyDepositFee}\e[0m lovelaces :-)\n";
+        fi
 
-                        drepDelegationHASH=$(jq -r ".[0].voteDelegation // \"notSet\"" <<< ${rewardsJSON})
+	#Show the current status of the voteDelegation. drepDelegation is in CIP129 format
+	case ${drepDelegation} in
 
-                        #Show the current status of the voteDelegation
-			case ${drepDelegationHASH} in
-				"alwaysNoConfidence")
-					#always-no-confidence
-					echo -e "Voting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m";
-					;;
+		"alwaysNoConfidence")
+			#always-no-confidence
+			echo -e "${iconYes} \e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS NO CONFIDENCE\e[0m";
+			;;
 
-				"alwaysAbstain")
-					#always-abstain
-					echo -e "Voting-Power of Staking Address is currently set to: \e[94mALWAYS ABSTAIN\e[0m";
-					;;
+		"alwaysAbstain")
+			#always-abstain
+			echo -e "${iconYes} \e[0mVoting-Power of Staking Address is currently set to: \e[94mALWAYS ABSTAIN\e[0m";
+			;;
 
-				"notSet")
-					#no votingpower delegated
-					echo -e "\e[0mAccount's Voting-Power is \e[32mnot delegated to a DRep or set to a fixed status yet\e[0m - so lets change this :-)";
-					;;
+		"notSet"|"null")
+			#no votingpower delegated
+			echo -e "${iconNo} \e[0mVoting-Power of Staking Address is not delegated to a DRep\e[0m";
+			;;
 
-				*)      #normal drep-id or drep-script-id
-                                        case "${drepDelegationHASH%%-*}" in
-                                                "keyHash")      drepDelegationID=$(${bech32_bin} "drep" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
-                                                                echo -e "\e[0mVoting-Power of Staking Address is delegated to DRepID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
-                                                                ;;
-                                                "scriptHash")   drepDelegationID=$(${bech32_bin} "drep_script" <<< "${drepDelegationHASH##*-}" 2> /dev/null)
-                                                                echo -e "\e[0mVoting-Power of Staking Address is delegated to DRep-Script-ID(HASH): \e[32m${drepDelegationID}\e[0m (\e[94m${drepDelegationHASH##*-}\e[0m)\n";
-                                                                ;;
-                                                *)              drepDelegationID="" #unknown type
-                                                                echo -e "\e[0mVoting-Power of Staking Address is delegated to DRep-HASH: \e[32m${drepDelegationHASH}\e[0m\n";
-                                                                ;;
-                                        esac
-					;;
-			esac
+		*)
+			#delegated to a drep/drepscript
+			{ read drepId; read drepIdHash;} <<< $(jq -r "(.cip129Bech32 // null), (.keyHash // .scriptHash // null)" <<< ${drepDelegation} 2> /dev/null );
+			echo -e "${iconYes} \e[0mVoting-Power of Staking Address is delegated to the following DRep/Script:\e[0m";
+			echo -e "\e[0m    CIP129 DRep-ID: \e[33m${drepId}\e[0m";
+			drepIdLegacy=$(convert_actionCIP1292Bech "${drepId}");
+			echo -e "\e[0m    Legacy DRep-ID: \e[32m${drepIdLegacy}\e[0m";
+			echo -e "\e[0m         DRep-HASH:\e[94m ${drepIdHash}\e[0m";
+                        ;;
 
-			echo
+	esac
 
-        fi ## ${rewardsEntryCnt} == 0
+        echo
 
 fi ## ${onlineMode}
-
 
 
 #get values to register the delegation certificate on the blockchain

@@ -195,14 +195,16 @@ case "${network,,}" in
 		_catalystAPI="https://api.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/mainnet-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
  		_ccMemberColdHashNames='{
-			"scriptHash-349e55f83e9af24813e6cb368df6a80d38951b2a334dfcdf26815558": "CAC",
 			"scriptHash-84aebcfd3e00d0f87af918fc4b5e00135f407e379893df7e7d392c6a": "ECC",
 			"scriptHash-9cc3f387623f45dae6a68b7096b0c2e403d8601a82dc40221ead41e2": "CJC",
 			"scriptHash-9752e4306e5ae864441d21064f791174c8b626199b8e7a45f9e03b45": "Ace",
 			"scriptHash-1980dbf1ad624b0cb5410359b5ab14d008561994a6c2b6c53fabec00": "Ting",
 			"keyHash-13493790d9b03483a1e1e684ea4faf1ee48a58f402574e7f2246f4d4": "Phil",
 			"keyHash-dc0d6ef49590eb6880a50a00adde17596e6d76f7159572fa1ff85f2a": "KtorZ",
+			"scriptHash-16feefc225e06f75a3c917f4aa50acffde7631ea0355721f2ac12542": "Curia",
+			"keyHash-c46a3789d71bc0a27d1c381909289978797a60c5f67aa8bc2b26ab92": "Xtina",
 			"---": "old ones",
+			"scriptHash-349e55f83e9af24813e6cb368df6a80d38951b2a334dfcdf26815558": "CAC",
                         "scriptHash-b6012034ba0a7e4afbbf2c7a1432f8824aee5299a48e38e41a952686": "CF",
                         "scriptHash-ce8b37a72b178a37bbd3236daa7b2c158c9d3604e7aa667e6c6004b7": "Emurgo",
                         "scriptHash-df0e83bde65416dade5b1f97e7f115cc1ff999550ad968850783fe50": "IOG",
@@ -224,13 +226,21 @@ case "${network,,}" in
 		_catalystAPI="https://api.testnet.projectcatalyst.io/api/v1"	#Catalyst-API URLs -> autoresolve into ${catalystAPI}
 		_lightModeParametersURL="https://uptime.live/data/cardano/parms/preprod-parameters.json"	#Parameters-JSON-File with current informations about cardano-cli version, tip, era, protocol-parameters
  		_ccMemberColdHashNames='{
-			"scriptHash-5098dfd0deba725fadd692198fc33ee959fbe7e6edf1b5a695e06e61": "CAC",
-			"scriptHash-5a71f17f4ce4c1c0be053575d717ade6ad8a1d5453d02a65ce40d4b1": "ECC",
-			"scriptHash-6095e643ea6f1cccb6e463ec34349026b3a48621aac5d512655ab1bf": "CF",
-			"scriptHash-94c0de47e7ae32e3f7234ada5cf976506b68e3bb88c54dc53b4ba984": "ICC"
-			"scriptHash-94f51c795a6c11adb9c1e30f0b6def4230cbd0b8bc800098e2d2307b": "Emurgo",
-			"scriptHash-a6a5e006fd4e8f51062dc431362369b2a43140abced8aa2ff2256d7b": "IOG",
-			"scriptHash-2f4a6c6f098e20ee4bfd5b39942c164575f8ceb348e754df5d0ec04f": "CJC"
+			"scriptHash-84aebcfd3e00d0f87af918fc4b5e00135f407e379893df7e7d392c6a": "ECC",
+			"scriptHash-9cc3f387623f45dae6a68b7096b0c2e403d8601a82dc40221ead41e2": "CJC",
+			"scriptHash-9752e4306e5ae864441d21064f791174c8b626199b8e7a45f9e03b45": "Ace",
+			"scriptHash-1980dbf1ad624b0cb5410359b5ab14d008561994a6c2b6c53fabec00": "Ting",
+			"keyHash-13493790d9b03483a1e1e684ea4faf1ee48a58f402574e7f2246f4d4": "Phil",
+			"keyHash-dc0d6ef49590eb6880a50a00adde17596e6d76f7159572fa1ff85f2a": "KtorZ",
+			"scriptHash-16feefc225e06f75a3c917f4aa50acffde7631ea0355721f2ac12542": "Curia",
+			"keyHash-c46a3789d71bc0a27d1c381909289978797a60c5f67aa8bc2b26ab92": "Xtina",
+			"---": "old ones",
+			"scriptHash-349e55f83e9af24813e6cb368df6a80d38951b2a334dfcdf26815558": "CAC",
+                        "scriptHash-b6012034ba0a7e4afbbf2c7a1432f8824aee5299a48e38e41a952686": "CF",
+                        "scriptHash-ce8b37a72b178a37bbd3236daa7b2c158c9d3604e7aa667e6c6004b7": "Emurgo",
+                        "scriptHash-df0e83bde65416dade5b1f97e7f115cc1ff999550ad968850783fe50": "IOG",
+                        "scriptHash-e8165b3328027ee0d74b1f07298cb092fd99aa7697a1436f5997f625": "CJC",
+                        "scriptHash-f0dc2c00d92a45521267be2d5de1c485f6f9d14466d7e16062897cf7": "ICC"
 		}'
 		;;
 
@@ -327,9 +337,9 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="10.12.0"			#minimum allowed cli version for this script-collection version
+minCliVersion="10.14.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="10.3.1"  		#minimum allowed node version for this script-collection version
+minNodeVersion="10.5.3"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.4"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
@@ -1531,7 +1541,7 @@ queryLight_UTXO() { #${1} = address to query
 #-------------------------------------------------------
 #queryLight_stakeAddressInfo function
 #
-# makes an online query via koios API and returns and output like a cli stake-address-info query
+# makes an online query via koios API and returns and output like a cli stake-address-info query. output-format compatible with cardano-cli 10.14
 #
 queryLight_stakeAddressInfo() { #${1} = stakeaddress(bech) to query
 
@@ -1567,8 +1577,8 @@ queryLight_stakeAddressInfo() { #${1} = stakeaddress(bech) to query
 	if [[ $(jq -r ".[0].status" <<< "${responseJSON}" 2> /dev/null) != "registered" ]]; then printf "[]"; exit 0; fi #stakeAddress not registered on chain, return an empty array
 
 	#get the first values
-	local delegation; local rewardAccountBalance; local delegationDeposit; local voteDelegation; #define local variables so we can read it in one go with the next jq command
-	{ read delegation; read rewardAccountBalance; read delegationDeposit; read voteDelegation; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // \"null\", .[0].deposit // \"null\", .[0].delegated_drep // \"null\"" <<< "${responseJSON}" 2> /dev/null)
+	local poolDelegation; local rewardAccountBalance; local delegationDeposit; local voteDelegation; #define local variables so we can read it in one go with the next jq command
+	{ read poolDelegation; read rewardAccountBalance; read delegationDeposit; read voteDelegation; } <<< $(jq -r ".[0].delegated_pool // \"null\", .[0].rewards_available // 0, .[0].deposit // \"null\", .[0].delegated_drep // \"null\"" <<< "${responseJSON}" 2> /dev/null)
 
 	#Do another query to get all the proposals this stakeaddress is set as the deposit return address
         errorcnt=0
@@ -1595,6 +1605,9 @@ queryLight_stakeAddressInfo() { #${1} = stakeaddress(bech) to query
 		* )     echo -e "HTTP Response code: ${responseCode}"; exit 1; #exit with a failure and the http response code
         esac;
 
+	#generate the pool delegation part
+	if [[ ${poolDelegation} != "null" ]]; then poolDelegation="{ \"stakePoolBech32\": \"${poolDelegation}\", \"stakePoolHex\": \"$(${bech32_bin} <<< ${poolDelegation})\" }"; else poolDelegation=null; fi
+
 	#generate the govActionsDeposits
         govActionDeposits=$(jq -r '(map ({ "\(.proposal_tx_hash)#\(.proposal_index)": .deposit }) | add) // {}' <<< ${responseJSON} 2> /dev/null)
 	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
@@ -1603,24 +1616,26 @@ queryLight_stakeAddressInfo() { #${1} = stakeaddress(bech) to query
 	if [[ ${delegationDeposit} == null ]]; then delegationDeposit=2000000; fi
 
 	#convert from CIP129 to regular format if its a normal drep delegation
-	if [[ "${voteDelegation}" == "drep1"* ]]; then voteDelegation=$(convert_actionCIP1292Bech ${voteDelegation}); fi
+	if [[ "${voteDelegation}" == "drep1"* ]]; then voteDelegationCIP129=${voteDelegation}; voteDelegation=$(convert_actionCIP1292Bech ${voteDelegation}); fi
 
 	#convert bech-voteDelegation into keyHash-/scriptHAsh-voteDelegation
 	case "${voteDelegation}" in
-		"drep1"*)		voteDelegation="keyHash-$(${bech32_bin} <<< ${voteDelegation})"
+		"drep1"*)		voteDelegationHex=$(${bech32_bin} <<< ${voteDelegation} 2> /dev/null);
+					voteDelegation="{ \"cip129Bech32\": \"${voteDelegationCIP129}\", \"cip129Hex\": \"22${voteDelegationHex}\", \"keyHash\": \"${voteDelegationHex}\" }";
 					;;
-		"drep_script1"*)	voteDelegation="scriptHash-$(${bech32_bin} <<< ${voteDelegation})"
+		"drep_script1"*)	voteDelegationHex=$(${bech32_bin} <<< ${voteDelegation} 2> /dev/null);
+					voteDelegation="{ \"cip129Bech32\": \"${voteDelegationCIP129}\", \"cip129Hex\": \"23${voteDelegationHex}\", \"scriptHash\": \"${voteDelegationHex}\" }";
 					;;
-		"drep_always_abstain")	voteDelegation="alwaysAbstain"
+		"drep_always_abstain")	voteDelegation='"alwaysAbstain"'
 					;;
 		"drep_always_no_confidence")
-					voteDelegation="alwaysNoConfidence"
+					voteDelegation='"alwaysNoConfidence"'
 					;;
-		*)			voteDelegation="null"
+		*)			voteDelegation='null'
 					;;
 	esac
 
-	jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": \"${delegation}\", \"stakeRegistrationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance},  \"voteDelegation\": \"${voteDelegation}\", \"govActionDeposits\": ${govActionDeposits} } ]" #compose a json like the cli output
+	jsonRet="[ { \"address\": \"${addr}\", \"stakeDelegation\": ${poolDelegation}, \"stakeRegistrationDeposit\": ${delegationDeposit}, \"rewardAccountBalance\": ${rewardAccountBalance},  \"voteDelegation\": ${voteDelegation}, \"govActionDeposits\": ${govActionDeposits} } ]" #compose a json like the cli output
 	#return the composed json
 	printf "${jsonRet}"
 

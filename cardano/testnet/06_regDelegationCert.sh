@@ -230,8 +230,8 @@ if ${onlineMode}; then
 			poolInLedgerCnt=$(grep  "${delegationPoolID}" <<< ${poolsInLedger} | wc -l)
 
 			if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -ne ""; #echo -e "\e[0mPool is registered on the chain, we continue ...\n";
-			elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "\e[33mPool is NOT on the chain, please register it first to do the delegation!\e[0m\n"; exit 1;
-			else echo -e "\e[35mERROR - The Pool-ID is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m"; exit 1;
+			elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "\n\e[33mPool is NOT on the chain, please register it first to do the delegation!\e[0m\n"; exit 1;
+			else echo -e "\n\e[35mERROR - The Pool-ID is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m"; exit 1;
 			fi
 			;;
 
@@ -281,15 +281,24 @@ if ${onlineMode}; then
 
         esac
 
-        rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON})
+        {       read rewardsEntryCnt;
+                read delegationPoolID;
+                read keyDepositFee;
+                read rewardsAmount;
+                read drepDelegation;
+                read govActionDepositsCnt;
+                read govActionDeposits; } <<< $(jq -r 'length,
+                                                 "\(.[0].stakeDelegation.stakePoolBech32)",
+                                                 .[0].stakeRegistrationDeposit,
+                                                 .[0].rewardAccountBalance,
+                                                 "\(.[0].voteDelegation)" // "notSet",
+                                                 (.[0].govActionDeposits | length),
+                                                 "\(.[0].govActionDeposits)"' <<< ${rewardsJSON})
 
         #Checking about the content
         if [[ ${rewardsEntryCnt} == 0 ]]; then #not registered yet
 		echo -e "\e[33mStaking Address is NOT on the chain, please register it first to do a delegation !\e[0m\n"; exit 1;
                 else #already registered
-                        #echo -e "Staking Address is registered on the chain, we continue ...\e[0m\n"
-
-                        delegationPoolID=$(jq -r ".[0].delegation // .[0].stakeDelegation" <<< ${rewardsJSON})
 
                         #If delegated to a pool, show the current pool ID
                         if [[ ! ${delegationPoolID} == null ]]; then

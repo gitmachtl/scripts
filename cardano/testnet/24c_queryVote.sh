@@ -338,6 +338,9 @@ case ${workMode} in
 			#Get currentEpoch for Active-dRep-Power-Filtering
 			currentEpoch=$(get_currentEpoch)
 
+                        #Filter out expired Action-IDs
+                        actionStateJSON=$(jq -r ". | select( .expiresAfter >= ${currentEpoch} )" 2> /dev/null <<< "${actionStateJSON}")
+
 			#Get the current protocolParameters for the dRep and pool voting thresholds
                         protocolParametersJSON=$(${cardanocli} ${cliEra} query protocol-parameters)
 
