@@ -337,9 +337,9 @@ if [[ "${adahandleAPI: -1}" == "/" ]]; then adahandleAPI=${adahandleAPI%?}; fi #
 if [[ "${magicparam}" == "" || ${addrformat} == "" ||  ${byronToShelleyEpochs} == "" ]]; then majorError "The 'magicparam', 'addrformat' or 'byronToShelleyEpochs' is not set!\nOr maybe you have set the wrong parameter network=\"${network}\" ?\nList of preconfigured network-names: ${networknames}"; exit 1; fi
 
 #Don't allow to overwrite the needed Versions, so we set it after the overwrite part
-minCliVersion="10.14.0"			#minimum allowed cli version for this script-collection version
+minCliVersion="11.0.0"			#minimum allowed cli version for this script-collection version
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
-minNodeVersion="10.5.3"  		#minimum allowed node version for this script-collection version
+minNodeVersion="11.0.0"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
 minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.4"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
@@ -1684,12 +1684,12 @@ queryLight_drepInfo() { #${1} = drep-id(bech) to query
 	if [ $? -ne 0 ]; then echo -e "Query via Koios-API (${koiosAPI}) failed, not a JSON response."; exit 1; fi; #reponse is not a json file
 
 	#check if the drepID is registered, if not, return an empty array
-	if [[ $(jq -r ".[0].registered" <<< "${responseJSON}" 2> /dev/null) != "true" ]]; then
+	if [[ $(jq -r ".[0].drep_status" <<< "${responseJSON}" 2> /dev/null) != "registered" ]]; then
 		printf "[]"; #drepID not registered on chain, return an empty array
 		else
 
 		local hasScript; local delegatedStake; local drepDeposit; local drepHex; local drepExpiry; local drepAnchorUrl; local drepAnchorHash; #define local variables so we can read it in one go with the next jq command
-		{ read hasScript; read delegatedStake; read drepDeposit; read drepHex; read drepExpiry; read drepAnchorUrl; read drepAnchorHash; } <<< $(jq -r "\"\(.[0].has_script)\" // \"null\", .[0].amount // \"null\", .[0].deposit // \"null\", .[0].hex // \"null\", .[0].expires_epoch_no // \"null\", .[0].url // \"-\", .[0].hash // \"-\"" <<< "${responseJSON}" 2> /dev/null)
+		{ read hasScript; read delegatedStake; read drepDeposit; read drepHex; read drepExpiry; read drepAnchorUrl; read drepAnchorHash; } <<< $(jq -r "\"\(.[0].has_script)\" // \"null\", .[0].amount // \"null\", .[0].deposit // \"null\", .[0].hex // \"null\", .[0].expires_epoch_no // \"null\", .[0].meta_url // \"-\", .[0].meta_hash // \"-\"" <<< "${responseJSON}" 2> /dev/null)
 
 		#set the hash-type
 		if [[ "${hasScript}" == "false" ]]; then hashType="keyHash"; else hashType="scriptHash"; fi
