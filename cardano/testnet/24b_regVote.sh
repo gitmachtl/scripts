@@ -154,8 +154,9 @@ echo
 
 
 #Setting default variables
-metafileParameter=""; metafile=""; transactionMessage="{}"; enc=""; passphrase="cardano";
+metafileParameter=""; metafile=""; transactionMessage="{}"; enc=""; passphrase="cardano"; metadataLabel17File=""; metadataCborFile="";
 votefileParameter=""; actionIdCollector=""; voterHashCollector=""; voteCounter=0;
+cip179ResponseFiles=()
 
 #Check all optional parameters about there types and set the corresponding variables
 #Starting with the 3th parameter (index=2) up to the last parameter
@@ -175,11 +176,13 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
                 metadatum=$(jq -r "keys_unsorted[0]" "${metafile}" 2> /dev/null)
                 if [[ $? -ne 0 ]]; then echo -e "\n\e[35mERROR - '${metafile}' is not a valid JSON file!\n\e[0m"; exit 1; fi
                 #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
-   		if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then
+		if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then
 			echo -e "\n\e[35mERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!\n\e[0m"; exit 1; fi
+                if jq -e 'has("17")' "${metafile}" >/dev/null 2>&1; then metadataLabel17File="${metafile}"; fi
                 metafileParameter+="--metadata-json-file ${metafile} "; metafileList+="'${metafile}' "
 
              elif [[ -f "${metafile}" && "${metafileExt^^}" == "CBOR" ]]; then #its a cbor file
+                metadataCborFile="${metafile}"
                 metafileParameter+="--metadata-cbor-file ${metafile} "; metafileList+="'${metafile}' "
 
              elif [[ -f "${metafile}" && "${metafileExt^^}" == "VOTE" ]]; then #its a vote file
@@ -199,6 +202,12 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
 
 		#Additionally read the description from the voting file
 		voteActionDescription=$(jq -r '.description // "-"' 2> /dev/null "${metafile}");
+		cip179ResponseFile=$(jq -r '.cip179Response // empty' 2> /dev/null "${metafile}")
+		if [[ "${cip179ResponseFile}" != "" ]]; then
+			if [[ "${cip179ResponseFile}" != /* ]]; then cip179ResponseFile="$(dirname "${metafile}")/${cip179ResponseFile}"; fi
+			if [[ ! -f "${cip179ResponseFile}" ]]; then echo -e "\n\e[35mERROR - CIP-179 response file '${cip179ResponseFile}' referenced by '${metafile}' does not exist.\e[0m\n"; exit 1; fi
+			cip179ResponseFiles+=("${cip179ResponseFile}")
+		fi
 
 		#Show the Description
 		echo -e "\e[0m      Description: \e[33m${voteActionDescription}\e[0m";
@@ -285,6 +294,16 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
         fi #end of different parameters check
 
 done
+
+if [[ ${#cip179ResponseFiles[@]} -gt 0 ]]; then
+	if [[ "${metadataLabel17File}" != "" ]]; then echo -e "\n\e[35mERROR - '${metadataLabel17File}' already supplies metadata label 17; it cannot be combined with CIP-179 response sidecars.\e[0m\n"; exit 1; fi
+	if [[ "${metadataCborFile}" != "" ]]; then echo -e "\n\e[35mERROR - CBOR metadata '${metadataCborFile}' cannot be safely checked for a label 17 collision with CIP-179 response sidecars.\e[0m\n"; exit 1; fi
+	if ! exists node || [[ ! -f "${scriptDir}/cip179-vote.mjs" ]]; then echo -e "\n\e[35mERROR - Node.js and '${scriptDir}/cip179-vote.mjs' are required to merge CIP-179 responses.\e[0m\n"; exit 1; fi
+	cip179MetadataFile="${tempDir}/cip179-responses.json"
+	node "${scriptDir}/cip179-vote.mjs" merge "${cip179MetadataFile}" "${cip179ResponseFiles[@]}"
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	metafileParameter+="--metadata-json-file ${cip179MetadataFile} "; metafileList+="'${cip179MetadataFile}' "
+fi
 
 #Check if there is only one vote included if also a hardware wallet is used (limitation by the hardware wallet firmware)
 if [[ ${voteCounter} -gt 1 ]] && [[ -f "${fromAddr}.hwsfile" || "${voterSigningFile}" == *".hwsfile" ]]; then echo -e "\n\e[91mPlease include only one vote-file in case a hardware-wallet is involved in the transaction.\nThis is a limitation of the hardware-wallet firmware!\n\e[0m"; exit 1; fi

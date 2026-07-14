@@ -1194,7 +1194,7 @@ convert_actionUTXO2Bech() {
 	local govActionID="${1}"
 #	local govActionUTXO=$(trimString "${1%%#*}"); govActionUTXO=${govActionUTXO,,} #takes the part before the # separator
 #	local govActionIdx=$(trimString "${1#*#}"); #takes the part after the # separator
-	if [[ "${govActionID}" =~ ^([[:xdigit:]]{64}+#[[:digit:]]{1,})$ ]]; then
+	if [[ "${govActionID}" =~ ^([[:xdigit:]]{64}#[[:digit:]]{1,})$ ]]; then
 		local govActionUTXO=${govActionID:0:64}; govActionUTXO=${govActionUTXO,,} #make sure its lower case
 		local govActionIdx=$(( ${govActionID:65} + 0 )) #make sure to have single digits if provided like #00 #01 #02...
 		local govActionIdxHex="00$(bc <<< "obase=16;ibase=10;${govActionIdx}")"; govActionIdxHex=${govActionIdxHex: -$(( (${#govActionIdxHex}-1)/2*2 ))} #make sure its with a leading zero and always in pairs like 03, 04af

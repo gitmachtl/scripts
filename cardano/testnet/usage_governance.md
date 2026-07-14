@@ -819,6 +819,8 @@ Examples:
 
 As you can see the only needed parameters are the name of the DRep/CC/SPO file and the Governance-Action-ID. The Governance-Action-ID can be in CIP105 format like `0b19476e40bbbb5e1e8ce153523762e2b6859e7ecacbaf06eae0ee6a447e79b9#0` or in the new CIP129 formal like `gov_action1pvv5wmjqhwa4u85vu9f4ydmzu2mgt8n7et967ph2urhx53r70xusqnmm525`.
 
+If the verified action metadata links a public CIP-179 v5 survey, the script offers to answer it before creating the Vote-File. This optional path needs Node.js 20 or newer and the reusable package installed beside the scripts with `npm install --no-save --no-package-lock cip-179@0.2.0`. The generated survey-response sidecar must stay beside its Vote-File; script `24b` automatically attaches it to the same transaction and merges sidecars when several votes are submitted together.
+
 In this example i wanna describe how to vote as an SPO. If you're already using the SPO-Scripts you're familiar with the file-naming-scheme. To generate the Vote-File as an SPO you need the `<name>.node.vkey` file.
 
 Lets do an example:

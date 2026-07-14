@@ -100,7 +100,7 @@ if [[ "${govActionID:0:11}" == "gov_action1" ]]; then #parameter is most likely 
                 if [ $? -ne 0 ]; then echo -e "\n\n\e[91mERROR - \"${2,,}\" is not a valid Bech32 ACTION-ID.\e[0m"; exit 1; fi
                 govActionUTXO=${govActionID:0:64}
                 govActionIdx=$(( ${govActionID:65} + 0 )) #make sure to have single digits if provided like #00 #01 #02...
-elif [[ "${govActionID}" =~ ^([[:xdigit:]]{64}+#[[:digit:]]{1,})$ ]]; then
+elif [[ "${govActionID}" =~ ^([[:xdigit:]]{64}#[[:digit:]]{1,})$ ]]; then
 	govActionUTXO=${govActionID:0:64}
 	govActionIdx=$(( ${govActionID:65} + 0 )) #make sure to have single digits if provided like #00 #01 #02...
 elif [[ "${govActionID}" == "all" ]]; then #do the voting on all current gov-actions
@@ -559,6 +559,7 @@ do
 	dRepAcceptIcon=""; poolAcceptIcon=""; committeeAcceptIcon="";
 	dRepPowerThreshold="N/A"; poolPowerThreshold="N/A"; #N/A -> not available
 	govActionTitle="";
+	cip179SurveyTxId=""; cip179SurveyIndex="";
 
 	echo
 	echo -e "\e[36m--- Entry $((${tmpCnt}+1)) of ${actionStateEntryCnt} --- Action-ID ${actionUTXO}#${actionIdx}\e[0m"
@@ -629,6 +630,22 @@ do
 	                                                                errorMsg=$(jq -r .errorMsg <<< ${signerJSON} 2> /dev/null)
 	                                                                echo -e "\e[0m     Anchor-Data: ${iconYes}\e[32m JSONLD structure is ok\e[0m";
 									{ read govActionTitle; read proofDepositReturnAddr; read proofWithdrawalAddr; } <<< $(jq -r '.body.title // "-", .body.onChain.depositReturnAddress // "-", if (.body.onChain.withdrawals[0]) then ([.body.onChain.withdrawals[].withdrawalAddress] | add) else "-" end' ${tmpAnchorContent} 2> /dev/null)
+										if jq -e '
+											.body.cip179 as $link |
+											($link.specVersion == 5 and $link.kind == "survey-link" and
+											 ($link.surveyTxId | test("^[0-9a-fA-F]{64}$")) and
+											 ($link.surveyIndex | type == "number" and . >= 0 and . <= 65535 and floor == .) and
+											 ."@context".CIP179 == "https://github.com/cardano-foundation/CIPs/blob/master/CIP-0179/README.md#" and
+											 ."@context".body."@context".cip179."@id" == "CIP179:link" and
+											 ."@context".body."@context".cip179."@context".specVersion == "CIP179:specVersion" and
+											 ."@context".body."@context".cip179."@context".kind == "CIP179:kind" and
+											 ."@context".body."@context".cip179."@context".surveyTxId == "CIP179:surveyTxId" and
+											 ."@context".body."@context".cip179."@context".surveyIndex == "CIP179:surveyIndex")' "${tmpAnchorContent}" >/dev/null 2>&1; then
+											{ read cip179SurveyTxId; read cip179SurveyIndex; } <<< $(jq -r '.body.cip179.surveyTxId, .body.cip179.surveyIndex' "${tmpAnchorContent}")
+											echo -e "\e[0m      CIP-179: ${iconYes}\e[32m linked survey ${cip179SurveyTxId}#${cip179SurveyIndex}\e[0m";
+										elif jq -e '.body.cip179 != null' "${tmpAnchorContent}" >/dev/null 2>&1; then
+											echo -e "\e[0m      CIP-179: ${iconNo}\e[35m malformed v5 survey link or @context; survey ignored\e[0m";
+										fi
 	                                                                if [[ "${errorMsg}" != "" ]]; then echo -e "\e[0m          Notice: ${iconNo} ${errorMsg}\e[0m"; fi
 					                                authors=$(jq -r --arg iconYes "${iconYes}" --arg iconNo "${iconNo}" '.authors[] | "\\e[0m       Signature: \(if .valid then $iconYes else $iconNo end) \(.name) (PubKey \(.publicKey))\\e[0m"' <<< ${signerJSON} 2> /dev/null)
 	                                                                if [[ "${authors}" != "" ]]; then echo -e "${authors}\e[0m"; fi
@@ -1167,12 +1184,31 @@ if [[ "${voteParam}" != "" ]]; then
 	esac
 
 	#Generate the vote file depending on the choice made above
+	cip179ResponseFile=""
+	if [[ "${cip179SurveyTxId}" != "" ]] && ask "\nThis action links a CIP-179 survey. Answer it with this governance vote?" N; then
+		if ! exists node || [[ ! -f "${scriptDir}/cip179-vote.mjs" ]]; then
+			echo -e "\n\e[35mCIP-179 survey voting needs cip179-vote.mjs, Node.js 20+, and cip-179@0.2.0.\nInstall the helper beside these scripts, then run 'npm install --no-save --no-package-lock cip-179@0.2.0' there.\e[0m\n"; exit 1
+		fi
+		case ${voterType} in "DRep") cip179Role=0;; "Pool") cip179Role=1;; "Committee-Hot") cip179Role=2;; esac
+		cip179ResponseFile="${votingFile}.cip179.json"
+		CIP179_KOIOS_API="${koiosAPI}" CIP179_KOIOS_AUTH="${koiosAuthorizationHeader}" \
+			node "${scriptDir}/cip179-vote.mjs" respond "${cip179SurveyTxId}" "${cip179SurveyIndex}" "${cip179Role}" "${voterHash}" "${actionExpiresAfterEpoch}" "${cip179ResponseFile}" <${termTTY}
+		cip179Result=$?
+		if [[ ${cip179Result} -eq 10 ]]; then cip179ResponseFile="";
+		elif [[ ${cip179Result} -ne 0 ]]; then
+			if ask "Continue with the governance vote without a survey response?" N; then cip179ResponseFile=""; else exit 1; fi
+		fi
+	fi
+
 	voteJSON=$(${cardanocli} ${cliEra} governance vote create ${voteParam} --governance-action-tx-id "${actionUTXO}" --governance-action-index "${actionIdx}" ${vkeyParam} "${voterVkeyFile}" ${anchorPARAM} --out-file /dev/stdout 2> /dev/stdout)
 	checkError "$?"; if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${voteJSON}\e[0m\n"; exit 1; fi
 
 	#Inject the GovActionTitle into the voting file
 	voteJSON=$(jq -r ". += { \"description\": \"${govActionTitle//[^[:alnum:][:space:]-_\/\!§$%&()?<>@|.,:;=*\']}\" }" <<< ${voteJSON} 2> /dev/null)
 	checkError "$?"; if [ $? -ne 0 ]; then echo -e "\e[35mERROR - ${voteJSON}\e[0m\n"; exit 1; fi
+	if [[ "${cip179ResponseFile}" != "" ]]; then
+		voteJSON=$(jq --arg responseFile "$(basename "${cip179ResponseFile}")" '.cip179Response = $responseFile' <<< "${voteJSON}")
+	fi
 	echo "${voteJSON}" > "${votingFile}"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 	echo -e "\e[0mCreated the Vote-Certificate file: \e[32m${votingFile}\e[90m"
