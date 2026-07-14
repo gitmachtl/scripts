@@ -154,7 +154,7 @@ echo
 
 
 #Setting default variables
-metafileParameter=""; metafile=""; transactionMessage="{}"; enc=""; passphrase="cardano"; metadataLabel17File=""; metadataCborFile="";
+metafileParameter=""; metafile=""; transactionMessage="{}"; enc=""; passphrase="cardano"; metadataJsonFile=""; metadataCborFile="";
 votefileParameter=""; actionIdCollector=""; voterHashCollector=""; voteCounter=0;
 cip179ResponseFiles=()
 
@@ -178,8 +178,8 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
                 #Check if it is null, a number, lower then zero, higher then 65535, otherwise exit with an error
 		if [ "${metadatum}" == null ] || [ -z "${metadatum##*[!0-9]*}" ] || [ "${metadatum}" -lt 0 ] || [ "${metadatum}" -gt 65535 ]; then
 			echo -e "\n\e[35mERROR - MetaDatum Value '${metadatum}' in '${metafile}' must be in the range of 0..65535!\n\e[0m"; exit 1; fi
-                if jq -e 'has("17")' "${metafile}" >/dev/null 2>&1; then metadataLabel17File="${metafile}"; fi
-                metafileParameter+="--metadata-json-file ${metafile} "; metafileList+="'${metafile}' "
+		metadataJsonFile="${metafile}"
+		metafileParameter+="--metadata-json-file ${metafile} "; metafileList+="'${metafile}' "
 
              elif [[ -f "${metafile}" && "${metafileExt^^}" == "CBOR" ]]; then #its a cbor file
                 metadataCborFile="${metafile}"
@@ -296,13 +296,13 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
 done
 
 if [[ ${#cip179ResponseFiles[@]} -gt 0 ]]; then
-	if [[ "${metadataLabel17File}" != "" ]]; then echo -e "\n\e[35mERROR - '${metadataLabel17File}' already supplies metadata label 17; it cannot be combined with CIP-179 response sidecars.\e[0m\n"; exit 1; fi
+	if [[ "${metadataJsonFile}" != "" ]]; then echo -e "\n\e[35mERROR - JSON metadata '${metadataJsonFile}' cannot be combined with CIP-179 response sidecars because they use different cardano-cli JSON schemas.\e[0m\n"; exit 1; fi
 	if [[ "${metadataCborFile}" != "" ]]; then echo -e "\n\e[35mERROR - CBOR metadata '${metadataCborFile}' cannot be safely checked for a label 17 collision with CIP-179 response sidecars.\e[0m\n"; exit 1; fi
 	if ! exists node || [[ ! -f "${scriptDir}/cip179-vote.mjs" ]]; then echo -e "\n\e[35mERROR - Node.js and '${scriptDir}/cip179-vote.mjs' are required to merge CIP-179 responses.\e[0m\n"; exit 1; fi
 	cip179MetadataFile="${tempDir}/cip179-responses.json"
 	node "${scriptDir}/cip179-vote.mjs" merge "${cip179MetadataFile}" "${cip179ResponseFiles[@]}"
 	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-	metafileParameter+="--metadata-json-file ${cip179MetadataFile} "; metafileList+="'${cip179MetadataFile}' "
+	metafileParameter="--json-metadata-detailed-schema --metadata-json-file ${cip179MetadataFile} "; metafileList+="'${cip179MetadataFile}' "
 fi
 
 #Check if there is only one vote included if also a hardware wallet is used (limitation by the hardware wallet firmware)
@@ -329,6 +329,11 @@ if [[ ! "${transactionMessage}" == "{}" ]]; then
 
 		elif [[ "${encryption}" != "" ]]; then #another encryption method provided
 			echo -e "\n\e[35mERROR - The given encryption mode '${encryption,,}' is not on the supported list of encryption methods. Only 'basic' from CIP-0083 is currently supported\n\n\e[0m"; exit 1;
+		fi
+
+		if [[ ${#cip179ResponseFiles[@]} -gt 0 ]]; then
+			tmp=$(jq 'with_entries(.value |= {map: [to_entries[] | {k: {string: .key}, v: (if (.value | type) == "array" then {list: [.value[] | {string: .}]} else {string: .value} end)}]})' <<< "${tmp}")
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		fi
 
 		echo "${tmp}" > ${transactionMessageMetadataFile}; metafileParameter="${metafileParameter}--metadata-json-file ${transactionMessageMetadataFile} "; #add it to the list of metadata.jsons to attach
