@@ -103,6 +103,7 @@ echo
 
 #Setting default variables
 anchorURL=""; anchorHASH=""; #Setting defaults
+cip179AnchorDeposit=""; cip179AnchorRewardAccount="";
 committeeTermEpoch=0;
 
 paramCnt=$#;
@@ -177,6 +178,17 @@ if ${onlineMode}; then
 						rm "${tmpAnchorContent}";
 
 					else #anchor-url is a json
+
+						#For CIP-179-linked anchors, retain the declared on-chain values so
+						#they can be checked against the live parameters and selected return
+						#address before an action file is created.
+						if jq -e '.body.cip179 != null' "${tmpAnchorContent}" >/dev/null 2>&1; then
+							cip179AnchorDeposit=$(jq -er '.body.onChain.deposit | strings | select(test("^[1-9][0-9]*$"))' "${tmpAnchorContent}" 2>/dev/null) || cip179AnchorDeposit=""
+							cip179AnchorRewardAccount=$(jq -er '.body.onChain.reward_account | strings | select(length > 0)' "${tmpAnchorContent}" 2>/dev/null) || cip179AnchorRewardAccount=""
+							if [[ "${cip179AnchorDeposit}" == "" || "${cip179AnchorRewardAccount}" == "" ]]; then
+								echo -e "\n\e[91mERROR - The CIP-179-linked anchor does not contain a valid positive body.onChain.deposit and body.onChain.reward_account.\n\e[0m"; exit 1;
+							fi
+						fi
 
 						contentHASH=$(b2sum -l 256 "${tmpAnchorContent}" 2> /dev/null | cut -d' ' -f 1)
 						checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -260,6 +272,18 @@ if [[ ${protocolVersionMajor} -lt 9 ]]; then
 
 if [[ ${actionDepositFee} -lt 0 ]]; then
 	echo -e "\n\e[91mERROR - Could not query the current Action-Deposit fee amount!\n\e[0m"; exit 1; fi
+
+# A linked survey anchor must describe the deposit and return account this
+# script will use. Never silently correct stale, already-signed metadata.
+if [[ "${cip179AnchorDeposit}" != "" ]]; then
+	if [[ "${cip179AnchorDeposit}" != "${actionDepositFee}" ]]; then
+		echo -e "\n\e[91mERROR - The CIP-179-linked anchor declares a governance action deposit of ${cip179AnchorDeposit} lovelace, but the current network requires ${actionDepositFee}. Regenerate and re-sign the anchor metadata; no action file was created.\n\e[0m"; exit 1;
+	fi
+	if [[ "${cip179AnchorRewardAccount}" != "${stakeAddr}" ]]; then
+		echo -e "\n\e[91mERROR - The CIP-179-linked anchor reward account does not match the selected deposit-return stake address. Regenerate and re-sign the anchor metadata; no action file was created.\n\e[0m"; exit 1;
+	fi
+	echo -e "\e[0mCIP-179 Anchor:     \e[32m deposit and reward account match the action\e[0m"
+fi
 
 echo -e "\e[0mAction-Deposit Fee:\e[32m $(convertToADA ${actionDepositFee}) ADA / ${actionDepositFee} lovelaces\n\e[0m"
 
@@ -810,5 +834,3 @@ echo -e "\"./25b_regAction.sh myWallet ${actionFile}\"\e[0m"
 echo
 
 echo -e "\e[0m"
-
-
