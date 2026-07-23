@@ -208,12 +208,16 @@ if ${onlineMode}; then
 		tmp=$(jq -r . <<< ${response}); if [ $? -ne 0 ]; then echo -e "\n\n\e[35mError - Koios API request sent not back a valid JSON !\e[0m"; echo; exit 2; fi
 		#check if the received json only contains one entry in the array (will also not be 1 if not a valid json)
 		if [[ $(jq ". | length" 2> /dev/null <<< ${response}) -eq 1 ]]; then
-			onChainOpcertCount=$(jq -r ".[0].op_cert_counter | select (.!=null)" 2> /dev/null <<< ${response})
-			poolName=$(jq -r ".[0].meta_json.name | select (.!=null)" 2> /dev/null <<< ${response})
-			poolTicker=$(jq -r ".[0].meta_json.ticker | select (.!=null)" 2> /dev/null <<< ${response})
+			onChainOpcertCount=$(jq -r ".[0].op_cert_counter // -1" 2> /dev/null <<< ${response})
+			poolName=$(jq -r ".[0].meta_json.name // \"NoName\"" 2> /dev/null <<< ${response})
+			poolTicker=$(jq -r ".[0].meta_json.ticker // \"NoTicker\"" 2> /dev/null <<< ${response})
 			echo -e "\e[0mGot the information back for the Pool: \e[32m${poolName} (${poolTicker})\e[0m"
 			echo
-		        echo -e "\e[0mThe last known OpCertCounter on the chain is: \e[32m${onChainOpcertCount}\e[0m"
+			if [[ ${onChainOpcertCount} -ge 0 ]]; then
+			        echo -e "\e[0mThe last known OpCertCounter on the chain is: \e[32m${onChainOpcertCount}\e[0m"
+			else
+				echo -e "\e[0mThere is no information available yet on the chain about the OpCertCounter. Looks like the pool has not made a block yet.\nSo we are going with a next counter of \e[33m0\e[0m"
+			fi
 		else
 			echo -e "\e[0mThere is no information available from the chain about the OpCertCounter. Looks like the pool has not made a block yet.\nSo we are going with a next counter of \e[33m0\e[0m"
 			onChainOpcertCount=-1 #if there is none, set it to -1
