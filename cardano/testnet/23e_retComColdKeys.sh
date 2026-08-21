@@ -598,9 +598,6 @@ rm ${txFile} 2> /dev/null
 #Choose signing method
 if [[ -f "${retPayName}.hwsfile" && -f "${comColdName}.cc-cold.hwsfile" ]]; then
 
-#       #remove the tag(258) from the txBodyFile
-        sed -si 's/04d901028183/048183/g' "${txBodyFile}"
-
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
         tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
         echo -e "\e[32m${tmp}\e[90m\n"
@@ -619,11 +616,19 @@ if [[ -f "${retPayName}.hwsfile" && -f "${comColdName}.cc-cold.hwsfile" ]]; then
         #Witness and Assemble the TxFile
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
-#echo -e "tmp=${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${comColdName}.cc-cold.hwsfile --hw-signing-file ${retPayName}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txWitnessFile}-coldkey --out-file ${txWitnessFile}-payment 2> /dev/stdout"
-
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${comColdName}.cc-cold.hwsfile --hw-signing-file ${retPayName}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txWitnessFile}-coldkey --out-file ${txWitnessFile}-payment 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+                        echo -ne "\e[0mWitnessed ... " ;;
+        esac
 
         ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile}-payment --witness-file ${txWitnessFile}-coldkey --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

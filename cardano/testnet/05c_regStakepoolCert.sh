@@ -211,7 +211,7 @@ if [ ! -f "${regCertFile}" ]; then echo -e "\n\e[35mERROR - \"${regCertFile}\" S
 if [ ! -f "${poolName}.node.vkey" ]; then echo -e "\n\e[35mERROR - \"${poolName}.node.vkey\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
 if ! [[ -f "${poolName}.node.skey" || -f "${poolName}.node.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${poolName}.node.skey/hwsfile\" does not exist! Please create it first with script 04a.\e[0m"; exit 1; fi
 if [ ! -f "${regPayName}.addr" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.addr\" does not exist! Please create it first with script 03a or 02.\e[0m"; exit 1; fi
-if [ ! -f "${regPayName}.skey" ]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey\" does not exist! Please create it first with script 03a or 02. No hardware-wallet allowed for poolRegistration payments! :-(\e[0m\n"; exit 1; fi
+if ! [[ -f "${regPayName}.skey" || -f "${regPayName}.hwsfile" ]]; then echo -e "\n\e[35mERROR - \"${regPayName}.skey/hwsfile\" does not exist! Please create it first with script 03a or 02. :-(\e[0m\n"; exit 1; fi
 
 
 #Load regSubmitted value from the pool.json. If there is an entry, than do a Re-Registration (changes the Fee!)
@@ -747,16 +747,54 @@ if [ -f "${poolName}.node.skey" ]; then #key is a normal one
 
 	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
 
-elif [ -f "${poolName}.node.hwsfile" ]; then #key is a hardware wallet
 
-        if ! ask "\e[0mAdding the pool node witness from a local Hardware-Wallet key '\e[33m${poolName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
+elif [[ -f "${poolName}.node.hwsfile" && -f "${regPayName}.hwsfile" ]]; then #node and payment key is the same hardware wallet
+
+        if ! ask "\e[0mAdding the pool node '\e[33m${poolName}\e[0m' and payment '\e[33m${regPayName}.hwsfile\e[0m' witness from a local Hardware-Wallet, continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
+
+	tmpNodeWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
+	tmpPaymentWitnessFile="${tempDir}/$(basename ${regPayName}).tmp.witness"
+	#this is currently only supported by ledger devices
+        start_HwWallet "Ledger|Keystone"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile --hw-signing-file ${regPayName}.hwsfile ${magicparam} --out-file ${tmpNodeWitnessFile} --out-file ${tmpPaymentWitnessFile} 2> /dev/stdout)
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+			echo -e "\e[32mDONE\e[0m";;
+        esac
+        tmpNodeWitness=$(cat ${tmpNodeWitnessFile})
+        tmpPaymentWitness=$(cat ${tmpPaymentWitnessFile})
+	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpNodeWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
+	poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpPaymentWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
+
+
+elif [ -f "${poolName}.node.hwsfile" ]; then #node key is a hardware wallet
+
+        if ! ask "\e[0mAdding the pool node witness from a local Hardware-Wallet '\e[33m${poolName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
 
 	tmpWitnessFile="${tempDir}/$(basename ${poolName}).tmp.witness"
 	#this is currently only supported by ledger devices
         start_HwWallet "Ledger|Keystone"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+			echo -e "\e[32mDONE\e[0m";;
+        esac
         tmpWitness=$(cat ${tmpWitnessFile})
 	poolJSON=$(jq ".regWitness.witnesses.\"${poolName}.node\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON if its a new collection
 
@@ -766,7 +804,10 @@ else
 
 fi
 
-#Fill the witnesses with the local payment witness, must be a normal cli skey
+echo
+
+#Fill the witnesses with the local payment witness if needed, must be a normal cli skey
+if [ -f "${regPayName}.skey" ]; then #key is a normal one
 
 	#read the needed signing keys into ram
         skeyJSON=$(read_skeyFILE "${regPayName}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
@@ -780,6 +821,10 @@ fi
         unset skeyJSON
 
 	poolJSON=$(jq ".regWitness.witnesses.\"${regPayName}\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witness in the poolJSON if its a new collection
+
+fi
+
+
 
 #Fill the witnesses with the local owner accounts, if you wanna do this in multiple steps you should set ownerWitness: "external" in the pool.json
 for (( tmpCnt=0; tmpCnt<${ownerCnt}; tmpCnt++ ))
@@ -814,10 +859,18 @@ do
 
 		start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 		tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${ownerName}.staking.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
-
-	        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
-	        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
+	        case "${tmp^^}" in
+	                *"REJECTED"*) #signing was rejected
+	                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+	                *"DISCONNECT"*) #device was disconnected
+	                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+	                *"ERROR"*) #an error occured
+	                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+	                *"WARNING"*) #a warning occured, but we continue
+	                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+	                *)      #Signing ok
+				echo -e "\e[32mDONE\e[0m";;
+	        esac
 		tmpWitness=$(cat ${tmpWitnessFile})
 
 	        poolJSON=$(jq ".regWitness.witnesses.\"${ownerName}.staking\".witness = ${tmpWitness}" <<< ${poolJSON}); #include the witnesses in the poolJSON

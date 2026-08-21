@@ -341,11 +341,11 @@ minCliVersion="11.0.0"			#minimum allowed cli version for this script-collection
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
 minNodeVersion="11.0.0"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
-minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"7.1.4"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
+minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"8.0.6"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minKeystoneCardanoAppVersion="1.7.7"  	#minimum version for the firmware on the Keystone HW-Wallet
-minHardwareCliVersion="1.19.0" 		#minimum version for the cardano-hw-cli
-minCardanoSignerVersion="1.27.0"	#minimum version for the cardano-signer binary
+minHardwareCliVersion="1.20.0" 		#minimum version for the cardano-hw-cli
+minCardanoSignerVersion="1.35.0"	#minimum version for the cardano-signer binary
 minCatalystToolboxVersion="0.5.0"	#minimum version for the catalyst-toolbox binary
 
 #Defaults - Variables and Constants
@@ -2705,6 +2705,7 @@ autocorrect_TxBodyFile() {
 
 local txBodyFile="${1}"
 local txBodyTmpFile="${1}-corrected"
+local hwUnrestrictedMode="${2}"
 
 #check cardanohwcli presence and version
 if [[ "$(which ${cardanohwcli})" == "" ]]; then echo -e "\n\e[35mError - cardano-hw-cli binary not found, please install it first and set the path to it correct in the 00_common.sh, common.inc or $HOME/.common.inc !\e[0m\n"; exit 1; fi
@@ -2713,8 +2714,7 @@ versionCheck "${minHardwareCliVersion}" "${versionHWCLI}"
 if [[ $? -ne 0 ]]; then majorError "Version ERROR - Please use a cardano-hw-cli version ${minHardwareCliVersion} or higher !\nYour version ${versionHWCLI} is no longer supported for security reasons or features, please upgrade - thx."; exit 1; fi
 
 #do the correction
-#tmp=$(${cardanohwcli} transaction transform-raw --tx-body-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #old default format
-tmp=$(${cardanohwcli} transaction transform --tx-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #new cddl format
+tmp=$(${cardanohwcli} transaction transform ${hwUnrestrictedMode} --tx-file ${txBodyFile} --out-file ${txBodyTmpFile} 2> /dev/stdout) #new cddl format
 
 if [[ $? -ne 0 ]]; then echo -e "\n${tmp}"; exit 1; fi
 tmp_lastline=$(echo "${tmp}" | tail -n 1)

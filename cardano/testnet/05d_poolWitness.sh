@@ -412,8 +412,18 @@ case ${action} in
 			if [ ! -f "${signingKey}.hwsfile" ]; then echo -e "\n\e[35mError - \"${signingKey}.hwsfile\" file not found !\e[0m"; exit 1; fi
 	                start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			tmp=$(${cardanohwcli} transaction witness --tx-file ${tmpWitnessTxBody} --hw-signing-file ${signingKey}.hwsfile ${magicparam} --out-file ${tmpWitnessFile} 2> /dev/stdout)
-			if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m"; fi
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		        case "${tmp^^}" in
+		                *"REJECTED"*) #signing was rejected
+		                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+		                *"DISCONNECT"*) #device was disconnected
+		                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+		                *"ERROR"*) #an error occured
+		                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+		                *"WARNING"*) #a warning occured, but we continue
+		                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+		                *)      #Signing ok
+		                        echo -e "\e[32mDONE\e[0m";;
+		        esac
 
 	                tmpWitness=$(cat ${tmpWitnessFile})
 

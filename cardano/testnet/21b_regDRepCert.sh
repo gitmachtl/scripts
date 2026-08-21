@@ -616,10 +616,7 @@ echo
 rm ${txFile} 2> /dev/null
 
 #Choose Signing-Method
-if [[ -f "${fromAddr}.hwsfile" && -f "${drepName}.drep.hwsfile" ]]; then
-
-#	#remove the tag(258) from the txBodyFile
-	sed -si 's/04d901028184/048184/g' "${txBodyFile}"
+if [[ -f "${fromAddr}.hwsfile" && -f "${drepName}.drep.hwsfile" ]]; then #drep and payment from the same hw wallet
 
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
         tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
@@ -640,14 +637,24 @@ if [[ -f "${fromAddr}.hwsfile" && -f "${drepName}.drep.hwsfile" ]]; then
         if [[ -f "${stakeFromAddr}.hwsfile" ]]; then hwWalletReturnStr="--change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeFromAddr}.hwsfile"; fi
 
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} --hw-signing-file ${drepName}.drep.hwsfile ${magicparam} --out-file ${txWitnessFile} --out-file ${txWitnessFile2} 2> /dev/stdout)
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+                        echo -e "\e[0mWitnessed\e[0m\n" ;;
+        esac
 
         ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txWitnessFile2} --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo -e "Assembled ... \e[32mDONE\e[0m\n";
 
-elif [[ -f "${fromAddr}.skey" && -f "${drepName}.drep.skey" ]]; then #with the normal cli skey
+elif [[ -f "${fromAddr}.skey" && -f "${drepName}.drep.skey" ]]; then #drep and payment from a cli skey
 
         #read the needed signing keys into ram and sign the transaction
         skeyJSON1=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON1}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
@@ -663,8 +670,104 @@ elif [[ -f "${fromAddr}.skey" && -f "${drepName}.drep.skey" ]]; then #with the n
         unset skeyJSON1
 	unset skeyJSON2
 
+elif [[ -f "${fromAddr}.hwsfile" && -f "${drepName}.drep.skey" ]]; then #drep from cli key, payment from the hw wallet
+
+	#NEEDS UNRESTRICTED SIGNING MODE
+        hwUnrestrictedMode="";
+        if ! ask "\e[0mDo you wanna allow '\e[33munrestricted-mode\e[0m' on your HW-Wallet to pay for the CLI DRep-ID cert?" Y; then echo; echo -e "\e[35mABORT - Without unrestricted mode, you can only witness/sign a DRep cert from the HW-Wallet itself.\e[0m"; echo; exit 2; fi
+        hwUnrestrictedMode="--allow-unrestricted-mode";
+
+        echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
+        tmp=$(autocorrect_TxBodyFile "${txBodyFile}" "${hwUnrestrictedMode}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
+        echo -e "\e[32m${tmp}\e[90m\n"
+
+	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
+	echo
+
+        echo -e "\e[0mSign (Witness+Assemble) the unsigned transaction body with the \e[32m${fromAddr}.hwsfile\e[0m & \e[32m${drepName}.drep.skey\e[0m: \e[32m ${txFile} \e[90m"
+        echo
+
+        #Witness and Assemble the TxFile
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        #lets check if its a base payment address, in that case we also need to add the staking.hwsfile to not have a strange hw gui output
+        hwWalletReturnStr=""
+        stakeFromAddr="$(dirname ${fromAddr})/$(basename ${fromAddr} .payment).staking"
+        if [[ -f "${stakeFromAddr}.hwsfile" ]]; then hwWalletReturnStr="--change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeFromAddr}.hwsfile"; fi
+
+        tmp=$(${cardanohwcli} transaction witness ${hwUnrestrictedMode} --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txWitnessFile} 2> /dev/stdout)
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"SECURITY"*) #device returned a security error, for unrestricted mode the expert mode must be enabled
+                        if [[ ${hwUnrestrictedMode} != "" ]]; then
+                                echo -e "\e[35mError - This tx requires the HW-Device to sign in 'unrestricted mode', make sure to enable the 'expert mode' on the device and retry the action!\e[0m\n"; exit 1;
+                        else
+                                echo -e "\e[35mError - The device declined the process because of security issues!\e[0m\n"; exit 1;
+                        fi ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+                        echo -e "\e[0mWitnessed\e[0m\n" ;;
+        esac
+
+        #read the needed signing keys into ram
+        skeyJSON=$(read_skeyFILE "${drepName}.drep.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+        ${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --out-file ${txWitnessFile2}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        #forget the signing keys
+        unset skeyJSON
+
+        ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txWitnessFile2} --out-file ${txFile}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        echo -e "Assembled ... \e[32mDONE\e[0m\n";
+
+elif [[ -f "${fromAddr}.skey" && -f "${drepName}.drep.hwsfile" ]]; then #drep from hw wallet, payment via cli
+
+        echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
+        tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
+        echo -e "\e[32m${tmp}\e[90m\n"
+
+	dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
+	echo
+
+        echo -e "\e[0mSign (Witness+Assemble) the unsigned transaction body with the \e[32m${fromAddr}.skey\e[0m & \e[32m${drepName}.drep.hwsfile\e[0m: \e[32m ${txFile} \e[90m"
+        echo
+
+        #Witness and Assemble the TxFile
+        start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+
+        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${drepName}.drep.hwsfile ${magicparam} --out-file ${txWitnessFile} 2> /dev/stdout)
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+			echo -e "\e[0mWitnessed\e[0m\n" ;;
+        esac
+
+        #read the needed payment signing key into ram
+        skeyJSON=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi
+        ${cardanocli} ${cliEra} transaction witness --tx-body-file ${txBodyFile} --signing-key-file <(echo "${skeyJSON}") --out-file ${txWitnessFile2}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        #forget the signing keys
+        unset skeyJSON
+
+        ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --witness-file ${txWitnessFile2} --out-file ${txFile}
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        echo -e "Assembled ... \e[32mDONE\e[0m\n";
+
 else
-echo -e "\e[35mThis combination is not allowed! A Hardware-Wallet must be used to pay for its own DRep-ID on the chain.\e[0m\n"; exit 1;
+echo -e "\e[35mUnknown combination ERROR, you should not have landed here. Please report!\e[0m\n"; exit 1;
 fi
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 echo -ne "\e[90m"
