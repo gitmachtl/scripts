@@ -291,6 +291,10 @@ Checkout the configuration parameters in your 00_common.sh Main-Configuration fi
 
   The scripts uses per default (configurable) the file **offlineTransfer.json** to store the data in between the Machines.
 
+Offline address captures include reference-script sizes used for fee calculation. Refresh each payment address with `./01_workOffline.sh add <wallet>` before building or signing if the capture was created by an older script version.
+
+Transactions that spend UTxOs carrying reference scripts print a warning. Sending the ADA back to the same address does not recreate those scripts; applications using the spent reference locations may stop working.
+
 &nbsp;<br>
 </details>
       

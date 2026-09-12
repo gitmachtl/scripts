@@ -1534,6 +1534,143 @@ queryLight_UTXO() { #${1} = address to query
 	unset utxoRet response responseCode responseJSON addr error errorcnt
 
 }
+# Return authoritative reference-script sizes for an exact JSON array of transaction inputs.
+queryReferenceScriptSizes() {
+	local requested="${1}"
+	local ids id result="{}" response responseJSON responseCode size sizeJSON rows
+	local -a queryArgs
+
+	if ! ids=$(jq -ce 'if type != "array" or any(.[]; type != "string" or (test("^[0-9a-fA-F]{64}#[0-9]+$") | not)) or length != (unique | length) then error("invalid input list") else . end' <<< "${requested}" 2>/dev/null); then
+		echo "ERROR - Invalid reference-script input list." >&2
+		return 1
+	fi
+	if [[ "$(jq length <<< "${ids}")" -eq 0 ]]; then printf '{}'; return 0; fi
+
+	case ${workMode} in
+		"online")
+			queryArgs=()
+			while IFS= read -r id; do queryArgs+=(--tx-in "${id}"); done < <(jq -r '.[]' <<< "${ids}")
+			response=$(${cardanocli} ${cliEra} query utxo --output-json "${queryArgs[@]}" 2>&1)
+			if [[ $? -ne 0 ]] || ! jq -e --argjson ids "${ids}" '
+				. as $utxos | type == "object" and
+				(keys | sort) == ($ids | sort) and
+				all($ids[]; . as $id | $utxos[$id] | type == "object" and has("referenceScript"))
+			' >/dev/null 2>&1 <<< "${response}"; then
+				echo "ERROR - Could not obtain complete reference-script information from cardano-cli." >&2
+				return 1
+			fi
+			while IFS= read -r id; do
+				if [[ "$(jq -r --arg id "${id}" '.[$id].referenceScript == null' <<< "${response}")" == "true" ]]; then
+					result=$(jq -c --arg id "${id}" '. + {($id): null}' <<< "${result}")
+				else
+					size=$(${cardanocli} ${cliEra} query ref-script-size --output-json --tx-in "${id}" 2>&1)
+					if [[ $? -ne 0 ]] || ! size=$(jq -er '.refInputScriptSize | select(type == "number" and . >= 0 and floor == .)' <<< "${size}" 2>/dev/null); then
+						echo "ERROR - Could not determine the reference-script size for '${id}'." >&2
+						return 1
+					fi
+					result=$(jq -c --arg id "${id}" --argjson size "${size}" '. + {($id): $size}' <<< "${result}")
+				fi
+			done < <(jq -r '.[]' <<< "${ids}")
+			;;
+
+		"light")
+			local errorcnt=0 error=-1
+			while [[ ${errorcnt} -lt 5 && ${error} -ne 0 ]]; do
+				error=0
+				response=$(curl -sL -m 120 -X POST -w "---spo-scripts---%{http_code}" "${koiosAPI}/utxo_info?select=tx_hash,tx_index,is_spent,reference_script->hash,reference_script->size" -H "${koiosAuthorizationHeader}" -H "Accept: application/json" -H "Content-Type: application/json" -d "$(jq -cn --argjson ids "${ids}" '{_utxo_refs:$ids,_extended:true}')" 2>/dev/null)
+				if [[ $? -ne 0 ]]; then error=1; fi
+				errorcnt=$((errorcnt + 1))
+			done
+			if [[ ${error} -ne 0 || ! "${response}" =~ (.*)---spo-scripts---([0-9]+)$ ]]; then
+				echo "ERROR - Query of the Koios-API via curl failed." >&2
+				return 1
+			fi
+			responseJSON="${BASH_REMATCH[1]}"; responseCode="${BASH_REMATCH[2]}"
+			if [[ "${responseCode}" != "200" ]]; then echo "ERROR - Koios HTTP response code: ${responseCode}" >&2; return 1; fi
+			if ! rows=$(jq -ce --argjson ids "${ids}" '
+				if type != "array" then error("not an array") else
+					map(. + {id:(.tx_hash + "#" + (.tx_index | tostring))}) |
+					if length != ($ids | length) or (map(.id) | sort) != ($ids | sort) or (map(.id) | unique | length) != length or
+					   any(.[]; .is_spent != false or (has("hash") | not) or (has("size") | not) or
+					       (((.hash == null and .size == null) or
+					         ((.hash | type) == "string" and (.hash | test("^[0-9a-fA-F]{56}$")) and
+					          (.size | type) == "number" and .size >= 0 and (.size | floor) == .size)) | not))
+					then error("incomplete response") else . end
+				end
+			' <<< "${responseJSON}" 2>/dev/null); then
+				echo "ERROR - Koios returned incomplete or invalid reference-script information." >&2
+				return 1
+			fi
+			result=$(jq -c 'map({key:.id, value:(if .hash == null then null else .size end)}) | from_entries' <<< "${rows}")
+			;;
+
+		"offline")
+			if ! jq -e 'type == "object"' >/dev/null 2>&1 <<< "${offlineJSON:-}"; then readOfflineFile; fi
+			while IFS= read -r id; do
+				if ! sizeJSON=$(jq -ce --arg id "${id}" '
+					[.address[]? | select((.utxoJSON | type) == "object" and (.utxoJSON | has($id))) |
+					 if (.referenceScriptSizes | type) == "object" and (.referenceScriptSizes | has($id))
+					 then .referenceScriptSizes[$id] else "__missing__" end] as $matches |
+					if ($matches | length) != 1 or $matches[0] == "__missing__" or
+					   (($matches[0] == null) | not) and (($matches[0] | type) != "number" or $matches[0] < 0 or ($matches[0] | floor) != $matches[0])
+					then error("missing or conflicting metadata") else [$matches[0]] end
+				' <<< "${offlineJSON}" 2>/dev/null); then
+					echo "Reference-script information is missing; refresh the payment address with 01_workOffline.sh add on the online/light machine and transfer the capture again." >&2
+					return 1
+				fi
+				size=$(jq -c '.[0]' <<< "${sizeJSON}")
+				result=$(jq -c --arg id "${id}" --argjson size "${size}" '. + {($id): $size}' <<< "${result}")
+			done < <(jq -r '.[]' <<< "${ids}")
+			;;
+
+		*) echo "ERROR - Unknown workMode '${workMode}'." >&2; return 1;;
+	esac
+
+	printf '%s' "${result}"
+}
+
+# Inspect the real transaction body, set referenceScriptSize, and warn about script-bearing inputs.
+prepareReferenceScriptSpend() {
+	local txFile="${1}" view ids sizes feeIds spending collateralOnly
+	unset referenceScriptSize
+
+	view=$(${cardanocli} debug transaction view --output-json --tx-file "${txFile}" 2>&1)
+	if [[ $? -ne 0 ]] || ! jq -e '
+		type == "object" and
+		has("inputs") and has("reference inputs") and has("collateral inputs") and
+		([.inputs, ."reference inputs", ."collateral inputs"] | all(.[]; type == "array" and all(.[]; type == "string")))
+	' >/dev/null 2>&1 <<< "${view}"; then
+		echo "ERROR - Could not inspect transaction inputs in '${txFile}'." >&2
+		return 1
+	fi
+
+	ids=$(jq -c '[.inputs[], ."reference inputs"[], ."collateral inputs"[]] | unique' <<< "${view}")
+	sizes=$(queryReferenceScriptSizes "${ids}") || return 1
+	feeIds=$(jq -c '[.inputs[], ."reference inputs"[]] | unique' <<< "${view}")
+	if ! referenceScriptSize=$(jq -er --argjson ids "${feeIds}" --argjson sizes "${sizes}" '$ids | map($sizes[.] // 0) | add // 0 | select(type == "number" and . >= 0 and floor == .)' <<< '{}'); then
+		unset referenceScriptSize
+		echo "ERROR - Invalid reference-script fee total." >&2
+		return 1
+	fi
+
+	spending=$(jq -r --argjson sizes "${sizes}" '.inputs[] | select($sizes[.] != null) | "\(.) (\($sizes[.]) bytes)"' <<< "${view}")
+	if [[ -n "${spending}" ]]; then
+		echo "WARNING: This transaction spends reference-script UTxOs. Their existing reference locations will disappear; sending ADA back does not preserve the scripts. Applications using these UTxOs may stop working." >&2
+		while IFS= read -r id; do echo "  ${id}" >&2; done <<< "${spending}"
+	fi
+
+	collateralOnly=$(jq -r --argjson sizes "${sizes}" '
+		([.inputs[], ."reference inputs"[]] | unique) as $fee |
+		."collateral inputs"[] as $id | select(($fee | index($id)) == null and $sizes[$id] != null) |
+		"\($id) (\($sizes[$id]) bytes)"
+	' <<< "${view}")
+	if [[ -n "${collateralOnly}" ]]; then
+		echo "WARNING: These collateral reference-script UTxOs may be consumed if phase-2 validation fails:" >&2
+		while IFS= read -r id; do echo "  ${id}" >&2; done <<< "${collateralOnly}"
+	fi
+	return 0
+}
+
 #-------------------------------------------------------
 
 

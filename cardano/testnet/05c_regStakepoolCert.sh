@@ -175,10 +175,12 @@ poolJSON=$(cat ${poolFile}.pool.json)	#Read PoolJSON File into poolJSON variable
 #Check if there is already an opened witness in the poolJSON, if not create a new one with the current utctime in seconds as id
 regWitnessID=$(jq -r .regWitness.id <<< ${poolJSON} 2> /dev/null);
 if [[ "${regWitnessID}" == null || "${regWitnessID}" == 0 ]]; then #Opening up a new witness in the poolJSON
+	newWitnessCollection=true
 	regWitnessID=""; #used later to determine if it is a new witnesscollection or an existing one
 	poolJSON=$(jq ".regWitness = { id: $(date +%s), type: \"\", ttl: 0, regPayName: \"\", txBody: {}, witnesses: {} }" <<< ${poolJSON})
 	#Write the opened Witness only if the txBody was created successfully
 	else
+	newWitnessCollection=false
 	regWitnessDate=$(date --date="@${regWitnessID}") #Get date of the already existing witnesscollection
 fi
 
@@ -658,8 +660,10 @@ rm ${txBodyFile} 2> /dev/null
 ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} ${registrationCerts} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
+prepareReferenceScriptSpend "$txBodyFile" || exit 1
+
 #calculate the transaction fee. new parameters since cardano-cli 8.21.0
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --output-text --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count ${witnessCount} --reference-script-size 0 2> /dev/stdout)
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --output-text --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count ${witnessCount} --reference-script-size "${referenceScriptSize}" 2> /dev/stdout)
 if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
 fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
 
@@ -724,6 +728,7 @@ echo
 
 poolJSON=$(jq ".regWitness.ttl = ${ttl}" <<< ${poolJSON})
 poolJSON=$(jq ".regWitness.txBody = $(cat ${txBodyFile})" <<< ${poolJSON})
+poolJSON=$(jq ".regWitness.referenceScriptSize = ${referenceScriptSize}" <<< ${poolJSON})
 poolJSON=$(jq ".regWitness.regPayName = \"${regPayName}\"" <<< ${poolJSON})
 poolJSON=$(jq ".regWitness.regPayAmount = ${minRegistrationFees}" <<< ${poolJSON})
 poolJSON=$(jq ".regWitness.regPayReturn = ${lovelacesToSend}" <<< ${poolJSON})
@@ -901,6 +906,19 @@ regWitnessID=$(jq -r ".regWitness.id" <<< ${poolJSON})
 regWitnessDate=$(date --date="@${regWitnessID}" -R)
 regWitnessType=$(jq -r ".regWitness.type" <<< ${poolJSON})
 regWitnessTxBody=$(jq -r ".regWitness.txBody" <<< ${poolJSON})
+txBodyFile="${tempDir}/$(basename ${poolName}).txbody"
+echo "${regWitnessTxBody}" > "${txBodyFile}"
+if ! ${newWitnessCollection}; then
+	prepareReferenceScriptSpend "${txBodyFile}" || exit 1
+	storedReferenceScriptSize=$(jq -c '.regWitness | if has("referenceScriptSize") then .referenceScriptSize else "missing" end' <<< "${poolJSON}")
+	if ! jq -e --argjson resolved "${referenceScriptSize}" '
+		(type == "number" and . >= 0 and floor == . and . == $resolved) or
+		(. == "missing" and $resolved == 0)
+	' >/dev/null 2>&1 <<< "${storedReferenceScriptSize}"; then
+		echo -e "\e[35mReference-script fee information is missing or mismatched. Run 05d_poolWitness.sh clear ${poolFile} and rebuild this transaction.\e[0m" >&2
+		exit 1
+	fi
+fi
 regWitnessHardwareWalletIncluded=$(jq -r ".regWitness.hardwareWalletIncluded" <<< ${poolJSON})
 regWitnessPayAmount=$(jq -r ".regWitness.regPayAmount" <<< ${poolJSON})
 regWitnessPayReturn=$(jq -r ".regWitness.regPayReturn" <<< ${poolJSON})
@@ -986,8 +1004,6 @@ fi
 #
 
 txFile="${tempDir}/$(basename ${poolName}).tx"
-txBodyFile="${tempDir}/$(basename ${poolName}).txbody"
-echo "${regWitnessTxBody}" > ${txBodyFile}
 
 echo -e "\e[0mAssemble the Transaction with the payment \e[32m${regPayName}.skey\e[0m, node\e[32m ${poolName}.node.skey/hwsfile\e[0m and all PoolOwner Witnesses: \e[32m ${txFile} \e[90m"
 echo
@@ -1132,6 +1148,7 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
 									regProtectionKey: \"${regProtectionKey}\",
 									poolMetaUrl: \"${poolMetaUrl}\",
 									poolMetaHash: \"${poolMetaHash}\",
+                                                                        referenceScriptSize: ${referenceScriptSize},
                                                                         txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
                                 #Write the new offileFile content
                                 offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"signed pool registration transaction for '${poolMetaTicker}', payment via '${regPayName}'\" } ]" <<< ${offlineJSON})
@@ -1160,7 +1177,8 @@ if ask "\e[33mDoes this look good for you? Do you have enough pledge in your own
                                 echo "${offlineJSON}" > ${offlineFile}
                                 #Readback the tx content and compare it to the current one
                                 readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
-                                if [[ "${txFileJSON}" == "${readback}" ]]; then
+                                readbackReferenceScriptSize=$(cat ${offlineFile} | jq -r ".transactions[-1].referenceScriptSize")
+                                if [[ "${txFileJSON}" == "${readback}" && "${referenceScriptSize}" == "${readbackReferenceScriptSize}" ]]; then
 							echo
 							echo -e "\e[0mStakepool Info JSON:\e[32m ${poolFile}.pool.json \e[90m"
 							cat ${poolFile}.pool.json

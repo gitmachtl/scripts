@@ -676,8 +676,10 @@ dummyReturnAmount=$(( ${totalLovelaces} - ${lovelacesToSend} ))
 ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsSendString}" --tx-out "${sendFromAddr}+${dummyReturnAmount}${assetsReturnString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --out-file ${txBodyFile}
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
+prepareReferenceScriptSpend "$txBodyFile" || exit 1
+
 #calculate the transaction fee. new parameters since cardano-cli 8.21.0
-fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --output-text --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 2> /dev/stdout)
+fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --output-text --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size "${referenceScriptSize}" 2> /dev/stdout)
 if [ $? -ne 0 ]; then echo -e "\n\e[35m${fee}\e[0m\n"; exit 1; fi
 fee=${fee%% *} #only get the first part of 'xxxxxx Lovelaces'
 
@@ -814,6 +816,7 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
                                                                         sendFromAddr: \"${sendFromAddr}\",
                                                                         toAddr: \"${toAddr}\",
                                                                         sendToAddr: \"${sendToAddr}\",
+                                                                        referenceScriptSize: ${referenceScriptSize},
                                                                         txJSON: ${txFileJSON} } ]" <<< ${offlineJSON})
                                 #Write the new offileFile content
                                 offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"generated and signed utxo-token-transaction from '${fromAddr}' to '${toAddr}'\" } ]" <<< ${offlineJSON})
@@ -821,7 +824,8 @@ if [ "${ENV_SKIP_PROMPT}" == "YES" ] || ask "\n\e[33mDoes this look good for you
                                 echo "${offlineJSON}" > ${offlineFile}
                                 #Readback the tx content and compare it to the current one
                                 readback=$(cat ${offlineFile} | jq -r ".transactions[-1].txJSON")
-                                if [[ "${txFileJSON}" == "${readback}" ]]; then
+                                readbackReferenceScriptSize=$(cat ${offlineFile} | jq -r ".transactions[-1].referenceScriptSize")
+                                if [[ "${txFileJSON}" == "${readback}" && "${referenceScriptSize}" == "${readbackReferenceScriptSize}" ]]; then
                                                         showOfflineFileInfo;
                                                         echo -e "\e[33mTransaction txJSON has been stored in the '$(basename ${offlineFile})'.\nYou can now transfer it to your online machine for execution.\e[0m\n";
                                                  else
