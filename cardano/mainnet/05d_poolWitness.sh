@@ -403,6 +403,7 @@ case ${action} in
 		rm ${tmpWitnessTxBody} 2> /dev/null
 		rm ${tmpWitnessFile} 2> /dev/null
 		echo "${witnessTxBody}" > ${tmpWitnessTxBody}
+		prepareReferenceScriptSpend "${tmpWitnessTxBody}" || exit 1
 
 
 		#Sign via normal cli skey or hardware key, depends on the content of the vkey description

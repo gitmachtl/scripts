@@ -300,6 +300,8 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
         utxoEntryCnt=$(jq length <<< ${utxoJSON})
         if [[ ${utxoEntryCnt} == 0 ]]; then echo -e "\e[35mNo funds on the Address!\e[0m\n"; exit 1; else echo -e "\e[32m${utxoEntryCnt} UTXOs\e[0m found on the Address!"; fi
+        referenceScriptSizes=$(queryReferenceScriptSizes "$(jq -c 'keys' <<< "${utxoJSON}")")
+        if [[ $? -ne 0 ]]; then exit 1; fi
         echo
 
         totalLovelaces=0;       #Init for the Sum
@@ -429,6 +431,7 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
         offlineJSON=$( jq ".address.\"${checkAddr}\" += {used: \"no\" }" <<< ${offlineJSON})
         offlineJSON=$( jq ".address.\"${checkAddr}\" += {type: \"${typeOfAddr}\" }" <<< ${offlineJSON})
         offlineJSON=$( jq ".address.\"${checkAddr}\" += {utxoJSON: ${utxoJSON} }" <<< ${offlineJSON})
+        offlineJSON=$( jq ".address.\"${checkAddr}\".referenceScriptSizes = ${referenceScriptSizes}" <<< ${offlineJSON})
 
         offlineJSON=$( jq ".history += [ { date: \"$(date -R)\", action: \"added utxo-info for '${addrName}'\" } ]" <<< ${offlineJSON})
 
@@ -437,8 +440,10 @@ if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then  #Enterprise and Base UTXO ad
 
 	#Readback the content and compare it to the current one
 	utxoJSON=$(jq . <<< ${utxoJSON}) # bring it into the same format
-        readback=$(cat ${offlineFile} | jq -r ".address.\"${checkAddr}\".utxoJSON")
-        if [[ "${utxoJSON}" == "${readback}" ]]; then
+	referenceScriptSizes=$(jq . <<< ${referenceScriptSizes})
+        readback=$(jq -r ".address.\"${checkAddr}\".utxoJSON" < "${offlineFile}")
+        readbackReferenceScriptSizes=$(jq -r ".address.\"${checkAddr}\".referenceScriptSizes" < "${offlineFile}")
+        if [[ "${utxoJSON}" == "${readback}" && "${referenceScriptSizes}" == "${readbackReferenceScriptSizes}" ]]; then
 							showOfflineFileInfo;
 							echo -e "\e[33mLatest Information about this address was added to the '$(basename ${offlineFile})'.\nYou can now transfer it to your offline machine to work with it, or you can\nadd another address information to the file by re-running this script.\e[0m\n";
 						 else
@@ -669,8 +674,19 @@ transactionTxJSON=$(jq -r ".transactions[${transactionIdx}].txJSON" <<< ${offlin
 #Write out the TxJSON to a temporary file
 txFile="${tempDir}/$(basename ${transactionFromName}).tmp.txfile"
 rm ${txFile} 2> /dev/null #delete an old one if present
+
 echo "${transactionTxJSON}" > ${txFile};
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+# Re-resolve fee-critical input metadata before any queued transaction can be submitted.
+prepareReferenceScriptSpend "$txFile" || exit 1
+recordedReferenceScriptSize=$(jq -c ".transactions[${transactionIdx}] | if has(\"referenceScriptSize\") then .referenceScriptSize else \"missing\" end" <<< "${offlineJSON}")
+if ! jq -e --argjson resolved "${referenceScriptSize}" '
+	(type == "number" and . >= 0 and floor == . and . == $resolved) or
+	(. == "missing" and $resolved == 0)
+' >/dev/null 2>&1 <<< "${recordedReferenceScriptSize}"; then
+	echo -e "\e[35mReference-script fee information is missing or mismatched; rebuild and re-sign this transaction with the updated scripts.\e[0m" >&2
+	exit 1
+fi
 
 case ${transactionType} in
 
