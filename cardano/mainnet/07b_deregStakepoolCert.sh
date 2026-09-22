@@ -454,19 +454,25 @@ if [[ -f "${deregPayName}.hwsfile" && -f "${poolName}.node.hwsfile" ]]; then #wi
         #Witness and Assemble the TxFile
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${deregPayName}.hwsfile --hw-signing-file ${poolName}.node.hwsfile ${magicparam} --out-file ${txWitnessFile}-payment --out-file ${txWitnessFile}-node 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+                        echo -ne "\e[0mWitnessed ... " ;;
+        esac
 
         ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile}-payment --witness-file ${txWitnessFile}-node --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         echo -e "Assembled ... \e[32mDONE\e[0m\n";
 
 
-
-
 elif [[ -f "${deregPayName}.skey" && -f "${poolName}.node.skey" ]]; then #with the normal cli skeys
-
-
 
         #read the needed signing keys into ram and sign the transaction
         skeyJSON1=$(read_skeyFILE "${deregPayName}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON1}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi

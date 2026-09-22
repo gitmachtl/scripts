@@ -457,8 +457,18 @@ if [[ -f "${policyName}.policy.hwsfile" ]]; then
         if ! ask "\e[0mAdding the Policy-Witness signing from a local Hardware-Wallet key '\e[33m${policyName}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${policyName}.policy.hwsfile --out-file ${txWitnessPolicyFile} ${magicparam} 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+                        echo -e "\e[32mDONE\e[0m\n" ;;
+        esac
 
 else #generate the policy witness via the cli
 
@@ -481,8 +491,18 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
         if ! ask "\e[0mAdding the Payment-Witness signing from a local Hardware-Wallet key '\e[33m${fromAddr}.hwsfile\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile ${magicparam} --out-file ${txWitnessPaymentFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+                        echo -e "\e[32mDONE\e[0m\n" ;;
+        esac
 
 else #generate the payment witness via the cli
 

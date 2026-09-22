@@ -341,7 +341,7 @@ minCliVersion="11.0.0"			#minimum allowed cli version for this script-collection
 maxCliVersion="99.99.9"  		#maximum allowed cli version, 99.99.9 = no limit so far
 minNodeVersion="11.0.0"  		#minimum allowed node version for this script-collection version
 maxNodeVersion="99.99.9"  		#maximum allowed node version, 99.99.9 = no limit so far
-minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"8.0.6"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
+minLedgerCardanoAppVersion=${ENV_MINLEDGERCARDANOAPPVERSION:-"8.0.8"}  	#minimum version for the cardano-app on the Ledger HW-Wallet
 minTrezorCardanoAppVersion="2.7.2"  	#minimum version for the firmware on the Trezor HW-Wallet
 minKeystoneCardanoAppVersion="1.7.7"  	#minimum version for the firmware on the Keystone HW-Wallet
 minHardwareCliVersion="1.20.0" 		#minimum version for the cardano-hw-cli

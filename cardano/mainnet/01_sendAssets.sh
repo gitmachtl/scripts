@@ -740,8 +740,18 @@ if [[ -f "${fromAddr}.hwsfile" ]]; then
                                 fi
 
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile ${hwWalletReturnStr} ${magicparam} --out-file ${txWitnessFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+                        echo -ne "\e[0mWitnessed ... " ;;
+        esac
 
         ${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile} --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi

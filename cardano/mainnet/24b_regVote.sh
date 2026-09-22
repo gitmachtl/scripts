@@ -287,7 +287,12 @@ for (( tmpCnt=2; tmpCnt<${paramCnt}; tmpCnt++ ))
 done
 
 #Check if there is only one vote included if also a hardware wallet is used (limitation by the hardware wallet firmware)
-if [[ ${voteCounter} -gt 1 ]] && [[ -f "${fromAddr}.hwsfile" || "${voterSigningFile}" == *".hwsfile" ]]; then echo -e "\n\e[91mPlease include only one vote-file in case a hardware-wallet is involved in the transaction.\nThis is a limitation of the hardware-wallet firmware!\n\e[0m"; exit 1; fi
+if [[ ${voteCounter} -gt 1 ]] && [[ -f "${fromAddr}.hwsfile" || "${voterSigningFile}" == *".hwsfile" ]]; then
+	hwUnrestrictedMode="";
+        if ! ask "\e[0mDo you wanna allow '\e[33munrestricted-mode\e[0m' on your HW-Wallet to sign on ${voteCounter} proposals at the same time?" Y; then echo; echo -e "\e[35mABORT - Without unrestricted mode, you can only witness/sign one governance action at the same time.\e[0m"; echo; exit 2; fi
+	hwUnrestrictedMode="--allow-unrestricted-mode";
+fi
+
 
 #Check if there are transactionMessages, if so, save the messages to a xxx.transactionMessage.json temp-file and add it to the list. Encrypt it if enabled.
 if [[ ! "${transactionMessage}" == "{}" ]]; then
@@ -586,11 +591,8 @@ echo
 #If a hardware wallet is involved, do the autocorrection of the TxBody to make sure it is in canonical order for the assets
 if [[ -f "${fromAddr}.hwsfile" || "${voterSigningFile}" == *".hwsfile" ]]; then
 
-#	#remove the tag(258) from the txBodyFile
-#	sed -si 's/04d901028184/048184/g' "${txBodyFile}"
-
         echo -ne "\e[0mAutocorrect the TxBody for canonical order: "
-        tmp=$(autocorrect_TxBodyFile "${txBodyFile}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
+        tmp=$(autocorrect_TxBodyFile "${txBodyFile}" "${hwUnrestrictedMode}"); if [ $? -ne 0 ]; then echo -e "\e[35m${tmp}\e[0m\n\n"; exit 1; fi
         echo -e "\e[32m${tmp}\e[90m\n"
 
         dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
@@ -615,10 +617,25 @@ if [[ -f "${fromAddr}.hwsfile" && "${voterSigningFile}" == *".hwsfile" ]]; then
 
         if ! ask "\e[0mAdding the Payment- and Voter-Witness from a local Hardware-Wallet key '\e[33m${fromAddr}.hwsfile & ${voterSigningFile}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
         start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${voterSigningFile} --change-output-key-file ${fromAddr}.hwsfile ${magicparam} --out-file ${txWitnessPaymentFile} --out-file ${txWitnessVoterFile} 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-
+        tmp=$(${cardanohwcli} transaction witness ${hwUnrestrictedMode} --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${voterSigningFile} --change-output-key-file ${fromAddr}.hwsfile ${magicparam} --out-file ${txWitnessPaymentFile} --out-file ${txWitnessVoterFile} 2> /dev/stdout)
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"SECURITY"*) #device returned a security error, for unrestricted mode the expert mode must be enabled
+			if [[ ${hwUnrestrictedMode} != "" ]]; then
+	                        echo -e "\e[35mError - This tx requires the HW-Device to sign in 'unrestricted mode', make sure to enable the 'expert mode' on the device and retry the action!\e[0m\n"; exit 1;
+			else
+	                        echo -e "\e[35mError - The device declined the process because of security issues!\e[0m\n"; exit 1;
+			fi ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+                        echo -e "\e[32mDONE\e[0m\n" ;;
+        esac
 
 #Payment via CLI, Voting via HW-Wallet
 elif [[ -f "${fromAddr}.skey" && "${voterSigningFile}" == *".hwsfile" ]]; then
@@ -631,9 +648,25 @@ elif [[ -f "${fromAddr}.skey" && "${voterSigningFile}" == *".hwsfile" ]]; then
 
         if ! ask "\e[0mAdding the Voter-Witness signing from a local Hardware-Wallet key '\e[33m${voterSigningFile}\e[0m', continue?" Y; then echo; echo -e "\e[35mABORT - Witness Signing aborted...\e[0m"; echo; exit 2; fi
         start_HwWallet "Ledger"; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-        tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${voterSigningFile} --out-file ${txWitnessVoterFile} ${magicparam} 2> /dev/stdout)
-        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -e "\e[32mDONE\e[0m\n"; fi
-        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+        tmp=$(${cardanohwcli} transaction witness ${hwUnrestrictedMode} --tx-file ${txBodyFile} --hw-signing-file ${voterSigningFile} --out-file ${txWitnessVoterFile} ${magicparam} 2> /dev/stdout)
+        case "${tmp^^}" in
+                *"REJECTED"*) #signing was rejected
+                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
+                *"DISCONNECT"*) #device was disconnected
+                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
+                *"SECURITY"*) #device returned a security error, for unrestricted mode the expert mode must be enabled
+			if [[ ${hwUnrestrictedMode} != "" ]]; then
+	                        echo -e "\e[35mError - This tx requires the HW-Device to sign in 'unrestricted mode', make sure to enable the 'expert mode' on the device and retry the action!\e[0m\n"; exit 1;
+			else
+	                        echo -e "\e[35mError - The device declined the process because of security issues!\e[0m\n"; exit 1;
+			fi ;;
+                *"ERROR"*) #an error occured
+                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
+                *"WARNING"*) #a warning occured, but we continue
+                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
+                *)      #Signing ok
+                        echo -e "\e[32mDONE\e[0m\n" ;;
+        esac
 
         #read the needed payment signing keys into ram
         skeyJSON=$(read_skeyFILE "${fromAddr}.skey"); if [ $? -ne 0 ]; then echo -e "\e[35m${skeyJSON}\e[0m\n"; exit 1; else echo -e "\e[32mOK\e[0m\n"; fi

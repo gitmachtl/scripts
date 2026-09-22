@@ -401,16 +401,27 @@ echo -e "\e[0m            Cost:\e[32m ${poolCost} \e[90mlovelaces \e[0m(\e[32m$(
 echo -e "\e[0m          Margin:\e[32m ${poolMargin} \e[0m(\e[32m${poolMarginPct}%\e[0m)"
 echo
 
-#  Create a stake pool registration certificate
+# Create a stake pool registration certificate
+# Starting with ProtocolVersion 12 (dijkstra), a BLS key is required for the pool registration
+protocolVersionMajor=$(jq -r ".protocolVersion.major // -1" <<< ${protocolParametersJSON})
+if [[ ${protocolVersionMajor} -ge 12 ]]; then
+	# Check if a BLS Key is present, if so, include it in the registration certificate
+	if [[ -f "${poolName}.bls.skey" && -f "${poolName}.bls.vkey" ]]; then #Ok, BLS Keys are present
+		echo -e "\e[0m        BLS-Keys:\e[32m present \e[0m(\e[90m${poolName}.bls.skey\e[0m)";
+	else echo -e "\e[0m        BLS-Keys:\e[35m missing\n\nPlease generate BLS (Leios) Keys by running: 04f_genBLSKeys.sh ${poolFile}\e[0m\n"; exit 1; fi
 
-file_unlock ${poolName}.pool.cert
-${cardanocli} ${cliEra} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} --out-file ${poolName}.pool.cert
-checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+	file_unlock ${poolName}.pool.cert
+	${cardanocli} ${cliEra} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --bls-signing-key-file ${poolName}.bls.skey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} --out-file ${poolName}.pool.cert
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+else
+	# ProtocolVersion < 12 (conway and below)
+	file_unlock ${poolName}.pool.cert
+	${cardanocli} ${cliEra} stake-pool registration-certificate --cold-verification-key-file ${poolName}.node.vkey --vrf-verification-key-file ${poolName}.vrf.vkey --pool-pledge ${poolPledge} --pool-cost ${poolCost} --pool-margin ${poolMargin} --pool-reward-account-verification-key-file ${rewardsName}.staking.vkey ${ownerKeys} ${poolRelays} --metadata-url ${poolMetaUrl} --metadata-hash ${poolMetaHash} --out-file ${poolName}.pool.cert
+	checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+fi
 
 #No error, so lets update the pool JSON file with the date and file the certFile was created
 if [[ $? -eq 0 ]]; then
-	#Now include the checksum of this certificate also in the poolJson so we can check it in 05c
-	#poolCertChecksum=$(cksum ${poolName}.pool.cert 2> /dev/null | awk '{ print $1 }')
 	file_unlock ${poolFile}.pool.json
 	newJSON=$(cat ${poolFile}.pool.json | jq ". += {regCertCreated: \"$(date -R)\"}" | jq ". += {regCertFile: \"${poolName}.pool.cert\"}")
 	echo "${newJSON}" > ${poolFile}.pool.json
