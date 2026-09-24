@@ -819,6 +819,8 @@ Examples:
 
 As you can see the only needed parameters are the name of the DRep/CC/SPO file and the Governance-Action-ID. The Governance-Action-ID can be in CIP105 format like `0b19476e40bbbb5e1e8ce153523762e2b6859e7ecacbaf06eae0ee6a447e79b9#0` or in the new CIP129 formal like `gov_action1pvv5wmjqhwa4u85vu9f4ydmzu2mgt8n7et967ph2urhx53r70xusqnmm525`.
 
+If the verified action metadata links a public CIP-179 v5 survey, the script offers to answer it before creating the Vote-File. This optional path needs Node.js 22.12 or newer and the locked optional dependencies installed with `npm ci` in the checkout root. The generated survey-response sidecar must stay beside its Vote-File; script `24b` automatically attaches it to the same transaction and merges sidecars when several votes are submitted together.
+
 In this example i wanna describe how to vote as an SPO. If you're already using the SPO-Scripts you're familiar with the file-naming-scheme. To generate the Vote-File as an SPO you need the `<name>.node.vkey` file.
 
 Lets do an example:
@@ -1155,3 +1157,11 @@ etc... 😄
 <br>&nbsp;<br>
 
 -----
+
+The helper checks shape and answer constraints, not the definition owner's chain proof or cancellation history. Verify survey lifecycle separately. Custom methods and sealed responses are unsupported. Definitions are read from Koios `/tx_cbor`, with transaction and auxiliary hashes checked. A provider without native CBOR cannot be used for this optional helper. Detailed JSON sidecars preserve exact integer literals. Survey text is escaped for safe terminal display.
+
+New Vote-Files record the intended survey reference. `24b` checks the sidecar against that reference and the vote credential/role before merging. Regenerate older CIP-179 Vote-Files without this binding. Sidecars and merged files are published atomically and never overwritten. Mainnet and testnet helper copies must stay byte-identical.
+
+Run `npm run test:cip179` and `python3 test/cip179_cli_test.py` from the checkout root. Test artifacts stay under `.test-artifacts` or a caller-provided `TMPDIR`.
+
+Response sidecars include `_cip179.definitionCbor` for offline verification. Pass them through `24b`/the helper's merge command; they are not standalone cardano-cli metadata files. Merge checks the native definition hash and every response constraint, then emits only label 17 for cardano-cli.

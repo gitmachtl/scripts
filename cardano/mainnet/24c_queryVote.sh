@@ -87,7 +87,7 @@ for (( tmpCnt=0; tmpCnt<${paramCnt}; tmpCnt++ ))
         paramValue=${allParameters[$tmpCnt]}
 
 	#Check if its a Governance Action-ID
-	if [[ "${paramValue,,}" =~ ^([[:xdigit:]]{64}+#[[:digit:]]{1,})$ ]]; then
+	if [[ "${paramValue,,}" =~ ^([[:xdigit:]]{64}#[[:digit:]]{1,})$ ]]; then
 		if [[ "${govActionID}" != "" ]]; then echo -e "\n\e[91mERROR - Only one Action-ID is allowed as parameter!\e[0m\n"; exit 1; fi
 		govActionID="${paramValue,,}"
 	        echo -e "\e[0mUsing Governance Action-ID:\e[32m ${govActionID}\e[0m\n"
