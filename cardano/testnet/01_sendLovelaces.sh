@@ -176,7 +176,7 @@ if [ ! -f "${toAddr}.addr" ]; then
 
 				#check if its a regular cardano payment address
 				typeOfAddr=$(get_addressType "${toAddr}");
-				if [[ ${typeOfAddr} == ${addrTypePayment} ]]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo";
+				if [[ ${typeOfAddr} == ${addrTypePayment} || ${typeOfAddr} == ${addrTypeStake} ]]; then echo "$(basename ${toAddr})" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo";
 
                                 #check if its an adahandle (root/sub/virtual)
                                 elif checkAdaHandleFormat "${toAddr}"; then
@@ -227,6 +227,7 @@ fi
 
 sendFromAddr=$(cat ${fromAddr}.addr)
 sendToAddr=$(cat ${toAddr}.addr)
+typeOfAddr=$(get_addressType "${sendToAddr}");
 
 check_address "${sendFromAddr}"
 check_address "${sendToAddr}"
@@ -428,6 +429,32 @@ case ${workMode} in
 esac
 checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
+#Do a check if dest address is a StakeAddress, if so the minimum ProtocolVersionMajor must be 12(Dijkstra) or above. Also do a check if the stakeaddress is registered on chain
+if [[ ${typeOfAddr} == ${addrTypeStake} ]]; then
+	protocolVersionMajor=$(jq -r ".protocolVersion.major // -1" <<< ${protocolParametersJSON})
+	if [[ ${protocolVersionMajor} -lt 12 ]]; then echo -e "\n\e[35mERROR - Sending funds to a StakeAddress requires at least PV12 (dijkstra), we are in PV${protocolVersionMajor} (${cliEra}) right now!\n\e[0m"; exit 1; fi
+
+	#Get state for the stakeaddress. When in online mode of course from the node and the chain, in light mode via koios
+        case ${workMode} in
+
+                "online")       showProcessAnimation "Query-StakeAddress-Info: " &
+                                rewardsJSON=$(${cardanocli} ${cliEra} query stake-address-info --address ${sendToAddr} 2> /dev/null )
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+				rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON} 2> /dev/null)
+				if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "${iconNo} \e[91mDestination Staking Address is not on the chain, register it first !\e[0m\n"; exit 1;
+				else echo -e "${iconYes} \e[0mDestination Staking Address is \e[32mregistered\e[0m on the chain\n"; fi
+                                ;;
+
+                "light")        showProcessAnimation "Query-StakeAddress-Info-LightMode: " &
+                                rewardsJSON=$(queryLight_stakeAddressInfo "${sendToAddr}")
+                                if [ $? -ne 0 ]; then stopProcessAnimation; echo -e "\e[35mERROR - ${rewardsJSON}\e[0m\n"; exit $?; else stopProcessAnimation; fi;
+				rewardsEntryCnt=$(jq -r 'length' <<< ${rewardsJSON} 2> /dev/null)
+				if [[ ${rewardsEntryCnt} == 0 ]]; then echo -e "${iconNo} \e[91mDestination Staking Address is not on the chain, register it first !\e[0m\n"; exit 1;
+				else echo -e "${iconYes} \e[0mDestination Staking Address is \e[32mregistered\e[0m on the chain\n"; fi
+                                ;;
+	esac
+fi
+
 #
 # Depending on the input of lovelaces / keyword, set the right rxcnt (one receiver or two receivers)
 # and prepare the dummyAmounts to calculate the transaction fee correctly
@@ -449,6 +476,10 @@ case "${lovelacesToSend}" in
 							  fi;;
 
 	"MIN" )		rxcnt=2
+			case "${typeOfAddr}" in
+				"${addrTypePayment}" ) dummySendAmount=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi ;;
+				"${addrTypeStake}" ) dummySendAmount=0;;
+			esac
 			dummySendAmount=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
 			dummyReturnAmount="${totalLovelaces}"
 			;;
@@ -463,7 +494,13 @@ esac
 #Generate Dummy-TxBody file for fee calculation
 txBodyFile="${tempDir}/dummy.txbody"
 rm ${txBodyFile} 2> /dev/null
-if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
+
+#Depending on the destination address type payment or stake, generate a dummy tx for the fee calculation
+case "${typeOfAddr}" in
+
+	"${addrTypePayment}" ) #regular payment destination
+
+		if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
 			#a fee of 200000 lovelaces was choosen to produce a 5byte cbor representation, like any value between 65536 and 4294967296 lovelaces
                         ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${totalLovelaces}${assetsOutString}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
@@ -471,7 +508,24 @@ if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no 
 			#a fee of 200000 lovelaces was choosen to produce a 5byte cbor representation, like any value between 65536 and 4294967296 lovelaces
                         ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendFromAddr}+${dummyReturnAmount}${assetsOutString}" --tx-out "${sendToAddr}+${dummySendAmount}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-fi
+		fi
+		;;
+
+	"${addrTypeStake}" ) #stake account destination -> direct deposit
+
+		if [[ ${rxcnt} == 1 ]]; then  #Sending ALLFUNDS or sending ALL lovelaces and no assets on the address
+			#a fee of 200000 lovelaces was choosen to produce a 5byte cbor representation, like any value between 65536 and 4294967296 lovelaces
+			if [[ "${assetsOutString}" != "" ]]; then echo -e "\n\e[35Sorry, its currently not possible to send NativeAssets to a StakeAddress via direct deposit, only ADA!\n\e[0m"; exit 1; fi
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --direct-deposit "${sendToAddr}+${totalLovelaces}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --out-file ${txBodyFile}
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+                        else  #Sending chosen amount of lovelaces or ALL lovelaces but return the assets to the address
+			#a fee of 200000 lovelaces was choosen to produce a 5byte cbor representation, like any value between 65536 and 4294967296 lovelaces
+                        ${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendFromAddr}+${dummyReturnAmount}${assetsOutString}" --direct-deposit "${sendToAddr}+${dummySendAmount}" --invalid-hereafter ${ttl} --fee 200000 ${metafileParameter} --out-file ${txBodyFile}
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		fi
+		;;
+
+esac
 
 #calculate the transaction fee. new parameters since cardano-cli 8.21.0
 fee=$(${cardanocli} ${cliEra} transaction calculate-min-fee --output-text --tx-body-file ${txBodyFile} --protocol-params-file <(echo ${protocolParametersJSON}) --witness-count 1 --reference-script-size 0 2> /dev/stdout)
@@ -489,8 +543,10 @@ case "${lovelacesToSend}" in
 
         "ALLFUNDS" )    #If keyword ALLFUNDS was used, send all lovelaces and all assets to the destination address - rxcnt=1
 			lovelacesToSend=$(( ${totalLovelaces} - ${fee} ))
-                        minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}")
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			case "${typeOfAddr}" in
+				"${addrTypePayment}" ) minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000${assetsOutString}"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi ;;
+				"${addrTypeStake}" ) minOutUTXO=0;;
+			esac
 			echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m ${lovelacesToSend} lovelaces \e[90m"
 			if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
 			if [[ ${totalAssetsCnt} -gt 0 ]]; then	#assets are also send completly over, so display them
@@ -515,19 +571,23 @@ case "${lovelacesToSend}" in
 								lovelacesToReturn=${minOutUTXO} #minimum amount to return all the assets to the source address
                                                                 echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
                                                                 echo -e "\e[0mLovelaces to return to ${fromAddr}.addr: \e[32m $(convertToADA ${lovelacesToReturn}) ADA / ${lovelacesToReturn} lovelaces \e[90m (to preserve all the assets)"
-                                                                if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
+                                                                if [[ ${typeOfAddr} == ${addrTypePayment} && ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
                                                           else
                                                                 #no assets on the address, so just send over all the lovelaces, rxcnt=1
-								minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
-								checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+								case "${typeOfAddr}" in
+									"${addrTypePayment}" ) minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi ;;
+									"${addrTypeStake}" ) minOutUTXO=0;;
+								esac
                         					lovelacesToSend=$(( ${totalLovelaces} - ${fee} ))
                         					echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
-								if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
+								if [[ ${typeOfAddr} == ${addrTypePayment} && ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough funds on the source Addr! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
                                                           fi;;
 
         "MIN" )         #If keyword MIN was used, send just the minimal possible amount of lovelces to the destination address, rest will be returned to the source address, rxcnt=2
-			minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			case "${typeOfAddr}" in
+				"${addrTypePayment}" ) minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi ;;
+				"${addrTypeStake}" ) minOutUTXO=0;;
+			esac
 			lovelacesToSend=${minOutUTXO}
                         echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
 			lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
@@ -540,8 +600,10 @@ case "${lovelacesToSend}" in
 
 
         * )             #If no keyword was used, its just the amount of lovelacesToSend to the destination address, rest will be returned to the source address, rxcnt=2
-			minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000")
-			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			case "${typeOfAddr}" in
+				"${addrTypePayment}" ) minOutUTXO=$(calc_minOutUTXO "${protocolParametersJSON}" "${sendToAddr}+1000000"); checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi ;;
+				"${addrTypeStake}" ) minOutUTXO=0;;
+			esac
                         echo -e "\e[0mLovelaces to send to ${showToAddr}: \e[33m $(convertToADA ${lovelacesToSend}) ADA / ${lovelacesToSend} lovelaces \e[90m"
                         if [[ ${lovelacesToSend} -lt ${minOutUTXO} ]]; then echo -e "\e[35mNot enough lovelaces to send to the destination! Minimum UTXO value is ${minOutUTXO} lovelaces.\e[0m"; exit 1; fi
 			lovelacesToReturn=$(( ${totalLovelaces} - ${fee} - ${lovelacesToSend} ))
@@ -563,14 +625,32 @@ echo
 
 #Building unsigned transaction body
 rm ${txBodyFile} 2> /dev/null
-if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
+
+
+case "${typeOfAddr}" in
+
+	"${addrTypePayment}" ) #regular payment destination
+		if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
 			${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out "${sendToAddr}+${lovelacesToSend}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 			else  #Sending chosen amount (rxcnt=2), return the rest(incl. assets)
 			${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
-			#echo -e "\n\n\n${cardanocli} ${cliEra} transaction build-raw ${txInString} --tx-out ${sendToAddr}+${lovelacesToSend} --tx-out \"${sendFromAddr}+${lovelacesToReturn}${assetsOutString}\" --invalid-hereafter ${ttl} --fee ${fee} --out-file ${txBodyFile}\n\n\n"
 			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
-fi
+		fi
+		;;
+
+	"${addrTypeStake}" ) #stake account destination -> direct deposit
+		if [[ ${rxcnt} == 1 ]]; then  #Sending ALL funds  (rxcnt=1)
+			${cardanocli} ${cliEra} transaction build-raw ${txInString} --direct-deposit "${sendToAddr}+${lovelacesToSend}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+			else  #Sending chosen amount (rxcnt=2), return the rest(incl. assets)
+			${cardanocli} ${cliEra} transaction build-raw ${txInString} --direct-deposit "${sendToAddr}+${lovelacesToSend}" --tx-out "${sendFromAddr}+${lovelacesToReturn}${assetsOutString}" --invalid-hereafter ${ttl} --fee ${fee} ${metafileParameter} --out-file ${txBodyFile}
+			checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
+		fi
+		;;
+
+esac
+
 
 dispFile=$(cat ${txBodyFile}); if ${cropTxOutput} && [[ ${#dispFile} -gt 4000 ]]; then echo "${dispFile:0:4000} ... (cropped)"; else echo "${dispFile}"; fi
 echo
