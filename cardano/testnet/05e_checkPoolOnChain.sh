@@ -205,10 +205,34 @@ case ${workMode} in
 
                         #now lets see how often the poolIDBech is listed: 0->Not on the chain, 1->On the chain, any other value -> ERROR
                         poolInLedgerCnt=$(grep  "${poolIDBech}" <<< ${poolsInLedger} | wc -l)
-                        if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -e "\e[0mInfo from Local-Node: \e[32mPool is REGISTERED on the chain.\e[0m\n";
-                        elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "\e[0mInfo from Local-Node: \e[33mPool is NOT registered on the chain.\e[0m\n"; exit 1
+                        if [[ ${poolInLedgerCnt} -eq 1 ]]; then echo -e "${iconYes} \e[0mInfo from Local-Node: \e[32mPool is REGISTERED on the chain.\e[0m\n";
+                        elif [[ ${poolInLedgerCnt} -eq 0 ]]; then echo -e "${iconNo} \e[0mInfo from Local-Node: \e[33mPool is NOT registered on the chain.\e[0m\n"; exit 1
                         else echo -e "\e[35mERROR - The Pool-ID is more than once in the ledgers stake-pool list, this shouldn't be possible!\e[0m"; exit 1
                         fi
+
+			#get additional BLS key infos for a direct pool-state query
+			poolBlsJSON=$(${cardanocli} ${cliEra} query pool-state --stake-pool-id ${poolIDBech} 2> /dev/null | jq -r ". | flatten[0].poolParams.spsBlsKey" 2> /dev/null)
+			{ read poolBlsPubKey;
+			  read poolBlsRegEpoch;
+			} <<< $(jq -r ".bksKey.blsPubKey // \"-\", .bksRegisteredIn // \"-\"" 2> /dev/null <<< "${poolBlsJSON}")
+
+			if [[ "${poolBlsPubKey}" != "-" ]]; then
+				echo -e "${iconYes} \e[0mBLS (Leios) Key is \e[32mREGISTERED\e[0m on the chain since \e[32mEpoch ${poolBlsRegEpoch}\e[0m\n"
+				#check if on chain bls pub key matches the current file on disc
+				blsPubKeyVkeyFile="${poolNodeName}.bls.vkey"
+				if [ -f "${blsPubKeyVkeyFile}" ]; then #there is a bls.vkey file present
+					blsPubKeyFileCBOR=$(jq -r ".cborHex // \"\"" "${blsPubKeyVkeyFile}" 2> /dev/null)
+					if [[ "${blsPubKeyFileCBOR}" == *"${poolBlsPubKey}" ]]; then
+						echo -e "${iconYes} \e[0mBLS (Leios) registered Public Key \e[32mmatches \e[0mthe local \e[32m${blsPubKeyVkeyFile}\e[0m file\e[0m\n"
+					else
+						echo -e "\e[33m\e[1m≠ \e[0mBLS (Leios) registered Public Key does \e[33mnot match \e[0mthe local \e[32m${blsPubKeyVkeyFile}\e[0m file\e[0m\n"
+					fi
+				fi
+			else
+				echo -e "${iconNo} \e[0mNo BLS (Leios) Key is \e[33mnot registered\e[0m on chain for this Pool\n"
+			fi
+
+
                         ;;
 
 		"light")
