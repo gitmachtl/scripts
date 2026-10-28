@@ -382,9 +382,9 @@ if [[ "${sendFromAddr}" == "${sendToAddr}" ]]; then rxcnt="1"; else rxcnt="2"; e
 		"notSet"|"null")
 			#no votingpower delegated
 			echo -e "${iconNo} \e[0mVoting-Power of Staking Address is not delegated to a DRep\e[0m";
-			#Do a check if we are at least in conway-era (protocol major 9 and above)
+			#Do a check if we are at in PV10 or PV11 for the delegation check, was removed again in PV12
 			protocolVersionMajor=$(jq -r ".protocolVersion.major // -1" <<< ${protocolParametersJSON})
-			if [[ ${protocolVersionMajor} -ge 10 ]]; then
+			if [[ ${protocolVersionMajor} -ge 10 && ${protocolVersionMajor} -le 11 ]]; then
 				echo -e "\n\e[91mYou need to delegate your stake account to a DRep in order to claim your rewards!\nPlease do so by running scripts 22a and 22b, thx!\n\e[0m"; exit 1;
 			fi
 			;;
@@ -683,18 +683,8 @@ if [[ -f "${fromAddr}.hwsfile" && -f "${stakeAddr}.hwsfile" && "${paymentName}" 
 	#Witness and Assemble the TxFile
         start_HwWallet; checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
         tmp=$(${cardanohwcli} transaction witness --tx-file ${txBodyFile} --hw-signing-file ${fromAddr}.hwsfile --hw-signing-file ${stakeAddr}.hwsfile --change-output-key-file ${fromAddr}.hwsfile --change-output-key-file ${stakeAddr}.hwsfile ${magicparam} --out-file ${txWitnessFile}-payment --out-file ${txWitnessFile}-staking 2> /dev/stdout)
-        case "${tmp^^}" in
-                *"REJECTED"*) #signing was rejected
-                        echo -e "\e[35mTransaction signing was rejected by the user!\e[0m\n"; exit 1 ;;
-                *"DISCONNECT"*) #device was disconnected
-                        echo -e "\e[35mAborted - The device was disconnected!\e[0m\n"; exit 1 ;;
-                *"ERROR"*) #an error occured
-                        echo -e "\e[35m${tmp}\e[0m\n"; exit 1 ;;
-                *"WARNING"*) #a warning occured, but we continue
-                        echo -e "\e[33m${tmp}\e[0m\n" ;;&
-                *)      #Signing ok
-                        echo -ne "\e[0mWitnessed ... " ;;
-        esac
+        if [[ "${tmp^^}" =~ (ERROR|DISCONNECT) ]]; then echo -e "\e[35m${tmp}\e[0m\n"; exit 1; else echo -ne "\e[0mWitnessed ... "; fi
+        checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
 
 	${cardanocli} ${cliEra} transaction assemble --tx-body-file ${txBodyFile} --witness-file ${txWitnessFile}-payment --witness-file ${txWitnessFile}-staking --out-file ${txFile}
         checkError "$?"; if [ $? -ne 0 ]; then exit $?; fi
